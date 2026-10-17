@@ -6,7 +6,7 @@ This file is the short operational queue. The [roadmap](ROADMAP.md) is the compl
 
 ## Current sprint — Core runtime hardening
 - [ ] Install package in a clean Python 3.11+ environment and run tests.
-- [ ] Add CI workflow for Windows and Ubuntu.
+- [x] Add CI workflow for Windows and Ubuntu (Python 3.11–3.13).
 - [x] Add typed task request and dependency-aware plan contracts.
 - [ ] Add typed step execution result and lifecycle contracts.
 - [ ] Add JSON configuration and validation.
