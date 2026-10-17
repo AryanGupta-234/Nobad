@@ -8,7 +8,7 @@ AgentOS is a supervised, modular agent platform. Components communicate through 
 |---|---|---|
 | Interface | CLI, API, future desktop interface | CLI foundation |
 | Orchestration | Agent lifecycle, delegation, scheduling | Planned |
-| Cognition | Task interpretation, planning, reflection | Planned |
+| Cognition | Task interpretation, planning, reflection | Task/plan schemas and DAG validation |
 | Memory | Working context, episodic history, semantic knowledge | Planned |
 | Skills/tools | Capability-scoped adapters | Minimal runtime |
 | Learning | Evaluation, feedback, versioned knowledge updates | Planned |
