@@ -12,7 +12,8 @@ This roadmap describes an engineering path toward increasingly general agent cap
 - [ ] Run CI and establish supported Python/platform matrix.
 
 ## Phase 1 — Reliable core runtime
-- [x] Typed task and dependency-aware plan schemas.\n- [ ] Typed step execution result and lifecycle contracts.
+- [x] Typed task and dependency-aware plan schemas.
+- [ ] Typed step execution result and lifecycle contracts.
 - [ ] Structured configuration with environment-specific profiles.
 - [ ] Persistent audit log with rotation and integrity checks.
 - [ ] Cancellation, timeout, retry, and resource-budget primitives.
@@ -27,8 +28,8 @@ This roadmap describes an engineering path toward increasingly general agent cap
 - [ ] Memory inspection, export, correction, and deletion APIs.
 
 ## Phase 3 — Planning and tool use
-- [x] Dependency-aware task graph validation and deterministic topological ordering.\n- [ ] Model-assisted goal decomposition and bounded replanning.
-- [ ] Plan validation and bounded replanning.
+- [x] Dependency-aware task graph validation and deterministic topological ordering.
+- [ ] Model-assisted goal decomposition and bounded replanning.
 - [ ] Tool registry with schemas, scopes, and risk levels.
 - [ ] Sandboxed adapters for filesystem and read-only web operations.
 - [ ] Human approval workflow for writes, external communication, and spend.
