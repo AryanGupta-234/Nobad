@@ -8,14 +8,14 @@ This file is the short operational queue. The [roadmap](ROADMAP.md) is the compl
 - [ ] Install package in a clean Python 3.11+ environment and run tests.
 - [x] Add CI workflow for Windows and Ubuntu (Python 3.11–3.13).
 - [x] Add typed task request and dependency-aware plan contracts.
-- [ ] Add typed step execution result and lifecycle contracts.
+- [x] Add typed step execution result and task lifecycle contracts.
 - [ ] Add JSON configuration and validation.
-- [ ] Replace in-memory audit list with a persistence interface.
+- [ ] Replace in-memory audit list with a persistent audit interface.
 - [ ] Add execution timeout and cancellation.
 - [ ] Add structured error types and redaction rules.
 
 ## Backlog
-- [ ] Memory interfaces and local SQLite implementation.
+- [x] Implement SQLite episodic/working memory with provenance, confidence, metadata, and TTL.
 - [ ] Tool schemas, scopes, and risk classification.
 - [ ] Model-assisted planner and bounded task graph executor.
 - [ ] Plan-to-runtime integration with policy checks at every tool boundary.
