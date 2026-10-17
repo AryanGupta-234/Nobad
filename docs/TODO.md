@@ -10,7 +10,7 @@ This file is the short operational queue. The [roadmap](ROADMAP.md) is the compl
 - [x] Add typed task request and dependency-aware plan contracts.
 - [x] Add typed step execution result and task lifecycle contracts.
 - [ ] Add JSON configuration and validation.
-- [ ] Replace in-memory audit list with a persistent audit interface.
+- [x] Add optional SQLite persistent audit sink to tool runtime.\n- [ ] Add tamper-evident audit integrity chain and retention/rotation policy.
 - [ ] Add execution timeout and cancellation.
 - [ ] Add structured error types and redaction rules.
 
