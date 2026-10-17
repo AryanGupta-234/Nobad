@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Callable
 
+from agentos.core.audit import SQLiteAuditSink
 from agentos.core.policy import ExecutionPolicy
 
 ToolHandler = Callable[[dict[str, Any]], Any]
@@ -22,8 +23,11 @@ class AuditEvent:
 class ToolRuntime:
     """Executes registered tools only after an explicit policy decision."""
 
-    def __init__(self, policy: ExecutionPolicy) -> None:
+    def __init__(
+        self, policy: ExecutionPolicy, *, audit_sink: SQLiteAuditSink | None = None
+    ) -> None:
         self.policy = policy
+        self.audit_sink = audit_sink
         self._tools: dict[str, ToolHandler] = {}
         self.audit_log: list[AuditEvent] = []
 
@@ -59,11 +63,13 @@ class ToolRuntime:
         return result
 
     def _record(self, name: str, allowed: bool, outcome: str) -> None:
-        self.audit_log.append(
-            AuditEvent(
-                timestamp=datetime.now(UTC).isoformat(),
-                tool_name=name,
-                allowed=allowed,
-                outcome=outcome,
-            )
+        timestamp = datetime.now(UTC).isoformat()
+        event = AuditEvent(
+            timestamp=timestamp,
+            tool_name=name,
+            allowed=allowed,
+            outcome=outcome,
         )
+        self.audit_log.append(event)
+        if self.audit_sink is not None:
+            self.audit_sink.write(timestamp, name, allowed, outcome)
