@@ -17,13 +17,23 @@ class RuntimeConfig:
     log_level: str = "INFO"
 
     def __post_init__(self) -> None:
-        if not self.database_path.strip():
-            raise ValueError("database_path must not be empty.")
+        if not isinstance(self.database_path, str) or not self.database_path.strip():
+            raise ValueError("database_path must be a non-empty string.")
+        if isinstance(self.max_plan_steps, bool) or not isinstance(self.max_plan_steps, int):
+            raise ValueError("max_plan_steps must be an integer.")
         if not 1 <= self.max_plan_steps <= 500:
             raise ValueError("max_plan_steps must be between 1 and 500.")
+        if isinstance(self.tool_timeout_seconds, bool) or not isinstance(
+            self.tool_timeout_seconds, (int, float)
+        ):
+            raise ValueError("tool_timeout_seconds must be numeric.")
         if not 0.1 <= self.tool_timeout_seconds <= 3600:
             raise ValueError("tool_timeout_seconds must be between 0.1 and 3600.")
-        if self.log_level.upper() not in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}:
+        if not isinstance(self.audit_enabled, bool):
+            raise ValueError("audit_enabled must be a boolean.")
+        if not isinstance(self.log_level, str) or self.log_level.upper() not in {
+            "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"
+        }:
             raise ValueError("Unsupported log_level.")
 
     @classmethod
