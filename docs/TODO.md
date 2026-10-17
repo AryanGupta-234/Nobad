@@ -9,7 +9,7 @@ This file is the short operational queue. The [roadmap](ROADMAP.md) is the compl
 - [x] Add CI workflow for Windows and Ubuntu (Python 3.11–3.13).
 - [x] Add typed task request and dependency-aware plan contracts.
 - [x] Add typed step execution result and task lifecycle contracts.
-- [ ] Add JSON configuration and validation.
+- [x] Add validated JSON runtime configuration and example config.\n- [ ] Add environment-specific profiles and secret-provider integration.
 - [x] Add optional SQLite persistent audit sink to tool runtime.\n- [ ] Add tamper-evident audit integrity chain and retention/rotation policy.
 - [ ] Add execution timeout and cancellation.
 - [ ] Add structured error types and redaction rules.
