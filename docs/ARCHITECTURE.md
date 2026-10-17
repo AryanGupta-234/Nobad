@@ -12,7 +12,7 @@ AgentOS is a supervised, modular agent platform. Components communicate through 
 | Memory | Working context, episodic history, semantic knowledge | SQLite store with provenance and TTL; semantic retrieval planned |
 | Skills/tools | Capability-scoped adapters | Minimal runtime |
 | Learning | Evaluation, feedback, versioned knowledge updates | Planned |
-| Governance | Policy, approvals, audit, budgets | Initial policy/runtime |
+| Governance | Policy, approvals, audit, budgets | Deny-by-default policy, approval gate, in-memory trace, optional SQLite audit sink |
 | Infrastructure | Config, persistence, telemetry, deployment | Planned |
 
 ## Execution lifecycle
