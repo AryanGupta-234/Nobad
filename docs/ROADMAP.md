@@ -15,7 +15,7 @@ This roadmap describes an engineering path toward increasingly general agent cap
 - [x] Typed task and dependency-aware plan schemas.
 - [x] Typed step execution result and task lifecycle contracts.
 - [ ] Structured configuration with environment-specific profiles.
-- [ ] Persistent audit log with rotation and integrity checks.
+- [x] SQLite-backed persistent audit sink integrated with tool runtime.\n- [ ] Audit rotation, tamper-evident integrity chain, and retention policy.
 - [ ] Cancellation, timeout, retry, and resource-budget primitives.
 - [ ] Structured logging, metrics, and tracing.
 - [ ] Unit, integration, and property-based test suites.
