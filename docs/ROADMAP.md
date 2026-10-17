@@ -14,7 +14,7 @@ This roadmap describes an engineering path toward increasingly general agent cap
 ## Phase 1 — Reliable core runtime
 - [x] Typed task and dependency-aware plan schemas.
 - [x] Typed step execution result and task lifecycle contracts.
-- [ ] Structured configuration with environment-specific profiles.
+- [x] Validated JSON runtime configuration and safe example profile.\n- [ ] Environment-specific profiles and secret-provider integration.
 - [x] SQLite-backed persistent audit sink integrated with tool runtime.\n- [ ] Audit rotation, tamper-evident integrity chain, and retention policy.
 - [ ] Cancellation, timeout, retry, and resource-budget primitives.
 - [ ] Structured logging, metrics, and tracing.
