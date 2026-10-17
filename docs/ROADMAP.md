@@ -13,7 +13,7 @@ This roadmap describes an engineering path toward increasingly general agent cap
 
 ## Phase 1 — Reliable core runtime
 - [x] Typed task and dependency-aware plan schemas.
-- [ ] Typed step execution result and lifecycle contracts.
+- [x] Typed step execution result and task lifecycle contracts.
 - [ ] Structured configuration with environment-specific profiles.
 - [ ] Persistent audit log with rotation and integrity checks.
 - [ ] Cancellation, timeout, retry, and resource-budget primitives.
@@ -22,10 +22,10 @@ This roadmap describes an engineering path toward increasingly general agent cap
 
 ## Phase 2 — Memory and retrieval
 - [ ] Working-memory store with TTL and token/size budgets.
-- [ ] Episodic memory with provenance and event chronology.
+- [x] SQLite episodic memory with provenance, confidence, timestamps, metadata, and expiry.
 - [ ] Semantic document store and hybrid retrieval.
 - [ ] Confidence, source attribution, and contradiction handling.
-- [ ] Memory inspection, export, correction, and deletion APIs.
+- [x] Basic memory inspection, search, and deletion API.\n- [ ] Memory export and correction APIs.
 
 ## Phase 3 — Planning and tool use
 - [x] Dependency-aware task graph validation and deterministic topological ordering.
