@@ -5,10 +5,11 @@ from __future__ import annotations
 import json
 import sqlite3
 import uuid
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 
 @dataclass(frozen=True, slots=True)
@@ -27,17 +28,40 @@ class SQLiteMemoryStore:
     """Small local memory store; callers remain responsible for sensitive-data policy."""
 
     def __init__(self, database: str | Path) -> None:
-        self.database = str(database)
-        if self.database != ":memory:":
+        raw_database = str(database)
+        self._uri = raw_database == ":memory:"
+        self.database = (
+            f"file:agentos-{uuid.uuid4().hex}?mode=memory&cache=shared"
+            if self._uri
+            else raw_database
+        )
+        self._keeper: sqlite3.Connection | None = None
+        if self._uri:
+            self._keeper = sqlite3.connect(self.database, uri=True, timeout=10.0)
+        else:
             Path(self.database).expanduser().resolve().parent.mkdir(
                 parents=True, exist_ok=True
             )
         self._initialize()
 
-    def _connect(self) -> sqlite3.Connection:
-        connection = sqlite3.connect(self.database, timeout=10.0)
+    @contextmanager
+    def _connect(self) -> Iterator[sqlite3.Connection]:
+        connection = sqlite3.connect(self.database, timeout=10.0, uri=self._uri)
         connection.row_factory = sqlite3.Row
-        return connection
+        try:
+            yield connection
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
+
+    def close(self) -> None:
+        """Release the keeper connection used by an in-memory database."""
+        if self._keeper is not None:
+            self._keeper.close()
+            self._keeper = None
 
     def _initialize(self) -> None:
         with self._connect() as connection:
