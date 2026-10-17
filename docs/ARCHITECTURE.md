@@ -9,7 +9,7 @@ AgentOS is a supervised, modular agent platform. Components communicate through 
 | Interface | CLI, API, future desktop interface | CLI foundation |
 | Orchestration | Agent lifecycle, delegation, scheduling | Planned |
 | Cognition | Task interpretation, planning, reflection | Task/plan schemas and DAG validation |
-| Memory | Working context, episodic history, semantic knowledge | Planned |
+| Memory | Working context, episodic history, semantic knowledge | SQLite store with provenance and TTL; semantic retrieval planned |
 | Skills/tools | Capability-scoped adapters | Minimal runtime |
 | Learning | Evaluation, feedback, versioned knowledge updates | Planned |
 | Governance | Policy, approvals, audit, budgets | Initial policy/runtime |
@@ -35,7 +35,11 @@ AgentOS is a supervised, modular agent platform. Components communicate through 
 - Model-generated code must pass tests and review before entering the trusted runtime.
 - Self-modification of policies, credentials, safety controls, or deployment configuration is prohibited.
 
-## Memory model (planned)
+## Memory model
+
+The initial SQLite store supports episodic and task-scoped working records, source attribution, confidence, metadata, expiry, search, and deletion. It is a foundation—not yet a semantic/vector retrieval system.
+
+### Planned extensions
 
 - **Working memory:** bounded task-local state with explicit lifetime.
 - **Episodic memory:** append-oriented records of task events and outcomes.
