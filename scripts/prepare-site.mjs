@@ -8,7 +8,7 @@ const source = resolve(root, "site-source");
 
 function patchVpnPage(html) {
   const oldBrand = '<a class="brand" href="../../">NOBAD.</a>';
-  const newBrand = '<a class="brand" href="../../" aria-label="NOBAD home"><img class="brand-logo" src="/assets/nobad-logo.png" alt="nobad." width="1086" height="362"></a>';
+  const newBrand = '<a class="brand" href="../../" aria-label="NOBAD home"><img class="brand-logo" src="/assets/nobad-logo-light.png" alt="nobad." width="1086" height="362"></a>';
 
   if (!html.includes(oldBrand)) {
     throw new Error("VPN brand markup changed; refusing to silently skip the logo replacement.");
@@ -17,16 +17,21 @@ function patchVpnPage(html) {
   html = html.replace(oldBrand, newBrand);
 
   const navFix = `
-/* Shared NOBAD wordmark and intrinsic navbar sizing */
+/* VPN header follows the main NOBAD floating navigation system. */
+.nav {
+  top: 18px;
+  color: var(--w);
+}
 .nav .brand {
   display: inline-flex;
   align-items: center;
   justify-self: start;
-  width: max-content;
+  width: fit-content;
   max-width: 100%;
-}
-.nav .brand {
-  padding: 6px 12px;
+  padding: 0;
+  background: transparent;
+  color: var(--w);
+  border-radius: 0;
 }
 .nav .brand-logo {
   display: block;
@@ -37,19 +42,52 @@ function patchVpnPage(html) {
   object-fit: contain;
 }
 
-/* Match the main NOBAD header: black navigation, not orange accent panels. */
-.nav,
-.nav > * {
-  background-color: #000 !important;
+/* Curved black centre capsule, matching the homepage nav-pill. */
+.pill {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px;
+  background: var(--k);
+  color: var(--w);
+  border: 1px solid rgba(255,255,255,.24);
+  border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.18);
 }
-.nav a:not(.brand) {
-  background-color: transparent !important;
-  color: #fff !important;
+.pill a {
+  border-radius: 999px;
+  padding: 11px 17px;
+  color: var(--w);
+  background: transparent;
+  font: 400 11px var(--mono);
+  text-transform: uppercase;
+  transition: background .2s, color .2s, transform .2s;
 }
-.nav .brand {
-  background-color: #fff !important;
-  color: #000 !important;
-  border-radius: 2px;
+.pill a:hover,
+.pill a[aria-current="location"] {
+  color: var(--k);
+  background: var(--w);
+  transform: translateY(-1px);
+}
+
+/* Keep the VPN-specific Main Site action as a rounded outline control. */
+.back {
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 15px;
+  color: var(--w);
+  background: transparent;
+  border: 1px solid rgba(255,255,255,.65);
+  border-radius: 999px;
+  font: 400 11px var(--mono);
+  text-transform: uppercase;
+  transition: background .2s, color .2s, border-color .2s;
+}
+.back:hover {
+  color: var(--k);
+  background: var(--w);
+  border-color: var(--w);
 }
 `;
 
