@@ -42,8 +42,7 @@ function patchVpnPage(html) {
 .nav > * {
   background-color: #000 !important;
 }
-.nav > a,
-.nav > div a {
+.nav a:not(.brand) {
   background-color: transparent !important;
   color: #fff !important;
 }
