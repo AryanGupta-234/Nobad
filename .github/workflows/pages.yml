@@ -18,10 +18,13 @@ jobs:
         run: npm run build
       - name: Validate release manifest
         run: python -m json.tool public/releases/vpn/releases.json > /dev/null
-      - name: Verify generated routes
+      - name: Verify generated routes and shared branding
         run: |
           test -s public/index.html
           test -s public/products/vpn/index.html
           test -s public/releases/vpn/releases.json
+          test -s public/assets/nobad-logo.svg
           grep -qi '<title>nobad' public/index.html
           grep -qi 'nobad vpn' public/products/vpn/index.html
+          grep -Fq 'src="/assets/nobad-logo.svg"' public/products/vpn/index.html
+          grep -Fq 'justify-self: start' public/products/vpn/index.html
