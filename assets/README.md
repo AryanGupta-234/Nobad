@@ -1,11 +1,13 @@
 # NOBAD brand asset
 
-Upload the supplied original logo image to this directory with this exact path and filename:
+The website uses the supplied original brand image at:
 
 `assets/nobad-logo.png`
 
-Expected source image: **2048 × 682 px**, RGBA PNG.
+Expected source dimensions: **2048 × 682 px**.
 
-The image is intentionally used as supplied. Do not crop, resize, recolor, trace, or recompress it. Its checkerboard background is baked into the uploaded pixels (the alpha channel is fully opaque), so that checkerboard will remain visible in the site header.
+The image must remain unchanged: no cropping, resizing, recoloring, tracing, or recompression. The checkerboard pattern in the supplied source is part of its pixels and will remain visible.
 
-The build script copies this directory to `public/assets/`. Both the main-site header and the VPN product-page header reference `/assets/nobad-logo.png`. Until the PNG is uploaded, they fall back to the existing SVG wordmark.
+The build script copies this directory to `public/assets/`. Both the main-site header and VPN product-page header reference `/assets/nobad-logo.png`.
+
+The previous generated text-only SVG wordmark has been removed. Do not reintroduce it as a fallback.
