@@ -36,6 +36,22 @@ function patchVpnPage(html) {
   max-height: 43px;
   object-fit: contain;
 }
+
+/* Match the main NOBAD header: black navigation, not orange accent panels. */
+.nav,
+.nav > * {
+  background-color: #000 !important;
+}
+.nav > a,
+.nav > div a {
+  background-color: transparent !important;
+  color: #fff !important;
+}
+.nav .brand {
+  background-color: #fff !important;
+  color: #000 !important;
+  border-radius: 2px;
+}
 `;
 
   if (!html.includes("</style>")) {
