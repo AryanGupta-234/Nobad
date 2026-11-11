@@ -30,9 +30,10 @@ function patchVpnPage(html) {
 }
 .nav .brand-logo {
   display: block;
-  flex: 0 0 120px;
-  width: 120px;
-  height: 40px;
+  flex: 0 0 128px;
+  width: 128px;
+  height: auto;
+  max-height: 43px;
   object-fit: contain;
 }
 `;
