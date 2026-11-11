@@ -2,12 +2,14 @@
 
 The website uses the transparent NOBAD logo at:
 
-`assets/nobad-logo.png`
+`/assets/nobad-logo.png`
 
-Source artwork: **1086 × 362 px PNG with transparency**.
+The logo is generated during `npm run build` from the Base64 source chunks in `site-source/brand-logo-*.b64`.
 
-The logo retains the black tilted tile, orange lowercase mark, black wordmark, and orange dot. The background is transparent so it works on both light and dark website sections.
+Source artwork: **1086 × 362 px transparent PNG**.
 
-The build script copies this directory to `public/assets/`. Both the main-site header and VPN product-page header reference `/assets/nobad-logo.png`.
+The logo retains the black tilted tile, orange lowercase mark, black wordmark, and orange dot. It has a transparent background and works on both light and dark website sections.
 
-The previous generated text-only SVG wordmark is not used.
+The build script verifies the reconstructed PNG with a SHA-256 integrity check and checks its dimensions before publishing it to `public/assets/nobad-logo.png`.
+
+Both the main-site header and VPN product-page header reference the same asset.
