@@ -6,20 +6,60 @@ const root = process.cwd();
 const output = resolve(root, "public");
 const source = resolve(root, "site-source");
 
+function patchVpnPage(html) {
+  const oldBrand = '<a class="brand" href="../../">NOBAD.</a>';
+  const newBrand = '<a class="brand" href="../../" aria-label="NOBAD home"><img class="brand-logo" src="/assets/nobad-logo.svg" alt="NOBAD." width="58" height="18"></a>';
+
+  if (!html.includes(oldBrand)) {
+    throw new Error("VPN brand markup changed; refusing to silently skip the logo replacement.");
+  }
+
+  html = html.replace(oldBrand, newBrand);
+
+  const navFix = `
+/* Shared NOBAD wordmark and intrinsic navbar sizing */
+.nav .brand {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  width: max-content;
+  max-width: 100%;
+}
+.nav .brand-logo {
+  display: block;
+  flex: 0 0 58px;
+  width: 58px;
+  height: 18px;
+  object-fit: contain;
+}
+`;
+
+  if (!html.includes("</style>")) {
+    throw new Error("VPN page stylesheet closing tag was not found.");
+  }
+
+  return html.replace("</style>", `${navFix}</style>`);
+}
+
 async function writeBrotli(parts, relativeTarget) {
   const encoded = (await Promise.all(
     parts.map((part) => readFile(resolve(source, part), "utf8"))
-  )).join("").replace(/\s+/g, "");
+  )).join("").replace(/\\s+/g, "");
 
   if (!encoded || !/^[A-Za-z0-9+/=]+$/.test(encoded)) {
     throw new Error(`Invalid Base64 source for ${relativeTarget}`);
   }
 
-  const bytes = brotliDecompressSync(Buffer.from(encoded, "base64"));
-  const html = bytes.toString("utf8");
+  let bytes = brotliDecompressSync(Buffer.from(encoded, "base64"));
+  let html = bytes.toString("utf8");
 
   if (!/^<!doctype html>/i.test(html.trimStart())) {
     throw new Error(`Decoded file is not an HTML document: ${relativeTarget}`);
+  }
+
+  if (relativeTarget === "products/vpn/index.html") {
+    html = patchVpnPage(html);
+    bytes = Buffer.from(html, "utf8");
   }
 
   const target = resolve(output, relativeTarget);
@@ -52,6 +92,7 @@ await cp(
 );
 
 await cp(resolve(root, "docs"), resolve(output, "docs"), { recursive: true });
+await cp(resolve(root, "assets"), resolve(output, "assets"), { recursive: true });
 
 const downloads = resolve(root, "downloads");
 try {
