@@ -8,7 +8,7 @@ const source = resolve(root, "site-source");
 
 function patchVpnPage(html) {
   const oldBrand = '<a class="brand" href="../../">NOBAD.</a>';
-  const newBrand = '<a class="brand" href="../../" aria-label="NOBAD home"><img class="brand-logo" src="/assets/nobad-logo.svg" alt="NOBAD." width="58" height="18"></a>';
+  const newBrand = '<a class="brand" href="../../" aria-label="NOBAD home"><img class="brand-logo" src="/assets/nobad-logo.png" alt="nobad." width="2048" height="682"></a>';
 
   if (!html.includes(oldBrand)) {
     throw new Error("VPN brand markup changed; refusing to silently skip the logo replacement.");
@@ -25,11 +25,14 @@ function patchVpnPage(html) {
   width: max-content;
   max-width: 100%;
 }
+.nav .brand {
+  padding: 6px 12px;
+}
 .nav .brand-logo {
   display: block;
-  flex: 0 0 58px;
-  width: 58px;
-  height: 18px;
+  flex: 0 0 120px;
+  width: 120px;
+  height: 40px;
   object-fit: contain;
 }
 `;
@@ -55,6 +58,26 @@ async function writeBrotli(parts, relativeTarget) {
 
   if (!/^<!doctype html>/i.test(html.trimStart())) {
     throw new Error(`Decoded file is not an HTML document: ${relativeTarget}`);
+  }
+
+  if (relativeTarget === "index.html") {
+    const oldHomeBrand = '<a class="brand" href="#top" aria-label="nobad home"><span class="brand-mark">n</span><span>nobad<span style="opacity:.45">.</span></span></a>';
+    const newHomeBrand = '<a class="brand" href="#top" aria-label="nobad home"><img class="brand-logo" src="/assets/nobad-logo.png" alt="nobad." width="2048" height="682"></a>';
+
+    if (!html.includes(oldHomeBrand)) {
+      throw new Error("Main-site brand markup changed; refusing to silently skip the logo replacement.");
+    }
+
+    html = html.replace(oldHomeBrand, newHomeBrand);
+    if (!html.includes("</style>")) {
+      throw new Error("Main-site stylesheet closing tag was not found.");
+    }
+    html = html.replace("</style>", `
+/* Shared NOBAD raster wordmark — original 2048 × 682 source */
+.brand { gap: 0; }
+.brand-logo { display: block; width: 128px; height: auto; object-fit: contain; }
+</style>`);
+    bytes = Buffer.from(html, "utf8");
   }
 
   if (relativeTarget === "products/vpn/index.html") {
