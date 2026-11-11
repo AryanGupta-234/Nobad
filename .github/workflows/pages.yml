@@ -25,9 +25,17 @@ jobs:
           test -s public/releases/vpn/releases.json
           test -s public/assets/README.md
           test -s public/assets/nobad-logo.png
+          test -s public/assets/nobad-logo-light.png
           grep -qi '<title>nobad' public/index.html
           grep -qi 'nobad vpn' public/products/vpn/index.html
-          grep -Fq 'src="/assets/nobad-logo.png"' public/products/vpn/index.html
-          grep -Fq 'justify-self: start' public/products/vpn/index.html
-          grep -Fq 'background-color: #000' public/products/vpn/index.html
-          grep -Fq '.nav a:not(.brand)' public/products/vpn/index.html
+          grep -Fq 'src="/assets/nobad-logo-light.png"' public/products/vpn/index.html
+          grep -Fq 'background: var(--k)' public/products/vpn/index.html
+          grep -Fq 'border-radius: 999px' public/products/vpn/index.html
+          python - <<'PY'
+          from pathlib import Path
+          logo = Path("public/assets/nobad-logo-light.png").read_bytes()
+          assert logo[:8] == b"\\x89PNG\\r\\n\\x1a\\n", "invalid PNG"
+          assert (int.from_bytes(logo[16:20], "big"), int.from_bytes(logo[20:24], "big")) == (1086, 362), "unexpected logo dimensions"
+          assert logo[25] == 6, "logo must be RGBA with an alpha channel"
+          print("Transparent VPN logo verified.")
+          PY
