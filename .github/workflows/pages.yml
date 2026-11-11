@@ -24,6 +24,7 @@ jobs:
           test -s public/products/vpn/index.html
           test -s public/releases/vpn/releases.json
           test -s public/assets/README.md
+          test -s public/assets/nobad-logo.png
           grep -qi '<title>nobad' public/index.html
           grep -qi 'nobad vpn' public/products/vpn/index.html
           grep -Fq 'src="/assets/nobad-logo.png"' public/products/vpn/index.html
