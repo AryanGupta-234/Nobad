@@ -8,7 +8,7 @@ const source = resolve(root, "site-source");
 
 function patchVpnPage(html) {
   const oldBrand = '<a class="brand" href="../../">NOBAD.</a>';
-  const newBrand = '<a class="brand" href="../../" aria-label="NOBAD home"><img class="brand-logo" src="/assets/nobad-logo.png" alt="nobad." width="2048" height="682"></a>';
+  const newBrand = '<a class="brand" href="../../" aria-label="NOBAD home"><img class="brand-logo" src="/assets/nobad-logo.png" alt="nobad." width="1086" height="362"></a>';
 
   if (!html.includes(oldBrand)) {
     throw new Error("VPN brand markup changed; refusing to silently skip the logo replacement.");
@@ -63,7 +63,7 @@ async function writeBrotli(parts, relativeTarget) {
 
   if (relativeTarget === "index.html") {
     const oldHomeBrand = '<a class="brand" href="#top" aria-label="nobad home"><span class="brand-mark">n</span><span>nobad<span style="opacity:.45">.</span></span></a>';
-    const newHomeBrand = '<a class="brand" href="#top" aria-label="nobad home"><img class="brand-logo" src="/assets/nobad-logo.png" alt="nobad." width="2048" height="682"></a>';
+    const newHomeBrand = '<a class="brand" href="#top" aria-label="nobad home"><img class="brand-logo" src="/assets/nobad-logo.png" alt="nobad." width="1086" height="362"></a>';
 
     if (!html.includes(oldHomeBrand)) {
       throw new Error("Main-site brand markup changed; refusing to silently skip the logo replacement.");
@@ -74,7 +74,7 @@ async function writeBrotli(parts, relativeTarget) {
       throw new Error("Main-site stylesheet closing tag was not found.");
     }
     html = html.replace("</style>", `
-/* Shared NOBAD raster wordmark — original 2048 × 682 source */
+/* Shared NOBAD raster wordmark — original 1086 × 362 transparent PNG source */
 .brand { gap: 0; }
 .brand-logo { display: block; width: 128px; height: auto; object-fit: contain; }
 </style>`);
