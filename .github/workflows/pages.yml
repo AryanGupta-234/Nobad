@@ -34,7 +34,7 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           logo = Path("public/assets/nobad-logo-light.png").read_bytes()
-          assert logo[:8] == b"\\x89PNG\\r\\n\\x1a\\n", "invalid PNG"
+          assert logo[:8].hex() == "89504e470d0a1a0a", "invalid PNG"
           assert (int.from_bytes(logo[16:20], "big"), int.from_bytes(logo[20:24], "big")) == (1086, 362), "unexpected logo dimensions"
           assert logo[25] == 6, "logo must be RGBA with an alpha channel"
           print("Transparent VPN logo verified.")
