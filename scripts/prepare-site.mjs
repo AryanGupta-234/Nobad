@@ -1,7 +1,6 @@
 import { mkdir, readFile, rm, writeFile, cp } from "node:fs/promises";
 import { brotliDecompressSync } from "node:zlib";
 import { dirname, resolve, sep } from "node:path";
-import { createHash } from "node:crypto";
 
 const root = process.cwd();
 const output = resolve(root, "public");
@@ -118,44 +117,6 @@ await cp(
 
 await cp(resolve(root, "docs"), resolve(output, "docs"), { recursive: true });
 await cp(resolve(root, "assets"), resolve(output, "assets"), { recursive: true });
-
-// Reassemble and integrity-check the original transparent NOBAD logo.
-const logoChunks = [
-  "brand-logo-01.b64",
-  "brand-logo-02.b64",
-  "brand-logo-03.b64",
-  "brand-logo-04a.b64",
-  "brand-logo-04b.b64",
-  "brand-logo-04c1.b64",
-  "brand-logo-04c2.b64"
-];
-const logoBase64 = (await Promise.all(
-  logoChunks.map((part) => readFile(resolve(source, part), "utf8"))
-)).join("").replace(/\s+/g, "");
-
-if (!/^[A-Za-z0-9+/]+={0,2}$/.test(logoBase64)) {
-  throw new Error("Transparent NOBAD logo source is not valid Base64.");
-}
-
-const logoBytes = Buffer.from(logoBase64, "base64");
-const logoSha256 = createHash("sha256").update(logoBytes).digest("hex");
-const expectedLogoSha256 = "d8ee6c6d80630723767c2981958dbd1c0cf6fb1deb193d19aeceea4baa7a9653";
-
-if (logoSha256 !== expectedLogoSha256) {
-  throw new Error(`NOBAD logo integrity check failed: ${logoSha256}`);
-}
-
-if (
-  logoBytes.subarray(0, 8).toString("hex") !== "89504e470d0a1a0a" ||
-  logoBytes.readUInt32BE(16) !== 1086 ||
-  logoBytes.readUInt32BE(20) !== 362
-) {
-  throw new Error("NOBAD logo is not the expected 1086 × 362 PNG.");
-}
-
-await mkdir(resolve(output, "assets"), { recursive: true });
-await writeFile(resolve(output, "assets/nobad-logo.png"), logoBytes);
-console.log("Built transparent NOBAD logo (1086 × 362 px, SHA-256 verified).");
 
 const downloads = resolve(root, "downloads");
 try {
