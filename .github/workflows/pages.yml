@@ -29,3 +29,5 @@ jobs:
           grep -qi 'nobad vpn' public/products/vpn/index.html
           grep -Fq 'src="/assets/nobad-logo.png"' public/products/vpn/index.html
           grep -Fq 'justify-self: start' public/products/vpn/index.html
+          grep -Fq 'background-color: #000' public/products/vpn/index.html
+          grep -Fq '.nav a:not(.brand)' public/products/vpn/index.html
