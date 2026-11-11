@@ -1,0 +1,9 @@
+{
+  "name": "nobad-platform",
+  "private": true,
+  "version": "1.0.0",
+  "description": "NOBAD public software platform",
+  "scripts": {
+    "build": "node scripts/prepare-site.mjs"
+  }
+}

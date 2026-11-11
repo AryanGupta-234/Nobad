@@ -1,36 +1,45 @@
 # NOBAD
 
-NOBAD is an independent software platform for privacy tools, utilities and practical developer software.
+NOBAD is an independent software platform for privacy tools, utilities and practical software.
 
-## Site structure
+## Local development
 
-- `/` — public brand homepage
-- `/products/vpn/` — dedicated NOBAD VPN product page
-- `/releases/vpn/releases.json` — public release manifest
-- `/docs/` — product and release documentation
-- `/.github/workflows/pages.yml` — static deployment workflow
+Requirements: Python 3 and Node.js 20+.
 
-## Local preview
-
-Python 3:
+Preview the generated static site:
 
 ```bash
-python -m http.server 8000
+npm run build
+python -m http.server 8000 --directory public
 ```
 
-Open `http://127.0.0.1:8000/`.
+Open `http://127.0.0.1:8000/` and `http://127.0.0.1:8000/products/vpn/`.
 
-## Deploy to Cloudflare Pages
+## Cloudflare Workers deployment
 
-Connect this repository to Cloudflare Pages. Use the repository root as the build output directory, with no build command. The `pages.dev` deployment serves the root `index.html` and clean `/products/vpn/` route.
+This repository uses **Workers Static Assets** (not Pages).
 
-## Releases
+Configure the Cloudflare Workers Builds project:
 
-Do not publish placeholder installers. Follow `docs/RELEASE-PROCESS.md` when a real, tested build is ready. The website currently reports that no stable build is published.
+- Root directory: repository root
+- Build command: `npm run build`
+- Deploy command: `npx wrangler deploy`
 
-## Project principles
+The build command generates `public/`. Wrangler reads `wrangler.jsonc` and publishes only that directory as static assets. Pushes to `main` trigger the connected deployment.
 
-- Be accurate about product capabilities and privacy behavior.
-- Publish only real, tested artifacts.
-- Keep release assets versioned and checksummed.
-- Never commit signing keys, tokens or private credentials.
+## Project layout
+
+- `site-source/`: Brotli-compressed HTML source, stored as Base64 text chunks.
+- `scripts/prepare-site.mjs`: deterministic build that generates `public/`.
+- `public/`: generated deployment output; do not edit by hand.
+- `products/vpn/`: VPN product source page.
+- `releases/vpn/releases.json`: public VPN release manifest.
+- `downloads/vpn/<version>/`: immutable versioned installer artifacts.
+- `scripts/publish_vpn_release.py`: local release publisher and SHA-256 generator.
+- `docs/RELEASE-PROCESS.md`: release checklist.
+
+## VPN release status
+
+No VPN installer is currently published. The manifest intentionally has an empty release list. Do not advertise or upload a binary until it has been built from the real application, tested, reviewed, and signed where applicable.
+
+See `docs/RELEASE-PROCESS.md` before publishing a release.

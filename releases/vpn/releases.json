@@ -1,6 +1,6 @@
 {
-  "product": "NOBAD VPN",
-  "channel": "stable",
+  "schemaVersion": 1,
+  "product": "nobad-vpn",
   "latest": null,
   "releases": []
 }

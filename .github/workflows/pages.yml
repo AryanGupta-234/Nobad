@@ -1,18 +1,27 @@
-name: Validate static site
+name: Validate and build NOBAD
+
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
+
 jobs:
-  validate:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Validate required files
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Build static website
+        run: npm run build
+      - name: Validate release manifest
+        run: python -m json.tool public/releases/vpn/releases.json > /dev/null
+      - name: Verify generated routes
         run: |
-          test -s index.html
-          test -s products/vpn/index.html
-          python -m json.tool releases/vpn/releases.json > /dev/null
-          grep -q '<title>NOBAD' index.html
-          grep -q 'NOBAD VPN' products/vpn/index.html
+          test -s public/index.html
+          test -s public/products/vpn/index.html
+          test -s public/releases/vpn/releases.json
+          grep -qi '<title>nobad' public/index.html
+          grep -qi 'nobad vpn' public/products/vpn/index.html
