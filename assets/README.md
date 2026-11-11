@@ -1,11 +1,10 @@
-# NOBAD brand asset
+# NOBAD brand assets
 
-The site uses the transparent NOBAD logo at:
+The site uses two transparent PNG wordmarks:
 
-`assets/nobad-logo.png`
+- `assets/nobad-logo.png` — dark lettering for the orange main site.
+- `assets/nobad-logo-light.png` — light lettering for the black VPN product page.
 
-Source artwork: **1086 × 362 px PNG with transparency**.
+Both are **1086 × 362 px RGBA PNGs**. The artwork sits on transparent pixels and is displayed directly in the headers without a CSS background plate.
 
-The logo retains the black tilted tile, orange lowercase mark, black wordmark, and orange dot. The uploaded background is transparent.
-
-The build script copies the `assets/` directory into `public/assets/`. Both the main-site header and VPN product-page header reference `/assets/nobad-logo.png`.
+The build script copies the `assets/` directory into `public/assets/`. The VPN header uses the light version; the main homepage uses the dark version.
