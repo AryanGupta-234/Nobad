@@ -44,7 +44,7 @@ function patchVpnPage(html) {
 async function writeBrotli(parts, relativeTarget) {
   const encoded = (await Promise.all(
     parts.map((part) => readFile(resolve(source, part), "utf8"))
-  )).join("").replace(/\\s+/g, "");
+  )).join("").replace(/\s+/g, "");
 
   if (!encoded || !/^[A-Za-z0-9+/=]+$/.test(encoded)) {
     throw new Error(`Invalid Base64 source for ${relativeTarget}`);
