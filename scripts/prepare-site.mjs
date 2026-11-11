@@ -131,7 +131,7 @@ const logoChunks = [
 ];
 const logoBase64 = (await Promise.all(
   logoChunks.map((part) => readFile(resolve(source, part), "utf8"))
-)).join("").replace(/\\s+/g, "");
+)).join("").replace(/\s+/g, "");
 
 if (!/^[A-Za-z0-9+/]+={0,2}$/.test(logoBase64)) {
   throw new Error("Transparent NOBAD logo source is not valid Base64.");
