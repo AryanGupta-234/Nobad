@@ -48,7 +48,7 @@ Source: "redist\wireguard-amd64.msi"; DestDir: "{app}\redist"; Flags: ignorevers
 Source: "redist\wireguard-arm64.msi"; DestDir: "{app}\redist"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"
+Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"; AppUserModelID: "NOBAD.VPN"
 ; Offline fail-safe: works with NOBAD closed (or broken) and without internet. Asks for admin rights, removes every
 ; NOBAD firewall rule, tunnel service and DNS change, then shows what it did.
 Name: "{group}\Restore internet (NOBAD)"; Filename: "{app}\{#MyAppExe}"; Parameters: "--panic --show-result";   Comment: "Remove every NOBAD firewall rule, tunnel and DNS change, even if NOBAD is not running"

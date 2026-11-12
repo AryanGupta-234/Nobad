@@ -5,7 +5,7 @@ import threading
 import time
 import webbrowser
 
-from .const import WINDOW_TITLE
+from .const import UI_DIR, WINDOW_TITLE
 from .ctx import ctx
 
 MIN_W, MIN_H = 1060, 700
@@ -279,4 +279,8 @@ class WindowManager:
 
     def run(self):
         """Blocks until all windows are closed/destroyed."""
-        self.webview.start(dark_titlebar)
+        icon = os.path.join(UI_DIR, "brand", "nobad.ico")   # NOBAD icon on the title bar/taskbar, also for source runs
+        try:
+            self.webview.start(dark_titlebar, icon=icon if os.path.isfile(icon) else None)
+        except TypeError:                                    # older pywebview without the icon argument
+            self.webview.start(dark_titlebar)
