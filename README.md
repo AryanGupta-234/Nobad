@@ -9,7 +9,7 @@ first major release.
 | Product | What it is | Where |
 |---|---|---|
 | **NOBAD VPN** | A WireGuard client for Windows with a kill switch, DNS leak block, Network Intelligence, "Fix my internet" and Where to watch | [`VPN_dev/`](VPN_dev/) · [Releases](https://github.com/AryanGupta-234/Nobad/releases) |
-| Website | [nobad-platform.aassworld99.workers.dev](https://nobad-platform.aassworld99.workers.dev/), the product pages and the download desk | [`site-source/`](site-source/) |
+| Website | [nobad-platform.aassworld99.workers.dev](https://nobad-platform.aassworld99.workers.dev/), the product pages and the download desk | [`site-pages/`](site-pages/) |
 
 ## Download NOBAD VPN
 
@@ -41,10 +41,12 @@ The site is deployed with **Cloudflare Workers Static Assets** (Workers Builds).
 `npm run build` and the deploy command is `npx wrangler deploy`, from the repository root. Pushes to `main` deploy
 automatically.
 
-* `site-source/`: Brotli-compressed HTML source, stored as Base64 text chunks.
-* `scripts/prepare-site.mjs`: deterministic build that generates `public/`. Don't edit `public/` by hand.
-* `releases/vpn/releases.json`: the public release manifest the download desk reads. It only lists releases that
-  really exist on GitHub Releases.
+* `site-pages/`: the website as plain HTML (home, `products/vpn/`, policy pages, 404, `_headers`, sitemap). Edit
+  these files directly.
+* `scripts/prepare-site.mjs`: deterministic build that generates `public/`, filling the download desk from the
+  release manifest. Don't edit `public/` by hand.
+* `releases/vpn/releases.json`: the public release manifest. It only lists releases that really exist on GitHub
+  Releases; add them with `scripts/publish_vpn_release.py` (see `docs/RELEASE-PROCESS.md`).
 
 ## Releasing NOBAD VPN
 

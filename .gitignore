@@ -6,3 +6,4 @@ Thumbs.db
 *.log
 node_modules/
 public/
+__pycache__/

@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en" class="js">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#ff4d00">
+<meta name="description" content="NOBAD VPN for Windows: a WireGuard client with a kill switch, DNS leak block, a Network Intelligence engine that explains why a site fails, and one-click Fix my internet. Free and open source.">
+<meta property="og:title" content="NOBAD VPN — Privacy, with the details up front">
+<meta property="og:description" content="Product information, release notes and verified downloads from NOBAD.">
+<meta property="og:type" content="product">
+<meta property="og:url" content="https://nobad-platform.aassworld99.workers.dev/products/vpn/">
+<meta property="og:image" content="https://nobad-platform.aassworld99.workers.dev/assets/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="canonical" href="https://nobad-platform.aassworld99.workers.dev/products/vpn/">
+<link rel="icon" href="/favicon.ico" sizes="any"><link rel="icon" type="image/png" href="/assets/favicon-32.png">
+<title>NOBAD VPN — Product / NOBAD</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--o:#ff4d00;--k:#000;--w:#fff;--m:rgba(255,255,255,.66);--line:rgba(255,255,255,.22);--mono:"Space Mono",monospace;--display:"Archivo Black",Impact,sans-serif;--body:Inter,Arial,sans-serif;--g:clamp(20px,4vw,64px);--max:1440px}
+*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:100px}body{margin:0;background:var(--k);color:var(--w);font-family:var(--body);overflow-x:hidden}a{color:inherit;text-decoration:none}button{font:inherit}::selection{background:var(--o);color:var(--k)}:focus-visible{outline:3px solid var(--o);outline-offset:4px}.mono,.eyebrow,.meta{font-family:var(--mono);letter-spacing:-.02em;text-transform:uppercase}.display{font-family:var(--display);font-weight:400;text-transform:uppercase;letter-spacing:-.055em;line-height:.86}.wrap{width:min(100%,var(--max));margin:auto;padding-inline:var(--g)}.pad{padding-block:clamp(76px,10vw,150px)}
+.nav{position:fixed;z-index:10;top:16px;left:0;right:0;padding-inline:var(--g);display:grid;grid-template-columns:1fr auto 1fr;align-items:center;color:var(--k);pointer-events:none}.brand,.pill,.back{pointer-events:auto}.brand{font:700 16px var(--mono);color:var(--k);background:var(--o);padding:10px 14px}.pill{display:flex;gap:4px;padding:6px;background:var(--o);color:var(--k);border-radius:99px;box-shadow:0 8px 24px #0005}.pill a{padding:10px 15px;border-radius:99px;font:11px var(--mono);text-transform:uppercase}.pill a:hover{background:var(--k);color:var(--o)}.back{justify-self:end;color:var(--k);background:var(--o);padding:10px 14px;font:11px var(--mono);text-transform:uppercase}
+.hero{min-height:90svh;padding:150px var(--g) 40px;background:var(--o);color:var(--k);display:flex;flex-direction:column;justify-content:space-between;position:relative}.top{display:flex;justify-content:space-between;gap:20px;font:700 11px var(--mono);text-transform:uppercase}.hero h1{font-size:clamp(76px,15vw,220px);margin:9vh 0 5vh;white-space:nowrap}.hero h1 span{display:block}.hero-bottom{display:grid;grid-template-columns:1fr 1fr;gap:30px;border-top:2px solid var(--k);padding-top:20px;font:700 11px/1.7 var(--mono);text-transform:uppercase}.hero-bottom p{margin:0}.hero-bottom p:last-child{text-align:right}.ticker{overflow:hidden;background:var(--o);color:var(--k);border-block:2px solid var(--k);padding:13px 0}.ticker-track{display:flex;width:max-content;animation:marquee 26s linear infinite}.ticker span{font:clamp(32px,5vw,72px)/.95 var(--display);padding-right:32px;white-space:nowrap}@keyframes marquee{to{transform:translateX(-50%)}}
+.section-head{display:flex;justify-content:space-between;align-items:end;gap:25px;margin:25px 0 55px}.section-head h2{font-size:clamp(46px,8vw,110px);margin:0}.section-head p{max-width:330px;color:var(--m);font:11px/1.7 var(--mono);text-transform:uppercase}.eyebrow{font-size:11px;color:var(--o)}.feature-grid{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line);border-left:1px solid var(--line)}.feature{min-height:220px;padding:25px;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}.feature b{display:block;color:var(--o);font:700 12px var(--mono);margin-bottom:45px}.feature h3{font:clamp(22px,3vw,36px)/.95 var(--display);text-transform:uppercase;margin:0 0 15px}.feature p{color:var(--m);font-size:14px;line-height:1.65;margin:0}.notice{background:var(--o);color:var(--k);padding:clamp(24px,4vw,48px);display:grid;grid-template-columns:1fr auto;gap:20px;align-items:center}.notice h2{font:clamp(32px,5vw,64px)/.9 var(--display);text-transform:uppercase;margin:0}.notice p{font:11px/1.7 var(--mono);max-width:600px}.status{border:2px solid var(--k);padding:14px 18px;font:700 11px var(--mono);text-transform:uppercase;white-space:nowrap}
+.release{border-top:2px solid var(--w);border-bottom:2px solid var(--w);padding:24px 0;display:grid;grid-template-columns:1fr auto;gap:20px;align-items:center}.release h3{font:clamp(24px,4vw,42px) var(--display);text-transform:uppercase;margin:0 0 8px}.release p{color:var(--m);font:11px/1.7 var(--mono);margin:0}.release-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}.btn{display:inline-flex;align-items:center;justify-content:center;border:2px solid var(--o);background:var(--o);color:var(--k);padding:14px 18px;border-radius:99px;font:700 11px var(--mono);text-transform:uppercase;transition:transform .2s,background .2s,color .2s}.btn:hover{transform:scale(1.05);background:var(--w);border-color:var(--w)}.btn.secondary{background:transparent;color:var(--o)}.btn.secondary:hover{color:var(--k)}.release-list{margin-top:24px}.release-item{display:grid;grid-template-columns:130px 1fr auto;gap:20px;padding:18px 0;border-bottom:1px solid var(--line);font:11px var(--mono)}.release-item .version{color:var(--o)}.muted{color:var(--m)}.spec-list{border-top:1px solid var(--line)}.spec{display:grid;grid-template-columns:220px 1fr;gap:25px;padding:18px 0;border-bottom:1px solid var(--line)}.spec dt{font:11px var(--mono);color:var(--o);text-transform:uppercase}.spec dd{margin:0;color:var(--m);font-size:14px;line-height:1.6}.integrity{background:#101010;border:1px solid var(--line);padding:22px;margin-top:25px}.integrity h3{font:20px var(--display);text-transform:uppercase;margin:0 0 10px}.integrity p{font:12px/1.7 var(--mono);color:var(--m);margin:0}.footer{border-top:2px solid var(--w);padding:24px var(--g);display:flex;justify-content:space-between;gap:20px;font:10px var(--mono);text-transform:uppercase;color:var(--m)}
+@media(max-width:760px){.nav{grid-template-columns:1fr auto}.pill{display:none}.hero{min-height:760px}.hero h1{font-size:clamp(70px,17vw,130px);white-space:normal}.hero-bottom{grid-template-columns:1fr}.hero-bottom p:last-child{text-align:left}.section-head{display:block}.section-head p{margin-top:22px}.feature-grid{grid-template-columns:1fr}.feature{min-height:170px}.feature b{margin-bottom:28px}.notice{grid-template-columns:1fr}.status{justify-self:start}.release{grid-template-columns:1fr}.release-actions{justify-content:flex-start}.release-item{grid-template-columns:90px 1fr}.release-item span:last-child{grid-column:2}.spec{grid-template-columns:1fr;gap:8px}.footer{display:block}.footer span{display:block;margin:8px 0}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+
+/* ---- launch chip, features, intel showcase, fail-safe steps, how it's built ---- */
+.hero h1 span span{display:inline}  /* the white full stop belongs on the VPN line */
+.launch{display:inline-flex;align-items:center;gap:10px;align-self:flex-start;margin-top:22px;border:2px solid var(--k);border-radius:99px;padding:8px 14px;font:700 11px var(--mono);text-transform:uppercase}
+.launch i{width:9px;height:9px;border-radius:50%;background:var(--k);animation:blink 1.6s ease-in-out infinite}@keyframes blink{50%{opacity:.25}}
+.feature{position:relative;overflow:hidden;isolation:isolate;transition:color .35s}
+.feature::before{content:"";position:absolute;inset:0;background:var(--o);transform:translateY(101%);transition:transform .45s cubic-bezier(.2,.7,.2,1);z-index:-1}
+.feature:hover::before{transform:none}.feature:hover{color:var(--k)}.feature:hover b,.feature:hover p{color:var(--k)}
+.feature .tag{display:inline-block;margin-top:18px;font:700 10px var(--mono);text-transform:uppercase;border:1px solid currentColor;border-radius:99px;padding:4px 9px;opacity:.7}
+.intel{display:grid;grid-template-columns:1fr 1.15fr;gap:clamp(24px,4vw,60px);align-items:start}
+.intel ul{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+.intel li{padding:14px 0;border-bottom:1px solid var(--line);color:var(--m);font-size:14px;line-height:1.6}.intel li b{color:var(--w);font-weight:600}
+.console{background:#0b0b0b;border:1px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:0 30px 80px #0008}
+.console-top{display:flex;gap:7px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);font:10px var(--mono);color:var(--m);text-transform:uppercase}
+.console-top i{width:10px;height:10px;border-radius:50%;background:#333}.console-top i:first-child{background:var(--o)}.console-top span{margin-left:auto}
+.console-body{padding:18px 20px 22px;font:12px/1.75 var(--mono);min-height:330px;overflow-wrap:anywhere}
+.console-body .ln{opacity:0;transform:translateY(6px);transition:opacity .35s,transform .35s}.console-body .ln.on{opacity:1;transform:none}
+.c-dim{color:var(--m)}.c-o{color:var(--o)}.c-g{color:#3bd69b}.c-r{color:#ff5268}
+.verdict{margin-top:14px;border:1px solid var(--o);border-radius:12px;padding:12px 14px}.verdict b{display:block;font:14px var(--display);text-transform:uppercase;color:var(--w);margin-bottom:4px}
+.meter{height:6px;background:#222;border-radius:9px;margin:10px 0 6px;overflow:hidden}.meter i{display:block;height:100%;width:0;background:var(--o);transition:width 1.2s cubic-bezier(.2,.7,.2,1)}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);border-top:2px solid var(--k)}
+.step{padding:26px 24px 30px;border-right:2px solid var(--k)}.step:last-child{border-right:0}
+.step b{font:700 11px var(--mono);text-transform:uppercase}.step h3{font:clamp(26px,3.4vw,44px)/.9 var(--display);text-transform:uppercase;margin:26px 0 14px}.step p{margin:0;font-size:14px;line-height:1.6;color:rgba(0,0,0,.75)}
+.where{display:flex;flex-wrap:wrap;gap:10px;margin-top:34px}.where span{border:2px solid var(--k);border-radius:99px;padding:9px 14px;font:700 11px var(--mono);text-transform:uppercase}
+.built{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line);border-left:1px solid var(--line)}
+.built article{padding:25px;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+.built b{display:block;color:var(--o);font:700 12px var(--mono);margin-bottom:30px}.built h3{font:clamp(22px,2.6vw,32px)/.95 var(--display);text-transform:uppercase;margin:0 0 12px}.built p{color:var(--m);font-size:14px;line-height:1.65;margin:0}
+.ai-mark{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:99px;padding:3px 9px;font:700 9px var(--mono);letter-spacing:.08em;background:linear-gradient(90deg,rgba(255,255,255,.06),rgba(255,77,0,.22))}
+.js .rv{opacity:0;transform:translateY(22px);transition:opacity .7s cubic-bezier(.2,.7,.2,1),transform .7s cubic-bezier(.2,.7,.2,1)}.js .rv.in{opacity:1;transform:none}
+@media(max-width:760px){.intel,.built{grid-template-columns:1fr}.steps{grid-template-columns:1fr}.step{border-right:0;border-bottom:2px solid var(--k)}.step:last-child{border-bottom:0}.console-body{min-height:0}}
+@media(prefers-reduced-motion:reduce){.js .rv{opacity:1;transform:none}.console-body .ln{opacity:1;transform:none}.feature::before{transition:none}.launch i{animation:none}}
+
+/* VPN header follows the main NOBAD floating navigation system. */
+.nav {
+  top: 18px;
+  color: var(--w);
+}
+.nav .brand {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  width: fit-content;
+  max-width: 100%;
+  padding: 0;
+  background: transparent;
+  color: var(--w);
+  border-radius: 0;
+}
+.nav .brand-logo {
+  display: block;
+  flex: 0 0 128px;
+  width: 128px;
+  height: auto;
+  max-height: 43px;
+  object-fit: contain;
+}
+
+/* Curved black centre capsule, matching the homepage nav-pill. */
+.pill {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px;
+  background: var(--k);
+  color: var(--w);
+  border: 1px solid rgba(255,255,255,.24);
+  border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.18);
+}
+.pill a {
+  border-radius: 999px;
+  padding: 11px 17px;
+  color: var(--w);
+  background: transparent;
+  font: 400 11px var(--mono);
+  text-transform: uppercase;
+  transition: background .2s, color .2s, transform .2s;
+}
+.pill a:hover,
+.pill a[aria-current="location"] {
+  color: var(--k);
+  background: var(--w);
+  transform: translateY(-1px);
+}
+
+/* Keep the VPN-specific Main Site action as a rounded outline control. */
+.back {
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 15px;
+  color: var(--w);
+  background: transparent;
+  border: 1px solid rgba(255,255,255,.65);
+  border-radius: 999px;
+  font: 400 11px var(--mono);
+  text-transform: uppercase;
+  transition: background .2s, color .2s, border-color .2s;
+}
+.back:hover {
+  color: var(--k);
+  background: var(--w);
+  border-color: var(--w);
+}
+
+/* Verify instructions */
+.verify{margin-top:22px;padding-top:18px;border-top:1px solid rgba(255,255,255,.18)}
+.verify h3{margin:18px 0 6px}.verify p{margin:6px 0}
+.verify pre{margin:8px 0;padding:12px 14px;background:#000;border:1px solid rgba(255,255,255,.2);overflow-x:auto}
+.verify code{font-family:var(--mono,ui-monospace,monospace);font-size:.92em;overflow-wrap:anywhere}
+.verify a,.spec a{color:var(--o);text-decoration:underline}
+#integrityText{overflow-wrap:anywhere}
+/* Phones: the section menu becomes a floating bar at the bottom */
+@media(max-width:760px){.pill{display:flex;position:fixed;left:50%;bottom:14px;transform:translateX(-50%);max-width:calc(100vw - 24px);overflow-x:auto;pointer-events:auto;scrollbar-width:none}.pill a{padding:10px 12px;white-space:nowrap}}
+</style></head>
+<body>
+<nav class="nav" aria-label="Main navigation"><a class="brand" href="../../" aria-label="NOBAD home"><img class="brand-logo" src="/assets/nobad-logo-light.png" alt="nobad." width="1086" height="362"></a><div class="pill"><a href="#features">Features</a><a href="#intel">Intel</a><a href="#failsafe">Fail-safe</a><a href="#releases">Releases</a><a href="#specs">Details</a></div><a class="back" href="../../">← Main site</a></nav>
+<header class="hero" id="overview"><div class="top"><span>NOBAD / PRODUCT 001</span><span>PRIVACY SOFTWARE / VPN</span></div><h1 class="display"><span>NOBAD</span><span>VPN<span style="color:#fff">.</span></span></h1><span class="launch"><i></i>Open source · v{{VPN_VERSION}} · Free</span><div class="hero-bottom"><p>WIREGUARD CLIENT FOR WINDOWS 10 / 11<br>KILL SWITCH / DNS LEAK BLOCK / NETWORK INTELLIGENCE</p><p>BUILT WITH INTENTION.<br>DOCUMENTED BEFORE DOWNLOAD.</p></div></header>
+<div class="ticker" aria-label="Product principles"><div class="ticker-track" aria-hidden="true"><span>WIREGUARD INSIDE / KNOWS WHY A SITE FAILS / NEVER LEAVES YOU OFFLINE / BUILT WITH AI, LED BY PEOPLE / </span><span>WIREGUARD INSIDE / KNOWS WHY A SITE FAILS / NEVER LEAVES YOU OFFLINE / BUILT WITH AI, LED BY PEOPLE / </span></div></div>
+<main>
+<section class="pad wrap" id="features"><div class="eyebrow">01 / Features</div><div class="section-head"><h2 class="display">CONTROL<br>YOUR ROUTE.</h2><p>A Windows VPN client that protects the connection and explains the network around it. Every feature below exists in the current build.</p></div><div class="feature-grid"><article class="feature rv"><b>01 / PROTOCOL</b><h3>WireGuard inside</h3><p>Drives the official, signed WireGuard for Windows service. Bring the .conf from your provider or your own server.</p><span class="tag">Core</span></article><article class="feature rv"><b>02 / PROTECTION</b><h3>Kill switch</h3><p>Blocks every connection that doesn't go through the tunnel, and stays armed through drops, sleep and Wi-Fi changes.</p><span class="tag">Windows Firewall</span></article><article class="feature rv"><b>03 / PRIVACY</b><h3>DNS leak block</h3><p>While you're connected, DNS can only leave through the tunnel, so the local network doesn't see your lookups.</p><span class="tag">On by default</span></article><article class="feature rv"><b>04 / INTELLIGENCE</b><h3>Knows why a site fails</h3><p>Compares your network's DNS with independent resolvers, then tests TCP, TLS and HTTP to find the exact layer that broke.</p><span class="tag">New</span></article><article class="feature rv"><b>05 / FAIL-SAFE</b><h3>Never leaves you offline</h3><p>A boot guard, a change journal and one-click repair put Windows back exactly as it was, even if NOBAD was killed.</p><span class="tag">Works offline</span></article><article class="feature rv"><b>06 / SPEED</b><h3>Fastest and Smart pick</h3><p>Ranks servers by real latency and learns which one is fastest at each time of day. Fails over if a link degrades.</p><span class="tag">Auto-repair</span></article><article class="feature rv"><b>07 / SELF-HEALING</b><h3>WireGuard auto-install</h3><p>Setup bundles WireGuard. If it ever goes missing, NOBAD reinstalls a signature-checked copy at start-up.</p><span class="tag">Offline copy</span></article><article class="feature rv"><b>08 / UPDATES</b><h3>Verified updates</h3><p>The updater checks the SHA-256 and requires a valid code signature from a trusted publisher. Releases aren't signed yet, so for now you update by installing the new version yourself.</p><span class="tag">SHA-256</span></article><article class="feature rv"><b>09 / EVERYDAY</b><h3>Tray, mini window, Ctrl+K</h3><p>Lives in the tray, opens with no UAC prompt, and every action is one keystroke away in the command palette.</p><span class="tag">Fast</span></article></div></section>
+<section class="pad" style="background:#101010" id="intel"><div class="wrap"><div class="eyebrow">02 / Network Intelligence</div><div class="section-head"><h2 class="display">KNOW<br>WHY.</h2><p>"The site doesn't open" turns into evidence: which layer failed, who is likely responsible and what will actually fix it. Everything is measured live on your PC.</p></div>
+<div class="intel"><ul class="rv">
+<li><b>DNS intelligence.</b> Compares your network's resolver with independent and encrypted resolvers across A, AAAA, CNAME, MX, TXT, NS and SOA records.</li>
+<li><b>Filtering and sinkholes.</b> Spots RPZ-style redirects, invented answers and DNS interception without a hardcoded list of ISPs.</li>
+<li><b>Layer by layer.</b> Tests DNS, TCP, TLS, HTTP, IPv4 and IPv6 separately, so a DNS block is never mistaken for a site-name block.</li>
+<li><b>VPN integrity.</b> Checks that IPv4, IPv6 and DNS really go through the tunnel while you're connected.</li>
+<li><b>Learns your networks.</b> Local baselines notice when a network changes. History never leaves this PC.</li>
+<li><b>Smart fix agent.</b> Off until you switch it on. It saves your DNS settings first, verifies the fix and undoes it if anything breaks.</li></ul>
+<div class="console rv" id="niConsole" aria-label="Example investigation"><div class="console-top"><i></i><i></i><i></i><span>From a real investigation</span></div><div class="console-body">
+<div class="ln c-dim">&gt; investigate dropmms.com</div>
+<div class="ln">network dns <span class="c-o">192.168.1.1</span> → CNAME <span class="c-r">restricted.rpz.airtelspam.com</span></div>
+<div class="ln">network dns → A <span class="c-r">13.127.247.216</span></div>
+<div class="ln">1.1.1.1 → A <span class="c-g">104.21.40.212, 172.67.188.97</span></div>
+<div class="ln">8.8.8.8 → A <span class="c-g">104.21.40.212, 172.67.188.97</span></div>
+<div class="ln c-dim">independent resolvers agree with each other, not with the network</div>
+<div class="ln verdict"><b>Filtered by the network's DNS (RPZ)</b><span class="c-dim">Recommended: connect NOBAD, then check the TLS layer.</span><div class="meter"><i data-w="64%"></i></div><span class="c-dim">confidence: medium · 64%</span></div>
+</div></div></div></div></section>
+<section class="pad" style="background:var(--o);color:var(--k)" id="failsafe"><div class="wrap"><div class="eyebrow" style="color:var(--k)">03 / Fail-safe</div><div class="section-head"><h2 class="display">NEVER<br>OFFLINE.</h2><p style="color:rgba(0,0,0,.72)">If NOBAD is killed, crashes or is uninstalled in the middle of a change, Windows still gets its network settings back exactly as they were. You never need a terminal.</p></div>
+<div class="steps rv"><div class="step"><b>Step 1</b><h3>Restore</h3><p>Removes NOBAD's firewall rules, tunnels and recorded DNS changes. Nothing else is touched.</p></div>
+<div class="step"><b>Step 2</b><h3>Quick repair</h3><p>Also flushes DNS, clears the ARP cache and renews your IP address. Takes seconds.</p></div>
+<div class="step"><b>Step 3</b><h3>Full reset</h3><p>Also resets Winsock, TCP/IP and proxy settings, like Windows' own network reset. Needs a restart.</p></div></div>
+<div class="where"><span>Intel tab · Fix my internet</span><span>Tray menu</span><span>Start menu shortcuts</span><span>Boot guard at start-up</span><span>Runs on uninstall</span></div></div></section>
+<section class="pad" style="background:#101010" id="releases"><div class="wrap"><div class="eyebrow">04 / Current release</div><div class="section-head"><h2 class="display">DOWNLOAD<br>DESK.</h2><p>Every release is built from the public source by GitHub Actions and published with its SHA-256 and a software bill of materials.</p></div><div class="notice"><div><h2 id="releaseState">BUILD AVAILABLE.</h2><p id="releaseSummary">{{VPN_SUMMARY}}</p></div><span class="status" id="releaseBadge">● STABLE</span></div><div class="release" style="margin-top:28px"><div><h3 id="latestVersion">NOBAD VPN {{VPN_VERSION}}</h3><p id="latestMeta">{{VPN_DATE}} / {{VPN_PLATFORM}} / {{VPN_ARCH}}</p></div><div class="release-actions"><a class="btn" id="downloadButton" href="{{VPN_URL}}">Download installer ↗</a><a class="btn secondary" id="notesButton" href="{{VPN_NOTES}}" rel="noopener">Release notes</a><a class="btn secondary" href="https://github.com/AryanGupta-234/Nobad/releases" rel="noopener">All releases on GitHub ↗</a></div></div><div class="release-list" id="releaseHistory">{{VPN_HISTORY}}</div><div class="integrity"><h3>Download integrity</h3><p id="integrityText">SHA-256: {{VPN_SHA256}} | File size: {{VPN_SIZE}}. Verify this digest against the downloaded file.</p>
+<div class="verify"><h3>How to verify</h3><p>In PowerShell, in the folder you downloaded to:</p><pre><code>Get-FileHash .\{{VPN_FILE}} -Algorithm SHA256</code></pre><p>or in Command Prompt: <code>certutil -hashfile {{VPN_FILE}} SHA256</code>. The result must match the SHA-256 above and the <a href="{{VPN_URL}}.sha256">.sha256 file</a> on the release. The <a href="{{VPN_SBOM}}">software bill of materials</a> lists everything inside the installer.</p>
+<h3>"Windows protected your PC"</h3><p>NOBAD VPN isn't code-signed yet (free signing for open-source projects is being set up), so SmartScreen may show this warning for a new download. If the checksum matches, choose <b>More info</b> → <b>Run anyway</b>. A checksum proves the file is the one GitHub built; it doesn't prove who published it, which is what signing will add.</p></div></div></div></section>
+<section class="pad wrap" id="specs"><div class="eyebrow">05 / Compatibility & disclosure</div><div class="section-head"><h2 class="display">THE<br>DETAILS.</h2><p>Facts taken from the current build and its source. Anything that isn't verified is left out rather than guessed.</p></div><dl class="spec-list rv"><div class="spec"><dt>Supported operating systems</dt><dd>Windows 10 version 1809 or later and Windows 11, 64-bit. ARM64 PCs run the app through Windows' x64 emulation and use the native ARM64 WireGuard.</dd></div><div class="spec"><dt>VPN protocol</dt><dd>WireGuard, through the official WireGuard for Windows tunnel service. Setup installs it if it's missing, and NOBAD only runs WireGuard installers signed by WireGuard LLC.</dd></div><div class="spec"><dt>Encryption & key handling</dt><dd>WireGuard's own cryptography (Curve25519, ChaCha20-Poly1305, BLAKE2s). Configs and keys stay on this PC, in a folder only administrators and SYSTEM can read. Optional Windows DPAPI encryption protects copies and backups.</dd></div><div class="spec"><dt>Servers & logging</dt><dd>NOBAD VPN is a client. It connects to the WireGuard servers in the configs you import, so the server-side logging policy is your provider's. The app keeps its logs, usage and diagnostic history on this PC. Crash reports are off unless you opt in.</dd></div><div class="spec"><dt>Permissions & network behavior</dt><dd>Needs administrator rights. After that, setup's launcher task means no UAC prompt. The kill switch and DNS leak block use Windows Firewall rules. Adapter settings are only changed by the smart fix agent, after you switch it on, and every change is recorded so it can be undone.</dd></div><div class="spec"><dt>Outbound connections</dt><dd>Your VPN servers. At every launch, a connectivity check (a ping to 1.1.1.1 and one test DNS lookup) and, unless you switch it off, IP-location lookups via ipinfo.io for your exit address and the server map. Everything else runs only when you start it or opt in: the speed test and service checks, Network Intelligence probes, the WireGuard download fallback and the update check (only if an update URL is set).</dd></div><div class="spec"><dt>Support</dt><dd>Bugs and questions: <a href="https://github.com/AryanGupta-234/Nobad/issues">GitHub Issues</a>. Security problems: report them privately via <a href="https://github.com/AryanGupta-234/Nobad/security/advisories/new">private vulnerability reporting</a>. Anything else: <a href="mailto:ludmj99@gmail.com">ludmj99@gmail.com</a>.</dd></div></dl></section><section class="pad" style="background:#101010" id="built"><div class="wrap"><div class="eyebrow">06 / How NOBAD is built</div><div class="section-head"><h2 class="display">BUILT<br>TOGETHER.</h2><p>NOBAD is an independent studio in its initial launch phase. NOBAD VPN is its first major release.</p></div><div class="built rv"><article><b>01 / AI-ASSISTED</b><h3>Built with AI</h3><p>AI is part of the development team. It helps design, write, test and document the code, and a person reviews and owns every decision and release.</p></article><article><b>02 / OPEN SOURCE</b><h3>MIT licensed</h3><p>The code is open source under the MIT License and developed in the open on GitHub. Issues, fixes and ideas are welcome, whether they come from people or from people working with AI.</p></article><article><b>03 / HONEST</b><h3>Launch phase</h3><p>Version 1.2 is the first public, open-source release. Its limits are documented, not hidden, and anyone can build it from source, test it and report what they find.</p></article></div><div class="release-actions" style="justify-content:flex-start;margin-top:28px"><a class="btn secondary" href="https://github.com/AryanGupta-234/Nobad" rel="noopener">View on GitHub ↗</a></div></div></section>
+<section class="pad" style="background:var(--o);color:var(--k)"><div class="wrap"><div class="eyebrow" style="color:var(--k)">07 / Before you install</div><div class="section-head"><h2 class="display">VERIFY.<br>THEN RUN.</h2><p style="color:rgba(0,0,0,.72)">Only install NOBAD VPN from GitHub Releases or this page. Check the version and the SHA-256 checksum (and, once releases are signed, the publisher). Review permissions before connecting.</p></div><a class="btn" style="background:var(--k);color:var(--w);border-color:var(--k)" href="#releases">View release status ↗</a></div></section>
+</main><footer class="footer"><span>© <span id="year"></span> NOBAD / VPN PRODUCT PAGE</span><span>NO FAKE BUILDS. NO UNSUPPORTED CLAIMS.</span><a href="https://github.com/AryanGupta-234/Nobad">GitHub</a><span class="ai-mark" title="Developed in collaboration with AI">✦ BUILT WITH AI</span><a href="/code-signing-policy/">Code signing policy</a><a href="/privacy/">Privacy</a><a href="../../">Main site ↗</a></footer>
+<script>
+const MANIFEST_URL='../../releases/vpn/releases.json';
+document.getElementById('year').textContent=new Date().getFullYear();
+function safeText(value,fallback='Not published'){return typeof value==='string'&&value.trim()?value:fallback}
+function safeUrl(value){try{const u=new URL(value,location.href);return ['https:'].includes(u.protocol)||u.origin===location.origin?u.href:null}catch{return null}}
+async function loadReleases(){try{const response=await fetch(MANIFEST_URL,{cache:'no-store'});if(!response.ok)throw new Error('manifest unavailable');const data=await response.json();const releases=Array.isArray(data.releases)?data.releases:[];const current=releases.find(r=>r.version===data.latest)||releases[0];if(!current){document.getElementById('releaseHistory').innerHTML='<div class="release-item"><span class="version">CHANNEL</span><span class="muted">No published releases yet.</span><span class="muted">—</span></div>';return}document.getElementById('releaseState').textContent='BUILD AVAILABLE.';document.getElementById('releaseSummary').textContent=safeText(current.summary,'A published release is available. Review its notes and integrity details before installing.');document.getElementById('releaseBadge').textContent='● '+safeText(current.channel,'STABLE').toUpperCase();document.getElementById('latestVersion').textContent='NOBAD VPN '+safeText(current.version);document.getElementById('latestMeta').textContent=[safeText(current.releaseDate),safeText(current.platform),safeText(current.architecture)].join(' / ');const download=safeUrl(current.downloadUrl);if(download){const b=document.getElementById('downloadButton');b.href=download;b.removeAttribute('aria-disabled');b.style.opacity='1';b.style.pointerEvents='auto';b.textContent='Download installer ↗'}const notes=safeUrl(current.notesUrl);if(notes){const b=document.getElementById('notesButton');b.href=notes;b.removeAttribute('aria-disabled');b.style.opacity='1';b.style.pointerEvents='auto'}document.getElementById('integrityText').textContent='SHA-256: '+safeText(current.sha256,'Not supplied')+' | File size: '+safeText(current.size,'Not supplied')+'. Verify this digest against the downloaded file.';document.getElementById('releaseHistory').innerHTML=releases.map(r=>`<div class="release-item"><span class="version">${escapeHtml(r.version||'')}</span><span>${escapeHtml(r.releaseDate||'')} · ${escapeHtml(r.summary||'')}</span><span class="muted">${escapeHtml(r.channel||'')}</span></div>`).join('')}catch(e){console.info('Release manifest not loaded; showing pending state.',e)}}
+function escapeHtml(v){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}loadReleases();
+</script>
+<script>
+(()=>{const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const play=c=>{const ls=[...c.querySelectorAll('.ln')];ls.forEach((l,i)=>setTimeout(()=>l.classList.add('on'),reduce?0:i*420));const m=c.querySelector('.meter i');if(m)setTimeout(()=>{m.style.width=m.dataset.w},reduce?0:ls.length*420)};
+if(!('IntersectionObserver' in window)){document.querySelectorAll('.rv').forEach(e=>e.classList.add('in'));const c=document.getElementById('niConsole');if(c)play(c);return}
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(!e.isIntersecting)return;e.target.classList.add('in');if(e.target.id==='niConsole')play(e.target);io.unobserve(e.target)}),{threshold:.18});
+document.querySelectorAll('.rv').forEach(e=>io.observe(e));})();
+</script></body></html>

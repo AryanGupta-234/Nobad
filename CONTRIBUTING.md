@@ -19,13 +19,13 @@ Requirements: Windows 10/11 (x64), Python 3.11, and Inno Setup 6 for the install
 ```powershell
 cd VPN_dev
 python -m venv .venv-build; .\.venv-build\Scripts\Activate.ps1
-python -m pip install -r requirements-lock.txt
+python -m pip install --require-hashes -r requirements-lock.txt
 python -m pytest -q tests                                        # all tests run against a simulated Windows
 python nobad_vpn.py                                              # run from source (asks for admin rights)
 powershell -ExecutionPolicy Bypass -File packaging\build.ps1     # full installer (tests, app, WireGuard, Inno)
 ```
 
-The website lives in `site-source/` and is built by `npm run build` at the repository root.
+The website lives in `site-pages/` as plain HTML and is built by `npm run build` at the repository root.
 
 ## Pull requests
 

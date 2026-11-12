@@ -1,30 +1,59 @@
-# NOBAD public release process
+# NOBAD VPN release process
 
-## Before publishing
+Releases are built by GitHub Actions from a version tag, never on a personal PC, and published to GitHub Releases.
+The website only links to files that exist there.
 
-1. Build the installer from a clean, tagged source commit.
-2. Test install, upgrade, uninstall, rollback and supported OS/architecture combinations.
-3. Scan the artifact and review dependencies; investigate all material findings.
-4. For Windows binaries, sign with the project's trusted Authenticode certificate and verify the signature on a clean machine.
-5. Write release notes describing changes, known issues, requirements and upgrade steps.
-6. Confirm the product page's protocol, encryption, logging, permissions and network-behavior disclosures are accurate. Do not claim "no logs" or specific security guarantees without evidence.
+## 1. Prepare
 
-## Publish
+1. Bump `APP_VER` in `VPN_dev/nobadvpn/const.py` (semantic versioning).
+2. Add a `## <version> · <date>` entry at the top of `VPN_dev/CHANGELOG.md`. The workflows refuse a tag whose
+   version doesn't match both.
+3. Push to `main` and wait for **NOBAD VPN tests** (Windows, hash-pinned dependencies) and **Validate and build NOBAD**
+   to pass.
+4. Optional dry run: Actions → *NOBAD VPN release* → *Run workflow*. It builds the installer as a workflow artifact
+   and publishes nothing. Install it on a test PC: install, upgrade over the previous version, connect, kill switch,
+   *Restore internet*, uninstall.
 
-From the project root, run `python scripts/publish_vpn_release.py --help` and then supply the tested artifact, semantic version, date, platform, architecture, channel, summary and release-notes path.
+## 2. Release
 
-The publisher copies the artifact to an immutable versioned directory, calculates SHA-256, and prepends metadata to `releases/vpn/releases.json`. Commit the manifest, notes and artifact; deployment copies all three into the static `public/` output.
+```
+git tag vpn-v<version>
+git push origin vpn-v<version>
+```
 
-## Hosting requirements
+`.github/workflows/vpn-release.yml` then:
 
-- Serve the site over HTTPS.
-- Preserve exact case-sensitive paths.
-- Configure correct MIME types for installers and JSON.
-- Keep old versioned artifacts available for rollback and reproducibility.
-- Back up release artifacts and manifest.
-- Do not put secrets or signing keys in this repository or static site.
-- Consider object storage/CDN for large binaries and rate limiting for abuse prevention.
+* **build** (read-only token): runs the tests and pyflakes, builds the app with PyInstaller, bundles the signed
+  WireGuard installers, builds the Inno Setup installer and writes `latest.json`, the `.sha256` file and the SBOM.
+* **publish** (the only job that can write): creates a signed build-provenance attestation for the files and
+  publishes the GitHub Release with the notes from `CHANGELOG.md`.
 
-## Release manifest
+Anyone can check a download came from this repository's workflow:
 
-The VPN product page reads `/releases/vpn/releases.json`. An empty `releases` array intentionally displays a release-pending state. A SHA-256 hash detects changes relative to trusted metadata; it does not prove who published the file. Authenticode signatures and a trusted HTTPS origin provide additional publisher assurance.
+```
+gh attestation verify NobadVPN-Setup-<version>.exe -R AryanGupta-234/Nobad
+```
+
+## 3. Put it on the website
+
+```
+python scripts/publish_vpn_release.py <version> "<one-line summary>"
+git add releases/vpn/releases.json && git commit -m "site: publish NOBAD VPN <version>" && git push
+```
+
+The script reads the release from GitHub, takes the size and the SHA-256 GitHub computed for the uploaded installer,
+checks it against the `.sha256` file, and adds the entry first. The site build fills the download desk from it.
+
+## Rollback
+
+Published versions are never changed or re-uploaded. If a release is bad:
+
+1. Point the website back: `python scripts/publish_vpn_release.py --latest <previous version>`, commit and push.
+2. On GitHub, edit the bad release: untick *Set as the latest release* (or delete it if it must not be downloaded).
+3. Fix the problem and release a **higher** version. The updater never installs an older version, so users who
+   already installed the bad one move forward only.
+
+## Code signing
+
+Releases are not code-signed yet; see `VPN_dev/docs/CODE-SIGNING.md`. Until they are, the app can't update itself
+(it only installs signed updates), so users install new versions by hand.
