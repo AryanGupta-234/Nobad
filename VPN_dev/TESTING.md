@@ -4,8 +4,28 @@ Automated: `python -m pytest tests` covers config parsing/validation, firewall r
 smart ranking, netwatch with a fake clock, watchdog decisions, engine flows against a fake Windows and server security.
 `tests/test_reliability.py` adds: endpoint pinning, stale-DNS fallback, keeping the kill switch armed while
 reconnecting, give-up release, strict mode with captive portals, post-crash adoption, firewall-off detection, split-tunnel
-health target, panic during connect, config-name traversal and hidden-SSID trust. There is also a headless-browser render
-of the real UI. `tests/test_release.py` covers start-up hand-off, splash, WireGuard install order and signature checks, update trust, scheduled-task parsing, settings hardening and the packaging files (ASCII-only PowerShell, installer contents). None of that replaces the matrix below.
+health target, panic during connect, config-name traversal and hidden-SSID trust. The UI scripts get a Node syntax check.
+`tests/test_netintel.py` covers the Network Intelligence analysis (DNS comparison, layer attribution, fix agent,
+adapter parsing, history) against faked probes. `tests/test_release.py` covers start-up hand-off, splash, WireGuard install order and signature checks, update trust, scheduled-task parsing, settings hardening and the packaging files (ASCII-only PowerShell, installer contents). None of that replaces the matrix below.
+
+## Verified on a real PC (2026-11-12)
+
+Windows 11, Wi-Fi behind a home router (192.168.1.1), WireGuard 1.1.1, two real provider configs. Run elevated with
+the real engine, real firewall and real WireGuard (driver script: 23 checks, **all passed**, about 58 s):
+
+* Remove a stale test tunnel service.
+* Connect `usa`: the exit IP changes, internet works through the tunnel, names resolve through the tunnel DNS, and
+  **DNS to the router is blocked** while connected (DNS leak block).
+* Kill switch armed (`NobadKS4/6` and `NobadDNS*` rules present), then the tunnel service was removed **outside**
+  NOBAD: traffic and router DNS are **blocked** (no leak), and auto-repair reconnects by itself within about 20 s.
+* Disconnect removes every NOBAD rule; internet, the normal public IP and router DNS come back.
+* Real network repair: **Undo** and **Quick** (flush DNS, re-register, clear ARP, renew DHCP) both succeed and the
+  internet works afterwards.
+* WireGuard uninstalled, then the start-up check reinstalls the bundled, signature-checked MSI automatically (about
+  4 s), and a tunnel connects with the reinstalled WireGuard.
+
+Not covered by that run: **Full reset** (needs a restart), sleep/resume, Wi-Fi to Ethernet, captive portals, the
+crash-then-reboot boot guard, and the rows below that need other hardware or networks.
 
 First run `NobadVPN.exe --selftest` (admin) on each machine and keep the output.
 
@@ -19,7 +39,7 @@ First run `NobadVPN.exe --selftest` (admin) on each machine and keep the output.
 | 6 | Network lost/returned | pull cable | "Network lost" banner/toast; reconnects when it returns |
 | 7 | Captive portal | hotel/café Wi-Fi, or a router with a portal | handshake fails → "Wi-Fi sign-in required" banner, kill switch pauses, *Open sign-in page* works, auto-reconnects and re-arms |
 | 8 | IPv6-only network | NAT64/IPv6-only hotspot | endpoint with AAAA connects; IPv4-only endpoint reports a handshake failure (expected without NAT64) |
-| 9 | Crash watchdog | arm kill switch, `taskkill /F /IM python.exe` (or NobadVPN.exe) | watchdog relaunches within ~15 s; if not, toast says internet is blocked and `NobadVPN --panic` restores it |
+| 9 | Crash watchdog | arm kill switch, `taskkill /F /IM python.exe` (or NobadVPN.exe) | watchdog relaunches within ~15 s; if not, toast says internet is blocked and the Start-menu "Restore internet (NOBAD)" restores it |
 | 10 | Panic reset | button, tray item, `--panic` | rules and tunnels gone, internet works |
 | 11 | **DPAPI + WireGuard** | enable *Encrypt stored configs*, connect | connects with an encrypted runtime copy. If WireGuard refuses `.conf.dpapi` on your build, NOBAD logs it, flips `dpapi_runtime_ok` off and uses a short-lived plaintext copy in the locked runtime folder — verify which path you got |
 | 12 | Start with Windows | enable, sign out/in; then launch manually while not elevated | no UAC prompt either time; window appears only on manual launch |

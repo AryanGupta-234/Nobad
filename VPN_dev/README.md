@@ -118,9 +118,10 @@ docs/      CODE-SIGNING.md USER-MANUAL.md FEATURES.md ARCHITECTURE.md SYSTEM-INT
 * **[docs/CODE-SIGNING.md](docs/CODE-SIGNING.md)**: getting and using a code-signing certificate.
 
 ## Honest limits
-* Windows behaviour is tested against a simulated Windows (fake `netsh`/`sc`/`wireguard.exe`), plus a run of the real UI
-  start-up on Windows 11 (unelevated, no tunnel). It has **not** been run with a live tunnel and kill switch on a real PC.
-  **TESTING.md** lists what still needs a real PC.
+* Windows behaviour is tested against a simulated Windows (fake `netsh`/`sc`/`wireguard.exe`). On one real Windows 11
+  PC, a live tunnel, the kill switch (including a simulated tunnel drop), the DNS leak block, the Undo and Quick
+  repairs and the WireGuard auto-install all passed; see **TESTING.md**, which also lists what still needs other
+  PCs and networks (sleep, network switches, captive portals, ARM64, clean installs).
 * The installer builds with Inno Setup 6 on the development machine (`packaging\build.ps1` produces
   `dist-installer\NobadVPN-Setup-<ver>.exe`), but installing, upgrading and uninstalling on real PCs is still on
   the TESTING.md list.
@@ -133,3 +134,8 @@ NOBAD is an independent studio in its initial launch phase, and NOBAD VPN is its
 **in collaboration with AI**: AI helps design, write, test and document the code, and a person reviews and owns every
 decision and release. The app shows a small "built with AI" mark in its status bar. Contributions are welcome: open
 an issue or a pull request on [GitHub](https://github.com/AryanGupta-234/Nobad).
+
+## License
+NOBAD VPN is released under the [MIT License](../LICENSE). The installer also ships third-party components under their
+own licenses (WireGuard, Python, pywebview, pystray and others), listed in
+[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md). Both files are installed next to `NobadVPN.exe`.

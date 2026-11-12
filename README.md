@@ -43,3 +43,8 @@ The build command generates `public/`. Wrangler reads `wrangler.jsonc` and publi
 No VPN installer is currently published. The manifest intentionally has an empty release list. Do not advertise or upload a binary until it has been built from the real application, tested, reviewed, and signed where applicable.
 
 See `docs/RELEASE-PROCESS.md` before publishing a release.
+
+## License
+Released under the [MIT License](LICENSE). Third-party components bundled with NOBAD VPN are listed in
+[VPN_dev/THIRD-PARTY-NOTICES.md](VPN_dev/THIRD-PARTY-NOTICES.md). The MIT License covers the code, not the NOBAD name
+or logo.
