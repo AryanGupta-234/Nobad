@@ -119,3 +119,15 @@ def test_config_names_cannot_escape_folder(srv):
     assert not r["ok"]
     n = configstore.clean_name("../../evil")
     assert ".." not in n and "/" not in n and "\\" not in n
+
+
+def test_svg_responses_are_sandboxed(srv, monkeypatch):
+    from nobadvpn.streamintel import api_handlers
+
+    class _SI:
+        def image(self, size, name):
+            return b'<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'
+    monkeypatch.setattr(api_handlers, "get", lambda: _SI())
+    st, h, _body = req(srv, "GET", "/si/img/w92/abcdef.svg")
+    assert st == 200 and h["Content-Type"] == "image/svg+xml"
+    assert "sandbox" in h["Content-Security-Policy"] and "default-src 'none'" in h["Content-Security-Policy"]

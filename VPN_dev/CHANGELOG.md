@@ -18,6 +18,8 @@ installers, and releases aren't code-signed yet), so download 1.2.1 from GitHub 
   Failures are reported instead of ignored.
 - **Installers run from a fresh admin-only folder.** App updates and the WireGuard installer are downloaded, checked
   and run from a new private folder each time, so nothing can be swapped in between the check and the install.
+- **Poster and logo images can't run script.** SVG images fetched from TMDB are served with a sandboxing
+  Content-Security-Policy.
 
 ### Fixed
 - **Kill switch:** when a firewall rule has to be recreated, a bridge copy keeps blocking until the new rule is in

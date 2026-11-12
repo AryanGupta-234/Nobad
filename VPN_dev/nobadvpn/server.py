@@ -114,6 +114,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("X-Content-Type-Options", "nosniff")
         if ctype.startswith("text/html"):
             self.send_header("Content-Security-Policy", CSP)
+        elif ctype.startswith("image/svg"):    # remote SVGs (TMDB logos) can carry script: never let them run here
+            self.send_header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; sandbox")
         self.end_headers()
         self.wfile.write(body)
 
