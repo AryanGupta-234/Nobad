@@ -406,14 +406,20 @@ connect removes them.
 ### 7.1 Server security (`server.py`)
 
 * Bound to `127.0.0.1` on a random port (port 0).
-* **Token:** `secrets.token_urlsafe(24)`, new on every launch. It is injected into `index.html` / `mini.html` when the
-  pages are served (`__TOKEN__`), sent back in the `X-Token` header (or `?t=` for the `EventSource`), and compared
-  with `hmac.compare_digest`.
+* **No secret in any page.** Two random values are made on every launch (`secrets.token_urlsafe(24)`):
+  * `TOKEN`, for NOBAD's own processes only. It is written to the admin-only `instance.json` and sent in the
+    `X-Token` header (single-instance hand-off, `lifecycle.py`).
+  * `SESSION`, the UI windows' cookie. NOBAD opens each window with a **one-time launch code**
+    (`server.launch_url`, valid 10 minutes, usable once). `GET /?k=<code>` answers `303` with
+    `Set-Cookie: nobad_s=<SESSION>; HttpOnly; SameSite=Strict` and redirects to the clean URL. The page's `fetch`
+    and `EventSource` calls send the cookie automatically, so JavaScript never sees a secret.
+  * Both are compared with `hmac.compare_digest`. Secrets in query strings (`?t=`) are no longer accepted.
 * **Host and Origin checks** (DNS-rebinding and cross-site protection): every request must have
   `Host: 127.0.0.1:<port>` or `localhost:<port>`; an `Origin` header, if present, must be
   `http://127.0.0.1:<port>` or `http://localhost:<port>`.
-* **Unauthenticated routes:** `/` and `/mini` (HTML pages), `/favicon.ico`, `/static/...`, `/api/ping`. Everything
-  else (`/api/state`, `/events`, every POST) requires the token.
+* **Unauthenticated routes:** `/favicon.ico`, `/static/...`, `/si/img/...`, `/api/ping`. `/` and `/mini` without a
+  valid launch code or session cookie return a locked page (`403`) with nothing secret in it. Everything else
+  (`/api/state`, `/events`, every POST) requires the cookie or the `X-Token` header.
 * **Static whitelist:** `/static/<path>` must match `^[A-Za-z0-9_\-]+(/[A-Za-z0-9_\-]+)*\.(js|css|json|svg|png|ico)$`
   and resolve inside `nobadvpn/ui`. HTML files cannot be fetched through `/static/`.
 * Responses carry `Cache-Control: no-store` and `X-Content-Type-Options: nosniff`; HTML pages also get a
@@ -660,7 +666,7 @@ crash reports, exports and update downloads. JSON stores are written atomically 
 * **Engine flows** against `FakeWin` (`test_engine.py`, `test_reliability.py`): arming and cleanup, DNS fallback,
   strict mode, captive portal, DPAPI fallback, clean reconnect, give-up, crash adoption, firewall-off detection,
   split-tunnel health target, panic during connect.
-* **Server security** (`test_server.py`): token, CSP, DNS-rebinding Host check, cross-origin POST, static whitelist and
+* **Server security** (`test_server.py`): launch codes, session cookie, locked page, import hooks refused, token, CSP, DNS-rebinding Host check, cross-origin POST, static whitelist and
   traversal, config-name escape.
 * **Release and packaging** (`test_release.py`, `test_netsafety.py`): hand-off, splash decision, scheduled-task XML
   parsing and matching, WireGuard install order and signer checks, update signature policy, manifest BOM handling,

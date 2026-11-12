@@ -7,13 +7,16 @@ DNS block: block outbound TCP/UDP 53 (and 853, DNS-over-TLS) from any source tha
 address, including to LAN resolvers — so name lookups can only happen inside the tunnel.
 """
 import ipaddress
+import time
 
 from .syscmd import run
 
 KS_RULES = ("NobadKS4", "NobadKS6")
 DNS_RULES = ("NobadDNS4U", "NobadDNS4T", "NobadDNS6U", "NobadDNS6T")
-ALL_RULES = KS_RULES + DNS_RULES
-LEGACY_RULES = tuple("Nomad" + n[len("Nobad"):] for n in ALL_RULES)  # rules created by NOMAD Tunnel
+LEGACY_RULES = tuple("Nomad" + n[len("Nobad"):] for n in KS_RULES + DNS_RULES)  # rules created by NOMAD Tunnel
+BRIDGE = "b"     # suffix of the temporary copy that keeps blocking while a rule is recreated
+BRIDGE_RULES = tuple(n + BRIDGE for n in KS_RULES + DNS_RULES)
+ALL_RULES = KS_RULES + DNS_RULES + BRIDGE_RULES
 DNS_PORTS = "53,853"
 _N = ipaddress.ip_network
 LAN4 = [_N(x) for x in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "169.254.0.0/16", "224.0.0.0/4",
@@ -153,20 +156,48 @@ def remove(names=ALL_RULES, known=None):
         run(["netsh", "advfirewall", "firewall", "delete", "rule", f"name={n}"])
 
 
+def _try(cmd, attempts=3, pause=0.3):
+    for i in range(attempts):
+        if run(cmd, timeout=30).returncode == 0:
+            return True
+        if i + 1 < attempts:
+            time.sleep(pause)
+    return False
+
+
+def _delete(name):
+    run(["netsh", "advfirewall", "firewall", "delete", "rule", f"name={name}"])
+
+
 def apply(rules):
     """Install `rules`, updating existing ones IN PLACE (no unprotected gap), and delete any stale Nobad rule
-    that is not part of the new set. Returns {rule_name: bool}."""
+    that is not part of the new set. Returns {rule_name: bool}.
+
+    When a rule can't be updated in place (protocol/port changes), a bridge copy of the NEW rule is added first,
+    then the old rule is replaced, then the bridge is removed. So there is never a moment with no blocking rule,
+    and if re-adding fails the bridge stays and keeps protecting (it is cleaned up like any other NOBAD rule)."""
     result = {}
     existing = set(present())
+    keep = set()
     for r in rules:
-        ok = False
-        if r["name"] in existing:
-            ok = run(_set_cmd(r), timeout=30).returncode == 0
-            if not ok:  # protocol/port changes can't be 'set' — recreate
-                run(["netsh", "advfirewall", "firewall", "delete", "rule", f"name={r['name']}"])
-        if not ok:
-            ok = run(_add_cmd(r), timeout=30).returncode == 0
-        result[r["name"]] = ok
-    keep = {r["name"] for r in rules}
+        name = r["name"]
+        keep.add(name)
+        if name in existing and run(_set_cmd(r), timeout=30).returncode == 0:
+            result[name] = True
+            continue
+        if name not in existing:
+            result[name] = _try(_add_cmd(r))
+            continue
+        bridge = dict(r, name=name + BRIDGE)
+        if bridge["name"] in existing:
+            _delete(bridge["name"])
+        bridged = _try(_add_cmd(bridge))
+        _delete(name)
+        ok = _try(_add_cmd(r))
+        if ok and bridged:
+            _delete(bridge["name"])
+        elif bridged:
+            keep.add(bridge["name"])    # the bridge is the rule now; it still blocks
+        result[name] = ok or bridged
     remove([n for n in existing if n not in keep], known=existing)
     return result

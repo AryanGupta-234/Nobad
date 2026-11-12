@@ -11,10 +11,13 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import pytest  # noqa: E402
 
 from nobadvpn import engine as _engine  # noqa: E402
+from nobadvpn import syscmd as _syscmd  # noqa: E402
 
 # ensure_dirs() / the runtime folder are locked with icacls to SYSTEM + Administrators. In an unelevated test run
 # that would lock the test process out of its own temp folder, so tests never touch real ACLs.
-_engine._lock_dir = lambda path, allow_user: None
+_engine._lock_dir = lambda path, allow_user: True
+_real_lock_dir = _syscmd.lock_dir
+_syscmd.lock_dir = lambda path, allow_user=False: True
 _engine.Tunnel._secure_runtime_dir = lambda self: os.makedirs(_engine.RUNTIME_DIR, exist_ok=True)
 
 PRIV = "yAnz5TF+lXXJte14tji3zlMNq+hd2rYUIgJBgB3fBmk="

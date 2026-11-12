@@ -265,7 +265,8 @@ def _run_main_process(args):
             splash.close()
             wm.revealed_event.set()   # no native window: background start-up need not wait
             if show:
-                webbrowser.open(url + "/")
+                from .server import launch_url
+                webbrowser.open(launch_url(url, "/"))
                 print(f"pywebview not installed — opened {url} in your browser. (pip install pywebview for the native window)")
             ctx.quit_event.wait()
         if not ctx.quit_event.is_set() and ctx.settings.get("guardian") and (tunnel.connected or tunnel.want):

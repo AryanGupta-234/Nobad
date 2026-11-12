@@ -12,7 +12,7 @@ import urllib.request
 from . import reach
 from .const import BASE_DIR, UA, UPDATE_DIR
 from .logbus import log
-from .syscmd import run, wg_tool
+from .syscmd import private_workdir, run, wg_tool
 
 WG_VERSION = "1.1.1"                       # keep in sync with packaging/build.ps1 ($wgVersion)
 WG_SIGNER = "CN=WireGuard LLC,"            # subject prefix of the official signing certificate
@@ -68,7 +68,7 @@ def run_msi(path):
 
 
 def download_official(dest_dir=UPDATE_DIR):
-    os.makedirs(dest_dir, exist_ok=True)
+    dest_dir = private_workdir(dest_dir, "wireguard-")   # admin-only folder: the MSI can't be swapped after the check
     name = f"wireguard-{arch()}-{WG_VERSION}.msi"
     dest = os.path.join(dest_dir, name)
     req = urllib.request.Request(WG_BASE_URL + name, headers={"User-Agent": UA})

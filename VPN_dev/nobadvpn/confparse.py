@@ -190,7 +190,7 @@ def _valid_host(h):
 
 
 def validate_conf(text, untrusted_source=False):
-    """Returns {ok, errors[], warnings[], info}. `untrusted_source` (URL/QR) rejects script hooks."""
+    """Returns {ok, errors[], warnings[], info}. `untrusted_source` (any import: file, paste, URL, QR) rejects script hooks."""
     errors, warnings = [], []
     section = None
     n_iface = n_peer = 0
@@ -227,7 +227,7 @@ def validate_conf(text, untrusted_source=False):
             warnings.append(f"line {lineno}: unknown {section} key '{k}' (WireGuard may reject it)")
         if kl in _SCRIPT_KEYS:
             if untrusted_source:
-                errors.append(f"line {lineno}: '{k}' runs commands — refused for configs from a URL or QR code")
+                errors.append(f"line {lineno}: '{k}' runs commands — refused for imported configs (add it in the config editor if you really need it)")
             else:
                 warnings.append(f"line {lineno}: '{k}' runs commands; WireGuard ignores it unless script execution is enabled")
         cur.setdefault(kl, []).append((v, lineno))

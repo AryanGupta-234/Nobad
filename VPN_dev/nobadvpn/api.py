@@ -201,7 +201,9 @@ def h_open_configs(b):
 
 
 def h_import(b):
-    return configstore.import_text(b.get("name"), b.get("content"), untrusted=bool(b.get("untrusted")))
+    # Pasted, dropped or picked files are treated like downloads: no PreUp/PostUp script hooks. Hooks can only be
+    # added by editing a config in the editor, which the user does on purpose.
+    return configstore.import_text(b.get("name"), b.get("content"), untrusted=True)
 
 
 def h_import_url(b):

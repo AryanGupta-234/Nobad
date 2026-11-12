@@ -1,4 +1,5 @@
-"""Security properties of the loopback server: Host/Origin/token checks, static-file whitelist."""
+"""Security properties of the loopback server: launch codes and session cookie, Host/Origin/token checks,
+static-file whitelist."""
 import http.client
 import json
 import threading
@@ -28,10 +29,53 @@ def req(srv, method, path, headers=None, body=None):
     return r.status, dict(r.getheaders()), data
 
 
-def test_index_has_token_and_csp(srv):
-    st, h, body = req(srv, "GET", "/")
-    assert st == 200 and server.TOKEN.encode() in body and b"__TOKEN__" not in body
+def test_page_without_launch_code_is_locked_and_leaks_nothing(srv):
+    for path in ("/", "/mini"):
+        st, _h, body = req(srv, "GET", path)
+        assert st == 403, path
+        assert server.TOKEN.encode() not in body and server.SESSION.encode() not in body
+        assert b"only opens from NOBAD VPN" in body
+
+
+def test_launch_code_signs_in_once_with_httponly_cookie(srv):
+    code = server.issue_launch_code()
+    st, h, body = req(srv, "GET", f"/?k={code}")
+    assert st == 303 and h["Location"] == "/" and body == b""
+    cookie = h["Set-Cookie"]
+    assert cookie.startswith(f"{server.COOKIE}={server.SESSION};")
+    assert "HttpOnly" in cookie and "SameSite=Strict" in cookie
+    assert req(srv, "GET", f"/?k={code}")[0] == 403                 # a code works only once
+    assert req(srv, "GET", "/?k=made-up")[0] == 403
+
+
+def test_signed_in_page_has_csp_and_no_secret(srv):
+    jar = {"Cookie": f"{server.COOKIE}={server.SESSION}"}
+    st, h, body = req(srv, "GET", "/", jar)
+    assert st == 200 and b"__TOKEN__" not in body and b"__VER__" not in body
+    assert server.TOKEN.encode() not in body and server.SESSION.encode() not in body
     assert "script-src 'self' 'unsafe-inline'" in h["Content-Security-Policy"] and "frame-ancestors 'none'" in h["Content-Security-Policy"]
+    assert req(srv, "GET", "/mini", jar)[0] == 200
+
+
+def test_expired_launch_code_is_refused(srv, monkeypatch):
+    code = server.issue_launch_code()
+    monkeypatch.setattr(server, "LAUNCH_TTL", -1)
+    assert req(srv, "GET", f"/?k={code}")[0] == 403
+
+
+def test_api_accepts_cookie_or_header_only(srv):
+    assert req(srv, "GET", "/api/state", {"Cookie": f"{server.COOKIE}={server.SESSION}"})[0] == 200
+    assert req(srv, "GET", "/api/state", {"Cookie": f"{server.COOKIE}=wrong"})[0] == 401
+    assert req(srv, "GET", f"/api/state?t={server.TOKEN}")[0] == 401          # no secrets in URLs any more
+    assert req(srv, "GET", f"/events?t={server.TOKEN}")[0] == 401
+
+
+def test_api_import_never_allows_script_hooks(srv):
+    conf = ("[Interface]\nPrivateKey = " + "A" * 43 + "=\nAddress = 10.0.0.2/32\nPostUp = calc.exe\n\n[Peer]\n"
+            "PublicKey = " + "B" * 43 + "=\nEndpoint = 1.2.3.4:51820\nAllowedIPs = 0.0.0.0/0\n")
+    body = json.dumps({"name": "hooktest", "content": conf, "untrusted": False}).encode()
+    st, _h, data = req(srv, "POST", "/api/import", {"X-Token": server.TOKEN}, body)
+    assert st == 200 and json.loads(data)["ok"] is False
 
 
 def test_dns_rebinding_host_rejected(srv):

@@ -132,6 +132,11 @@ class WindowApi:
         request_quit(False)
 
 
+def _signed(base_url, path):
+    from .server import launch_url
+    return launch_url(base_url, path)
+
+
 class WindowManager:
     def __init__(self, base_url):
         self.url = base_url
@@ -183,10 +188,10 @@ class WindowManager:
         if self._maximized:
             kw["maximized"] = True
         try:
-            self.main = webview.create_window(WINDOW_TITLE, self.url + "/", **kw)
+            self.main = webview.create_window(WINDOW_TITLE, _signed(self.url, "/"), **kw)
         except TypeError:  # older pywebview without `maximized`
             kw.pop("maximized", None)
-            self.main = webview.create_window(WINDOW_TITLE, self.url + "/", **kw)
+            self.main = webview.create_window(WINDOW_TITLE, _signed(self.url, "/"), **kw)
         self._wire(self.main)
         self._on_shown = on_shown
         self._revealed = False
@@ -222,7 +227,7 @@ class WindowManager:
                       background_color="#0b0c10", text_select=False)
             if x is not None:
                 kw.update(x=x, y=y)
-            self.mini = self.webview.create_window("NOBAD VPN", self.url + "/mini", **kw)
+            self.mini = self.webview.create_window("NOBAD VPN", _signed(self.url, "/mini"), **kw)
             self.mini.events.closing += self._mini_closing
         return self.mini
 
@@ -255,7 +260,7 @@ class WindowManager:
     # ---- show / hide
     def show_main(self):
         if self.main is None:
-            webbrowser.open(self.url + "/")
+            webbrowser.open(_signed(self.url, "/"))
             return
         try:
             self.main.show()

@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import threading
 import time
@@ -15,7 +16,7 @@ from . import reach
 from .const import APP_VER, FROZEN, UPDATE_DIR, UPDATE_SIGNER_SUBJECTS, UPDATE_SIGNER_THUMBPRINTS
 from .ctx import ctx
 from .logbus import broadcast, log
-from .syscmd import run
+from .syscmd import private_workdir, run
 
 
 def parse_version(v):
@@ -88,8 +89,11 @@ class Updater:
                 self._set(error="No update to install.")
                 return
             self._set(busy=True, progress=0, error=None)
-            os.makedirs(UPDATE_DIR, exist_ok=True)
-            path = os.path.join(UPDATE_DIR, "NobadVPN-Setup-" + re.sub(r"[^0-9A-Za-z.\-]", "_", m["version"]) + ".exe")
+            for old in os.listdir(UPDATE_DIR) if os.path.isdir(UPDATE_DIR) else ():
+                if old.startswith("update-"):                # earlier downloads (installed or refused)
+                    shutil.rmtree(os.path.join(UPDATE_DIR, old), ignore_errors=True)
+            work = private_workdir(UPDATE_DIR, "update-")    # admin-only: nobody can swap the file after the checks
+            path = os.path.join(work, "NobadVPN-Setup-" + re.sub(r"[^0-9A-Za-z.\-]", "_", m["version"]) + ".exe")
             h = hashlib.sha256()
             req = urllib.request.Request(m["url"], headers={"User-Agent": "NobadVPN/" + APP_VER})
             with reach.urlopen(req, timeout=30) as r, open(path, "wb") as f:
@@ -105,14 +109,14 @@ class Updater:
                     if total:
                         self._set(progress=int(got * 100 / total))
             if h.hexdigest() != m["sha256"]:
-                os.remove(path)
+                shutil.rmtree(work, ignore_errors=True)
                 self._set(busy=False, error="Downloaded file failed the SHA-256 check — not installed.")
                 return
             info = self.signature_info(path)
             self._set(signature=info["status"])
             ok, why = self.signature_acceptable(info, self.signature_info(sys.executable) if FROZEN else None)
             if not ok:
-                os.remove(path)
+                shutil.rmtree(work, ignore_errors=True)
                 log(f"update refused: {why}", "bad")
                 self._set(busy=False, error=f"Update not installed: {why}")
                 return

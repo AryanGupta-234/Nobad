@@ -30,6 +30,48 @@ def run(cmd, timeout=15, input_text=None):
         return _Result(str(e))
 
 
+ADMINS_SID = "*S-1-5-32-544"
+SYSTEM_SID = "*S-1-5-18"
+
+
+def lock_dir(path, allow_user=False):
+    """Make a folder private to SYSTEM + Administrators (+ the signed-in user if `allow_user`).
+
+    Also takes ownership for Administrators, recursively, and resets anything already inside to inherit the new
+    rules. Without that, an ordinary user who created the folder (or a file in it) before NOBAD did would stay its
+    owner and could give themselves access again. Returns True when the folder is locked."""
+    if os.name != "nt":
+        return True
+    owner = run(["icacls", path, "/setowner", ADMINS_SID, "/T", "/C", "/Q"], timeout=30)
+    grants = [f"{SYSTEM_SID}:(OI)(CI)F", f"{ADMINS_SID}:(OI)(CI)F"]
+    user = os.environ.get("USERNAME")
+    if allow_user and user:
+        grants.append(f"{user}:(OI)(CI)M")
+    cmd = ["icacls", path, "/inheritance:r"]
+    for g in grants:
+        cmd += ["/grant:r", g]
+    acl = run(cmd, timeout=15)
+    if any(os.scandir(path)):
+        run(["icacls", os.path.join(path, "*"), "/reset", "/T", "/C", "/Q"], timeout=60)
+    if owner.returncode != 0 or acl.returncode != 0:
+        log(f"couldn't make {path} private (owner {owner.returncode}, permissions {acl.returncode}): "
+            f"{(owner.stderr or acl.stderr or owner.stdout or acl.stdout or '').strip()[:160]}", "bad")
+        return False
+    return True
+
+
+def private_workdir(parent, prefix="w-"):
+    """A fresh, admin-only folder under `parent` for files that will run elevated (installers). Each download gets
+    its own folder, so nothing another user placed in `parent` earlier can be picked up or swapped in."""
+    import tempfile
+    os.makedirs(parent, exist_ok=True)
+    work = tempfile.mkdtemp(prefix=prefix, dir=parent)
+    if not lock_dir(work):
+        shutil.rmtree(work, ignore_errors=True)
+        raise PermissionError(f"couldn't make a private folder in {parent}")
+    return work
+
+
 def is_admin():
     try:
         return bool(ctypes.windll.shell32.IsUserAnAdmin())

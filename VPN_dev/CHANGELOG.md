@@ -2,6 +2,27 @@
 
 All notable changes to NOBAD VPN. Versions follow [semantic versioning](https://semver.org/).
 
+## 1.2.1 · 2026-11-12
+
+Security and reliability update. **Recommended for everyone.** 1.2.0 can't update itself (it only accepts signed
+installers, and releases aren't code-signed yet), so download 1.2.1 from GitHub Releases and install it over 1.2.0.
+
+### Security
+- **Only NOBAD's own window can control NOBAD.** The local control page no longer contains its access token. NOBAD
+  opens its windows with a one-time launch code that becomes an HttpOnly, SameSite=Strict session cookie; any other
+  program on the PC gets a locked page. Secrets are no longer passed in URLs.
+- **Imported configs never carry script hooks.** PreUp/PostUp/PreDown/PostDown are refused for every import (file,
+  paste, link, QR). They can still be added on purpose in the config editor.
+- **Private folders are really private.** `C:\ProgramData\NobadVPN` and its runtime folder are now owned by
+  Administrators and reset recursively, so a folder or file created there earlier by another user can't keep access.
+  Failures are reported instead of ignored.
+- **Installers run from a fresh admin-only folder.** App updates and the WireGuard installer are downloaded, checked
+  and run from a new private folder each time, so nothing can be swapped in between the check and the install.
+
+### Fixed
+- **Kill switch:** when a firewall rule has to be recreated, a bridge copy keeps blocking until the new rule is in
+  place, and failed rule changes are retried. Before, a failed re-add could leave the kill switch off mid-session.
+
 ## 1.2.0 · 2026-11-12
 
 First public, open-source release.

@@ -1,5 +1,12 @@
-"""Loopback HTTP server: per-launch token, Host/Origin checks, static UI files, SSE event stream."""
+"""Loopback HTTP server: per-launch token, Host/Origin checks, static UI files, SSE event stream.
+
+Authentication. The UI pages never contain a secret. NOBAD opens its windows with a one-time launch code
+(`launch_url`), which the server swaps for an HttpOnly, SameSite=Strict session cookie and then redirects to the
+clean URL. Any other local program that requests a page gets a "locked" page with no secret in it. The process-to-
+process client (lifecycle.py) uses the X-Token header with the token from the admin-only instance file."""
 import hmac
+import threading
+import time
 import json
 import mimetypes
 import os
@@ -14,7 +21,43 @@ from .api import api_post
 from .const import APP_VER, UI_DIR
 from .ctx import ctx
 
-TOKEN = secrets.token_urlsafe(24)
+TOKEN = secrets.token_urlsafe(24)       # header token for NOBAD's own processes (instance file, admin-only)
+SESSION = secrets.token_urlsafe(24)     # cookie value for the UI windows, never written into a page
+COOKIE = "nobad_s"
+LAUNCH_TTL = 600                        # seconds a launch code stays valid; each code works once
+_launch = {}
+_launch_lock = threading.Lock()
+
+
+def issue_launch_code():
+    code = secrets.token_urlsafe(24)
+    now = time.monotonic()
+    with _launch_lock:
+        for k in [k for k, t in _launch.items() if now - t > LAUNCH_TTL]:
+            del _launch[k]
+        _launch[code] = now
+    return code
+
+
+def _redeem_launch_code(code):
+    if not code:
+        return False
+    with _launch_lock:
+        t = _launch.pop(code, None)
+    return t is not None and time.monotonic() - t <= LAUNCH_TTL
+
+
+def launch_url(base_url, path="/"):
+    """URL that opens a UI page and signs the window in once. Create a fresh one for every window you open."""
+    return f"{base_url}{path}?k={issue_launch_code()}"
+
+
+LOCKED_PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8"><title>NOBAD VPN</title>
+<style>body{margin:0;display:grid;place-items:center;min-height:100vh;background:#07090d;color:#e8eaf0;
+font:15px/1.6 system-ui,Segoe UI,sans-serif}main{max-width:420px;padding:24px;text-align:center}
+h1{font-size:20px;margin:0 0 8px}p{color:#9aa3b2;margin:0}</style></head><body><main><h1>NOBAD VPN</h1>
+<p>This page only opens from NOBAD VPN itself. Open NOBAD VPN from the Start menu or the tray icon.</p>
+</main></body></html>"""
 _STATIC_OK = re.compile(r"^[A-Za-z0-9_\-]+(/[A-Za-z0-9_\-]+)*\.(js|css|json|svg|png|ico)$")
 CSP = ("default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "
        "img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; frame-ancestors 'none'; "
@@ -45,9 +88,19 @@ class Handler(BaseHTTPRequestHandler):
         o = self.headers.get("Origin")
         return not o or o in (f"http://127.0.0.1:{port}", f"http://localhost:{port}")
 
+    def _cookie_session(self):
+        for part in self.headers.get("Cookie", "").split(";"):
+            k, _, v = part.strip().partition("=")
+            if k == COOKIE:
+                return v
+        return ""
+
     def _auth(self, qs=None):
-        t = self.headers.get("X-Token") or (qs or {}).get("t", [""])[0]
-        return hmac.compare_digest(t, TOKEN)
+        t = self.headers.get("X-Token", "")
+        if t and hmac.compare_digest(t, TOKEN):
+            return True
+        c = self._cookie_session()
+        return bool(c) and hmac.compare_digest(c, SESSION)
 
     def _send(self, code, body, ctype="application/json"):
         if isinstance(body, (dict, list)):
@@ -64,11 +117,24 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def _page(self, name):
+    def _page(self, name, path, qs):
+        code = qs.get("k", [""])[0]
+        if code:
+            if not _redeem_launch_code(code):
+                return self._send(403, LOCKED_PAGE, "text/html; charset=utf-8")
+            self.send_response(303)
+            self.send_header("Location", path)
+            self.send_header("Set-Cookie", f"{COOKIE}={SESSION}; Path=/; HttpOnly; SameSite=Strict")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        if not self._auth():
+            return self._send(403, LOCKED_PAGE, "text/html; charset=utf-8")
         raw = _read_ui(name)
         if raw is None:
             return self._send(404, {"ok": False})
-        html = raw.decode("utf-8").replace("__TOKEN__", TOKEN).replace("__VER__", APP_VER)
+        html = raw.decode("utf-8").replace("__VER__", APP_VER)
         self._send(200, html, "text/html; charset=utf-8")
 
     def do_GET(self):
@@ -77,9 +143,9 @@ class Handler(BaseHTTPRequestHandler):
         if not self._origin_ok():
             return self._send(403, {"ok": False})
         if u.path == "/":
-            return self._page("index.html")
+            return self._page("index.html", "/", qs)
         if u.path == "/mini":
-            return self._page("mini.html")
+            return self._page("mini.html", "/mini", qs)
         if u.path == "/favicon.ico":
             raw = _read_ui("brand/nobad.ico")
             return self._send(200, raw, "image/x-icon") if raw else self._send(404, {"ok": False})

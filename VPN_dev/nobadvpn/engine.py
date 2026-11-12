@@ -19,22 +19,13 @@ from .const import (CONFIG_DIR, FAIL_THRESHOLD, GEO_PATH, HEALTH_SEC, LEGACY_CON
 from .ctx import ctx
 from .logbus import broadcast, log, recent_log, has_subscribers
 from .notify import notify
-from .syscmd import (is_admin, is_busy as syscmd_busy, ping_stats, probe_endpoint, quality_of, run, service_running, spawn,
-                     wg_tool)
+from .syscmd import (is_admin, is_busy as syscmd_busy, lock_dir, ping_stats, probe_endpoint, quality_of, run,
+                     service_running, spawn, wg_tool)
 
 
 def _lock_dir(path, allow_user):
     """Restrict a folder to SYSTEM + Administrators (+ the current user for the configs folder)."""
-    if os.name != "nt":
-        return
-    grants = ["*S-1-5-18:(OI)(CI)F", "*S-1-5-32-544:(OI)(CI)F"]
-    user = os.environ.get("USERNAME")
-    if allow_user and user:
-        grants.append(f"{user}:(OI)(CI)M")
-    cmd = ["icacls", path, "/inheritance:r"]
-    for g in grants:
-        cmd += ["/grant:r", g]
-    run(cmd, timeout=10)
+    return lock_dir(path, allow_user)
 
 
 _dirs = {"done": False, "config_dir": CONFIG_DIR}
@@ -52,8 +43,8 @@ def ensure_dirs():
     _dirs["done"] = True
     try:
         os.makedirs(CONFIG_DIR, exist_ok=True)
-        _lock_dir(DATA_DIR, False)
-        _lock_dir(CONFIG_DIR, True)
+        if not (_lock_dir(DATA_DIR, False) and _lock_dir(CONFIG_DIR, True)) and is_admin():
+            log(f"{DATA_DIR} may be readable by other users — check its permissions", "bad")
     except OSError as e:
         _dirs["config_dir"] = LEGACY_CONFIG_DIR  # can't use ProgramData (not admin?) — fall back
         os.makedirs(LEGACY_CONFIG_DIR, exist_ok=True)
@@ -321,9 +312,7 @@ class Tunnel:
     # ------------------------------------------------------------------ runtime copies
     def _secure_runtime_dir(self):
         os.makedirs(RUNTIME_DIR, exist_ok=True)
-        if os.name == "nt":
-            run(["icacls", RUNTIME_DIR, "/inheritance:r", "/grant:r",
-                 "*S-1-5-18:(OI)(CI)F", "*S-1-5-32-544:(OI)(CI)F"], timeout=10)
+        lock_dir(RUNTIME_DIR)
 
     def _write_runtime(self, region, body, encrypted):
         self._secure_runtime_dir()
