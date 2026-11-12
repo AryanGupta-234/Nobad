@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Code signing policy · NOBAD</title>
+<meta name="description" content="How NOBAD's Windows releases are built and signed, and who approves them.">
+<style>
+:root{--o:#ff4d00;--k:#000;--w:#fff;--m:rgba(255,255,255,.7);--line:rgba(255,255,255,.18)}
+*{box-sizing:border-box}body{margin:0;background:var(--k);color:var(--w);font:16px/1.65 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+a{color:var(--o)}main{max-width:820px;margin:auto;padding:56px 22px 80px}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:44px}.top a{color:var(--w);text-decoration:none;font-weight:700}
+h1{font-size:clamp(34px,6vw,58px);line-height:1;margin:0 0 18px;letter-spacing:-.02em}h2{font-size:21px;margin:36px 0 10px}
+p,li{color:var(--m)}table{width:100%;border-collapse:collapse;margin:10px 0}td,th{border-bottom:1px solid var(--line);padding:10px 8px;text-align:left}
+th{color:var(--w);font-weight:600}.note{border:1px solid var(--o);border-radius:12px;padding:14px 16px;color:var(--w)}
+footer{margin-top:56px;border-top:1px solid var(--line);padding-top:18px;font-size:13px;color:var(--m)}
+</style>
+</head>
+<body>
+<main>
+<div class="top"><a href="/">← NOBAD</a><a href="/products/vpn/">NOBAD VPN</a></div>
+<h1>Code signing policy</h1>
+<p>NOBAD is an independent, free and open-source software studio. This page explains how the Windows releases of
+NOBAD VPN are built and signed, and who is responsible for them.</p>
+
+<div class="note"><b>Current status:</b> NOBAD VPN releases are <b>not code-signed yet</b>. An application for free
+code signing for open-source projects (SignPath Foundation) is being prepared. Until a release is signed, verify the
+SHA-256 published with each <a href="https://github.com/AryanGupta-234/Nobad/releases">GitHub Release</a>.</div>
+
+<h2>Signing</h2>
+<p>Once approved, Windows binaries will be signed through <a href="https://signpath.io">SignPath.io</a>, with a
+certificate issued to the SignPath Foundation, which offers this free of charge to open-source projects. The private
+key stays in SignPath's hardware security module; NOBAD never has it.</p>
+
+<h2>What is signed</h2>
+<ul>
+<li>Only binaries built from this project's own source code: <code>NobadVPN.exe</code> and its installer
+<code>NobadVPN-Setup-&lt;version&gt;.exe</code>.</li>
+<li>Every signed release is built automatically by GitHub Actions from a tagged commit in the public repository
+<a href="https://github.com/AryanGupta-234/Nobad">github.com/AryanGupta-234/Nobad</a>.</li>
+<li>The official WireGuard for Windows installers bundled with NOBAD VPN are <b>not</b> re-signed. They keep WireGuard
+LLC's own signature, which NOBAD verifies before bundling and before installing them.</li>
+<li>Product name and version are set on every binary.</li>
+</ul>
+
+<h2>Team roles</h2>
+<table>
+<tr><th>Role</th><th>Who</th><th>Responsibility</th></tr>
+<tr><td>Committers and reviewers</td><td><a href="https://github.com/AryanGupta-234">Aryan Gupta</a></td><td>Write the code, and review all outside contributions before they are merged.</td></tr>
+<tr><td>Approvers</td><td><a href="https://github.com/AryanGupta-234">Aryan Gupta</a></td><td>Manually approve every signing request for a release.</td></tr>
+</table>
+<p>Team members use multi-factor authentication for the code repository and the signing service.</p>
+
+<h2>Privacy</h2>
+<p>NOBAD VPN doesn't collect telemetry, and it doesn't transfer information to other networked systems unless you ask
+it to, or switch on a feature that needs it. See the <a href="/privacy/">privacy policy</a> for every connection it
+can make and when.</p>
+
+<h2>Reporting problems</h2>
+<p>Security issues: report them privately via
+<a href="https://github.com/AryanGupta-234/Nobad/security/advisories/new">GitHub private vulnerability reporting</a>.
+Other issues: <a href="https://github.com/AryanGupta-234/Nobad/issues">GitHub Issues</a>.</p>
+
+<footer>© NOBAD · MIT-licensed open source · <a href="/privacy/">Privacy policy</a></footer>
+</main>
+</body>
+</html>

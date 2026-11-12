@@ -171,6 +171,13 @@ await cp(
 await cp(resolve(root, "docs"), resolve(output, "docs"), { recursive: true });
 await cp(resolve(root, "assets"), resolve(output, "assets"), { recursive: true });
 
+// Plain HTML pages (code signing policy, privacy policy), copied as they are.
+try {
+  await cp(resolve(root, "site-pages"), output, { recursive: true });
+} catch (error) {
+  if (error.code !== "ENOENT") throw error;
+}
+
 const downloads = resolve(root, "downloads");
 try {
   await cp(downloads, resolve(output, "downloads"), { recursive: true });

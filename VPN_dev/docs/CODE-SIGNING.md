@@ -8,6 +8,32 @@ A VPN installer runs with administrator rights. Unsigned, it has three problems:
 
 `packaging/build.ps1` supports all three signing routes below.
 
+## Recommended for NOBAD: free signing for open source (SignPath Foundation)
+
+NOBAD VPN is MIT-licensed and built by GitHub Actions from the public repository, which is exactly what the
+**SignPath Foundation** supports **free of charge** for open-source projects: <https://signpath.org/apply>. The
+certificate is issued to the SignPath Foundation, the key stays in SignPath's HSM, and every release needs a manual
+approval in SignPath.
+
+What their terms ask for, and where NOBAD stands:
+
+| Condition | Status |
+|---|---|
+| OSI licence, actively maintained, already released | MIT; 1.2.0 is on GitHub Releases |
+| Verifiable build from source; manual approval per release | `.github/workflows/vpn-release.yml` builds from the tag |
+| *Code signing policy* on the home page, with team roles and a privacy policy | `/code-signing-policy/` and `/privacy/`, linked from the home page footer |
+| Product name and version on the binaries | `packaging/make_version_info.py` |
+| Uninstaller; system changes disclosed | Inno Setup uninstaller; `docs/SYSTEM-INTEGRATION.md` |
+| MFA for every team member (GitHub and SignPath) | the maintainer must have two-factor authentication on |
+| No non-open-source components | **check with SignPath:** the installer bundles WireGuard LLC's signed MSIs (not re-signed by NOBAD). If they object, switch the installer to download WireGuard at install time (the app's `wginstall.py` already can). |
+
+After approval, SignPath gives you an organization id, a project slug, a signing policy and an API token. Store the
+token as a GitHub Actions secret, and add SignPath's GitHub Action to `vpn-release.yml` **between the build step and
+the release step**, following SignPath's documentation for the exact inputs: it uploads the unsigned installer and
+waits for your approval. The workflow then publishes the signed files.
+
+Paid alternatives are below, if signing under NOBAD's own name is needed later.
+
 ## Which route fits
 
 | Route | Who can use it | Notes |

@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Privacy policy · NOBAD</title>
+<meta name="description" content="What NOBAD VPN and the NOBAD website do and don't do with your data.">
+<style>
+:root{--o:#ff4d00;--k:#000;--w:#fff;--m:rgba(255,255,255,.7);--line:rgba(255,255,255,.18)}
+*{box-sizing:border-box}body{margin:0;background:var(--k);color:var(--w);font:16px/1.65 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+a{color:var(--o)}main{max-width:820px;margin:auto;padding:56px 22px 80px}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:44px}.top a{color:var(--w);text-decoration:none;font-weight:700}
+h1{font-size:clamp(34px,6vw,58px);line-height:1;margin:0 0 18px;letter-spacing:-.02em}h2{font-size:21px;margin:36px 0 10px}
+p,li{color:var(--m)}table{width:100%;border-collapse:collapse;margin:10px 0}td,th{border-bottom:1px solid var(--line);padding:10px 8px;text-align:left;vertical-align:top}
+th{color:var(--w);font-weight:600}footer{margin-top:56px;border-top:1px solid var(--line);padding-top:18px;font-size:13px;color:var(--m)}
+</style>
+</head>
+<body>
+<main>
+<div class="top"><a href="/">← NOBAD</a><a href="/products/vpn/">NOBAD VPN</a></div>
+<h1>Privacy policy</h1>
+<p>Last updated 12 November 2026. NOBAD is an independent, free and open-source studio. We don't sell data, we don't
+run user accounts, and NOBAD VPN has no telemetry. Because everything is open source, you can check every statement
+below in the <a href="https://github.com/AryanGupta-234/Nobad">source code</a>.</p>
+
+<h2>NOBAD VPN (the Windows app)</h2>
+<ul>
+<li><b>No telemetry, no accounts, no analytics.</b> NOBAD doesn't run VPN servers. It connects to the servers in the
+WireGuard configs you import, so your VPN provider's own privacy policy applies to your VPN traffic.</li>
+<li><b>Everything stays on your PC:</b> configs and private keys, settings, logs, usage history and diagnostic
+history, in <code>C:\ProgramData\NobadVPN</code> (readable only by administrators).</li>
+</ul>
+<p>The app connects to other services only in these cases:</p>
+<table>
+<tr><th>When</th><th>What is sent, and to whom</th></tr>
+<tr><td>You connect</td><td>Your VPN traffic goes to <b>your VPN server</b>, as set in your config.</td></tr>
+<tr><td>Every start (connectivity check)</td><td>A ping to 1.1.1.1 and one DNS lookup, to tell you whether the internet works.</td></tr>
+<tr><td><i>Look up my exit IP address</i> (<b>off by default</b>)</td><td>Your public IP address and your servers' addresses, to ipinfo.io (with fallbacks), to show locations on the map.</td></tr>
+<tr><td>You run a speed test or service check</td><td>Downloads from Cloudflare, and simple requests to the streaming sites being checked.</td></tr>
+<tr><td>You use <i>Where to watch</i></td><td>Your search and your own TMDB key, to TMDB (titles and JustWatch availability data); look-ups to Wikipedia and Wikidata for documented restrictions.</td></tr>
+<tr><td>You use Network Intelligence</td><td>DNS queries and test connections to the site you investigate, and to public DNS resolvers.</td></tr>
+<tr><td>WireGuard is missing</td><td>The official installer is downloaded from download.wireguard.com (only if the bundled copy can't be used).</td></tr>
+<tr><td>Updates</td><td>Only if an update address is configured: the update manifest and installer are downloaded from it.</td></tr>
+<tr><td>Crash reports</td><td><b>Off.</b> Nothing is sent. You can export a diagnostics file with private keys removed and attach it to a GitHub issue yourself.</td></tr>
+</table>
+<p>The full technical list is in
+<a href="https://github.com/AryanGupta-234/Nobad/blob/main/VPN_dev/docs/SYSTEM-INTEGRATION.md">SYSTEM-INTEGRATION.md</a>.</p>
+
+<h2>This website</h2>
+<ul>
+<li>It is hosted by <b>Cloudflare</b>, which processes the technical data any website request involves (such as your IP
+address) to deliver and protect the site. See Cloudflare's privacy policy.</li>
+<li>The main pages load fonts from <b>Google Fonts</b>, so your browser contacts Google when you open them. These
+policy pages don't.</li>
+<li>No cookies, analytics or advertising trackers are used by NOBAD.</li>
+<li>Downloads are served by <b>GitHub Releases</b> (GitHub's privacy statement applies).</li>
+</ul>
+
+<h2>Contact</h2>
+<p>Questions or concerns: open an issue on <a href="https://github.com/AryanGupta-234/Nobad/issues">GitHub</a>, or report
+something sensitive privately via <a href="https://github.com/AryanGupta-234/Nobad/security/advisories/new">private
+vulnerability reporting</a>.</p>
+
+<footer>© NOBAD · MIT-licensed open source · <a href="/code-signing-policy/">Code signing policy</a></footer>
+</main>
+</body>
+</html>
