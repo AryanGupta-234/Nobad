@@ -4,10 +4,12 @@
 built in the open and developed in collaboration with AI. It's in its initial launch phase; **NOBAD VPN** is its
 first major release.
 
+**Website:** <https://nobad-platform.aassworld99.workers.dev/> · [Code signing policy](https://nobad-platform.aassworld99.workers.dev/code-signing-policy/) · [Privacy policy](https://nobad-platform.aassworld99.workers.dev/privacy/)
+
 | Product | What it is | Where |
 |---|---|---|
 | **NOBAD VPN** | A WireGuard client for Windows with a kill switch, DNS leak block, Network Intelligence, "Fix my internet" and Where to watch | [`VPN_dev/`](VPN_dev/) · [Releases](https://github.com/AryanGupta-234/Nobad/releases) |
-| Website | nobad.dev, the product pages and the download desk | [`site-source/`](site-source/) |
+| Website | [nobad-platform.aassworld99.workers.dev](https://nobad-platform.aassworld99.workers.dev/), the product pages and the download desk | [`site-source/`](site-source/) |
 
 ## Download NOBAD VPN
 
