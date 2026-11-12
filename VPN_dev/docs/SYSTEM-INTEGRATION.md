@@ -192,9 +192,9 @@ Turning the setting off stops all of these.
 | Destination | When |
 |---|---|
 | ping `1.1.1.1`, your router, DNS lookup of `example.com` | *Run network check*; also automatically once per UI launch |
-| `https://speed.cloudflare.com/__down?bytes=8000000` | *Run speed test*; at launch only if *Run checks at startup* is on (off by default) |
-| `https://www.cloudflare.com/cdn-cgi/trace`, `https://www.netflix.com/title/80018499`, `https://www.youtube.com/generate_204`, `https://www.disneyplus.com/`, `https://www.primevideo.com/`, `https://open.spotify.com/`, `https://www.twitch.tv/` | *Check* (service reachability); at launch only with *Run checks at startup*; the watched service (and the Cloudflare baseline) about 20 s after each connect and every 30 min when *Watch a streaming service* is set |
-| VALORANT list in `tools.py`: ICMP/TCP to the community-reported Riot edge IPs listed for Mumbai and Singapore (for example `151.106.246.1`, `151.106.248.1`) and TCP 443 to `ec2.<region>.amazonaws.com` hosts | *Refresh all* on the Network tab; at launch only with *Run checks at startup* |
+| `https://speed.cloudflare.com/__down?bytes=8000000` | *Run speed test*; at launch only if *Run extra checks at startup* is on (off by default) |
+| `https://www.cloudflare.com/cdn-cgi/trace`, `https://www.netflix.com/title/80018499`, `https://www.youtube.com/generate_204`, `https://www.disneyplus.com/`, `https://www.primevideo.com/`, `https://open.spotify.com/`, `https://www.twitch.tv/` | *Check* (service reachability); at launch only with *Run extra checks at startup*; the watched service (and the Cloudflare baseline) about 20 s after each connect and every 30 min when *Watch a streaming service* is set |
+| VALORANT list in `tools.py`: ICMP/TCP to the community-reported Riot edge IPs listed for Mumbai and Singapore (for example `151.106.246.1`, `151.106.248.1`) and TCP 443 to `ec2.<region>.amazonaws.com` hosts | *Refresh all* on the Network tab; at launch only with *Run extra checks at startup* |
 | a game server you type in | *Test custom* (ping x5) |
 | an `https://` URL you type in | *Import from URL* (max 100,000 bytes) |
 

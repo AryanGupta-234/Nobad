@@ -354,7 +354,7 @@ function updateWizard(st) {
   const s = st.settings || {};
   const tog = (k, label) => `<label style="display:inline-flex;gap:8px;align-items:center;margin-right:14px"><span class="sw"><input type="checkbox" data-wt="${k}" ${s[k] ? "checked" : ""} aria-label="${esc(label)}"><i></i></span><span>${esc(label)}</span></label>`;
   box.innerHTML =
-    item(st.wireguard, t("WireGuard for Windows"), st.wireguard ? t("Installed.") : t("Not found. NOBAD uses the official WireGuard service."), st.wireguard ? "" : B("install", t("Install with winget")) + B("download", t("Open download page"))) +
+    item(st.wireguard, t("WireGuard for Windows"), st.wireguard ? t("Installed.") : t("Not found. NOBAD uses the official WireGuard service."), st.wireguard ? "" : B("install", t("Install WireGuard")) + B("download", t("Open download page"))) +
     item(st.admin, t("Administrator rights"), st.admin ? t("Running as administrator.") : t("Needed for tunnels and firewall rules."), st.admin ? "" : B("elevate", t("Relaunch as administrator"))) +
     item(st.regions.length > 0, t("A server config"), st.regions.length ? t("{n} server(s) found.", { n: st.regions.length }) : t("Import a WireGuard .conf from your provider."),
       B("files", t("Choose files…")) + B("url", t("From URL")) + B("qr", t("From QR image")) + B("paste", t("Paste")) + B("folder", t("Open folder"))) +
@@ -415,7 +415,7 @@ const GROUPS = [
     { k: "visual_effects", n: "Visual effects", d: "Frosted glass and ambient animations. Off keeps NOBAD light on CPU, GPU and battery.", kw: "performance animation blur battery lag" } ] },
   { id: "privacy", title: "Privacy & security", rows: [
     { k: "ip_lookup", n: "Look up my exit IP address", d: "Sends your public IP to third-party services (ipinfo.io and fallbacks) to show where you appear to be. Off means no lookup at all.", kw: "ipinfo third party" },
-    { k: "startup_checks", n: "Run checks at startup", d: "Speed test, service checks and a network check each time NOBAD starts. These contact third-party sites.", kw: "speed test" },
+    { k: "startup_checks", n: "Run extra checks at startup", d: "Also runs the speed test, streaming service checks and VALORANT region checks each time NOBAD starts. These contact third-party sites. A quick connectivity check always runs.", kw: "speed test valorant" },
     { k: "encrypt_configs", n: "Encrypt stored configs (Windows DPAPI)", d: "Stores .conf files encrypted. This protects copies, backups and a stolen disk, not other administrators on this PC.", kw: "dpapi keys" },
     { k: "crash_reporting", n: "Send crash reports (opt-in)", d: "Off by default. Reports are always saved locally; they're only sent if this is on and a server URL is set.", kw: "telemetry" },
     { k: "crash_report_url", n: "Crash report server", d: "HTTPS URL that receives reports.", type: "text", ph: "https://", kw: "telemetry" },

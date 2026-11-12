@@ -344,7 +344,7 @@ Privacy notes:
 
 * **Look up my exit IP address** is **on** by default. It sends your public IP address to ipinfo.io (and fallback
   services) to show where you appear to be and to place servers on the map. Turn it off for no lookups at all.
-* **Run checks at startup** is off by default. A quick network check and the IP lookup (if allowed) still run each
+* **Run extra checks at startup** is off by default. A quick network check and the IP lookup (if allowed) still run each
   time NOBAD opens.
 * **Encrypt stored configs** protects your config files if they are copied, backed up or the disk is stolen. It does
   not protect them from other administrators on this PC.
