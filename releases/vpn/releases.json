@@ -1,6 +1,19 @@
 {
   "schemaVersion": 1,
   "product": "nobad-vpn",
-  "latest": null,
-  "releases": []
+  "latest": "1.2.0",
+  "releases": [
+    {
+      "version": "1.2.0",
+      "releaseDate": "2026-11-12",
+      "channel": "stable",
+      "platform": "Windows 10 (1809+) / 11",
+      "architecture": "x64 (ARM64 via emulation)",
+      "summary": "First open-source release: Where to watch, Network Intelligence, Fix my internet, own title bar, live day/night map. Not code-signed yet.",
+      "downloadUrl": "https://github.com/AryanGupta-234/Nobad/releases/download/vpn-v1.2.0/NobadVPN-Setup-1.2.0.exe",
+      "notesUrl": "https://github.com/AryanGupta-234/Nobad/releases/tag/vpn-v1.2.0",
+      "sha256": "a957a7975b215638e62f8ca23b97fa86da411ce3a78147a0f1ba3eaffd84cc8a",
+      "size": "24.5 MB"
+    }
+  ]
 }
