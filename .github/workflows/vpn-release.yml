@@ -58,7 +58,7 @@ jobs:
 
       - name: Release notes from CHANGELOG.md
         run: |
-          python -c "import re,sys;s=open('CHANGELOG.md',encoding='utf-8').read();m=re.search(r'^## ' + re.escape(sys.argv[1]) + r'\b.*?(?=^## |\Z)', s, re.S|re.M);print(m.group(0) if m else 'See CHANGELOG.md')" $env:APP_VER | Out-File -Encoding utf8 dist-installer\release-notes.md
+          python -c "import re,sys;s=open('CHANGELOG.md',encoding='utf-8').read();m=re.search(r'^## ' + re.escape(sys.argv[1]) + r'\b.*?(?=^## |\Z)', s, re.S|re.M);open(sys.argv[2],'w',encoding='utf-8').write(m.group(0) if m else 'See CHANGELOG.md')" $env:APP_VER dist-installer\release-notes.md
 
       - name: Keep the build as a workflow artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
