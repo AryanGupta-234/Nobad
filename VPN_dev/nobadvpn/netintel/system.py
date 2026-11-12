@@ -58,6 +58,8 @@ def _addr_kind(ip):
         return "link-local"
     if a.version == 4 and a in ipaddress.ip_network("100.64.0.0/10"):
         return "cgnat"
+    if a.version == 6 and a in ipaddress.ip_network("fec0::/10"):
+        return "site-local"   # deprecated; Windows lists fec0:0:0:ffff::1-3 as placeholder DNS when none is set
     if a.is_private:
         return "private"
     if a.is_global:
@@ -133,7 +135,7 @@ def system_resolvers(snap):
         if not a:
             continue
         for d in a["dns4"] + a["dns6"]:
-            if d not in [x["ip"] for x in out] and _addr_kind(d) not in ("link-local", "invalid"):
+            if d not in [x["ip"] for x in out] and _addr_kind(d) not in ("link-local", "site-local", "invalid"):
                 out.append({"ip": d, "via": via, "adapter": a["name"], "kind": _addr_kind(d)})
     return out
 
@@ -143,7 +145,7 @@ def network_resolvers(snap):
     even when Windows is set to something else, so filtering by the network's own DNS is still visible."""
     a = adapter(snap, snap.get("primary")) or {}
     return [{"ip": d, "via": "dhcp", "adapter": a.get("name"), "kind": _addr_kind(d)}
-            for d in a.get("dhcp_dns", []) if _addr_kind(d) not in ("link-local", "invalid")]
+            for d in a.get("dhcp_dns", []) if _addr_kind(d) not in ("link-local", "site-local", "invalid")]
 
 
 def signature(snap):

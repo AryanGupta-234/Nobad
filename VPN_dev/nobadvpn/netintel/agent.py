@@ -154,7 +154,7 @@ class FixAgent:
         key = history.network_key(snap)
         reason = f"{'Auto-fix' if not manual else 'Fix'}: {name} was filtered by the network's DNS"
         eid = netjournal.record("dns", p["adapter"], before, {"servers": p["servers"]}, reason,
-                                network=key, target=name, auto=not manual)
+                                network=key, site=name, auto=not manual)
         servers = "@(" + ",".join(f"'{s}'" for s in p["servers"]) + ")"
         r = _ps(f"$ErrorActionPreference='Stop';Set-DnsClientServerAddress -InterfaceIndex {int(idx)} -ServerAddresses {servers};"
                 "Clear-DnsClientCache", runner=self.runner)

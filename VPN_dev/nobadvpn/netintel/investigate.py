@@ -121,6 +121,18 @@ def _tokens(*texts):
     return out
 
 
+def _token_matches(prov, tgt):
+    """Provider words that also name the redirect/sinkhole. Exact, or one word starting the other when the shorter
+    one is distinctive (>= 5 letters): 'airtel' matches 'airtelspam', 'comcast' matches 'comcastblock'."""
+    out = set(prov & tgt)
+    for p in prov:
+        for t in tgt:
+            a, b = (p, t) if len(p) <= len(t) else (t, p)
+            if len(a) >= 5 and b.startswith(a):
+                out.add(p)
+    return out
+
+
 def _finding(kind, layer, severity, confidence, title, evidence, recommend=(), **extra):
     return {"kind": kind, "layer": layer, "severity": severity, "confidence": round(confidence, 2),
             "confidence_label": "high" if confidence >= 0.8 else "medium" if confidence >= 0.55 else "low",
@@ -282,7 +294,7 @@ def isp_evidence(filt, snap, resolvers, home, exit_info, tunnel):
             sink_ptrs[ip] = p
     prov = _tokens(*provider_texts)
     tgt = _tokens(*[dnsintel.registrable(t) for t in targets], *sink_ptrs.values())
-    m = sorted(prov & tgt)
+    m = sorted(_token_matches(prov, tgt))
     return {"provider_label": "; ".join(labels) or None, "matches": m, "redirect_targets": targets,
             "sinkhole_ptr": sink_ptrs, "provider_known": bool(provider_texts),
             "note": None if provider_texts else "Turn on 'Look up my exit IP address' (Privacy) to let NOBAD name your provider."}
