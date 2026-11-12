@@ -1,8 +1,20 @@
 {
   "schemaVersion": 1,
   "product": "nobad-vpn",
-  "latest": "1.2.0",
+  "latest": "1.2.1",
   "releases": [
+    {
+      "version": "1.2.1",
+      "releaseDate": "2026-11-12",
+      "channel": "stable",
+      "platform": "Windows 10 (1809+) / 11",
+      "architecture": "x64 (ARM64 via emulation)",
+      "summary": "Security and reliability update: app controls locked to NOBAD's own window, safer folders and installers, gap-free kill switch, faster UI, tab and window fixes.",
+      "downloadUrl": "https://github.com/AryanGupta-234/Nobad/releases/download/vpn-v1.2.1/NobadVPN-Setup-1.2.1.exe",
+      "notesUrl": "https://github.com/AryanGupta-234/Nobad/releases/tag/vpn-v1.2.1",
+      "sha256": "05426848a30b5902c20d3ddd6e51897bc5d3b17e030e4d12fdfbb46d850fa24b",
+      "size": "24.5 MB"
+    },
     {
       "version": "1.2.0",
       "releaseDate": "2026-11-12",
