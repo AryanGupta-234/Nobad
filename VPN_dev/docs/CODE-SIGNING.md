@@ -32,6 +32,12 @@ token as a GitHub Actions secret, and add SignPath's GitHub Action to `vpn-relea
 the release step**, following SignPath's documentation for the exact inputs: it uploads the unsigned installer and
 waits for your approval. The workflow then publishes the signed files.
 
+**Updater note.** A SignPath Foundation certificate is shared by every project SignPath signs, so its subject or
+thumbprint alone can't tell a NOBAD installer from another project's. Before turning on automatic updates for
+SignPath-signed builds, the updater must also check something only NOBAD's release can produce, for example the
+GitHub build-provenance attestation the release workflow now creates, or a NOBAD-held key that signs
+`latest.json`. Until then, keep `UPDATE_SIGNER_SUBJECTS` empty and update by hand.
+
 Paid alternatives are below, if signing under NOBAD's own name is needed later.
 
 ## Which route fits

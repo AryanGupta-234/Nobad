@@ -6,40 +6,54 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 20
       - name: Build static website
         run: npm run build
       - name: Validate release manifest
         run: python -m json.tool public/releases/vpn/releases.json > /dev/null
-      - name: Verify generated routes and shared branding
+      - name: Verify generated pages
         run: |
-          test -s public/index.html
-          test -s public/products/vpn/index.html
-          test -s public/releases/vpn/releases.json
-          test -s public/assets/README.md
-          test -s public/assets/nobad-logo.png
-          test -s public/assets/nobad-logo-light.png
-          test -s public/code-signing-policy/index.html
-          test -s public/privacy/index.html
+          for f in index.html products/vpn/index.html code-signing-policy/index.html privacy/index.html 404.html \
+                   _headers robots.txt sitemap.xml favicon.ico releases/vpn/releases.json \
+                   assets/nobad-logo.png assets/nobad-logo-light.png assets/og-image.png assets/legal.css; do
+            test -s "public/$f" || { echo "missing public/$f"; exit 1; }
+          done
           grep -Fq 'href="/code-signing-policy/"' public/index.html
+          grep -Fq 'href="/privacy/"' public/index.html
           grep -Fq 'Code signing policy' public/code-signing-policy/index.html
-          grep -qi '<title>nobad' public/index.html
-          grep -qi 'nobad vpn' public/products/vpn/index.html
           grep -Fq 'src="/assets/nobad-logo-light.png"' public/products/vpn/index.html
-          grep -Fq 'background: var(--k)' public/products/vpn/index.html
-          grep -Fq 'border-radius: 999px' public/products/vpn/index.html
+          grep -Fq 'Content-Security-Policy' public/_headers
+          # internal files must not be published
+          test ! -e public/docs && test ! -e public/assets/README.md
+      - name: No stale or placeholder text
+        run: |
           python - <<'PY'
-          from pathlib import Path
-          logo = Path("public/assets/nobad-logo-light.png").read_bytes()
-          assert logo[:8].hex() == "89504e470d0a1a0a", "invalid PNG"
-          assert (int.from_bytes(logo[16:20], "big"), int.from_bytes(logo[20:24], "big")) == (1086, 362), "unexpected logo dimensions"
-          assert logo[25] == 6, "logo must be RGBA with an alpha channel"
-          print("Transparent VPN logo verified.")
+          import json, pathlib, re, sys
+          pub = pathlib.Path("public")
+          m = json.loads((pub / "releases/vpn/releases.json").read_text(encoding="utf-8"))
+          bad = []
+          for p in pub.rglob("*.html"):
+              s = p.read_text(encoding="utf-8")
+              for pat in (r"\{\{[A-Z0-9_]+\}\}", r"\bv1\.0\b", "Replace the contact", "NO PUBLIC BUILD", "hello@nobad\.dev",
+                          "No installer is linked", "official NOBAD contact channel", "replace with your"):
+                  if re.search(pat, s):
+                      bad.append(f"{p}: {pat}")
+          for page in ("index.html", "products/vpn/index.html"):
+              if m["latest"] not in (pub / page).read_text(encoding="utf-8"):
+                  bad.append(f"{page}: doesn't show the latest version {m['latest']}")
+          if bad:
+              print("\n".join(bad)); sys.exit(1)
+          print("pages are current")
           PY

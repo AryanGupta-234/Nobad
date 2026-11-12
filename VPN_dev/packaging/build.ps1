@@ -54,7 +54,7 @@ if (-not $AppOnly) {
 
 # ---------------------------------------------------------------- tests + app
 python -m venv .venv-build; .\.venv-build\Scripts\Activate.ps1
-python -m pip install -q -r requirements-lock.txt   # pinned: every release build uses the same versions
+python -m pip install -q --require-hashes -r requirements-lock.txt   # pinned by version and hash
 $testOut = python -m pytest -q tests; $testCode = $LASTEXITCODE
 $testOut | ForEach-Object { Write-Host $_ }
 $testSummary = (($testOut | Where-Object { "$_" -match "passed|failed|error" } | Select-Object -Last 1) -replace "=", "").Trim()

@@ -44,7 +44,7 @@ What the installer does:
 4. Uninstalling first runs `--panic`, so the user is never left offline, then removes the tasks. WireGuard and
    `ProgramData\NobadVPN` (which holds the keys) are kept.
 
-Run from source for development: `pip install -r requirements.txt`, then `python nobad_vpn.py`. It asks for admin rights.
+Run from source for development: `python -m pip install --require-hashes -r requirements-lock.txt` (or `pip install -r requirements-dev.txt`), then `python nobad_vpn.py`. It asks for admin rights. Run the tests with `python -m pytest -q tests` and `python -m pyflakes nobadvpn tests`.
 
 ## Start-up and performance
 
