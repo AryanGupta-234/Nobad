@@ -1,0 +1,40 @@
+/* Network Intelligence (tab #t6): built on the app's cards, notes, .net-issue and .kvr; only the new bits live here */
+.ni-seg{display:flex;flex-wrap:wrap;gap:4px;margin-top:10px;padding:4px;border-radius:12px;background:var(--surface-2,rgba(255,255,255,.04));border:1px solid var(--line)}
+.ni-seg button{flex:1 1 auto;min-width:64px;padding:7px 8px;border:0;border-radius:9px;background:none;color:var(--mu);font:inherit;font-size:12px;cursor:pointer}
+.ni-seg button.a{background:color-mix(in srgb,var(--acc,#f65000) 16%,transparent);color:var(--tx);font-weight:650}
+.ni-seg button:focus-visible{outline:2px solid var(--acc,#f65000);outline-offset:1px}
+.ni-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.ni-inline{display:flex;gap:8px;margin:10px 0}.ni-inline .nx-in{flex:1;min-width:0}
+.ni-sub{margin:14px 0 6px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mu);display:flex;align-items:center;gap:8px}
+.ni-res,.ni-tr{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:baseline;padding:7px 0;border-bottom:1px solid var(--line);font-size:12px}
+.ni-res{grid-template-columns:auto auto 1fr auto auto}
+.ni-tr:last-child,.ni-res:last-child{border:0}.ni-tr{grid-template-columns:auto auto 1fr auto}
+.ni-ans{word-break:break-word;color:var(--tx)}.ni-ans code,.net-issue code{font-size:11px;padding:1px 5px;border-radius:5px;background:var(--surface-2,rgba(255,255,255,.06))}
+.ni-g{font-size:10px;padding:1px 7px;border-radius:99px;border:1px solid var(--line);color:var(--mu);white-space:nowrap}
+.ni-g-network{color:var(--am,#ff9a7c);border-color:color-mix(in srgb,var(--am,#ff9a7c) 40%,var(--line))}
+.ni-g-reference,.ni-g-encrypted{color:var(--good,#3bd69b);border-color:color-mix(in srgb,var(--good,#3bd69b) 40%,var(--line))}
+.ni-tag{font-size:10px;padding:1px 7px;border-radius:99px;background:var(--surface-2,rgba(255,255,255,.06));color:var(--mu)}
+.ni-ok{color:var(--good,#3bd69b)}.ni-bad{color:var(--rd,#ff5268)}
+.ni-ft{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.ni-conf{font-size:10px;white-space:nowrap;padding:1px 7px;border-radius:99px;border:1px solid var(--line)}
+.ni-high{color:var(--rd,#ff5268)}.ni-medium{color:var(--am,#ff9a7c)}.ni-low{color:var(--mu)}
+.ni-layer{display:inline-block;margin-top:4px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--mu)}
+.ni-ev{margin:6px 0 2px 16px;padding:0;color:var(--mu);font-size:12px;line-height:1.5}.ni-ev li{margin:2px 0}.ni-contra{color:var(--good,#3bd69b)}
+.ni-verdict{margin:12px 0 8px;padding:12px 14px;border-radius:13px;border:1px solid var(--line);display:flex;flex-direction:column;gap:3px}
+.ni-verdict b{font-size:16px}.ni-verdict small,.ni-verdict span{color:var(--mu);font-size:12px}
+.ni-v-bad{border-color:color-mix(in srgb,var(--rd,#ff5268) 45%,var(--line))}.ni-v-warn{border-color:color-mix(in srgb,var(--am,#ff9a7c) 45%,var(--line))}
+.ni-v-good{border-color:color-mix(in srgb,var(--good,#3bd69b) 40%,var(--line))}
+.ni-rec{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:6px 0}.ni-rec p{margin:0;font-size:12px;line-height:1.45;flex:1;min-width:0}.ni-rec>button{flex:none;white-space:nowrap}
+.ni-agent{display:flex;gap:10px;align-items:flex-start;margin:4px 0 6px;cursor:pointer}.ni-agent small{display:block;color:var(--mu);font-size:11px;line-height:1.4}
+.ni-types{display:flex;flex-wrap:wrap;gap:10px;font-size:12px;color:var(--mu)}
+.ni-ad{padding:10px 0;border-bottom:1px solid var(--line)}.ni-ad small{color:var(--mu);font-size:11px}
+.ni-foot{margin-top:10px;font-size:11px}
+.ni-busy{display:flex;align-items:center;gap:8px;margin:10px 0;color:var(--mu);font-size:12px}
+.ni-busy i{width:12px;height:12px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--acc,#f65000);animation:nobad-spin 1s linear infinite}
+@media (prefers-reduced-motion:reduce){.ni-busy i{animation:none}}
+
+.ni-fixcard .ni-fixrow{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+.ni-fixcard .ni-fixrow:first-of-type{margin-top:8px}
+.ni-fixcard .ni-fixrow>div{flex:1;min-width:0}.ni-fixcard .ni-fixrow b{font-size:13px}
+.ni-fixcard .ni-fixrow p{margin:2px 0 0;font-size:12px;line-height:1.45;color:var(--mu)}
+.ni-fixcard .ni-fixrow>button{flex:none;white-space:nowrap}

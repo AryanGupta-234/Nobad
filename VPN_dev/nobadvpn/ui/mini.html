@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>NOBAD VPN</title><link rel="icon" href="/favicon.ico">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{color-scheme:dark;--bg:#0b0c10;--tx:#eef3fc;--mu:#8e9bb2;--line:rgba(255,255,255,.14);--ok:#3dffb0;--warn:#ff9a7c;--bad:#ff5268;--brand:#f65000}
+@media (prefers-color-scheme:light){:root:not([data-theme]){color-scheme:light;--bg:#f6f7fa;--tx:#14171f;--mu:#566074;--line:rgba(0,0,0,.18)}}
+:root[data-theme=light]{color-scheme:light;--bg:#f6f7fa;--tx:#14171f;--mu:#566074;--line:rgba(0,0,0,.18)}
+:root[data-theme=dark]{color-scheme:dark}
+.hd{display:flex;align-items:center;gap:8px}.hd img{height:20px;width:auto}.hd .on-light{display:none}
+:root[data-theme=light] .hd .on-dark{display:none}:root[data-theme=light] .hd .on-light{display:block}
+.hd span{font-size:10px;font-weight:700;letter-spacing:.2em;color:var(--brand)}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:13px "Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;user-select:none;overflow:hidden}
+main{padding:14px;display:flex;flex-direction:column;gap:10px;height:100%}
+#st{font-size:18px;font-weight:600;display:flex;gap:8px;align-items:center}#st i{width:10px;height:10px;border-radius:50%;background:var(--mu);display:inline-block}
+body[data-st=on] #st i{background:var(--ok)}body[data-st=wait] #st i{background:var(--warn)}body[data-st=block] #st i{background:var(--bad)}
+#sub{color:var(--mu);font-size:12px;min-height:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+select,button{font:inherit;color:var(--tx);background:rgba(127,127,127,.14);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+button.pri{background:linear-gradient(135deg,#ff6418,#c94400);color:#fff;border:0;font-weight:600;padding:11px}button:disabled{opacity:.5}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+.row{display:flex;gap:8px}.row>*{flex:1}.rates{display:flex;justify-content:space-between;color:var(--mu);font-size:12px}
+label.t{display:flex;align-items:center;gap:8px;color:var(--mu);font-size:12px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+@media (forced-colors:active){button,select{border:1px solid ButtonText}}
+</style></head><body data-st="off"><main>
+<div class="hd" aria-hidden="true"><img class="on-dark" src="/static/brand/nobad-logo-light.png" alt=""><img class="on-light" src="/static/brand/nobad-logo.png" alt=""><span>VPN</span></div>
+<div id="st" aria-live="polite"><i aria-hidden="true"></i><span id="stt">Not connected</span></div>
+<div id="sub"></div>
+<select id="srv" aria-label="Server"></select>
+<button class="pri" id="go">Connect</button>
+<div class="row"><button id="fast">Fastest</button><button id="open">Open NOBAD</button></div>
+<label class="t"><input type="checkbox" id="ks"> <span>Kill switch</span></label>
+<div class="rates"><span id="rx">↓ —</span><span id="tx">↑ —</span></div>
+</main>
+<script>
+"use strict";
+const TOKEN="__TOKEN__",$=s=>document.querySelector(s);
+let S=null;
+const T=s=>s;
+async function api(p,b){try{const r=await fetch("/api/"+p,{method:b===undefined?"GET":"POST",headers:{"X-Token":TOKEN,"Content-Type":"application/json"},body:b===undefined?undefined:JSON.stringify(b)});return await r.json()}catch(e){return{ok:false}}}
+const rate=b=>b>=1e6?(b/1e6).toFixed(1)+" Mbps":b>=1e3?Math.round(b/1e3)+" kbps":Math.round(b)+" bps";
+function draw(){
+  if(!S)return;
+  const th=S.settings&&S.settings.theme;if(th==="light"||th==="dark")document.documentElement.dataset.theme=th;
+  const on=S.connected,wait=!!S.connecting,block=!on&&!wait&&S.ks_active;
+  document.body.dataset.st=on?"on":wait?"wait":block?"block":"off";
+  $("#stt").textContent=T(on?"Protected":wait?"Connecting…":block?"Blocked by kill switch":"Not connected");
+  $("#sub").textContent=on?S.active:wait?S.connecting:(S.note||"");
+  const sel=$("#srv"),cur=sel.value||S.settings.last_region||"";
+  const names=S.regions.map(r=>r.name);
+  if(sel.dataset.sig!==names.join("|")){sel.dataset.sig=names.join("|");sel.innerHTML=names.map(n=>`<option></option>`).join("");[...sel.options].forEach((o,i)=>{o.value=o.textContent=names[i]})}
+  sel.value=names.includes(cur)?cur:(names[0]||"");
+  $("#go").textContent=T(on?"Disconnect":wait?"Connecting…":"Connect");$("#go").disabled=wait||(!on&&!names.length);
+  $("#fast").disabled=wait||!names.length;$("#ks").checked=!!S.settings.kill_switch;
+}
+$("#go").onclick=()=>S.connected?api("disconnect",{}):api("connect",{name:$("#srv").value});
+$("#fast").onclick=()=>api("fastest",{});$("#open").onclick=()=>{api("window",{do:"show"});api("window",{do:"hide_mini"})};
+$("#ks").onchange=e=>api("settings",{key:"kill_switch",value:e.target.checked});
+addEventListener("blur",()=>setTimeout(()=>{if(!document.hasFocus())api("window",{do:"hide_mini"})},200));
+addEventListener("keydown",e=>{if(e.key==="Escape")api("window",{do:"hide_mini"})});
+function sse(){const es=new EventSource("/events?t="+TOKEN);es.onmessage=e=>{try{const m=JSON.parse(e.data);
+ if(m.type==="state"){S=m.payload;draw()}else if(m.type==="traffic"){$("#rx").textContent="↓ "+rate(m.payload.rx_bps);$("#tx").textContent="↑ "+rate(m.payload.tx_bps)}}catch(_){}};
+ es.onopen=()=>api("state").then(s=>{if(s&&s.regions){S=s;draw()}});es.onerror=()=>{$("#sub").textContent=T("app offline")}}
+sse();
+</script></body></html>

@@ -1,0 +1,108 @@
+/* NOBAD VPN — additions: banners, modals, wizard, settings groups, usage, skeletons, accessibility */
+.nx-sr{position:absolute!important;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.nx-skip{position:fixed;left:8px;top:-60px;z-index:100;background:var(--cy);color:#031a24;padding:8px 14px;border-radius:10px;font-weight:600;text-decoration:none;transition:top .15s}
+.nx-skip:focus-visible{top:8px}  /* keyboard focus only: never pops up when the window opens */
+a:focus-visible,summary:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--cy);outline-offset:2px}
+#adm{cursor:pointer}
+/* banners */
+#nxbars{display:flex;flex-direction:column;gap:6px;position:absolute;top:12px;left:12px;width:min(560px,calc(100% - 24px));z-index:40;pointer-events:none}
+#nxbars>.nx-bar{pointer-events:auto;position:relative;animation:nxBarIn .22s ease-out;transition:opacity .25s,transform .25s;backdrop-filter:blur(10px)}
+#nxbars>.nx-bar.nx-out{opacity:0;transform:translateY(-6px)}
+@keyframes nxBarIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+.nx-bar .nx-bx{flex:none;align-self:flex-start;width:26px;height:26px;margin:-2px -6px 0 0;padding:0;border-radius:50%;border:0;background:transparent;color:var(--mu);font-size:18px;line-height:1;cursor:pointer}
+.nx-bar .nx-bx:hover,.nx-bar .nx-bx:focus-visible{background:color-mix(in srgb,var(--line) 70%,transparent);color:inherit}
+@media (prefers-reduced-motion:reduce){#nxbars>.nx-bar{animation:none;transition:none}}
+#nxbars:empty{display:none}
+.nx-bar{display:flex;gap:12px;align-items:flex-start;padding:10px 14px;border-radius:14px;border:1px solid var(--line);background:color-mix(in srgb,var(--bg) 85%,#fff 6%);box-shadow:0 8px 26px rgba(0,0,0,.25)}
+.nx-bar.bad{border-color:var(--rd)}.nx-bar.warn{border-color:var(--am)}.nx-bar.info{border-color:var(--cy)}.nx-bar.ok{border-color:var(--gr)}
+.nx-bar .nx-bt{flex:1;min-width:0}.nx-bar b{display:block;font-weight:600}.nx-bar p{margin:3px 0 0;color:var(--mu);font-size:12px;line-height:1.45;overflow-wrap:anywhere}
+.nx-bar .nx-ba{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.nx-bar.bad b:before{content:"! ";color:var(--rd)}.nx-bar.warn b:before{content:"⚠ ";color:var(--am)}
+/* modal */
+.nx-ov{position:fixed;inset:0;background:rgba(3,6,12,.62);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px}
+.nx-modal{width:min(560px,100%);max-height:calc(100vh - 32px);overflow:auto;background:color-mix(in srgb,var(--bg) 90%,#fff 5%);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 24px 80px rgba(0,0,0,.5)}
+.nx-modal.wide{width:min(760px,100%)}
+.nx-modal h2{margin:0 0 4px;font-size:17px}.nx-modal .nx-sub{color:var(--mu);font-size:12px;line-height:1.5;margin-bottom:10px}
+.nx-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap}
+.nx-actions .nx-left{margin-right:auto}
+button.danger{border-color:var(--rd);color:var(--rd)}
+.nx-in,.nx-modal textarea,.nx-modal input[type=text],.nx-set select{font:inherit;color:var(--tx);background:rgba(0,0,0,.22);border:1px solid var(--line);border-radius:10px;padding:8px 10px;width:100%;box-sizing:border-box}
+.nx-modal textarea{font-family:Consolas,"Cascadia Mono",monospace;font-size:12px;min-height:240px;resize:vertical;white-space:pre;tab-size:2}
+.nx-val{list-style:none;margin:8px 0 0;padding:0;font-size:12px;display:flex;flex-direction:column;gap:3px}
+.nx-val .e{color:var(--rd)}.nx-val .w{color:var(--am)}.nx-val .g{color:var(--gr)}
+.nx-field{display:flex;flex-direction:column;gap:4px;margin-bottom:10px;font-size:12px;color:var(--mu)}
+/* wizard */
+.nx-wiz-item{display:flex;gap:12px;align-items:flex-start;padding:11px 0;border-bottom:1px solid var(--line)}
+.nx-wiz-item:last-of-type{border:0}
+.nx-wiz-item>i{flex:none;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-style:normal;font-weight:700;background:rgba(255,255,255,.1)}
+.nx-wiz-item.ok>i{background:var(--gr);color:#031a24}.nx-wiz-item.todo>i{background:var(--am);color:#2a1206}
+.nx-wiz-item .t{flex:1;min-width:0}.nx-wiz-item b{display:block}.nx-wiz-item small{color:var(--mu);font-size:11px;line-height:1.45;display:block}
+.nx-wiz-item .b{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}
+/* settings */
+.nx-set{display:flex;flex-direction:column;gap:8px}
+.nx-set input[type=search]{width:100%;box-sizing:border-box}
+.nx-grp{border:1px solid var(--line);border-radius:14px;padding:0 12px}
+.nx-grp>summary{cursor:pointer;padding:11px 0;font-weight:600;list-style:none;display:flex;align-items:center;gap:8px}
+.nx-grp>summary::-webkit-details-marker{display:none}
+.nx-grp>summary:before{content:"▸";color:var(--mu);transition:transform .15s}.nx-grp[open]>summary:before{transform:rotate(90deg)}
+.nx-row.nx-hide,.nx-grp.nx-hide{display:none}
+.nx-row .nx-in{width:210px;flex:none}.nx-row select.nx-in{width:190px}
+.nx-tags{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.nx-tag{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--line);border-radius:99px;padding:3px 6px 3px 11px;font-size:12px}
+.nx-tag button{padding:0 7px;border-radius:99px;box-shadow:none;line-height:20px}
+.nx-inline{display:flex;gap:8px;margin:8px 0;align-items:center;flex-wrap:wrap}.nx-inline .nx-in{flex:1;min-width:140px}
+.nx-empty{color:var(--mu);font-size:12px;padding:10px 4px}
+/* usage */
+#nxUsage .nx-urow{display:flex;gap:8px;align-items:center;margin-bottom:8px}#nxUsage .nx-urow select{width:auto}
+#nxUsage canvas{width:100%;height:120px;display:block}
+.nx-legend{display:flex;gap:14px;font-size:11px;color:var(--mu);margin:4px 0 8px}.nx-legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px}
+.nx-ulist .kvr{font-size:12px}
+.nx-more{margin-top:6px}
+/* skeletons */
+@keyframes nxsh{0%{background-position:-200px 0}100%{background-position:calc(200px + 100%) 0}}
+.skel,.skel-text{background:linear-gradient(90deg,rgba(255,255,255,.06) 25%,rgba(255,255,255,.14) 37%,rgba(255,255,255,.06) 63%);background-size:200px 100%;background-repeat:no-repeat;animation:nxsh 1.3s infinite linear;border-radius:8px}
+.skel{height:14px;margin:9px 0}.skel.tall{height:44px}.skel.w60{width:60%}.skel.w80{width:80%}
+.skel-text{color:transparent!important;display:inline-block;min-width:120px}.skel-text *{visibility:hidden}
+.nx-skelrow{display:flex;gap:10px;align-items:center;padding:8px 0}.nx-skelrow .skel{margin:0;flex:1}.nx-skelrow .skel.dot{flex:none;width:12px;height:12px;border-radius:50%}
+@media (prefers-reduced-motion:reduce){.skel,.skel-text{animation:none}}
+@media (forced-colors:active){.nx-bar,.nx-modal,.nx-grp,.nx-tag{border:1px solid CanvasText}.sw i{border:1px solid CanvasText}.sw input:checked+i{background:Highlight}.skel,.skel-text{background:GrayText}}
+
+/* ===== NOBAD brand: wordmark in the header (light lettering on dark, dark lettering on light) ===== */
+.brand{display:flex;align-items:center;gap:8px;flex:none;user-select:none}
+.brand-wm{height:30px;width:auto;display:block}
+.brand-wm.on-light{display:none}
+:root[data-theme="light"] .brand-wm.on-dark{display:none}
+:root[data-theme="light"] .brand-wm.on-light{display:block}
+.brand-tag{font-weight:700;font-size:10.5px;letter-spacing:.2em;padding:3px 8px 3px 9px;border-radius:999px;
+  background:var(--brand-soft);color:var(--cy);border:1px solid color-mix(in srgb,var(--cy) 30%,transparent)}
+@media (max-width:620px){.brand-wm{height:24px}.brand-tag{display:none}}
+@media (forced-colors:active){.brand-tag{border-color:CanvasText;color:CanvasText}}
+
+
+/* ===== Lightweight mode (default). Visual effects ON adds class "fx" to <body>. =====
+   Frosted glass (backdrop-filter) over an animated canvas makes the browser re-blur every panel on every
+   frame, and the ambient blobs/grids are large blurred layers. Turning them off removes most idle GPU/CPU work. */
+body:not(.fx){--glass:color-mix(in srgb,var(--surface) 90%,transparent);--glass2:color-mix(in srgb,var(--surface-2) 95%,transparent)}
+body:not(.fx) *,body:not(.fx) *::before,body:not(.fx) *::after{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+body:not(.fx)::before,body:not(.fx)::after,body:not(.fx) #view::after{display:none!important;animation:none!important}
+body:not(.fx) #deck::before,body:not(.fx) #hero::after,body:not(.fx) .shiny-cta,body:not(.fx) button.shiny-cta::after,
+body:not(.fx) .pill.on::after,body:not(.fx) #hud #hS.on,body:not(.fx) .hud-ico::after,body:not(.fx) .bar i,
+body:not(.fx) .spb i,body:not(.fx) #deck .deck-pulse,body:not(.fx) .pill.on .dot,body:not(.fx) #dock .pow.on::before{animation:none!important}
+body:not(.fx) #deck,body:not(.fx) #dock,body:not(.fx) #rates span,body:not(.fx) #legend,body:not(.fx) #mapStat,
+body:not(.fx) #toast,body:not(.fx) #palbox,body:not(.fx) header{background-color:color-mix(in srgb,var(--surface) 94%,transparent)!important}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+
+/* in-page boot screen: same wordmark as the native splash */
+#splash .spt{display:flex;align-items:center;gap:10px;letter-spacing:0}
+#splash .spt .brand-wm{height:52px;width:auto}
+#splash .ring{display:none}
+/* launch-check tiles that are switched off */
+.boot-item.off span{color:var(--mu);font-weight:500}
+
+/* network safety: list of Windows settings NOBAD changed */
+.nx-list{margin:6px 0 2px 18px;padding:0}.nx-list li{margin:2px 0}
+
+/* tiny "built by AI" signature in the status bar: muted, never steals clicks from the log toggle */
+#ll{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#aimark{margin-left:auto;flex:none;align-self:center;pointer-events:none;user-select:none;font:500 9.5px/1 var(--font-mono,Consolas,monospace);letter-spacing:.08em;text-transform:uppercase;padding:3px 7px;border-radius:999px;border:1px solid color-mix(in srgb,var(--line) 80%,transparent);opacity:.55;
+  background:linear-gradient(90deg,color-mix(in srgb,var(--mu) 18%,transparent),color-mix(in srgb,#ff7a3d 22%,transparent));}
