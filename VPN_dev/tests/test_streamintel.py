@@ -584,10 +584,10 @@ def test_api_handlers_registered_and_input_checked(monkeypatch):
                                     ("javascript:alert(1)", False), ("file:///C:/x", False), ("https://u:p@evil.test/", False),
                                     ("https://news.example.com/a", "confirm")])
 def test_si_open_only_opens_safe_links(monkeypatch, url, ok):
-    import webbrowser
+    from nobadvpn import syscmd
     from nobadvpn.streamintel import api_handlers as h
     opened = []
-    monkeypatch.setattr(webbrowser, "open", opened.append)
+    monkeypatch.setattr(syscmd, "open_url_as_user", lambda u: opened.append(u) or True)
     r = h.h_open({"url": url})
     if ok == "confirm":
         assert r == {"ok": False, "error": "confirm", "host": "news.example.com"} and not opened

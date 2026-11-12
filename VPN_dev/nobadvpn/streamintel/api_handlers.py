@@ -132,7 +132,7 @@ def h_open(b):
     """Open a link from the data (TMDB page, watch link, Wikipedia section, citation) in the browser. http(s) only, no
     credentials; hosts outside TRUSTED_HOSTS need confirm=true (the UI asks the user first, showing the host)."""
     from urllib.parse import urlsplit
-    import webbrowser
+    from ..syscmd import open_url_as_user
     url = str(b.get("url") or "")[:2000]
     try:
         u = urlsplit(url)
@@ -142,8 +142,7 @@ def h_open(b):
         return {"ok": False, "error": "bad link"}
     if u.hostname.lower() not in TRUSTED_HOSTS and not b.get("confirm"):
         return {"ok": False, "error": "confirm", "host": u.hostname}
-    webbrowser.open(url)
-    return {"ok": True}
+    return {"ok": True} if open_url_as_user(url) else {"ok": False, "error": "couldn't open that link"}
 
 
 def h_cache_clear(b):

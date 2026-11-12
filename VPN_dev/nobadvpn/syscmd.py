@@ -42,6 +42,14 @@ def lock_dir(path, allow_user=False):
     owner and could give themselves access again. Returns True when the folder is locked."""
     if os.name != "nt":
         return True
+    # Never follow a junction or symlink: a planted one would make these recursive owner/ACL changes hit another
+    # folder (a system folder, or one the user controls).
+    if os.path.normcase(os.path.realpath(path)) != os.path.normcase(os.path.abspath(path)):
+        log(f"refused to lock {path}: it is (or passes through) a junction or symbolic link", "bad")
+        return False
+    removed = remove_reparse_points(path)
+    if removed:
+        log(f"removed {removed} link(s) planted in {path} before locking it", "warn")
     owner = run(["icacls", path, "/setowner", ADMINS_SID, "/T", "/C", "/Q"], timeout=30)
     grants = [f"{SYSTEM_SID}:(OI)(CI)F", f"{ADMINS_SID}:(OI)(CI)F"]
     user = os.environ.get("USERNAME")
@@ -58,6 +66,57 @@ def lock_dir(path, allow_user=False):
             f"{(owner.stderr or acl.stderr or owner.stdout or acl.stdout or '').strip()[:160]}", "bad")
         return False
     return True
+
+
+def open_url_as_user(url):
+    """Open an http(s) link in the user's normal browser, NOT as administrator. NOBAD runs elevated and anything it
+    starts directly inherits that (a captive-portal page from a café Wi-Fi would run in an admin browser). explorer.exe
+    hands the link to the user's own desktop shell, which opens it at normal rights. Returns True if handed over."""
+    import urllib.parse
+    url = str(url or "")
+    u = urllib.parse.urlsplit(url)
+    if u.scheme not in ("http", "https") or not u.netloc or any(c in url for c in '"\r\n\t\x00 '):
+        return False
+    if os.name != "nt":
+        import webbrowser
+        return bool(webbrowser.open(url))
+    from .const import known_folder
+    win = known_folder("Windows") or r"C:\Windows"
+    try:
+        subprocess.Popen([os.path.join(win, "explorer.exe"), url], creationflags=_NOWIN)
+        return True
+    except OSError:
+        return False
+
+
+def _is_reparse(p):
+    try:
+        st = os.lstat(p)
+    except OSError:
+        return False
+    return bool(getattr(st, "st_file_attributes", 0) & 0x400) or os.path.islink(p)   # FILE_ATTRIBUTE_REPARSE_POINT
+
+
+def remove_reparse_points(root):
+    """Delete junctions/symlinks anywhere under `root` (the LINK, never its target) so recursive icacls can't be
+    steered elsewhere. Returns how many were removed."""
+    n = 0
+    for dirpath, dirs, files in os.walk(root, followlinks=False):
+        for name in list(dirs) + files:
+            p = os.path.join(dirpath, name)
+            if not _is_reparse(p):
+                continue
+            try:
+                if os.path.isdir(p) and not os.path.islink(p):
+                    os.rmdir(p)          # a junction: rmdir removes the link only
+                else:
+                    os.unlink(p)
+                n += 1
+            except OSError:
+                pass
+            if name in dirs:
+                dirs.remove(name)        # never descend into it
+    return n
 
 
 def private_workdir(parent, prefix="w-"):

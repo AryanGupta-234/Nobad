@@ -196,7 +196,7 @@
     if (!av.providers.length) return `<div class="empty-state">${E(tr("No platforms list this title in any covered country."))}</div>`;
     return `<div class="si-plats">` + av.providers.map(p => {
       const types = [...new Set(Object.values(p.countries).flat())];
-      return `<button class="si-plat" data-si="provider" data-id="${p.id}">${logo(p, "w92")}<span><b>${E(p.name)}</b><small>${Object.keys(p.countries).length} ${E(tr("countries"))} · ${types.map(t => E(tr(t))).join(", ")}</small></span></button>`;
+      return `<button class="si-plat" data-si="provider" data-id="${E(p.id)}">${logo(p, "w92")}<span><b>${E(p.name)}</b><small>${Object.keys(p.countries).length} ${E(tr("countries"))} · ${types.map(t => E(tr(t))).join(", ")}</small></span></button>`;
     }).join("") + `</div><div class="note">${E(tr("Select a platform to see its countries."))}</div>`;
   }
   function paneRestrictions() {
@@ -262,7 +262,7 @@
       if (!r.ok) { box.innerHTML = `<div class="note">${E(r.error)}</div>`; return; }
       const mine = new Set((SI.status && SI.status.my_services) || []);
       const top = r.providers.slice(0, 120);
-      box.innerHTML = top.map(p => `<label class="si-svc"><input type="checkbox" data-svc="${p.id}" ${mine.has(p.id) ? "checked" : ""}>${logo(p)}<span>${E(p.name)}</span></label>`).join("") || `<div class="note">${E(tr("No services found for that country."))}</div>`;
+      box.innerHTML = top.map(p => `<label class="si-svc"><input type="checkbox" data-svc="${E(p.id)}" ${mine.has(p.id) ? "checked" : ""}>${logo(p)}<span>${E(p.name)}</span></label>`).join("") || `<div class="note">${E(tr("No services found for that country."))}</div>`;
     });
   }
   function saveServices(m) {

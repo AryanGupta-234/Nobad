@@ -165,7 +165,11 @@ class StreamIntel:
             lst, _ts, _f = self._cached(f"providers:{language}:{kind}:{region or 'all'}", "providers",
                                         lambda k=kind: api.providers(k, region), "tmdb")
             for p in lst:
-                out.setdefault(p["provider_id"], {"id": p["provider_id"], "name": p.get("provider_name"),
+                try:
+                    pid = int(p.get("provider_id"))
+                except (TypeError, ValueError):
+                    continue
+                out.setdefault(pid, {"id": pid, "name": p.get("provider_name"),
                                                   "family": availability.family(p.get("provider_name")),
                                                   "logo": (p.get("logo_path") or "").lstrip("/") or None})
         return sorted(out.values(), key=lambda p: (p["name"] or "").casefold())

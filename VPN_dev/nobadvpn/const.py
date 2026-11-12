@@ -19,11 +19,44 @@ else:
     UI_DIR = os.path.join(PKG_DIR, "ui")
     BASE_DIR = os.path.dirname(os.path.abspath(sys.argv[0])) if sys.argv and sys.argv[0] else os.getcwd()
 
-# NOBAD_DATA_DIR lets tests (and portable installs) redirect everything.
-DATA_DIR = os.environ.get("NOBAD_DATA_DIR") or os.path.join(os.environ.get("ProgramData", r"C:\ProgramData"), "NobadVPN")
+_FOLDERID = {"ProgramData": "{62AB5D82-FDC1-4DC3-A9DD-070D1D495D97}",
+             "ProgramFiles": "{905E63B6-C1BF-494E-B29C-65B732D3D21A}",
+             "ProgramFilesX86": "{7C5A40EF-A0FB-4BFC-874A-C0F2E0B9FA8E}",
+             "Windows": "{F38BF404-1D43-42F2-9305-67DE0B28FC23}"}
+
+
+def known_folder(name):
+    """A Windows known folder from the shell, never from environment variables: NOBAD runs elevated, and a normal
+    user can set HKCU\\Environment (ProgramData=..., NOBAD_DATA_DIR=...) for the processes it starts. None off
+    Windows or on failure."""
+    if os.name != "nt":
+        return None
+    try:
+        import ctypes
+        import uuid
+        from ctypes import wintypes
+
+        class GUID(ctypes.Structure):
+            _fields_ = [("d1", wintypes.DWORD), ("d2", wintypes.WORD), ("d3", wintypes.WORD), ("d4", ctypes.c_ubyte * 8)]
+        u = uuid.UUID(_FOLDERID[name])
+        g = GUID(u.time_low, u.time_mid, u.time_hi_version, (ctypes.c_ubyte * 8)(*u.bytes[8:]))
+        out = ctypes.c_wchar_p()
+        if ctypes.windll.shell32.SHGetKnownFolderPath(ctypes.byref(g), 0, None, ctypes.byref(out)) != 0:
+            return None
+        try:
+            return out.value
+        finally:
+            ctypes.windll.ole32.CoTaskMemFree(out)
+    except Exception:
+        return None
+
+
+# NOBAD_DATA_DIR redirects everything for tests and source runs. The INSTALLED app ignores it (see known_folder).
+_ENV_DATA_DIR = None if FROZEN else os.environ.get("NOBAD_DATA_DIR")
+PROGRAMDATA = known_folder("ProgramData") or (r"C:\ProgramData" if FROZEN else os.environ.get("ProgramData", r"C:\ProgramData"))
+DATA_DIR = _ENV_DATA_DIR or os.path.join(PROGRAMDATA, "NobadVPN")
 # Previous product name (NOMAD Tunnel): its data folder is copied over once and its rules/task are cleaned up.
-LEGACY_DATA_DIR = (None if os.environ.get("NOBAD_DATA_DIR")
-                   else os.path.join(os.environ.get("ProgramData", r"C:\ProgramData"), "NomadTunnel"))
+LEGACY_DATA_DIR = None if _ENV_DATA_DIR else os.path.join(PROGRAMDATA, "NomadTunnel")
 CONFIG_DIR = os.path.join(DATA_DIR, "configs")         # holds private keys: local only, never synced
 LEGACY_CONFIG_DIR = os.path.join(BASE_DIR, "configs")  # very old location (may be inside OneDrive)
 RUNTIME_DIR = os.path.join(DATA_DIR, "runtime")        # temp tuned copies (admin/SYSTEM only)

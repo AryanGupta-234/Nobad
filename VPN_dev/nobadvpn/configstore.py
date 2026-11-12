@@ -117,14 +117,28 @@ def import_text(name, content, untrusted=False):
     return save(name, content, create=True, untrusted=untrusted)
 
 
+def _public_host(host):
+    """True if every address `host` resolves to is a public internet address. NOBAD runs as admin, so a link must not
+    make it fetch from this PC (its own control server), the local network (router admin pages) or cloud metadata."""
+    from . import reach
+    ips = reach.system_resolve(host) if host else []
+    return bool(ips) and not any(reach.bogus(ip) for ip in ips)
+
+
 def import_url(url, name=None):
     url = str(url or "").strip()
     u = urllib.parse.urlparse(url)
-    if u.scheme != "https" or not u.netloc:
+    if u.scheme != "https" or not u.netloc or not u.hostname:
         return {"ok": False, "error": "only https:// links can be imported"}
+    if not _public_host(u.hostname):
+        return {"ok": False, "error": "that link points to this PC or a local network address — download the file "
+                                      "and import it instead"}
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "NobadVPN"})
-        with urllib.request.urlopen(req, timeout=10) as r:
+        with urllib.request.urlopen(req, timeout=10) as r:   # redirects to http:// are refused (reach.py)
+            final = urllib.parse.urlparse(r.geturl() if hasattr(r, "geturl") else url)
+            if final.scheme != "https" or not _public_host(final.hostname):
+                return {"ok": False, "error": "the link redirected somewhere NOBAD won't download from"}
             raw = r.read(MAX_BYTES + 1)
     except Exception as e:
         return {"ok": False, "error": f"download failed: {type(e).__name__}"}

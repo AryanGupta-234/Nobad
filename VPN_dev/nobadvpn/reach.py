@@ -51,6 +51,31 @@ _routes = {}          # host -> {"route": "direct"|"alt"|"doh", "host": used hos
 _PATH = os.path.join(DATA_DIR, "reach.json")
 
 
+class NoDowngradeRedirect(urllib.request.HTTPRedirectHandler):
+    """Follow redirects, but never from https:// to anything else (http://, ftp://, file://). Otherwise anyone on the
+    network path could answer an https link's redirect with a plain-http one and swap the content (a config, an update
+    manifest, a geo answer)."""
+    max_redirections = 5
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        old = urllib.parse.urlsplit(req.full_url).scheme
+        new = urllib.parse.urlsplit(urllib.parse.urljoin(req.full_url, newurl)).scheme
+        if old == "https" and new != "https":
+            raise urllib.error.HTTPError(req.full_url, code, f"refused redirect from https to {new or 'unknown'}",
+                                         headers, fp)
+        if new not in ("http", "https"):
+            raise urllib.error.HTTPError(req.full_url, code, f"refused redirect to {new or 'unknown'}:", headers, fp)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def install_safe_redirects():
+    """Make every urllib.request.urlopen in this process use NoDowngradeRedirect (called once at import)."""
+    urllib.request.install_opener(urllib.request.build_opener(NoDowngradeRedirect))
+
+
+install_safe_redirects()
+
+
 def _enabled():
     try:
         from .ctx import ctx

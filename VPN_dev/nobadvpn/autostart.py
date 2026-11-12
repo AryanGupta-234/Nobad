@@ -13,7 +13,7 @@ import os
 import re
 import sys
 
-from .const import FROZEN, LEGACY_TASK_NAME, SHOW_FLAG_PATH, TASK_NAME
+from .const import FROZEN, LEGACY_TASK_NAME, SHOW_FLAG_PATH, TASK_NAME, known_folder
 from .syscmd import entry_command, run
 
 LAUNCH_TASK = TASK_NAME + " Launcher"
@@ -112,6 +112,10 @@ def _register(name, at_logon):
 def enable():
     if os.name != "nt":
         return False, "Scheduled tasks are only available on Windows."
+    if not installed_location():
+        # the task runs elevated with no UAC prompt: it may only point at an exe in an admin-only folder
+        return False, ("Start with Windows needs NOBAD VPN installed in Program Files. Install it with the setup "
+                       "program, then turn this on again.")
     ok, err = _register(TASK_NAME, True)
     return (True, "NOBAD will start at sign-in without a UAC prompt.") if ok else (False, err)
 
@@ -130,8 +134,9 @@ def installed_location(exe=None):
     no-UAC launcher task is safe to offer."""
     if not FROZEN or os.name != "nt":
         return False
-    exe = os.path.normcase(os.path.abspath(exe or sys.executable))
-    roots = {os.environ.get(k) for k in ("ProgramFiles", "ProgramW6432", "ProgramFiles(x86)")} - {None}
+    exe = os.path.normcase(os.path.realpath(os.path.abspath(exe or sys.executable)))
+    # from the shell, not %ProgramFiles%: a user can redirect environment variables for the elevated app
+    roots = {known_folder("ProgramFiles"), known_folder("ProgramFilesX86")} - {None}
     return any(exe.startswith(os.path.normcase(os.path.abspath(r)) + os.sep) for r in roots)
 
 

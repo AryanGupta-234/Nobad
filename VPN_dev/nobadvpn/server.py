@@ -183,6 +183,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(404, {"ok": False})
             return self._send(200, raw, CTYPES.get(os.path.splitext(rel)[1].lower(), "application/octet-stream"))
         if u.path.startswith("/si/img/"):          # TMDB posters/logos via a validating, caching proxy (CSP stays 'self')
+            if not self._auth():                   # only NOBAD's own windows: no fetching or disk-filling for others
+                return self._send(401, {"ok": False, "error": "auth"})
             parts = u.path.split("/")
             if len(parts) == 5:
                 from .streamintel.api_handlers import get as _si

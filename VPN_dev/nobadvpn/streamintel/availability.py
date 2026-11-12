@@ -32,8 +32,11 @@ def build(watch, covered, countries, fetched, fresh=True):
             label = dict(OFFER_TYPES).get(k, k)
             seen = set()
             for p in sorted(v, key=lambda x: x.get("display_priority", 999)):
-                pid = p.get("provider_id")
-                if pid is None or pid in seen:
+                try:
+                    pid = int(p.get("provider_id"))      # remote data: an id is a number, nothing else reaches the UI
+                except (TypeError, ValueError):
+                    continue
+                if pid in seen:
                     continue
                 seen.add(pid)
                 offers.setdefault(label, []).append(pid)

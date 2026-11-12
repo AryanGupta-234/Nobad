@@ -2,7 +2,6 @@
 import os
 import subprocess
 import sys
-import webbrowser
 
 from . import autostart, configstore, crash, diagnostics, netinfo
 from . import settings as settings_mod
@@ -11,7 +10,7 @@ from .ctx import ctx
 from .engine import config_dir, ensure_dirs
 from .lifecycle import request_quit
 from .logbus import broadcast, log
-from .syscmd import is_admin, run, run_once, spawn, try_self_elevate
+from .syscmd import is_admin, open_url_as_user, run, run_once, spawn, try_self_elevate
 from .tools import (fetch_ipinfo, gaming_probe, network_diagnose, speed_test, startup_checks, stream_check,
                     valorant_region_check)
 
@@ -342,7 +341,8 @@ def h_open_url(b):
         url = p if isinstance(p, str) and p.startswith(("http://", "https://")) else ALLOWED_URLS["neverssl"]
     if not url:
         return {"ok": False, "error": "unknown link"}
-    webbrowser.open(url)
+    if not open_url_as_user(url):        # never in an admin browser (the portal link comes from the network)
+        return {"ok": False, "error": "couldn't open that link"}
     return {"ok": True}
 
 

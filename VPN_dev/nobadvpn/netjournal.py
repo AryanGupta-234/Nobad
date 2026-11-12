@@ -6,6 +6,7 @@ the user switched the agent on. The ORIGINAL value is written here *before* anyt
 NOBAD was killed halfway through a change or is not running at all.
 
 The file lives in ProgramData\\NobadVPN (SYSTEM/Administrators only). Writes are atomic (temp file + replace)."""
+import ipaddress
 import json
 import os
 import threading
@@ -73,6 +74,14 @@ def _ps(script, timeout=40):
     return run(["powershell", "-NoProfile", "-NonInteractive", "-Command", script], timeout=timeout)
 
 
+def _is_ip(x):
+    try:
+        ipaddress.ip_address(str(x))
+        return True
+    except ValueError:
+        return False
+
+
 def _ps_list(xs):
     return "@(" + ",".join("'" + str(x).replace("'", "''") + "'" for x in xs) + ")"
 
@@ -109,12 +118,20 @@ def restore_entry(e):
     if e.get("kind") != "dns":
         return False, f"unknown change type {e.get('kind')!r}"
     b = e.get("before") or {}
-    idx = b.get("if_index")
-    if idx is None:
-        return False, "no adapter recorded"
-    parts = ["$ErrorActionPreference='Stop'", _set_dns_script(idx, list(b.get("static_v4") or []) + list(b.get("static_v6") or []))]
-    for srv in (e.get("doh_added") or []):   # only DoH registrations NOBAD itself added
-        parts.append(f"Remove-DnsClientDohServerAddress -ServerAddress '{srv}' -ErrorAction SilentlyContinue")
+    # The journal is a file: everything that reaches PowerShell (run as admin, or SYSTEM in the boot guard) must be
+    # an adapter number or an IP address, nothing else.
+    try:
+        idx = int(b.get("if_index"))
+    except (TypeError, ValueError):
+        return False, "no valid adapter recorded"
+    servers = list(b.get("static_v4") or []) + list(b.get("static_v6") or [])
+    doh = list(e.get("doh_added") or [])
+    if not all(_is_ip(x) for x in servers + doh):
+        return False, "journal entry has an invalid DNS address — not restored"
+    parts = ["$ErrorActionPreference='Stop'", _set_dns_script(idx, servers)]
+    for srv in doh:   # only DoH registrations NOBAD itself added
+        parts.append(f"Remove-DnsClientDohServerAddress -ServerAddress '{ipaddress.ip_address(str(srv))}' "
+                     "-ErrorAction SilentlyContinue")    # validated above: an IP address can't break out of the quotes
     parts.append("Clear-DnsClientCache")
     r = _ps(";".join(parts))
     if r.returncode != 0:
@@ -133,7 +150,11 @@ def restore_all():
         items = _load()
         keep = []
         for e in reversed(items):
-            ok, detail = restore_entry(e)
+            try:
+                ok, detail = restore_entry(e) if isinstance(e, dict) else (False, "unreadable entry")
+            except Exception as ex:          # one bad entry must not stop the rest of the reset
+                ok, detail = False, f"{type(ex).__name__}: {ex}"[:200]
+                e = e if isinstance(e, dict) else {}
             out.append({"id": e.get("id"), "ok": ok, "detail": detail, "reason": e.get("reason")})
             if not ok:
                 keep.append(e)

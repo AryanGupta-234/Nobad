@@ -381,7 +381,7 @@ class Tunnel:
     def _ipinfo(path):
         req = urllib.request.Request(f"https://ipinfo.io/{path}json", headers={"User-Agent": "curl/8.0", "Accept": "application/json"})
         with reach.urlopen(req, timeout=6) as r:
-            d = json.loads(r.read().decode("utf-8", "replace"))
+            d = json.loads(r.read(65536).decode("utf-8", "replace"))
         lat, lon = (float(x) for x in d["loc"].split(","))
         return {"lat": lat, "lon": lon, "city": d.get("city"), "country": d.get("country"), "ip": d.get("ip")}
 

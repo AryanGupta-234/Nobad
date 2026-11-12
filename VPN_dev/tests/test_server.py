@@ -128,6 +128,6 @@ def test_svg_responses_are_sandboxed(srv, monkeypatch):
         def image(self, size, name):
             return b'<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'
     monkeypatch.setattr(api_handlers, "get", lambda: _SI())
-    st, h, _body = req(srv, "GET", "/si/img/w92/abcdef.svg")
+    st, h, _body = req(srv, "GET", "/si/img/w92/abcdef.svg", {"Cookie": f"{server.COOKIE}={server.SESSION}"})
     assert st == 200 and h["Content-Type"] == "image/svg+xml"
     assert "sandbox" in h["Content-Security-Policy"] and "default-src 'none'" in h["Content-Security-Policy"]

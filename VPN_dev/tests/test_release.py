@@ -105,8 +105,21 @@ def test_handoff_replaces_hung_instance(instance_file, monkeypatch):
 
     def hung(*a):
         raise TimeoutError
-    assert lifecycle.handoff_to_running(pid_alive=lambda p: True, post=hung) is False
+    import sys as _sys
+    assert lifecycle.handoff_to_running(pid_alive=lambda p: True, post=hung, image=lambda p: _sys.executable) is False
     assert killed and killed[0][:3] == ["taskkill", "/PID", "424242"]
+
+
+def test_handoff_never_kills_a_reused_pid(instance_file, monkeypatch):
+    """instance.json survived a crash and Windows gave its PID to another program: leave that program alone."""
+    _write(424242)
+    monkeypatch.setattr(lifecycle, "run", lambda *a, **k: pytest.fail("must not kill an unrelated process"))
+
+    def hung(*a):
+        raise TimeoutError
+    assert lifecycle.handoff_to_running(pid_alive=lambda p: True, post=hung,
+                                        image=lambda p: r"C:\Program Files\Other\other.exe") is False
+    assert lifecycle.handoff_to_running(pid_alive=lambda p: True, post=hung, image=lambda p: None) is False
 
 
 def test_handoff_ignores_dead_or_self(instance_file, monkeypatch):

@@ -2,6 +2,24 @@
 
 All notable changes to NOBAD VPN. Versions follow [semantic versioning](https://semver.org/).
 
+## Unreleased
+
+### Security
+- **The installed app ignores redirecting environment variables.** Its data folder and Program Files are taken
+  from Windows (known folders), not from `%ProgramData%`, `%ProgramFiles%` or `NOBAD_DATA_DIR`, which a normal user
+  can set for the processes NOBAD starts. Folder locking refuses junctions and symbolic links and removes any
+  planted inside before it runs.
+- **Start with Windows only for the installed app.** The no-UAC startup task is created only when NOBAD runs from
+  Program Files, never for a copy in a folder other users could change.
+- **Links open in your normal browser, not as administrator** (captive-portal sign-in pages, streaming links).
+- **Imports from a link** refuse addresses on this PC or the local network and re-check where a redirect leads; no
+  download anywhere in the app follows a redirect from `https://` to `http://`.
+- **A stale instance file can't make NOBAD close another program** whose process ID was reused.
+- **Restore internet** only passes adapter numbers and IP addresses from its change journal to PowerShell, and one bad
+  entry no longer stops the rest of the reset.
+- Smaller: update downloads are capped at 300 MB, IP-lookup answers at 64 KB, streaming provider IDs are numbers
+  only, and the poster image proxy only serves NOBAD's own windows.
+
 ## 1.2.1 · 2026-11-12
 
 Security and reliability update. **Recommended for everyone.** 1.2.0 can't update itself (it only accepts signed

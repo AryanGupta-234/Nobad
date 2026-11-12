@@ -42,7 +42,7 @@ def _lookup_ip():
             try:
                 req = urllib.request.Request(url, headers={"User-Agent": "curl/8.0", "Accept": "application/json"})
                 with reach.urlopen(req, timeout=7) as r:
-                    raw = r.read().decode("utf-8", "replace")
+                    raw = r.read(65536).decode("utf-8", "replace")   # an IP answer is tiny: never read more
                 if kind == "cf":
                     d = dict(x.split("=", 1) for x in raw.splitlines() if "=" in x)
                     if d.get("ip"):

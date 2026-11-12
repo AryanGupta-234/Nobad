@@ -18,6 +18,8 @@ from .ctx import ctx
 from .logbus import broadcast, log
 from .syscmd import private_workdir, run
 
+MAX_INSTALLER = 300 * 1024 * 1024   # the installer is ~25 MB; anything near this is not a NOBAD release
+
 
 def parse_version(v):
     return tuple(int(x) for x in re.findall(r"\d+", str(v)))
@@ -83,6 +85,7 @@ class Updater:
     def download_and_install(self):
         if not self._lock.acquire(blocking=False):
             return
+        work = None
         try:
             m = self._manifest
             if not m or not is_newer(m["version"]):
@@ -103,9 +106,11 @@ class Updater:
                     chunk = r.read(65536)
                     if not chunk:
                         break
+                    got += len(chunk)
+                    if got > MAX_INSTALLER:              # a hostile or broken server could fill the disk
+                        raise ValueError("the update is larger than any NOBAD installer — download stopped")
                     h.update(chunk)
                     f.write(chunk)
-                    got += len(chunk)
                     if total:
                         self._set(progress=int(got * 100 / total))
             if h.hexdigest() != m["sha256"]:
@@ -127,6 +132,8 @@ class Updater:
             from .lifecycle import request_quit
             request_quit(False)
         except Exception as e:
+            if work:
+                shutil.rmtree(work, ignore_errors=True)
             self._set(busy=False, error=f"update failed: {type(e).__name__}: {e}"[:200])
         finally:
             self._lock.release()
