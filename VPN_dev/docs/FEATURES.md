@@ -77,6 +77,22 @@ Live-tunnel behaviour on a real PC is still listed in [TESTING.md](../TESTING.md
 * VALORANT region check (community-reported Riot edges for Mumbai/Singapore, cloud-region TCP estimates elsewhere).
 * Custom game endpoint test (ping, loss, jitter, verdict).
 
+## Streaming Region Intelligence (Streaming tab → Where to watch)
+
+* Search movies, series, anime, animated and documentary titles (a year or an IMDb id narrows results; de-duplicated
+  by TMDB identity; original and alternative titles shown).
+* Country-by-country listings by offer type: subscription, free, free with ads, rent, buy. *Not listed* (covered
+  country) is kept apart from *unknown* (country not covered).
+* Platform view: every platform carrying the title, with its countries.
+* Documented restrictions from Wikipedia's banned-film lists, matched by Wikidata identity, with dates, notes,
+  citations and a verification label; age ratings shown separately.
+* Recommendation of *your* matching VPN servers, scored with reasons and caveats (offer type, your services, latency,
+  server-country evidence, past service results, data freshness, restrictions). Server load is shown as not reported.
+* One-click connect through the existing engine, then verification of the exit country and platform reachability.
+* Freshness labels, stale-data fallback, a six-month cache limit (TMDB terms), required TMDB/JustWatch attribution.
+* Your own TMDB key, checked before saving and stored DPAPI-encrypted outside `settings.json`; optional
+  "services you have" filter.
+
 ## Network Intelligence (Intel tab)
 
 * Network overview: adapters, gateway, DNS health, NXDOMAIN rewriting, DNS interception, multiple uplinks, changes since last seen.
@@ -197,6 +213,10 @@ If NOBAD is already running, `--panic` and `--repair-network` ask the running co
 can't undo the reset.
 
 ### Environment variables
+
+* `NOBAD_TMDB_TOKEN`: a TMDB key or token used instead of the saved one (development and CI). The ⚙ dialog shows
+  "(from environment)" and hides *Remove key*.
+
 
 | Variable | Effect |
 |---|---|

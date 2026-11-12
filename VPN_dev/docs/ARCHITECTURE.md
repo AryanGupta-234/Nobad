@@ -538,6 +538,15 @@ known sinkhole addresses and investigates them.
 
 ---
 
+## 8b. Streaming Region Intelligence (`nobadvpn/streamintel/`)
+
+A separate package that only reads engine state (`tunnel._regions`, `geo`, `pings`, `home`, `smart` service
+history) and connects through the existing `/api/connect`. Handlers live in `streamintel/api_handlers.py`
+(`si_*`). Results come back as the events `si_title`, then `si_restrictions` and `si_verify`. Posters are served by
+`GET /si/img/<size>/<file>`, a validating, caching proxy, so the UI's CSP stays `img-src 'self'`. Sources, honesty
+rules, scoring, caching and configuration are documented in [STREAMING-INTELLIGENCE.md](STREAMING-INTELLIGENCE.md).
+Tests: `tests/test_streamintel.py` (all HTTP faked per URL).
+
 ## 9. Fail-safe design
 
 ### 9.1 Change journal (`netjournal.py`)

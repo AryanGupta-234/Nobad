@@ -27,6 +27,14 @@ pystray is used without modification. The complete source of NOBAD VPN and its b
 (`packaging/build.ps1`, `packaging/nobad.spec`) are public under the MIT License, so you can rebuild the app with
 your own modified copy of pystray. pystray's source is available at https://github.com/moses-palmer/pystray.
 
+## Data sources used at runtime (not bundled)
+
+| Source | Used for | Terms |
+|---|---|---|
+| [TMDB](https://www.themoviedb.org/) API | titles, metadata, posters, age ratings | TMDB API Terms of Use. Each user supplies their own key. Required notice: "This product uses the TMDB API but is not endorsed or certified by TMDB." TMDB content is cached for at most six months. |
+| [JustWatch](https://www.justwatch.com/) (through TMDB's watch-provider data) | streaming availability per country | Attribution to JustWatch required (shown in the app) |
+| [Wikipedia](https://en.wikipedia.org/) / [Wikidata](https://www.wikidata.org/) | documented film restrictions, identity links | Wikipedia text CC BY-SA 4.0 (records link to their source section); Wikidata CC0 |
+
 ## Names and logos
 
 The MIT License covers the code. It doesn't grant rights to the NOBAD name or logo (`nobadvpn/ui/brand/`,

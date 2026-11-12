@@ -6,6 +6,9 @@ WireGuard VPN client for Windows, part of the NOBAD platform. It includes:
 * a tray icon and a compact mini window
 * smart server choice and usage history
 * a first-run wizard
+* **Network Intelligence**: explains why a site or the network fails, with evidence
+* **Streaming Region Intelligence**: where a title is listed, on which platforms, documented restrictions, and which
+  of your servers match (needs your own free TMDB key)
 
 The UI is English only. It ships as **one installer**, `NobadVPN-Setup-<version>.exe`, which includes the official
 WireGuard for Windows (installed automatically when missing).
@@ -113,6 +116,8 @@ docs/      CODE-SIGNING.md USER-MANUAL.md FEATURES.md ARCHITECTURE.md SYSTEM-INT
 ## Documentation
 * **[docs/USER-MANUAL.md](docs/USER-MANUAL.md)**: end-user manual.
 * **[docs/FEATURES.md](docs/FEATURES.md)**: complete feature list, plus hidden and power-user features.
+* **[docs/STREAMING-INTELLIGENCE.md](docs/STREAMING-INTELLIGENCE.md)**: Streaming Region Intelligence: data sources,
+  honesty rules, scoring, caching, configuration and limits.
 * **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**: how the client works inside.
 * **[docs/SYSTEM-INTEGRATION.md](docs/SYSTEM-INTEGRATION.md)**: what NOBAD touches on Windows and on the network.
 * **[docs/CODE-SIGNING.md](docs/CODE-SIGNING.md)**: getting and using a code-signing certificate.

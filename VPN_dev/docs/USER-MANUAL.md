@@ -197,6 +197,42 @@ On Windows 11 (24H2 and later) the Wi-Fi name may be hidden from apps unless you
 
 ## 8. Streaming tab
 
+### Where to watch (Streaming Region Intelligence)
+
+Type a movie, series or anime and pick it from the results. NOBAD shows:
+
+* **Best match**: which of *your* servers sits in a country whose catalogue lists the title, and why. Each option has
+  reasons, caveats and a *Connect* button. After you connect, NOBAD checks that your exit really is in that country and
+  that Netflix, Prime Video or Disney+ answer from there.
+* **Countries**: every country that lists the title, with its platforms and whether it is included in a
+  subscription, free, free with ads, for rent or to buy. You can filter by type, platform or country.
+* **Restrictions**: documented bans or blocks from Wikipedia's banned-film lists, each with its date, notes and
+  sources, plus age ratings. A title missing from a catalogue is not a ban.
+* **Sources**: where the data came from and how old it is.
+
+**First time:** you need a free TMDB key. The steps are also shown in the app:
+
+1. Create a free TMDB account at <https://www.themoviedb.org/signup> and confirm your e-mail.
+2. Open <https://www.themoviedb.org/settings/api> (Settings → API).
+3. Request an API key for **personal, non-commercial use** and accept TMDB's terms. For the app details you can
+   enter: name *NOBAD VPN (personal)*, URL *https://github.com/AryanGupta-234/Nobad*, summary *Personal use of
+   Where to watch in NOBAD VPN*.
+4. Back on <https://www.themoviedb.org/settings/api>, copy the **API Read Access Token** (the long one starting with
+   `eyJ`, recommended) or the shorter **API Key**.
+5. In NOBAD: **Streaming → Where to watch → Add key** (or the ⚙ button), paste it and press **Save & check**.
+   NOBAD verifies it with TMDB and stores it encrypted on this PC.
+
+Keep the key to yourself: don't share it or put it into NOBAD's source code. A personal key covers your own use
+of a free app; if NOBAD were ever sold or ad-supported, TMDB requires a commercial agreement. Optional: under ⚙ → *Services you have*, tick the services you
+pay for so recommendations prefer them.
+
+**Good to know:** listings change daily and don't guarantee playback, and streaming services may detect VPNs. Using a
+VPN doesn't change which laws apply to you. Countries that the data source doesn't cover are shown as *unknown*. Turn
+on *Look up my exit IP address* (Settings → Privacy) so NOBAD can confirm which country each server is in. See
+[STREAMING-INTELLIGENCE.md](STREAMING-INTELLIGENCE.md) for details.
+
+### Speed and reachability
+
 * **Run speed test**: downloads up to 8 MB from Cloudflare (at most about 5 seconds) and shows your speed, with
   markers for SD (3 Mbps), HD (8 Mbps) and 4K (25 Mbps).
 * **Service reachability → Check**: tests Netflix, YouTube, Disney+, Prime Video, Spotify and Twitch (plus a

@@ -212,7 +212,22 @@ agent.
 | your router | ping, by the fix agent before and after a DNS change |
 | names from the Windows DNS cache | resolved through Windows by the fix agent as "canaries" |
 
-### 8.5 Installation, updates and reports
+### 8.5 Streaming Region Intelligence (Streaming tab → Where to watch)
+
+Nothing runs until you add a TMDB key and search. Requests carry the User-Agent `NOBAD-VPN/<version>`.
+
+| Destination | Purpose |
+|---|---|
+| `https://api.tmdb.org/3/...`, falling back to `https://api.themoviedb.org/3/...` | search, title details (with alternative titles, external ids, age ratings and watch providers in one request), the covered-country list, country names and provider lists. Sends **your TMDB key**. |
+| `https://image.tmdb.org/t/p/...` | posters and platform logos, fetched by NOBAD's local server and cached (the UI never loads remote images directly) |
+| `https://en.wikipedia.org/w/api.php` | the banned-film lists (about a dozen pages, rebuilt at most weekly) and redirects for the selected title |
+| `https://www.wikidata.org/w/api.php` | maps the title's Wikidata id to its Wikipedia article |
+| your exit IP lookup and the existing service checks | only after you connect from a recommendation (*verify*), and the IP lookup only when that privacy setting is on |
+
+Data is cached in `streamintel\cache.sqlite` and `streamintel\img\` (TMDB content at most six months). The TMDB key is
+in `streamintel	mdb.credential`, encrypted with DPAPI.
+
+### 8.6 Installation, updates and reports
 
 | Destination | When | Opt-in? |
 |---|---|---|
@@ -225,7 +240,7 @@ agent.
 | *Crash report server* | *Send report*, or at start-up for pending reports when *Send crash reports* is on | yes: off and empty by default |
 | `http://timestamp.digicert.com` / `http://timestamp.acs.microsoft.com`, `download.wireguard.com` | **build machine only** (`build.ps1`), not the user's PC | n/a |
 
-### 8.6 Local only
+### 8.7 Local only
 
 The UI talks to a server on `127.0.0.1:<random port>` (token-protected; see
 [ARCHITECTURE.md](ARCHITECTURE.md#71-server-security-serverpy)). A second launch talks to the same server to hand
