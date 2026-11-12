@@ -9,7 +9,7 @@ import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
-from . import netinfo
+from . import netinfo, reach
 from .const import UA
 from .ctx import ctx
 from .logbus import broadcast, log
@@ -41,7 +41,7 @@ def _lookup_ip():
         for attempt in range(2):
             try:
                 req = urllib.request.Request(url, headers={"User-Agent": "curl/8.0", "Accept": "application/json"})
-                with urllib.request.urlopen(req, timeout=7) as r:
+                with reach.urlopen(req, timeout=7) as r:
                     raw = r.read().decode("utf-8", "replace")
                 if kind == "cf":
                     d = dict(x.split("=", 1) for x in raw.splitlines() if "=" in x)
@@ -141,7 +141,7 @@ def speed_test():
     broadcast("speed", {"phase": "start", "mbps": 0, "pct": 0})
     try:
         req = urllib.request.Request("https://speed.cloudflare.com/__down?bytes=8000000", headers={"User-Agent": UA})
-        with urllib.request.urlopen(req, timeout=10) as r:
+        with reach.urlopen(req, timeout=10) as r:
             t0 = last_t = time.time()
             total = last_b = 0
             while True:
@@ -358,11 +358,13 @@ def valorant_region_check():
 def startup_checks():
     """One bounded startup sweep per app launch; each task is independently guarded."""
     from .syscmd import run_once
-    run_once("startup_network", lambda: broadcast("network_diagnose", network_diagnose()))
+    # Same lock keys as the buttons: a check started at launch can't run twice in parallel with a click, and its
+    # task_done re-enables the matching button (separate 'startup_*' keys left buttons disabled for good).
+    run_once("network_diagnose", lambda: broadcast("network_diagnose", network_diagnose()))
     if not ctx.settings.get("startup_checks"):
-        run_once("startup_ipinfo", fetch_ipinfo)
+        run_once("ipinfo", fetch_ipinfo)
         return
-    run_once("startup_speed", speed_test)
-    run_once("startup_services", stream_check)
-    run_once("startup_ipinfo", fetch_ipinfo)
-    run_once("startup_valorant", valorant_region_check)
+    run_once("speed", speed_test)
+    run_once("stream", stream_check)
+    run_once("ipinfo", fetch_ipinfo)
+    run_once("valorant_manual", valorant_region_check)

@@ -7,7 +7,7 @@ APP_TITLE = "NOBAD VPN"
 # Windows AppUserModelID: taskbar grouping, jump list and the sender name on notifications. The installer registers it
 # on the Start-menu shortcut, which is what lets Windows show "NOBAD VPN" (not PowerShell/Python) on toasts.
 APP_ID = "NOBAD.VPN"
-APP_VER = "1.0.0"  # semantic version; bump on every release (build.ps1 reads it)
+APP_VER = "1.2.0"  # semantic version; bump on every release (build.ps1 reads it)
 WINDOW_TITLE = f"{APP_TITLE}  ·  v{APP_VER}"
 
 FROZEN = bool(getattr(sys, "frozen", False))
@@ -93,7 +93,7 @@ DEFAULTS = {
     "autoconnect_untrusted": True,
     "autodisconnect_trusted": True,
     # privacy / security
-    "ip_lookup": True,
+    "ip_lookup": False,            # privacy first: opt-in (setup checklist or Settings > Privacy); sends your IP to ipinfo.io
     "startup_checks": False,       # speed test + service checks at launch: opt-in (slow, contacts 3rd parties)
     "visual_effects": False,       # frosted glass + ambient animations: off by default (GPU/CPU heavy)
     # Network Intelligence (on demand; nothing runs in the background unless the fix agent is switched on)
@@ -103,6 +103,8 @@ DEFAULTS = {
     # Streaming Region Intelligence (TMDB key is stored encrypted elsewhere, never in settings)
     "si_my_services": [],          # TMDB provider ids the user subscribes to (optional filter)
     "si_language": "en-US",
+    "custom_titlebar": True,
+    "net_adapt": True,             # NOBAD's own downloads adapt to blocked hostnames/DNS (alternate names, encrypted DNS)       # NOBAD's own top bar with window buttons (off = classic Windows title bar)
     "encrypt_configs": False,
     "dpapi_runtime_ok": True,      # flipped off automatically if WireGuard refuses .dpapi files
     "crash_reporting": False,

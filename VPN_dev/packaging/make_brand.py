@@ -88,6 +88,25 @@ def make_splash(light_logo):
     msg = "Starting secure connection..."
     d.text(((W - d.textlength(msg, font=f2)) / 2, 352), msg, font=f2, fill=(150, 158, 176, 255))
     d.rounded_rectangle((W / 2 - 70, 408, W / 2 + 70, 414), 3, fill=ORANGE + (255,))
+    # small "made with AI" signature: muted, letter-spaced, with a drawn four-point sparkle (no glyph needed)
+    f3 = font(15, bold=True)
+    tag = "MADE WITH AI"
+    spacing = 3
+    tw2 = sum(d.textlength(ch, font=f3) + spacing for ch in tag) - spacing
+    total = 14 + 8 + tw2
+    x0, y0 = (W - total) / 2, 446
+    chip = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    ImageDraw.Draw(chip).rounded_rectangle((x0 - 14, y0 - 7, x0 + total + 14, y0 + 23), 15,
+                                           fill=(255, 255, 255, 10), outline=(255, 255, 255, 34), width=1)
+    img = Image.alpha_composite(img, chip)
+    d = ImageDraw.Draw(img)
+    sx, sy, r = x0 + 7, y0 + 8, 7
+    d.polygon([(sx, sy - r), (sx + 2, sy - 2), (sx + r, sy), (sx + 2, sy + 2), (sx, sy + r), (sx - 2, sy + 2),
+               (sx - r, sy), (sx - 2, sy - 2)], fill=ORANGE + (230,))
+    cx2 = x0 + 22
+    for ch in tag:
+        d.text((cx2, y0 - 1), ch, font=f3, fill=(176, 182, 198, 235))
+        cx2 += d.textlength(ch, font=f3) + spacing
     return img
 
 

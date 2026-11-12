@@ -438,7 +438,23 @@ def h_window(b):
         w.hide_mini()
     elif act == "mini":
         w.toggle_mini()
+    elif act in ("minimize", "maximize", "close", "drag", "resize", "state"):
+        edge = b.get("edge")
+        if edge is not None and edge not in w.HT:
+            return {"ok": False, "error": "bad edge"}
+        return dict(ok=True, **w.titlebar_action(act, edge))
     # "noop": a background (tray-only) second launch just checks that this copy is alive
+    return {"ok": True}
+
+
+def h_reach_test(b):
+    from . import reach
+    return {"ok": True} if run_once("reach", lambda: broadcast("reach_report", reach.report())) else _busy("A connectivity test is already running.")
+
+
+def h_reach_forget(b):
+    from . import reach
+    reach.forget()
     return {"ok": True}
 
 
@@ -461,7 +477,7 @@ HANDLERS = {
     "diagnostics_export": h_diagnostics_export, "update_check": h_update_check, "update_install": h_update_install,
     "crash_pending": h_crash_pending, "crash_send": h_crash_send, "crash_dismiss": h_crash_dismiss,
     "guard_check": h_guard_check, "current_network": h_current_network, "trusted_add": h_trusted_add,
-    "window": h_window, "quit": h_quit,
+    "window": h_window, "quit": h_quit, "reach_test": h_reach_test, "reach_forget": h_reach_forget,
 }
 
 

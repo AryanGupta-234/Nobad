@@ -9,6 +9,7 @@ import os
 import platform
 import urllib.request
 
+from . import reach
 from .const import BASE_DIR, UA, UPDATE_DIR
 from .logbus import log
 from .syscmd import run, wg_tool
@@ -71,7 +72,7 @@ def download_official(dest_dir=UPDATE_DIR):
     name = f"wireguard-{arch()}-{WG_VERSION}.msi"
     dest = os.path.join(dest_dir, name)
     req = urllib.request.Request(WG_BASE_URL + name, headers={"User-Agent": UA})
-    with urllib.request.urlopen(req, timeout=60) as r, open(dest, "wb") as f:
+    with reach.urlopen(req, timeout=60) as r, open(dest, "wb") as f:
         got = 0
         while True:
             chunk = r.read(1 << 16)

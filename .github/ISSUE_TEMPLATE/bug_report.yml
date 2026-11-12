@@ -1,0 +1,43 @@
+name: Bug report
+description: Something in NOBAD VPN doesn't work as expected
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping! For **security problems**, please don't use this form; see SECURITY.md (private reporting).
+  - type: input
+    id: version
+    attributes:
+      label: NOBAD VPN version
+      description: Settings → Help, or the window title (e.g. 1.2.0)
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      description: e.g. Windows 11 24H2 x64, Windows 10 22H2, Windows 11 ARM64
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. ...\n2. ...\n3. ..."
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: [Connecting / tunnel, Kill switch / DNS leak block, Network Intelligence (Intel tab), Where to watch, Fix my internet / repair, Installer / update, Window / UI, Other]
+  - type: textarea
+    id: diag
+    attributes:
+      label: Diagnostics
+      description: Settings → Help → Export diagnostics creates a zip with private keys removed. Attach it here, or paste relevant log lines.

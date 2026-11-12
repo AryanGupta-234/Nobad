@@ -11,7 +11,7 @@ import time
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
-from . import confparse, dpapi, firewall, netinfo, recovery
+from . import confparse, dpapi, firewall, netinfo, reach, recovery
 RECONNECT_TRIES = 8
 
 from .const import (CONFIG_DIR, FAIL_THRESHOLD, GEO_PATH, HEALTH_SEC, LEGACY_CONFIG_DIR, MAX_REPAIR, PING_TARGET,
@@ -391,7 +391,7 @@ class Tunnel:
     @staticmethod
     def _ipinfo(path):
         req = urllib.request.Request(f"https://ipinfo.io/{path}json", headers={"User-Agent": "curl/8.0", "Accept": "application/json"})
-        with urllib.request.urlopen(req, timeout=6) as r:
+        with reach.urlopen(req, timeout=6) as r:
             d = json.loads(r.read().decode("utf-8", "replace"))
         lat, lon = (float(x) for x in d["loc"].split(","))
         return {"lat": lat, "lon": lon, "city": d.get("city"), "country": d.get("country"), "ip": d.get("ip")}

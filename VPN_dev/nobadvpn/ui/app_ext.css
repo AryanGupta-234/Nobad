@@ -106,3 +106,34 @@ body:not(.fx) #toast,body:not(.fx) #palbox,body:not(.fx) header{background-color
 #ll{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #aimark{margin-left:auto;flex:none;align-self:center;pointer-events:none;user-select:none;font:500 9.5px/1 var(--font-mono,Consolas,monospace);letter-spacing:.08em;text-transform:uppercase;padding:3px 7px;border-radius:999px;border:1px solid color-mix(in srgb,var(--line) 80%,transparent);opacity:.55;
   background:linear-gradient(90deg,color-mix(in srgb,var(--mu) 18%,transparent),color-mix(in srgb,#ff7a3d 22%,transparent));}
+/* ---- custom title bar: the header is the window's title bar (frameless window) ---- */
+body.tb header{padding-right:0;user-select:none;-webkit-user-select:none;min-height:44px}
+.winctl{display:flex;align-self:stretch;margin:-7px 0 -7px 6px}
+.winctl button{width:46px;min-width:46px;height:auto;min-height:44px;padding:0;margin:0;border:0;border-radius:0;background:transparent;color:var(--tx);
+  display:grid;place-items:center;box-shadow:none;cursor:default;transition:background .12s}
+.winctl button svg{width:11px;height:11px;fill:none;stroke:currentColor;stroke-width:1.1}
+.winctl button:hover{background:color-mix(in srgb,var(--tx) 10%,transparent)}
+.winctl button:active{background:color-mix(in srgb,var(--tx) 18%,transparent)}
+.winctl button.x:hover{background:#c42b1c;color:#fff}.winctl button.x:active{background:#b22a1b;color:#fff}
+.winctl button:focus-visible{outline:2px solid var(--acc,#f65000);outline-offset:-2px}
+body.tb{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--line) 90%,transparent)}
+body.tb.tb-max{box-shadow:none}
+.rz{position:fixed;z-index:2147483000;background:transparent}
+.rz-t{top:0;left:8px;right:8px;height:4px;cursor:ns-resize}.rz-b{bottom:0;left:8px;right:8px;height:5px;cursor:ns-resize}
+.rz-l{left:0;top:8px;bottom:8px;width:5px;cursor:ew-resize}.rz-r{right:0;top:8px;bottom:8px;width:5px;cursor:ew-resize}
+.rz-tl{left:0;top:0;width:8px;height:8px;cursor:nwse-resize}.rz-br{right:0;bottom:0;width:10px;height:10px;cursor:nwse-resize}
+.rz-tr{right:0;top:0;width:8px;height:8px;cursor:nesw-resize}.rz-bl{left:0;bottom:0;width:10px;height:10px;cursor:nesw-resize}
+body.tb-max .rz{display:none}
+/* ---- command palette v2 ---- */
+#palbox{width:min(640px,92vw)}
+#pall{max-height:min(420px,56vh)}
+#pall .pal-g{padding:10px 12px 4px;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--mu);cursor:default;background:none}
+#pall .pal-i{display:flex;align-items:center;gap:10px}
+#pall .pal-t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#pall .pal-h{flex:none;font-size:11px;color:var(--mu);max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#pall .pal-i kbd{font-size:10px;padding:1px 6px;border-radius:5px;border:1px solid var(--line);color:var(--mu)}
+#pall .pal-i.s{background:color-mix(in srgb,var(--acc,#f65000) 16%,transparent);color:var(--tx)}
+#pall .pal-empty{padding:16px 12px;color:var(--mu);cursor:default}
+.nx-flash{animation:nxFlash 1.6s ease-out}
+@keyframes nxFlash{0%,30%{background:color-mix(in srgb,var(--acc,#f65000) 18%,transparent)}100%{background:transparent}}
+@media (prefers-reduced-motion:reduce){.nx-flash{animation:none}}

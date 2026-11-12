@@ -11,6 +11,7 @@ import urllib.request
 
 import sys
 
+from . import reach
 from .const import APP_VER, FROZEN, UPDATE_DIR, UPDATE_SIGNER_SUBJECTS, UPDATE_SIGNER_THUMBPRINTS
 from .ctx import ctx
 from .logbus import broadcast, log
@@ -41,7 +42,7 @@ def validate_manifest(m):
 
 def fetch_manifest(url):
     req = urllib.request.Request(url, headers={"User-Agent": "NobadVPN/" + APP_VER})
-    with urllib.request.urlopen(req, timeout=10) as r:
+    with reach.urlopen(req, timeout=10) as r:
         raw = r.read(65537)
     if len(raw) > 65536:
         raise ValueError("manifest too large")
@@ -91,7 +92,7 @@ class Updater:
             path = os.path.join(UPDATE_DIR, "NobadVPN-Setup-" + re.sub(r"[^0-9A-Za-z.\-]", "_", m["version"]) + ".exe")
             h = hashlib.sha256()
             req = urllib.request.Request(m["url"], headers={"User-Agent": "NobadVPN/" + APP_VER})
-            with urllib.request.urlopen(req, timeout=30) as r, open(path, "wb") as f:
+            with reach.urlopen(req, timeout=30) as r, open(path, "wb") as f:
                 total = int(r.headers.get("Content-Length") or 0)
                 got = 0
                 while True:

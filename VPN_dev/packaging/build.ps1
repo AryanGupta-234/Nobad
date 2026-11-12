@@ -54,12 +54,15 @@ if (-not $AppOnly) {
 
 # ---------------------------------------------------------------- tests + app
 python -m venv .venv-build; .\.venv-build\Scripts\Activate.ps1
-python -m pip install -q -r requirements-dev.txt
-python -m pytest -q tests; if ($LASTEXITCODE) { throw "tests failed" }
+python -m pip install -q -r requirements-lock.txt   # pinned: every release build uses the same versions
+$testOut = python -m pytest -q tests; $testCode = $LASTEXITCODE
+$testOut | ForEach-Object { Write-Host $_ }
+$testSummary = (($testOut | Where-Object { "$_" -match "passed|failed|error" } | Select-Object -Last 1) -replace "=", "").Trim()
+if ($testCode) { python packaging\journal.py fail $ver "tests" "$testSummary"; throw "tests failed" }
 python -m pyflakes nobadvpn tests; if ($LASTEXITCODE) { throw "pyflakes failed" }
 python packaging\make_version_info.py $ver packaging\version_info.txt; if ($LASTEXITCODE) { throw "version info failed" }
 pyinstaller --noconfirm --clean --distpath dist --workpath build packaging\nobad.spec
-if ($LASTEXITCODE) { throw "PyInstaller failed" }
+if ($LASTEXITCODE) { python packaging\journal.py fail $ver "PyInstaller" "$testSummary"; throw "PyInstaller failed" }
 
 # ---------------------------------------------------------------- signing setup
 $signArgs = @()
@@ -117,15 +120,23 @@ if ($signArgs.Count) {
   $isccArgs += ('/Snobadsign=$q' + $signtool + '$q sign ' + $quoted + ' $f')
   $isccArgs += "/DSignBuild=1"
 }
+# private build journal (maintainer only; a no-op when private\BUILD-JOURNAL.md is absent, e.g. in CI)
+$buildId = (python packaging\journal.py start $ver "$testSummary" | Select-Object -Last 1).Trim()
 & $iscc @isccArgs packaging\installer.iss
-if ($LASTEXITCODE) { throw "Inno Setup failed" }
+if ($LASTEXITCODE) { python packaging\journal.py fail $ver "Inno Setup" "$buildId"; throw "Inno Setup failed" }
 $setup = "dist-installer\NobadVPN-Setup-$ver.exe"
 Sign $setup
+$signedFlag = if ($signArgs.Count) { "1" } else { "0" }
+if ($buildId -ne "none") { python packaging\journal.py finish $buildId $setup $signedFlag }
+if ($LASTEXITCODE) { throw "journal update failed" }
+if ($buildId -ne "none") { Write-Host "Recorded as build $buildId in the private build journal" }
 
 $base = if ($env:NOBAD_RELEASE_URL) { $env:NOBAD_RELEASE_URL.TrimEnd('/') } else { "https://YOUR-HOST/vpn/$ver" }
-python packaging\make_manifest.py $setup "$base/NobadVPN-Setup-$ver.exe" "Release notes here" --out dist-installer\latest.json
+python packaging\make_manifest.py $setup "$base/NobadVPN-Setup-$ver.exe" "Release notes: https://github.com/AryanGupta-234/Nobad/releases" --out dist-installer\latest.json
 if ($LASTEXITCODE) { throw "manifest failed" }
 $hash = (Get-FileHash $setup -Algorithm SHA256).Hash.ToLower()
+python packaging\make_sbom.py $ver "dist-installer\NobadVPN-Setup-$ver.sbom.json"
+if ($LASTEXITCODE) { throw "SBOM failed" }
 Set-Content -Encoding ascii -Path "dist-installer\NobadVPN-Setup-$ver.exe.sha256" -Value "$hash  NobadVPN-Setup-$ver.exe"
 if ($signArgs.Count) {
   $subject = (Get-AuthenticodeSignature $setup).SignerCertificate.Subject

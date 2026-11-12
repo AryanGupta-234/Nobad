@@ -7,3 +7,6 @@ dist-installer/
 .venv-build/
 packaging/version_info.txt
 packaging/redist/
+
+# maintainer-only notes (build journal, real-PC test notes): never published
+private/

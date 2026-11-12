@@ -38,7 +38,10 @@ def get_bytes(url, params=None, headers=None, timeout=12, opener=None, sleep=tim
         url += ("&" if "?" in url else "?") + urllib.parse.urlencode(params)
     h = {"User-Agent": USER_AGENT, "Accept": "application/json"}
     h.update(headers or {})
-    open_ = opener or urllib.request.urlopen
+    if opener is None:
+        from .. import reach            # adapts to networks that block a hostname or its DNS
+        opener = reach.urlopen
+    open_ = opener
     last = None
     for attempt in (1, 2, 3):
         req = urllib.request.Request(url, headers=h)

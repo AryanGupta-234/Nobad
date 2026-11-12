@@ -1,0 +1,60 @@
+name: NOBAD VPN release
+
+# Builds the Windows installer from a version tag on a clean GitHub-hosted runner and publishes a GitHub Release
+# with the installer, its SHA-256, the update manifest and the SBOM. Free for public repositories.
+#   Release:  git tag vpn-v1.2.0 && git push origin vpn-v1.2.0
+#   Dry run:  Actions tab -> "NOBAD VPN release" -> Run workflow (builds and uploads an artifact, no release)
+on:
+  push:
+    tags: ["vpn-v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: VPN_dev
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Check the tag matches the app version
+        if: startsWith(github.ref, 'refs/tags/vpn-v')
+        run: |
+          $ver = (Select-String -Path nobadvpn\const.py -Pattern 'APP_VER = "([^"]+)"').Matches[0].Groups[1].Value
+          if ("vpn-v$ver" -ne "${{ github.ref_name }}") { throw "Tag ${{ github.ref_name }} does not match APP_VER $ver" }
+          "APP_VER=$ver" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Build (tests, app, bundled WireGuard, installer, manifest, SBOM)
+        env:
+          NOBAD_RELEASE_URL: https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}
+          # Code signing: once a certificate (or SignPath for open source) is set up, add the signing secrets here.
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File packaging\build.ps1
+
+      - name: Keep the build as a workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nobad-vpn-installer
+          path: VPN_dev/dist-installer/*
+          retention-days: 30
+
+      - name: Publish the GitHub Release
+        if: startsWith(github.ref, 'refs/tags/vpn-v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $notes = python -c "import re,sys;s=open('CHANGELOG.md',encoding='utf-8').read();m=re.search(r'^## ' + re.escape(sys.argv[1]) + r'\b.*?(?=^## |\Z)', s, re.S|re.M);print(m.group(0) if m else 'See CHANGELOG.md')" $env:APP_VER
+          $notes | Out-File -Encoding utf8 release-notes.md
+          gh release create "${{ github.ref_name }}" (Get-ChildItem dist-installer\* | ForEach-Object { $_.FullName }) `
+            --title "NOBAD VPN $env:APP_VER" --notes-file release-notes.md

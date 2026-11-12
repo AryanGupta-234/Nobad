@@ -4,8 +4,8 @@ This document describes how the client works inside. It was written from the sou
 `tests/`. Constants quoted here (timeouts, counts, names) are the values in the code at the time of writing.
 
 > **Verification status.** The automated tests run against a simulated Windows (see [Testing strategy](#13-testing-strategy)).
-> Live-tunnel behaviour on a real PC (kill switch, sleep/resume, captive portals, DPAPI with WireGuard, installer,
-> updater and more) is still listed in [TESTING.md](../TESTING.md) as needing verification.
+> Some live-tunnel behaviour on real PCs (sleep/resume, captive portals, DPAPI with WireGuard, installer upgrades,
+> the updater and more) still needs verification on more machines.
 
 Related documents: [SYSTEM-INTEGRATION.md](SYSTEM-INTEGRATION.md) (what NOBAD touches on Windows and the network),
 [FEATURES.md](FEATURES.md), [USER-MANUAL.md](USER-MANUAL.md), [CODE-SIGNING.md](CODE-SIGNING.md).
@@ -669,4 +669,4 @@ crash reports, exports and update downloads. JSON stores are written atomically 
 
 Not covered by unit tests: the Network Intelligence analysis modules (`dnsintel.py`, `investigate.py`, `agent.py`,
 `system.py`) have no dedicated tests in `tests/`; only `dnswire.py` does. Nothing in the suite runs a real tunnel,
-real firewall rules or a real WebView2 window; that is the manual matrix in [TESTING.md](../TESTING.md).
+real firewall rules or a real WebView2 window; those are verified manually on real PCs.

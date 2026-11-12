@@ -4,8 +4,7 @@ What NOBAD VPN installs, writes, changes and contacts on a Windows PC, taken fro
 (`nobadvpn/`, `packaging/installer.iss`, `packaging/build.ps1`). Internal design is in
 [ARCHITECTURE.md](ARCHITECTURE.md).
 
-> Behaviour with a live tunnel, kill switch and installer on a real PC is still listed in [TESTING.md](../TESTING.md)
-> as needing verification. Everything below describes what the code does.
+> Some behaviour with a live tunnel, the kill switch and the installer still needs verification on more real PCs.
 
 ---
 
@@ -56,6 +55,7 @@ SYSTEM and Administrators only. Setting the environment variable `NOBAD_DATA_DIR
 | `smart.json` | learned latency per server and time of day, per-service block marks, connect failures |
 | `endpoints.json` | last resolved IP addresses of hostname endpoints (reused while the DNS block prevents a lookup) |
 | `geo_cache.json` | location (lat/lon, city, country, IP) of each server endpoint, from ipinfo.io |
+| `reach.json` | which route works per hostname on this network (direct, official alternative name, or encrypted DNS); kept for a day and cleared when the network changes |
 | `instance.json` | running copy's loopback port, PID, start time and API token |
 | `clean_exit.flag` | written on a normal exit; its absence at the next start means a crash |
 | `netchanges.json` | change journal: original adapter DNS saved before the fix agent changed it |
@@ -177,7 +177,7 @@ every outbound destination found in the code.
 | `1.1.1.1` / `2606:4700:4700::1111` (ICMP) | handshake check and health check every 8 s while connected (through the tunnel); split tunnels ping a host inside the tunnel instead | a UDP socket "connect" to these addresses is also used to detect IPv4/IPv6 routes; that sends no packet |
 | `http://www.msftconnecttest.com/connecttest.txt`, `http://connectivitycheck.gstatic.com/generate_204` | captive-portal check after a failed handshake (normal kill switch only), every 4 s for up to 10 min while waiting for a sign-in, fix-agent preflight, `--selftest` | plain HTTP, redirects not followed |
 
-### 8.2 IP address and location lookups (setting *Look up my exit IP address*, **on by default**)
+### 8.2 IP address and location lookups (setting *Look up my exit IP address*, **off by default since 1.2.0**; opt in from the setup checklist or Settings → Privacy)
 
 | Destination | When |
 |---|---|
@@ -240,7 +240,19 @@ in `streamintel	mdb.credential`, encrypted with DPAPI.
 | *Crash report server* | *Send report*, or at start-up for pending reports when *Send crash reports* is on | yes: off and empty by default |
 | `http://timestamp.digicert.com` / `http://timestamp.acs.microsoft.com`, `download.wireguard.com` | **build machine only** (`build.ps1`), not the user's PC | n/a |
 
-### 8.7 Local only
+### 8.7 Adapting to blocked services (Settings → Connectivity, on by default)
+
+This applies only to NOBAD's own downloads: the IP lookups, the speed test, Where to watch, Wikipedia, and the
+WireGuard and update downloads. It never applies to your VPN traffic, and the service checks and Network Intelligence
+always measure the direct path.
+
+| When | Destination |
+|---|---|
+| a hostname's TLS connection is reset | the service's official alternative name: `api.themoviedb.org` ↔ `api.tmdb.org`, `en.wikipedia.org` → `en.m.wikipedia.org`, `www.wikidata.org` → `m.wikidata.org` |
+| the network's DNS fails or returns a blocked answer (0.0.0.0, loopback, private) | DNS-over-HTTPS lookups at `https://1.1.1.1/dns-query` (Cloudflare) or `https://8.8.8.8/resolve` (Google), then HTTPS to that address with the real hostname and certificate check |
+| *Test connectivity* | one request to each service NOBAD uses |
+
+### 8.8 Local only
 
 The UI talks to a server on `127.0.0.1:<random port>` (token-protected; see
 [ARCHITECTURE.md](ARCHITECTURE.md#71-server-security-serverpy)). A second launch talks to the same server to hand

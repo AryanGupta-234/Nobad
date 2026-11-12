@@ -59,6 +59,8 @@ def init(headless_test=False):
     from .notify import notify
     ctx.niagent = FixAgent(ctx.settings, ctx.tunnel, notify=notify)
     ctx.netwatch.listeners.append(ctx.niagent.on_network_change)
+    from . import reach
+    ctx.netwatch.listeners.append(lambda *a, **k: reach.forget())   # new network: re-learn which routes work
     if extra_hook not in ctx.state_hooks:
         ctx.state_hooks.append(extra_hook)
     return ctx

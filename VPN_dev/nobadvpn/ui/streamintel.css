@@ -81,3 +81,23 @@
 .si-hit-t small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .linkish{display:inline;height:auto;min-height:0;line-height:inherit;vertical-align:baseline;box-shadow:none;border-radius:0;font-size:inherit;font-weight:inherit}
 .si-steps .linkish{word-break:normal;overflow-wrap:anywhere}
+/* browser modal: poster grid (results no longer squeezed into the side panel) */
+.si-modal{width:min(980px,100%)}
+#siB .si-search{margin:2px 0 12px}
+.si-count-line{margin:0 0 10px}
+.si-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(138px,1fr));gap:14px;max-height:58vh;overflow:auto;padding:2px 4px 6px 2px}
+.si-modal button.si-tile{display:flex;flex-direction:column;align-items:stretch;gap:0;height:auto;min-height:0;padding:0;text-align:left;border-radius:14px;overflow:hidden;
+  border:1px solid var(--line);background:color-mix(in srgb,var(--surface-2,rgba(255,255,255,.04)) 70%,transparent);color:inherit;font:inherit;cursor:pointer;
+  transition:transform .18s ease,border-color .18s,box-shadow .18s}
+.si-modal button.si-tile:hover,.si-modal button.si-tile:focus-visible{transform:translateY(-3px);border-color:color-mix(in srgb,var(--acc,#f65000) 60%,var(--line));box-shadow:0 14px 30px rgba(0,0,0,.35)}
+.si-tile img,.si-tile .si-noimg{width:100%;aspect-ratio:2/3;height:auto;object-fit:cover;display:block;border-radius:0}
+.si-tile .si-noimg{display:grid;place-items:center;font-size:40px;font-weight:700;color:var(--mu);background:linear-gradient(160deg,color-mix(in srgb,var(--acc,#f65000) 14%,transparent),transparent)}
+.si-tile-t{display:flex;flex-direction:column;gap:2px;padding:8px 10px 10px}
+.si-tile-t b{font-size:12.5px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.si-tile-t small{font-size:11px;color:var(--mu);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.si-orig{opacity:.8}
+.si-back{margin-bottom:10px}
+.si-recent{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:2px}
+.si-modal .si-chip,.si-card .si-chip{height:auto;min-height:0;padding:3px 10px;border-radius:99px;border:1px solid var(--line);background:none;color:var(--tx);font:inherit;font-size:11.5px;cursor:pointer}
+.si-card .si-chip:hover{border-color:color-mix(in srgb,var(--acc,#f65000) 60%,var(--line))}
+@media (prefers-reduced-motion:reduce){.si-modal button.si-tile{transition:none}}

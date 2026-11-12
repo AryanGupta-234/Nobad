@@ -8,7 +8,7 @@
   const img = (size, f) => f ? `/si/img/${size}/${encodeURIComponent(f)}` : "";
   const ago = ts => { if (!ts) return "—"; const s = Math.max(0, Math.round(Date.now() / 1000 - ts)); return s < 90 ? tr("just now") : s < 5400 ? Math.round(s / 60) + " min" : s < 172800 ? Math.round(s / 3600) + " h" : Math.round(s / 86400) + " d"; };
   const OFFERS = ["subscription", "free", "free with ads", "rent", "buy"];
-  const SI = { status: null, results: [], q: "", busy: false, rep: null, restr: null, rec: null, pane: "match",
+  const SI = { status: null, results: [], recent: [], q: "", busy: false, rep: null, restr: null, rec: null, pane: "match",
                filter: "all", provider: null, csearch: "", pending: null, verify: null, modal: null, err: null };
 
   /* ------------------------------------------------------------------ card in the Streaming tab */
@@ -53,24 +53,54 @@
         <button class="pri" data-si="setup">${E(tr("Add key"))}</button></div>`;
       return;
     }
-    if (SI.busy) { box.innerHTML = `<div class="ni-busy" role="status"><i></i>${E(tr("Searching…"))}</div>`; return; }
-    if (SI.err) { box.innerHTML = `<div class="net-issue warn"><b>${E(SI.err)}</b></div>`; return; }
-    if (!SI.results.length) { box.innerHTML = SI.q ? `<div class="empty-state">${E(tr("No matching titles."))}</div>` : ""; return; }
-    box.innerHTML = `<div class="si-results">` + SI.results.map(r => `<button class="si-hit" data-si="open" data-key="${E(r.key)}">
-        ${r.poster ? `<img src="${img("w92", r.poster)}" alt="" loading="lazy">` : `<span class="si-noimg">${E((r.title || "?")[0])}</span>`}
-        <span class="si-hit-t"><b>${E(r.title)}</b>${r.year ? ` <span class="si-y">${E(r.year)}</span>` : ""}
-        <small>${E(tr(r.type.label))}${r.type.inferred ? "*" : ""}${r.original_title ? " · " + E(r.original_title) : ""}</small></span></button>`).join("") + `</div>
+    // Results open in a large window instead of this narrow panel, where they used to land below the fold.
+    box.innerHTML = SI.recent.length ? `<div class="si-recent"><span class="note">${E(tr("Recent"))}:</span>${SI.recent.map(q =>
+      `<button class="si-chip" data-si="recent" data-q="${E(q)}">${E(q)}</button>`).join("")}</div>` : "";
+  }
+  function gridHtml() {
+    if (SI.busy) return `<div class="ni-busy" role="status"><i></i>${E(tr("Searching…"))}</div>`;
+    if (SI.err) return `<div class="net-issue warn"><b>${E(SI.err)}</b></div>`;
+    if (!SI.results.length) return SI.q ? `<div class="empty-state">${E(tr("No matching titles. Try the original title, add a year (Dune 2021) or paste an IMDb link."))}</div>` : "";
+    return `<div class="note si-count-line">${SI.results.length} ${E(tr(SI.results.length === 1 ? "result" : "results"))} ${E(tr("for"))} “${E(SI.q)}”</div>
+      <div class="si-grid">` + SI.results.map(r => `<button class="si-tile" data-si="open" data-key="${E(r.key)}" title="${E(r.title)}">
+        ${r.poster ? `<img src="${img("w185", r.poster)}" alt="" loading="lazy">` : `<span class="si-noimg">${E((r.title || "?")[0])}</span>`}
+        <span class="si-tile-t"><b>${E(r.title)}</b><small>${r.year ? E(r.year) + " · " : ""}${E(tr(r.type.label))}${r.type.inferred ? "*" : ""}</small>
+        ${r.original_title ? `<small class="si-orig">${E(r.original_title)}</small>` : ""}</span></button>`).join("") + `</div>
       ${SI.results.some(r => r.type.inferred) ? `<div class="note">* ${E(tr("Anime is inferred from Japanese-language animation."))}</div>` : ""}`;
   }
-  function search() {
-    const q = ($("#siQ") || {}).value || ""; SI.q = q.trim(); SI.err = null;
-    if (SI.q.length < 2) return;
-    SI.busy = true; renderCard();
-    api("si_search", { q: SI.q }).then(r => {
+  function ensureModal() {
+    if (SI.modal) return SI.modal;
+    SI.modal = NX.modal({ wide: true, title: tr("Where to watch"), html: `<div id="siB"><div class="ni-inline si-search">
+        <input class="nx-in" id="siQ2" type="search" placeholder="${E(tr("Movie, series or anime…"))}" autocomplete="off" spellcheck="false" aria-label="${E(tr("Search titles"))}">
+        <button class="pri" data-si="search2">${E(tr("Search"))}</button></div><div id="siGrid" aria-live="polite"></div></div><div id="siM" hidden></div>
+        <div class="si-attr">${attribution()}</div>`,
+      actions: [{ label: tr("Close"), fn: m => m.close() }], onClose: () => { SI.modal = null; } });
+    SI.modal.box.classList.add("si-modal");
+    SI.modal.body.addEventListener("click", onClick);
+    SI.modal.body.addEventListener("input", e => { if (e.target.id === "siCq") { SI.csearch = e.target.value; renderPane(true); } });
+    SI.modal.body.querySelector("#siQ2").addEventListener("keydown", e => { if (e.key === "Enter") runSearch(e.target.value); });
+    return SI.modal;
+  }
+  function showView(v) {
+    if (!SI.modal) return;
+    $("#siB").hidden = v !== "browse"; $("#siM").hidden = v !== "title";
+    if (v === "browse") SI.modal.box.querySelector("h2").textContent = tr("Where to watch");
+  }
+  function renderGrid() { const g = $("#siGrid"); if (g) g.innerHTML = gridHtml(); }
+  function search() { runSearch(($("#siQ") || {}).value || ""); }
+  function runSearch(q) {
+    q = (q || "").trim();
+    if (SI.status && !SI.status.configured) { setup(); return; }
+    if (q.length < 2) { toast(tr("Type at least two characters.")); return; }
+    SI.q = q; SI.err = null; SI.busy = true;
+    ensureModal(); showView("browse"); $("#siQ2").value = q; renderGrid();
+    const ticket = SI.ticket = (SI.ticket || 0) + 1;
+    api("si_search", { q }).then(r => {
+      if (ticket !== SI.ticket) return;                     // a newer search started meanwhile
       SI.busy = false;
       if (!r.ok) { SI.err = r.error; if (r.code === "no-key") loadStatus(); SI.results = []; }
-      else SI.results = r.results || [];
-      renderCard();
+      else { SI.results = r.results || []; SI.recent = [q].concat(SI.recent.filter(x => x.toLowerCase() !== q.toLowerCase())).slice(0, 5); renderCard(); }
+      renderGrid();
     });
   }
 
@@ -78,13 +108,8 @@
   function openTitle(key, force) {
     SI.rep = null; SI.restr = null; SI.rec = null; SI.verify = null; SI.pane = SI.pane || "match"; SI.filter = "all"; SI.provider = null; SI.csearch = "";
     const hit = SI.results.find(r => r.key === key) || {};
-    if (!SI.modal) {
-      SI.modal = NX.modal({ wide: true, title: hit.title || tr("Title"), html: `<div id="siM"></div>`,
-        actions: [{ label: tr("Close"), fn: m => m.close() }], onClose: () => { SI.modal = null; } });
-      SI.modal.box.classList.add("si-modal");
-      SI.modal.body.addEventListener("click", onClick);
-      SI.modal.body.addEventListener("input", e => { if (e.target.id === "siCq") { SI.csearch = e.target.value; renderPane(true); } });
-    }
+    ensureModal(); showView("title");
+    SI.modal.box.querySelector("h2").textContent = hit.title ? hit.title + (hit.year ? ` (${hit.year})` : "") : tr("Title");
     SI.loading = key;
     $("#siM").innerHTML = `<div class="ni-busy" role="status"><i></i>${E(tr("Reading catalogues and your servers…"))}</div>`;
     api("si_title", { key, force: !!force }).then(r => { if (!r.ok) $("#siM").innerHTML = `<div class="net-issue warn"><b>${E(r.error)}</b></div>`; });
@@ -96,7 +121,7 @@
     SI.modal.box.querySelector("h2").textContent = t.title + (t.year ? ` (${t.year})` : "");
     const meta = [tr(t.type.label) + (t.type.inferred ? "*" : ""), t.genres.slice(0, 3).join(", "),
                   t.seasons ? `${t.seasons} ${tr(t.seasons === 1 ? "season" : "seasons")}` : (t.runtime ? `${t.runtime} min` : ""), t.status].filter(Boolean);
-    $("#siM").innerHTML = `<div class="si-top">${t.poster ? `<img class="si-poster" src="${img("w185", t.poster)}" alt="">` : ""}
+    $("#siM").innerHTML = `${SI.results.length ? `<button class="sm si-back" data-si="back">← ${E(tr("Results"))}</button>` : ""}<div class="si-top">${t.poster ? `<img class="si-poster" src="${img("w185", t.poster)}" alt="">` : ""}
         <div class="si-top-t">${t.original_title ? `<div class="note">${E(tr("Original title"))}: ${E(t.original_title)}</div>` : ""}
         <div class="si-chips">${meta.map(m => `<span class="ni-tag">${E(m)}</span>`).join("")}</div>
         <p class="si-ov">${E(t.overview || tr("No description on TMDB."))}</p>
@@ -253,6 +278,9 @@
     const b = e.target.closest("[data-si]"); if (!b) return;
     const a = b.dataset.si;
     if (a === "search") search();
+    else if (a === "search2") runSearch(($("#siQ2") || {}).value);
+    else if (a === "recent") { $("#siQ").value = b.dataset.q; runSearch(b.dataset.q); }
+    else if (a === "back") { showView("browse"); renderGrid(); }
     else if (a === "setup") setup();
     else if (a === "open") openTitle(b.dataset.key);
     else if (a === "pane") { SI.pane = b.dataset.p; $$("#siM .si-seg [data-p]").forEach(x => { x.classList.toggle("a", x === b); x.setAttribute("aria-selected", x === b); }); renderPane(); }
@@ -296,6 +324,7 @@
   }
   function init() {
     buildCard(); loadStatus();
+    window.NXSI = { search: q => { tabTo("t1"); runSearch(q); }, ready: () => !!(SI.status && SI.status.configured) };
     const prev = NX.handle; NX.handle = (t, p) => handle(t, p) || prev(t, p);
     const prevState = NX.onState; NX.onState = st => { prevState(st); onState(st); };
   }

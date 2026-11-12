@@ -4,7 +4,7 @@ One line per feature, grouped by area, as implemented in the code. Defaults are 
 work: [ARCHITECTURE.md](ARCHITECTURE.md). What is touched on Windows and the network:
 [SYSTEM-INTEGRATION.md](SYSTEM-INTEGRATION.md). End-user guide: [USER-MANUAL.md](USER-MANUAL.md).
 
-Live-tunnel behaviour on a real PC is still listed in [TESTING.md](../TESTING.md) as needing verification.
+Some live-tunnel behaviour still needs verification on more real PCs and networks.
 
 ---
 
@@ -114,6 +114,14 @@ Live-tunnel behaviour on a real PC is still listed in [TESTING.md](../TESTING.md
 * Uninstaller restores internet before removing anything.
 
 ## Interface
+
+* Frameless window with NOBAD's own title bar: native drag and snap, edge resizing, minimise / maximise / close;
+  maximising stays above the taskbar. Optional, via *NOBAD title bar*.
+* Command palette (Ctrl+K) with fuzzy search over actions, servers, tabs and every setting, plus *Investigate* and
+  *Where to watch* for free text, and recently used items first.
+* Where to watch opens in a large browser window with a poster grid and recent searches.
+* Connectivity: automatic routes around blocked hostnames or DNS for NOBAD's own downloads, with a *Test
+  connectivity* report.
 
 * Main window with dock tabs: Servers, Streaming, Network, Intel, Details, Settings; last tab remembered.
 * Live status, exit IP (copy / refresh), latency, jitter, loss, throughput, uptime, charts.

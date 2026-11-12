@@ -265,6 +265,8 @@ on *Look up my exit IP address* (Settings → Privacy) so NOBAD can confirm whic
 
 ## 11. Tray icon and mini window
 
+The quick view opens in the bottom-right corner, sized and placed correctly at any display scaling (125 %, 150 % …).
+
 The NOBAD icon in the notification area shows a coloured dot: green connected, amber connecting, red blocked by the
 kill switch, grey off.
 
@@ -378,7 +380,7 @@ Settings are grouped and have a search box at the top.
 
 Privacy notes:
 
-* **Look up my exit IP address** is **on** by default. It sends your public IP address to ipinfo.io (and fallback
+* **Look up my exit IP address** is **off** by default (privacy first); you can turn it on in the setup checklist or here. It sends your public IP address to ipinfo.io (and fallback
   services) to show where you appear to be and to place servers on the map. Turn it off for no lookups at all.
 * **Run extra checks at startup** is off by default. A quick network check and the IP lookup (if allowed) still run each
   time NOBAD opens.
@@ -387,6 +389,23 @@ Privacy notes:
 * **Crash reports** are always saved on your PC and only sent if you turn sending on and a server address is set.
 
 ---
+
+## 16b. Window, search and connectivity
+
+* **Title bar:** NOBAD's own top bar works like a normal Windows title bar.
+  * The buttons on the right minimise, maximise or restore, and close. Close follows *close to tray*.
+  * Drag empty space to move the window, and double-click it to maximise.
+  * Drag any edge or corner to resize.
+  * Prefer the classic Windows bar? Settings → Startup & tray → *NOBAD title bar* (applies on the next start).
+* **Search (Ctrl+K):** type anything.
+  * You can find actions, servers (with latency), tabs and every setting; switches toggle straight from the list.
+  * Typing a site (`example.com`) offers *Investigate*, and any text offers *Where to watch*.
+  * Recently used items come first.
+* **Connectivity:** some networks block services NOBAD uses.
+  * With *Adapt to network blocks automatically* on (Settings → Connectivity), NOBAD switches to the service's
+    official alternative name or uses encrypted DNS, and remembers what works.
+  * *Test connectivity* shows every service and the route it uses.
+  * Your VPN traffic isn't affected.
 
 ## 17. Troubleshooting and FAQ
 

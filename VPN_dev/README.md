@@ -125,11 +125,11 @@ docs/      CODE-SIGNING.md USER-MANUAL.md FEATURES.md ARCHITECTURE.md SYSTEM-INT
 ## Honest limits
 * Windows behaviour is tested against a simulated Windows (fake `netsh`/`sc`/`wireguard.exe`). On one real Windows 11
   PC, a live tunnel, the kill switch (including a simulated tunnel drop), the DNS leak block, the Undo and Quick
-  repairs and the WireGuard auto-install all passed; see **TESTING.md**, which also lists what still needs other
-  PCs and networks (sleep, network switches, captive portals, ARM64, clean installs).
+  repairs and the WireGuard auto-install all passed. Still to verify on other PCs and networks: sleep/resume, network
+  switches, captive portals, ARM64 and clean installs. If you test one of these, please report it in an issue.
 * The installer builds with Inno Setup 6 on the development machine (`packaging\build.ps1` produces
-  `dist-installer\NobadVPN-Setup-<ver>.exe`), but installing, upgrading and uninstalling on real PCs is still on
-  the TESTING.md list.
+  `dist-installer\NobadVPN-Setup-<ver>.exe`), but installing, upgrading and uninstalling on more real PCs still
+  needs testing.
 * DPAPI machine-scope encryption protects copies, backups and stolen disks. It doesn't protect against other local
   administrators.
 * DNS-over-HTTPS (443) isn't blocked by the DNS block alone. The kill switch blocks all non-tunnel traffic.

@@ -9,7 +9,7 @@ from .const import UI_DIR, WINDOW_TITLE
 from .ctx import ctx
 
 MIN_W, MIN_H = 1060, 700
-MINI_W, MINI_H = 340, 270
+MINI_W, MINI_H = 340, 345   # inner content needs ~291 (+ title bar); measured with the real page
 
 
 def set_dpi_awareness():
@@ -25,27 +25,51 @@ def set_dpi_awareness():
             pass
 
 
+def ui_scale():
+    """Display scale (1.25 at 125 %). pywebview takes positions and sizes in LOGICAL units and multiplies them by
+    this, while Windows reports the screen and work area in PHYSICAL pixels: everything we hand to pywebview must be
+    divided by it, or windows land off-screen (the tray quick view did, at 125 %)."""
+    if os.name != "nt":
+        return 1.0
+    try:
+        return max(1.0, ctypes.windll.user32.GetDpiForSystem() / 96.0)
+    except Exception:
+        return 1.0
+
+
 def virtual_screen():
-    """x, y, w, h of the whole desktop (all monitors), or None."""
+    """x, y, w, h of the whole desktop (all monitors) in logical units, or None."""
     if os.name != "nt":
         return None
     try:
-        u = ctypes.windll.user32
-        return u.GetSystemMetrics(76), u.GetSystemMetrics(77), u.GetSystemMetrics(78), u.GetSystemMetrics(79)
+        u, s = ctypes.windll.user32, ui_scale()
+        return tuple(int(v / s) for v in (u.GetSystemMetrics(76), u.GetSystemMetrics(77), u.GetSystemMetrics(78),
+                                          u.GetSystemMetrics(79)))
     except Exception:
         return None
 
 
 def work_area():
+    """left, top, right, bottom of the primary work area (screen minus taskbar) in logical units, or None."""
     if os.name != "nt":
         return None
     try:
         from ctypes import wintypes
         r = wintypes.RECT()
         ctypes.windll.user32.SystemParametersInfoW(0x30, 0, ctypes.byref(r), 0)
-        return r.left, r.top, r.right, r.bottom
+        s = ui_scale()
+        return int(r.left / s), int(r.top / s), int(r.right / s), int(r.bottom / s)
     except Exception:
         return None
+
+
+def mini_position(wa, w=None, h=None, margin=12):
+    """Bottom-right corner of the work area, always fully on screen (logical units)."""
+    w, h = w or MINI_W, h or MINI_H
+    if not wa:
+        return None, None
+    left, top, right, bottom = wa
+    return max(left, right - w - margin), max(top, bottom - h - margin)
 
 
 def clamp_geometry(saved, screen):
@@ -148,8 +172,11 @@ class WindowManager:
         hide_console()
         saved = ctx.settings.get("window")
         x, y, w, h = clamp_geometry(saved, virtual_screen())
+        # Frameless: the app's own top bar is the title bar (drag, snap, edge resize and the window buttons are
+        # handed to Windows natively in titlebar_action, so it behaves like a normal window).
         kw = dict(width=w, height=h, min_size=(MIN_W, MIN_H), resizable=True, background_color="#07090d",
-                  js_api=WindowApi(), text_select=False, hidden=True)
+                  js_api=WindowApi(), text_select=False, hidden=True, frameless=bool(ctx.settings.get("custom_titlebar")),
+                  easy_drag=False)
         if x is not None:
             kw.update(x=x, y=y)
         self._maximized = bool((saved or {}).get("maximized"))
@@ -245,16 +272,79 @@ class WindowManager:
         except Exception:
             pass
 
+    # ---- custom title bar (frameless main window)
+    def _hwnd(self):
+        try:
+            return int(self.main.native.Handle.ToInt64())
+        except Exception:
+            try:
+                return ctypes.windll.user32.FindWindowW(None, WINDOW_TITLE) or None
+            except Exception:
+                return None
+
+    def _on_ui_thread(self, fn):
+        """Run fn on the window's UI thread (mouse capture and form state belong to it)."""
+        form = getattr(self.main, "native", None)
+        if form is None:
+            return fn()
+        try:
+            from System import Action
+            form.BeginInvoke(Action(fn))
+        except Exception:
+            fn()
+
+    HT = {"move": 2, "l": 10, "r": 11, "t": 12, "tl": 13, "tr": 14, "b": 15, "bl": 16, "br": 17}
+
+    def titlebar_action(self, act, edge=None):
+        """minimize | maximize (toggle) | close | drag | resize(edge) | state. Returns the window state."""
+        if self.main is None or os.name != "nt":
+            return {"maximized": False}
+        if act == "minimize":
+            self.main.minimize()
+        elif act == "maximize":
+            if self._maximized:
+                self.main.restore()
+                self._maximized = False
+            else:
+                def go():
+                    try:                  # a borderless window would otherwise cover the taskbar when maximised
+                        from System.Windows.Forms import Screen
+                        form = self.main.native
+                        wa = Screen.FromHandle(form.Handle).WorkingArea
+                        sb = Screen.FromHandle(form.Handle).Bounds
+                        from System.Drawing import Rectangle
+                        form.MaximizedBounds = Rectangle(wa.X - sb.X, wa.Y - sb.Y, wa.Width, wa.Height)
+                    except Exception:
+                        pass
+                    self.main.maximize()
+                self._on_ui_thread(go)
+                self._maximized = True
+        elif act == "close":
+            if self._main_closing():          # True: really close (no tray / quitting)
+                from .lifecycle import request_quit
+                request_quit(False)
+        elif act in ("drag", "resize"):
+            ht = self.HT.get("move" if act == "drag" else edge or "")
+            hwnd = self._hwnd()
+            if ht and hwnd and not (act == "resize" and self._maximized):
+                def go():
+                    u = ctypes.windll.user32
+                    u.ReleaseCapture()
+                    u.PostMessageW(hwnd, 0x00A1, ht, 0)      # WM_NCLBUTTONDOWN: Windows runs the move/size loop
+                self._on_ui_thread(go)
+        return {"maximized": bool(self._maximized)}
+
     def toggle_mini(self):
         wa = work_area()
-        if self._ensure_mini(*((wa[2] - MINI_W - 12, wa[3] - MINI_H - 12) if wa else (None, None))) is None:
+        if self._ensure_mini(*mini_position(wa)) is None:
             return self.show_main()
         if getattr(self, "_mini_visible", False):
             return self.hide_mini()
         wa = work_area()
         try:
-            if wa:
-                self.mini.move(wa[2] - MINI_W - 12, wa[3] - MINI_H - 12)
+            x, y = mini_position(wa)
+            if x is not None:
+                self.mini.move(x, y)
             self.mini.show()
             self._mini_visible = True
         except Exception:

@@ -1,0 +1,211 @@
+/* NOBAD design layer v2: loaded last, refines (never replaces) the base styles.
+   Smoother curves, consistent spacing, glass surfaces with a light top edge and gradient hairlines, glowing accents,
+   and calm motion. No heavy blur or animated backgrounds (CPU/GPU stay low); motion respects prefers-reduced-motion. */
+:root{
+  --r-xl:24px;--r-lg:18px;--r-md:14px;--r-sm:11px;
+  --sp-1:6px;--sp-2:10px;--sp-3:14px;--sp-4:18px;--sp-5:22px;
+  --ease:cubic-bezier(.2,.75,.25,1);
+  --edge:rgba(255,255,255,.075);--edge-hi:rgba(255,255,255,.16);
+  --glow:color-mix(in srgb,var(--cy,#f65000) 40%,transparent);
+  --card-bg:linear-gradient(165deg,color-mix(in srgb,var(--surface) 92%,#fff 4%),color-mix(in srgb,var(--surface) 96%,transparent));
+  --hair:linear-gradient(150deg,rgba(255,138,76,.42),rgba(255,255,255,.07) 34%,rgba(255,255,255,.04) 62%,rgba(120,160,255,.20));
+}
+:root[data-theme="light"]{
+  --edge:rgba(20,24,40,.08);--edge-hi:rgba(255,255,255,.9);
+  --card-bg:linear-gradient(165deg,#ffffff,color-mix(in srgb,#ffffff 86%,var(--bg)));
+  --hair:linear-gradient(150deg,rgba(214,80,10,.30),rgba(20,24,40,.07) 34%,rgba(20,24,40,.05) 62%,rgba(70,110,220,.16));
+}
+
+/* ---------- surfaces ---------- */
+aside{padding:var(--sp-3);gap:var(--sp-3)}
+aside .card,.tab>.card{
+  border-radius:var(--r-xl);padding:var(--sp-5);
+  border:1px solid transparent;
+  background:var(--card-bg) padding-box,var(--hair) border-box;
+  box-shadow:0 18px 44px rgba(0,0,0,.22),inset 0 1px 0 var(--edge-hi);
+  transition:box-shadow .35s var(--ease),transform .35s var(--ease);
+}
+:root[data-theme="light"] aside .card,:root[data-theme="light"] .tab>.card{box-shadow:0 14px 36px rgba(40,30,60,.08),inset 0 1px 0 #fff}
+aside .card:hover{box-shadow:0 22px 52px rgba(0,0,0,.26),inset 0 1px 0 var(--edge-hi),0 0 0 1px color-mix(in srgb,var(--cy,#f65000) 10%,transparent)}
+.h{font-size:15px;font-weight:680;letter-spacing:-.012em}
+.card .note{margin-top:4px}
+
+/* metric tiles: a thin glowing line on top, calm numerals */
+.m{border-radius:var(--r-md);padding:12px 13px;border:1px solid var(--edge);position:relative;overflow:hidden;
+   background:linear-gradient(180deg,color-mix(in srgb,var(--surface-2) 92%,#fff 3%),var(--surface-2));transition:border-color .25s var(--ease),transform .25s var(--ease)}
+.m:before{content:"";position:absolute;left:14px;right:14px;top:0;height:1px;
+   background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--cy,#f65000) 55%,transparent),transparent);opacity:.55}
+.m:hover{border-color:color-mix(in srgb,var(--cy,#f65000) 28%,var(--edge));transform:translateY(-1px)}
+.m small{letter-spacing:.08em;font-size:10px}
+.m span{font-variant-numeric:tabular-nums}
+:root[data-theme="light"] .m{background:linear-gradient(180deg,#fff,color-mix(in srgb,#fff 90%,var(--bg)))}
+
+/* ---------- buttons ---------- */
+button{transition:transform .18s var(--ease),box-shadow .25s var(--ease),background-color .2s,border-color .2s,color .2s}
+button.sm{border-radius:999px;min-height:34px;padding:7px 15px}
+button:not(:disabled):active{transform:scale(.97)}
+.pri,button.pri{border-radius:999px;position:relative;isolation:isolate;
+   background:linear-gradient(135deg,#ff7a2e,#f65000 45%,#c43f00);
+   box-shadow:0 10px 26px color-mix(in srgb,#f65000 30%,transparent),inset 0 1px 0 rgba(255,255,255,.28)}
+.pri:hover:not(:disabled),button.pri:hover:not(:disabled){transform:translateY(-1px);
+   box-shadow:0 14px 34px color-mix(in srgb,#f65000 40%,transparent),0 0 0 4px color-mix(in srgb,#f65000 14%,transparent),inset 0 1px 0 rgba(255,255,255,.32)}
+button:focus-visible,.nx-in:focus-visible,input:focus-visible,select:focus-visible{outline:none;box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--glow)}
+
+/* inputs: soft, rounded, glowing on focus */
+.nx-in,input[type=search],input[type=text],select.nx-in{border-radius:var(--r-md)}
+.nx-in:focus,input[type=search]:focus{border-color:color-mix(in srgb,var(--cy,#f65000) 50%,var(--line))}
+
+/* ---------- status card on the map ---------- */
+#hud{border-radius:var(--r-xl);padding:14px 18px 15px;border:1px solid transparent;
+   background:color-mix(in srgb,var(--surface) 80%,transparent) padding-box,var(--hair) border-box;
+   box-shadow:0 18px 44px rgba(0,0,0,.28),inset 0 1px 0 var(--edge-hi)}
+.hud-ico{border-radius:16px;box-shadow:0 0 0 1px color-mix(in srgb,var(--cy,#f65000) 30%,transparent),0 0 24px color-mix(in srgb,var(--cy,#f65000) 22%,transparent)}
+
+/* ---------- dock ---------- */
+#deck{border-radius:28px;padding:7px 8px 7px 16px;border:1px solid transparent;
+   background:color-mix(in srgb,var(--surface) 84%,transparent) padding-box,var(--hair) border-box;
+   box-shadow:0 22px 56px rgba(0,0,0,.36),inset 0 1px 0 var(--edge-hi)}
+#dockLens{border-radius:16px;box-shadow:inset 0 1px rgba(255,255,255,.25),0 0 18px color-mix(in srgb,var(--cy,#f65000) 30%,transparent);
+   transition:transform .45s var(--ease),width .45s var(--ease)}
+#dock button{border-radius:16px}
+#dock button:hover{color:var(--tx)}
+#dock button svg{transition:transform .25s var(--ease)}
+#dock button:hover svg{transform:translateY(-1px)}
+#bMain{border-radius:999px;min-height:44px}
+
+/* map legend / counters: matching capsules */
+#legend,#mapStat{border-radius:999px;border:1px solid var(--edge);background:color-mix(in srgb,var(--surface) 78%,transparent);box-shadow:0 10px 26px rgba(0,0,0,.2)}
+
+/* ---------- header (also the title bar) ---------- */
+header{background:linear-gradient(180deg,color-mix(in srgb,var(--surface) 92%,transparent),color-mix(in srgb,var(--surface) 80%,transparent));
+   border-bottom:1px solid transparent;border-image:linear-gradient(90deg,transparent,var(--edge) 12%,color-mix(in srgb,var(--cy,#f65000) 30%,var(--edge)) 50%,var(--edge) 88%,transparent) 1}
+header button.sm,#bTheme,#bPal{border-radius:999px}
+.pill{border-radius:999px}
+
+/* ---------- settings ---------- */
+.nx-grp{border-radius:var(--r-lg);border:1px solid var(--edge);overflow:hidden;background:color-mix(in srgb,var(--surface-2) 70%,transparent)}
+.nx-grp+.nx-grp{margin-top:10px}
+.nx-grp>summary{padding:13px 16px;font-weight:650;letter-spacing:-.005em;cursor:pointer}
+.nx-grp[open]>summary{border-bottom:1px solid var(--edge)}
+.nx-row{padding:12px 16px;transition:background .2s}
+.nx-row:hover{background:color-mix(in srgb,var(--tx) 3.5%,transparent)}
+.sw i{transition:background .25s var(--ease),box-shadow .25s}
+.sw input:checked+i{box-shadow:0 0 14px color-mix(in srgb,var(--cy,#f65000) 45%,transparent)}
+
+/* ---------- notices, lists ---------- */
+.net-issue{border-radius:var(--r-md);padding:12px 14px}
+.kvr{padding:9px 0}
+.empty-state{border-radius:var(--r-md);border:1px dashed var(--edge);padding:18px;text-align:center}
+.chip{border-radius:999px;padding:4px 11px}
+.nx-bar{border-radius:var(--r-lg);border:1px solid transparent;background:color-mix(in srgb,var(--surface) 90%,transparent) padding-box,var(--hair) border-box}
+
+/* ---------- dialogs ---------- */
+.nx-ov{backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
+.nx-modal{border-radius:26px;padding:22px 24px;border:1px solid transparent;
+   background:var(--card-bg) padding-box,var(--hair) border-box;
+   box-shadow:0 40px 120px rgba(0,0,0,.55),inset 0 1px 0 var(--edge-hi);animation:nxPop .32s var(--ease)}
+@keyframes nxPop{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
+#palbox{border-radius:22px;border:1px solid transparent;background:color-mix(in srgb,var(--surface) 94%,transparent) padding-box,var(--hair) border-box}
+
+/* ---------- motion: tabs fade in, nothing bounces ---------- */
+.tab.a{animation:nxTab .34s var(--ease)}
+@keyframes nxTab{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ---------- scrollbars ---------- */
+aside::-webkit-scrollbar,.nx-modal::-webkit-scrollbar,.si-grid::-webkit-scrollbar,#pall::-webkit-scrollbar{width:8px}
+aside::-webkit-scrollbar-thumb,.nx-modal::-webkit-scrollbar-thumb,.si-grid::-webkit-scrollbar-thumb,#pall::-webkit-scrollbar-thumb{
+   background:color-mix(in srgb,var(--tx) 16%,transparent);border-radius:99px;border:2px solid transparent;background-clip:padding-box}
+aside::-webkit-scrollbar-track,.nx-modal::-webkit-scrollbar-track{background:transparent}
+
+@media (prefers-reduced-motion:reduce){
+  .tab.a,.nx-modal{animation:none}
+  button,.m,aside .card,#dockLens{transition:none}
+  button:not(:disabled):active{transform:none}
+}
+@media (forced-colors:active){
+  aside .card,.tab>.card,#hud,#deck,.nx-modal,.nx-grp,.m{border:1px solid CanvasText;background:Canvas}
+}
+
+/* ---------- form controls (both themes) ---------- */
+.nx-in,input[type=search].nx-in,input.nx-in,select.nx-in{background:color-mix(in srgb,var(--surface-2) 88%,transparent);color:var(--tx);
+   border:1px solid var(--edge);border-radius:var(--r-md);padding:9px 13px;min-height:38px}
+:root[data-theme="light"] .nx-in,:root[data-theme="light"] input.nx-in,:root[data-theme="light"] select.nx-in{background:#fff;border-color:rgba(20,24,40,.14);color:#151821}
+.nx-in::placeholder{color:color-mix(in srgb,var(--mu) 85%,transparent)}
+/* switches: the "off" track must be visible in light mode too */
+.sw i{background:color-mix(in srgb,var(--tx) 16%,transparent);box-shadow:inset 0 0 0 1px var(--edge)}
+.sw i:after{box-shadow:0 2px 6px rgba(0,0,0,.25)}
+:root[data-theme="light"] .sw i{background:rgba(20,24,40,.16);box-shadow:inset 0 0 0 1px rgba(20,24,40,.10)}
+.sw input:checked+i{background:linear-gradient(135deg,#ff7a2e,#f65000)}
+/* settings rows with a text field or select: label on top, the field full width below (no squashed labels) */
+.nx-row:has(> input.nx-in),.nx-row:has(> select.nx-in){flex-wrap:wrap;row-gap:8px}
+.nx-row:has(> input.nx-in) > div,.nx-row:has(> select.nx-in) > div{flex:1 1 100%;min-width:0}
+.nx-row > input.nx-in,.nx-row > select.nx-in{flex:1 1 100%;width:100%}
+:root[data-theme="light"] .sw input:checked+i,.sw input:checked+i{background:linear-gradient(135deg,#ff7a2e,#f65000);box-shadow:0 0 12px color-mix(in srgb,#f65000 35%,transparent)}
+/* servers: search and sort fill the row */
+.server-tools{display:flex;flex-direction:column;gap:12px}
+.server-filters{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.server-filters #serverSearch{flex:1 1 180px;min-width:0}
+.server-filters select{flex:0 0 auto;border-radius:var(--r-md)}
+
+/* =====================================================================================================
+   Frost (Apple-style translucent material), kept lightweight on purpose:
+   real backdrop blur ONLY on small surfaces that float over the map or the dimmed UI (top bar, status card,
+   dock, legend, counters, dialogs, palette). The side panel sits on a flat background, where blur would cost GPU
+   time for no visible gain, so it gets a translucent material with a light rim instead. "Visual effects" (off by
+   default) still adds the heavier ambient look.
+   ===================================================================================================== */
+:root{--frost:color-mix(in srgb,var(--surface) 58%,transparent);--frost-strong:color-mix(in srgb,var(--surface) 72%,transparent);--frost-blur:blur(22px) saturate(185%)}
+:root[data-theme="light"]{--frost:rgba(255,255,255,.58);--frost-strong:rgba(255,255,255,.74)}
+body{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+header{background:var(--frost-strong);-webkit-backdrop-filter:var(--frost-blur);backdrop-filter:var(--frost-blur)}
+#hud,#deck{background:var(--frost) padding-box,var(--hair) border-box;-webkit-backdrop-filter:var(--frost-blur);backdrop-filter:var(--frost-blur)}
+#legend,#mapStat,.hud-top~*,#hChips{-webkit-backdrop-filter:blur(14px) saturate(170%);backdrop-filter:blur(14px) saturate(170%);background:var(--frost)}
+.nx-ov{background:color-mix(in srgb,var(--bg) 38%,transparent);-webkit-backdrop-filter:blur(12px) saturate(140%);backdrop-filter:blur(12px) saturate(140%)}
+.nx-modal{background:var(--frost-strong) padding-box,var(--hair) border-box;-webkit-backdrop-filter:blur(30px) saturate(190%);backdrop-filter:blur(30px) saturate(190%)}
+#pal{background:color-mix(in srgb,var(--bg) 34%,transparent);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+#palbox{background:var(--frost-strong) padding-box,var(--hair) border-box;-webkit-backdrop-filter:blur(30px) saturate(190%);backdrop-filter:blur(30px) saturate(190%);
+   box-shadow:0 40px 110px rgba(0,0,0,.5),inset 0 1px 0 var(--edge-hi);animation:nxPop .28s var(--ease)}
+/* translucent material for the side panel cards (no blur needed on a flat background) */
+aside .card,.tab>.card{background:linear-gradient(165deg,color-mix(in srgb,var(--surface) 78%,#fff 5%),color-mix(in srgb,var(--surface) 64%,transparent)) padding-box,var(--hair) border-box}
+:root[data-theme="light"] aside .card,:root[data-theme="light"] .tab>.card{background:linear-gradient(165deg,rgba(255,255,255,.92),rgba(255,255,255,.70)) padding-box,var(--hair) border-box}
+aside{background:linear-gradient(180deg,color-mix(in srgb,var(--surface) 30%,transparent),color-mix(in srgb,var(--bg) 40%,transparent))}
+
+/* ---------- transitions ---------- */
+/* tab content: cards rise in with a short stagger */
+.tab.a>.card,.tab.a>*{animation:nxRise .42s var(--ease) both}
+.tab.a>*:nth-child(2){animation-delay:.04s}.tab.a>*:nth-child(3){animation-delay:.08s}.tab.a>*:nth-child(4){animation-delay:.12s}.tab.a>*:nth-child(n+5){animation-delay:.16s}
+@keyframes nxRise{from{opacity:0;transform:translateY(8px) scale(.995)}to{opacity:1;transform:none}}
+/* theme switch: a smooth cross-fade (View Transitions API; see app_ext.js) */
+::view-transition-old(root),::view-transition-new(root){animation-duration:.42s;animation-timing-function:cubic-bezier(.2,.75,.25,1)}
+/* interactive feedback */
+.m,.nx-row,#srv [data-c],.si-plat,.si-opt{transition:background .25s var(--ease),border-color .25s var(--ease),transform .25s var(--ease),box-shadow .25s var(--ease)}
+#srv [data-c]:hover{transform:translateX(2px)}
+.pill .dot{transition:background .3s,box-shadow .3s}
+@media (prefers-reduced-motion:reduce){
+  .tab.a>.card,.tab.a>*,#palbox{animation:none}
+  ::view-transition-old(root),::view-transition-new(root){animation:none}
+  #srv [data-c]:hover{transform:none}
+}
+/* boot screen: the same small "made with AI" signature as the native splash */
+.sp-ai{display:inline-flex;align-items:center;gap:6px;margin:10px auto 0;padding:3px 11px;border-radius:999px;border:1px solid var(--edge);
+   font:600 10px/1.6 var(--font-mono,Consolas,monospace);letter-spacing:.14em;text-transform:uppercase;color:var(--mu);
+   background:color-mix(in srgb,var(--tx) 4%,transparent)}
+#legend .lg-night .nt{background:linear-gradient(90deg,#ffc478 0 50%,#1a2350 50% 100%)!important;box-shadow:0 0 6px rgba(255,196,120,.35)}
+
+/* =====================================================================================================
+   Performance pass: blur only where it is seen, smaller radii (cost grows with the radius), no layout or paint
+   work for off-screen rows, and contained cards so one card's change doesn't re-lay-out the whole panel.
+   ===================================================================================================== */
+:root{--frost-blur:blur(16px) saturate(175%)}
+header{-webkit-backdrop-filter:none;backdrop-filter:none;background:color-mix(in srgb,var(--surface) 94%,transparent)}
+:root[data-theme="light"] header{background:rgba(255,255,255,.92)}
+#legend,#mapStat,#hChips{-webkit-backdrop-filter:blur(10px) saturate(160%);backdrop-filter:blur(10px) saturate(160%)}
+.nx-ov{-webkit-backdrop-filter:blur(8px) saturate(130%);backdrop-filter:blur(8px) saturate(130%)}
+.nx-modal,#palbox{-webkit-backdrop-filter:blur(22px) saturate(180%);backdrop-filter:blur(22px) saturate(180%)}
+#pal{-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+aside .card,.tab>.card{contain:layout paint}
+.nx-row,.si-tile,#srv [data-c],.ni-res,.si-row{content-visibility:auto;contain-intrinsic-size:auto 64px}
+.si-tile{contain-intrinsic-size:auto 300px}
+/* animate only cheap properties (opacity/transform); never box-shadow on large elements while scrolling */
+aside .card{transition:transform .35s var(--ease)}
+aside .card:hover{box-shadow:0 18px 44px rgba(0,0,0,.22),inset 0 1px 0 var(--edge-hi)}

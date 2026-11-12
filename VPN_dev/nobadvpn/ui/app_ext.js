@@ -358,11 +358,11 @@ function updateWizard(st) {
     item(st.admin, t("Administrator rights"), st.admin ? t("Running as administrator.") : t("Needed for tunnels and firewall rules."), st.admin ? "" : B("elevate", t("Relaunch as administrator"))) +
     item(st.regions.length > 0, t("A server config"), st.regions.length ? t("{n} server(s) found.", { n: st.regions.length }) : t("Import a WireGuard .conf from your provider."),
       B("files", t("Choose files…")) + B("url", t("From URL")) + B("qr", t("From QR image")) + B("paste", t("Paste")) + B("folder", t("Open folder"))) +
-    item(true, t("Optional"), t("You can change these any time in Settings."), `<div style="display:flex;flex-wrap:wrap;gap:8px">${tog("kill_switch", t("Kill switch"))}${tog("dns_leak_block", t("DNS leak block"))}${tog("start_with_windows", t("Start with Windows"))}${st.tray ? tog("tray", t("Tray icon")) : ""}</div>`);
+    item(true, t("Optional"), t("You can change these any time in Settings."), `<div style="display:flex;flex-wrap:wrap;gap:8px">${tog("kill_switch", t("Kill switch"))}${tog("dns_leak_block", t("DNS leak block"))}${tog("start_with_windows", t("Start with Windows"))}${st.tray ? tog("tray", t("Tray icon")) : ""}${tog("ip_lookup", t("Show my location and exit IP (uses ipinfo.io)"))}</div>`);
   box.dataset.sig = sigOf(st); translate(box);
   const done = wiz.buttons.done; if (done) done.textContent = (st.wireguard && st.admin && st.regions.length) ? t("Finish") : t("Skip for now");
 }
-const sigOf = st => JSON.stringify([st.wireguard, st.admin, st.regions.length, st.settings.kill_switch, st.settings.dns_leak_block, st.settings.start_with_windows, st.settings.tray]);
+const sigOf = st => JSON.stringify([st.wireguard, st.admin, st.regions.length, st.settings.kill_switch, st.settings.dns_leak_block, st.settings.start_with_windows, st.settings.tray, st.settings.ip_lookup]);
 document.addEventListener("click", e => {
   const b = e.target.closest("[data-w]"); if (!b) return;
   const w = b.dataset.w;
@@ -412,7 +412,12 @@ const GROUPS = [
     { k: "close_to_tray", n: "Closing the window keeps NOBAD in the tray", d: "Requires the tray icon.", kw: "minimize" },
     { k: "guardian", n: "Keep guarding after the window closes", d: "Stays in the background so auto-repair and the kill switch keep working." },
     { k: "notifications", n: "Windows notifications", d: "Toasts for connect, drop, failover and kill-switch events.", kw: "toast alerts" },
-    { k: "visual_effects", n: "Visual effects", d: "Frosted glass and ambient animations. Off keeps NOBAD light on CPU, GPU and battery.", kw: "performance animation blur battery lag" } ] },
+    { k: "visual_effects", n: "Visual effects", d: "Frosted glass and ambient animations. Off keeps NOBAD light on CPU, GPU and battery.", kw: "performance animation blur battery lag" },
+    { k: "custom_titlebar", n: "NOBAD title bar", d: "NOBAD's own top bar with minimise, maximise and close. Off brings back the standard Windows title bar. Applies the next time NOBAD starts.", kw: "window title bar frame buttons" } ] },
+  { id: "connectivity", title: "Connectivity", rows: [
+    { k: "net_adapt", n: "Adapt to network blocks automatically", d: "If this network blocks a service NOBAD uses (by its name or through DNS), NOBAD switches to the service's official alternative name or looks it up with encrypted DNS, and remembers what works. Doesn't change Windows settings or your VPN traffic.", kw: "isp block dns doh alternative adapt auto" },
+    { act: "reach_test", n: "Test connectivity", d: "Checks every service NOBAD uses on this network and shows which route works.", label: "Test", kw: "reachability blocked isp check" },
+    { act: "reach_forget", n: "Re-learn routes", d: "Forget the routes NOBAD remembered (done automatically when you change networks).", label: "Reset", kw: "reset routes" } ] },
   { id: "privacy", title: "Privacy & security", rows: [
     { k: "ip_lookup", n: "Look up my exit IP address", d: "Sends your public IP to third-party services (ipinfo.io and fallbacks) to show where you appear to be. Off means no lookup at all.", kw: "ipinfo third party" },
     { k: "startup_checks", n: "Run extra checks at startup", d: "Also runs the speed test, streaming service checks and VALORANT region checks each time NOBAD starts. These contact third-party sites. A quick connectivity check always runs.", kw: "speed test valorant" },
@@ -466,6 +471,8 @@ function buildSettings() {
     else if (a === "tdel") { const l = (S.settings.trusted_networks || []).filter(x => x !== b.dataset.name); api("settings", { key: "trusted_networks", value: l }); }
     else if (a === "ucheck") api("update_check", {}); else if (a === "uinstall") api("update_install", {});
     else if (a === "crashview") crashReview();
+    else if (a === "reach_test") { b.disabled = true; b.textContent = t("Testing…"); api("reach_test", {}).then(r => { if (!r.ok) { b.disabled = false; b.textContent = t("Test"); toast(r.error); } }); }
+    else if (a === "reach_forget") api("reach_forget", {}).then(r => toast(r.ok ? t("Routes will be re-learned.") : r.error, !!r.ok));
     else if (a === "nr_quick" || a === "nr_full") netRepair(a === "nr_full" ? "full" : "quick");
   });
   $("#nxSetQ").addEventListener("input", filterSettings);
@@ -539,6 +546,14 @@ function netRepair(level) {
     : t("Quick network repair: removes every NOBAD change, then flushes DNS, clears the ARP cache and renews DHCP. Your connection may blink once. Continue?");
   if (!confirm(msg)) return;
   api("net_repair", { level }).then(r => { if (!r.ok) toast(r.error); });
+}
+function reachReport(p) {
+  const b = document.querySelector('[data-act="reach_test"]'); if (b) { b.disabled = false; b.textContent = t("Test"); }
+  const label = s => s.status !== "ok" ? t("Blocked") : s.route === "alt" ? t("Alternative name") : s.route === "doh" ? t("Encrypted DNS") : t("Direct");
+  const rows = (p.services || []).map(s => `<div class="pr ${s.status === "ok" ? "" : "bad"}"><i>${s.status === "ok" ? "✓" : "!"}</i>
+      <span><b>${esc(t(s.label))}</b><br><small>${esc(t(s.explain))}${s.via ? " (" + esc(s.via) + ")" : ""}</small></span><b>${esc(label(s))}${s.status === "ok" ? " · " + esc(s.ms) + " ms" : ""}</b></div>`).join("");
+  modal({ wide: true, title: t("Connectivity on this network"), sub: p.adapt ? t("Automatic adaptation is on: NOBAD uses whichever route works.") : t("Automatic adaptation is off: every request goes direct."),
+    html: rows, actions: [{ label: t("Close"), fn: x => x.close() }] });
 }
 function netRepairDone(res) {
   NETS.busy = false; NETS.last = res; NETS.changes = null; netSafetyRow();
@@ -617,7 +632,7 @@ function onState(st) {
   const conn = st.connected ? "c" : st.connecting ? "w" : "d";
   if (NXS.prevConn !== null && conn !== NXS.prevConn) announce(conn === "c" ? t("Connected to {name}", { name: st.active }) : conn === "d" ? t("Disconnected") : t("Connecting…"));
   NXS.prevConn = conn;
-  updateBanners(st); updateSettings(); updateWizard(st); mainStateTweaks(st); restoreTab(st);
+  updateBanners(st); updateSettings(); updateWizard(st); mainStateTweaks(st); restoreTab(st); titlebar(st);
   if (!st.settings.wizard_done && !NXS.wizShown) { NXS.wizShown = true; wizardOpen(); }
 }
 function handle(type, p) {
@@ -636,6 +651,7 @@ function handle(type, p) {
     case "fix_result": announce(p.message || ""); return false;
     case "net_repair_start": NETS.busy = true; netSafetyRow(); toast(t("Repairing network…"), true); return true;
     case "net_repair_done": netRepairDone(p); return true;
+    case "reach_report": reachReport(p); return true;
     default: return false;
   }
 }
@@ -643,10 +659,54 @@ function patchProt() {
   if (typeof protHTML !== "function") return;
   const o = protHTML; window.protHTML = protHTML = function () { return o().replace("system DNS", S.dnsActive ? "fallback DNS, locked to tunnel" : "system DNS"); };
 }
+/* ============================== custom title bar (frameless main window) ============================== */
+const TB = { on: false, max: false };
+function titlebar(st) {
+  if (TB.on || !st || !st.settings || !st.settings.custom_titlebar || document.body.dataset.view === "mini") return;
+  const h = document.querySelector("header"); if (!h) return;
+  TB.on = true; document.body.classList.add("tb");
+  const ico = { min: '<svg viewBox="0 0 12 12"><path d="M1 6.5h10"/></svg>',
+    max: '<svg viewBox="0 0 12 12"><rect x="1.5" y="1.5" width="9" height="9" rx="1"/></svg>',
+    res: '<svg viewBox="0 0 12 12"><rect x="1.5" y="3.5" width="7" height="7" rx="1"/><path d="M3.5 3.5V2.5a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-1"/></svg>',
+    close: '<svg viewBox="0 0 12 12"><path d="M2 2l8 8M10 2l-8 8"/></svg>' };
+  const w = document.createElement("div"); w.className = "winctl"; w.setAttribute("role", "group"); w.setAttribute("aria-label", t("Window"));
+  w.innerHTML = `<button type="button" data-w="minimize" title="${esc(t("Minimize"))}" aria-label="${esc(t("Minimize"))}">${ico.min}</button>
+    <button type="button" data-w="maximize" title="${esc(t("Maximize"))}" aria-label="${esc(t("Maximize"))}">${ico.max}</button>
+    <button type="button" data-w="close" class="x" title="${esc(t("Close"))}" aria-label="${esc(t("Close"))}">${ico.close}</button>`;
+  h.appendChild(w);
+  const setMax = m => { TB.max = !!m; document.body.classList.toggle("tb-max", TB.max); const b = w.querySelector('[data-w="maximize"]');
+    b.innerHTML = TB.max ? ico.res : ico.max; b.title = t(TB.max ? "Restore" : "Maximize"); b.setAttribute("aria-label", b.title); };
+  const win = (act, extra) => api("window", Object.assign({ do: act }, extra || {})).then(r => { if (r && r.ok && "maximized" in r) setMax(r.maximized); return r; });
+  w.addEventListener("click", e => { const b = e.target.closest("[data-w]"); if (b) win(b.dataset.w); });
+  // drag on empty title-bar space (not on buttons, inputs, links or pills); double-click maximises like Windows
+  const interactive = el => el.closest("button,a,input,select,textarea,label,[role=button],.pill,.warn,#brand,.winctl");
+  h.addEventListener("mousedown", e => { if (e.button === 0 && e.detail === 1 && !interactive(e.target)) win("drag"); });
+  h.addEventListener("dblclick", e => { if (!interactive(e.target)) win("maximize"); });
+  // invisible resize edges and corners
+  ["t", "b", "l", "r", "tl", "tr", "bl", "br"].forEach(edge => {
+    const g = document.createElement("div"); g.className = "rz rz-" + edge; g.setAttribute("aria-hidden", "true");
+    g.addEventListener("mousedown", e => { if (e.button === 0 && !TB.max) { e.preventDefault(); win("resize", { edge }); } });
+    document.body.appendChild(g);
+  });
+  win("state");
+  addEventListener("resize", () => { clearTimeout(TB.rt); TB.rt = setTimeout(() => win("state"), 250); });
+}
+
+/* smooth theme switch: cross-fade old and new look (View Transitions API, Chromium/WebView2) */
+function smoothTheme() {
+  const orig = window.chooseTheme; if (typeof orig !== "function" || orig.__smooth) return;
+  const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const wrapped = function (mode) {
+    if (calm || !document.startViewTransition) return orig(mode);
+    document.startViewTransition(() => { orig(mode); });
+  };
+  wrapped.__smooth = true; window.chooseTheme = wrapped;
+}
+
 function init() {
-  a11yInit(); serversTools(); usageInit(); skeletonHooks(); patchProt(); buildSettings();
+  a11yInit(); smoothTheme(); serversTools(); usageInit(); skeletonHooks(); patchProt(); buildSettings();
   window.addEventListener("resize", () => { drawUsage(); });
 }
-window.NX = { renderSettings() { updateSettings(); }, onState, handle, t, openEditor, importFiles, wizardOpen, netRepair, repairBusy: () => !!NETS.busy, modal };
+window.NX = { renderSettings() { updateSettings(); }, onState, handle, t, openEditor, importFiles, wizardOpen, netRepair, repairBusy: () => !!NETS.busy, modal, groups: GROUPS, panic };
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
 })();

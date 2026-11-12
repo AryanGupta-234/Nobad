@@ -1,5 +1,6 @@
 """Release-readiness tests: start-up speed paths, single instance, splash, WireGuard bundling, update trust,
 settings hardening, crash/diagnostics privacy, packaging files and the English-only lightweight UI."""
+import hashlib
 import io
 import json
 import os
@@ -523,3 +524,113 @@ def test_installer_ships_license_and_third_party_notices():
     notices = open(os.path.join(root, "THIRD-PARTY-NOTICES.md"), encoding="utf-8").read()
     for dep in ("WireGuard", "pywebview", "pystray", "Pillow", "jsQR", "PyInstaller"):
         assert dep in notices, dep
+
+
+def test_build_journal_records_builds_privately(tmp_path, monkeypatch):
+    import importlib.util
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    spec = importlib.util.spec_from_file_location("journal", os.path.join(root, "packaging", "journal.py"))
+    j = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(j)
+    doc = tmp_path / "J.md"
+    doc.write_text("# J\n\n" + j.START + "\n" + j.HEADER + "\n" + j.END + "\n", encoding="utf-8")
+    monkeypatch.setattr(j, "JOURNAL", str(doc))
+    monkeypatch.setattr(j, "_git", lambda: "abc1234+changes")
+    j.start("1.0.0", "351 passed in 7.1s")
+    setup = tmp_path / "Setup.exe"
+    setup.write_bytes(b"MZ" + b"0" * 2000)
+    j.finish("B1", str(setup), "0")
+    j.fail("1.0.0", "tests", "1 failed, 350 passed")
+    rows = [r for r in doc.read_text(encoding="utf-8").splitlines() if j.ROW.match(r)]
+    assert doc.read_text(encoding="utf-8").count("| Build |") == 1                     # header never duplicated
+    assert rows[0].startswith("| B1 |") and "abc1234+changes" in rows[0] and "351 passed" in rows[0]
+    assert "built, unsigned" in rows[0] and hashlib.sha256(setup.read_bytes()).hexdigest() in rows[0]
+    assert rows[1].startswith("| B2 |") and "FAILED at tests" in rows[1]
+    private = os.path.join(root, "private", "BUILD-JOURNAL.md")
+    if os.path.exists(private):                                          # maintainer's machine only
+        real = open(private, encoding="utf-8").read()
+        assert j.START in real and j.END in real
+    iss = open(os.path.join(root, "packaging", "installer.iss"), encoding="utf-8").read()
+    assert "BUILD-JOURNAL" not in iss                                    # private: never shipped
+    assert "private/" in open(os.path.join(root, ".gitignore"), encoding="utf-8").read()
+    assert not os.path.exists(os.path.join(root, "docs", "BUILD-JOURNAL.md"))
+    ps = open(os.path.join(root, "packaging", "build.ps1"), encoding="utf-8").read()
+    assert "journal.py start" in ps and "journal.py finish" in ps and "journal.py fail" in ps
+
+
+def test_startup_checks_share_the_buttons_task_keys(monkeypatch):
+    """A check started at launch must re-enable its button (task_done key) and never run twice in parallel."""
+    from nobadvpn import syscmd, tools
+    keys = []
+    monkeypatch.setattr(syscmd, "run_once", lambda key, fn, *a: keys.append(key) or True)
+    monkeypatch.setattr(tools.ctx, "settings", types.SimpleNamespace(get=lambda k, d=None: True), raising=False)
+    tools.startup_checks()
+    assert keys == ["network_diagnose", "speed", "stream", "ipinfo", "valorant_manual"]
+    html = open(os.path.join(UI, "index.html"), encoding="utf-8").read()
+    assert 'case"speed_done":actionIdle("speed");' in html and 'case"valorant_done":{actionIdle("valorant_manual");' in html
+    for k in ("speed", "stream", "ipinfo", "valorant_manual", "network_diagnose"):
+        assert f"{k}:[" in html                                           # every key has a TASK_BUTTONS entry
+
+
+def test_window_geometry_is_logical_and_quick_view_fits(monkeypatch):
+    from nobadvpn import window
+    assert window.mini_position((0, 0, 1536, 960)) == (1536 - window.MINI_W - 12, 960 - window.MINI_H - 12)
+    x, y = window.mini_position((0, 0, 300, 200))                         # tiny screen: clamp to the top-left
+    assert (x, y) == (0, 0)
+    assert window.mini_position(None) == (None, None)
+    assert window.MINI_H >= 330                                           # content measured at ~291 + title bar
+
+
+def test_titlebar_api_validates_actions(monkeypatch):
+    from nobadvpn import api
+    calls = []
+    fake = types.SimpleNamespace(HT={"r": 11}, titlebar_action=lambda a, e=None: calls.append((a, e)) or {"maximized": False})
+    monkeypatch.setattr(api.ctx, "windows", fake, raising=False)
+    assert api.h_window({"do": "resize", "edge": "evil"}) == {"ok": False, "error": "bad edge"}
+    assert api.h_window({"do": "resize", "edge": "r"})["ok"] and calls == [("resize", "r")]
+    assert api.h_window({"do": "maximize"}) == {"ok": True, "maximized": False}
+
+
+def test_new_ui_files_are_wired():
+    html = open(os.path.join(UI, "index.html"), encoding="utf-8").read()
+    assert '<script src="/static/palette.js"></script>' in html
+    js = open(os.path.join(UI, "app_ext.js"), encoding="utf-8").read()
+    assert "function titlebar(st)" in js and 'k: "custom_titlebar"' in js and 'k: "net_adapt"' in js
+    pal = open(os.path.join(UI, "palette.js"), encoding="utf-8").read()
+    assert "window.palDraw" in pal and "window.palRun" in pal
+    si = open(os.path.join(UI, "streamintel.js"), encoding="utf-8").read()
+    assert 'id="siGrid"' in si and 'data-si="back"' in si                    # results in the browser modal
+
+
+def test_every_settings_group_has_rows():
+    """Regression: a row inserted after a group's closing '] }' became a group without rows, the Settings screen
+    threw while building and showed an empty card (build B4). Evaluated with Node when available."""
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node not installed")
+    script = ("const fs=require('fs');const s=fs.readFileSync(process.argv[1],'utf8');"
+              "const i=s.indexOf('const GROUPS = [');const j=s.indexOf('function buildSettings');const SVC_OPTS=[];"
+              "const G=eval(s.slice(i+'const GROUPS = '.length,s.lastIndexOf('];',j)+1));"
+              "console.log(JSON.stringify(G.map(g=>[g.id,Array.isArray(g.rows)?g.rows.length:-1])))")
+    out = subprocess.run([node, "-e", script, os.path.join(UI, "app_ext.js")], capture_output=True, text=True, timeout=30)
+    groups = json.loads(out.stdout)
+    assert groups and all(n > 0 for _gid, n in groups), groups
+    ids = [g for g, _n in groups]
+    assert len(ids) == len(set(ids)) and {"protection", "startup", "connectivity", "privacy"} <= set(ids)
+
+
+def test_live_day_night_sun_position_is_astronomically_right():
+    """The map shades the night side from the real sun position; check it against solstices/equinox (Node)."""
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node not installed")
+    script = ("const fs=require('fs');const s=fs.readFileSync(process.argv[1],'utf8');const i=s.indexOf('function sunPos');"
+              "const j=s.indexOf('function nightMask');eval(s.slice(i,j));console.log(JSON.stringify(["
+              "sunPos(new Date('2026-06-21T12:00:00Z')),sunPos(new Date('2026-12-21T18:00:00Z')),sunPos(new Date('2026-03-20T00:00:00Z'))]))")
+    out = subprocess.run([node, "-e", script, os.path.join(UI, "index.html")], capture_output=True, text=True, timeout=30)
+    june, dec, march = json.loads(out.stdout)
+    assert abs(june["lat"] - 23.44) < 0.3 and abs(june["lon"]) < 3          # noon over Greenwich at the June solstice
+    assert abs(dec["lat"] + 23.44) < 0.3 and abs(dec["lon"] + 90) < 3        # 18:00 UTC: sun over 90 W
+    assert abs(march["lat"]) < 0.6 and abs(abs(march["lon"]) - 180) < 3     # equinox midnight: sun over the date line
+    html = open(os.path.join(UI, "index.html"), encoding="utf-8").read()
+    assert "Math.floor(Date.now()/3e5)" in html and "setInterval(()=>{if(!document.hidden)invalidate()},300000)" in html
