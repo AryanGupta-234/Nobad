@@ -647,6 +647,6 @@ function init() {
   a11yInit(); serversTools(); usageInit(); skeletonHooks(); patchProt(); buildSettings();
   window.addEventListener("resize", () => { drawUsage(); });
 }
-window.NX = { renderSettings() { updateSettings(); }, onState, handle, t, openEditor, importFiles, wizardOpen, netRepair, repairBusy: () => !!NETS.busy };
+window.NX = { renderSettings() { updateSettings(); }, onState, handle, t, openEditor, importFiles, wizardOpen, netRepair, repairBusy: () => !!NETS.busy, modal };
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
 })();

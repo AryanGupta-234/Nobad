@@ -600,7 +600,7 @@ button.star{display:inline-flex;align-items:center;justify-content:center;width:
 .star:hover svg{transform:scale(1.18) rotate(-8deg)}
 aside{gap:14px}
 .pill{font-size:11.5px;font-weight:600;letter-spacing:.012em}
-</style><link rel="stylesheet" href="/static/app_ext.css"><link rel="stylesheet" href="/static/netintel.css"></head><body>
+</style><link rel="stylesheet" href="/static/app_ext.css"><link rel="stylesheet" href="/static/netintel.css"><link rel="stylesheet" href="/static/streamintel.css"></head><body>
 <div id="splash"><div class="spc"><div class="ring"><svg class="pw" viewBox="0 0 24 24"><path d="M12 3v8"/><path d="M7 6.5a8 8 0 1 0 10 0"/></svg></div><div class="spt" role="img" aria-label="NOBAD VPN"><img class="brand-wm on-dark" src="/static/brand/nobad-logo-light.png" alt="" width="180" height="60"><img class="brand-wm on-light" src="/static/brand/nobad-logo.png" alt="" width="180" height="60"><span class="brand-tag">VPN</span></div><div class="sps">Secure WireGuard VPN</div><ul class="spl"><li id="sp_eng"><i></i>Engine<em>starting…</em></li><li id="sp_adm"><i></i>Administrator<em>…</em></li><li id="sp_wg"><i></i>WireGuard<em>…</em></li><li id="sp_srv"><i></i>Servers<em>…</em></li><li id="sp_tun"><i></i>Tunnel<em>…</em></li></ul><div class="spb"><i id="spbar"></i></div><div class="spv">v__VER__</div></div></div>
 <div id="pal"><div id="palbox" role="dialog" aria-modal="true" aria-label="Command palette"><input id="palin" placeholder="Type a command or server…  (Esc to close)" autocomplete="off" role="combobox" aria-expanded="true" aria-controls="pall" aria-autocomplete="list" aria-label="Command or server"><div id="pall" role="listbox" aria-label="Commands"></div></div></div>
 <div class="app">
@@ -1023,4 +1023,4 @@ addEventListener("resize",lens);setTimeout(lens,150);setTimeout(lens,900);setTim
  tabs.forEach(b=>b.addEventListener("click",()=>setTimeout(sync,0)));
  const L=(sel,t)=>{const e=$(sel);if(e)e.setAttribute("aria-label",t)};L("#bCp","Copy exit IP address");L("#bIp","Refresh exit IP address");L("#bFast","Connect to the fastest server");L("#bMain","Connect or disconnect")})();
 resize();connectSSE();
-</script><script src="/static/app_ext.js"></script><script src="/static/netintel.js"></script></body></html>
+</script><script src="/static/app_ext.js"></script><script src="/static/netintel.js"></script><script src="/static/streamintel.js"></script></body></html>

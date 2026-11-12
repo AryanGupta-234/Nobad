@@ -4,6 +4,9 @@ import re
 import sys
 
 APP_TITLE = "NOBAD VPN"
+# Windows AppUserModelID: taskbar grouping, jump list and the sender name on notifications. The installer registers it
+# on the Start-menu shortcut, which is what lets Windows show "NOBAD VPN" (not PowerShell/Python) on toasts.
+APP_ID = "NOBAD.VPN"
 APP_VER = "1.0.0"  # semantic version; bump on every release (build.ps1 reads it)
 WINDOW_TITLE = f"{APP_TITLE}  ·  v{APP_VER}"
 
@@ -97,6 +100,9 @@ DEFAULTS = {
     "ni_reference_dns": "1.1.1.1, 8.8.8.8, 9.9.9.9, 2606:4700:4700::1111, 2001:4860:4860::8888",  # editable
     "ni_history": True,            # keep local diagnostic history + per-network baselines (never uploaded)
     "ni_autofix": False,           # smart fix agent: OFF until the user switches it on (that is the authorisation)
+    # Streaming Region Intelligence (TMDB key is stored encrypted elsewhere, never in settings)
+    "si_my_services": [],          # TMDB provider ids the user subscribes to (optional filter)
+    "si_language": "en-US",
     "encrypt_configs": False,
     "dpapi_runtime_ok": True,      # flipped off automatically if WireGuard refuses .dpapi files
     "crash_reporting": False,

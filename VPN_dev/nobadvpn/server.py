@@ -94,6 +94,15 @@ class Handler(BaseHTTPRequestHandler):
             if ctype in ("text/javascript", "application/javascript", "text/css", "application/json"):
                 ctype += "; charset=utf-8"
             return self._send(200, raw, ctype)
+        if u.path.startswith("/si/img/"):          # TMDB posters/logos via a validating, caching proxy (CSP stays 'self')
+            parts = u.path.split("/")
+            if len(parts) == 5:
+                from .streamintel.api_handlers import get as _si
+                data = _si().image(parts[3], parts[4])
+                if data:
+                    ctype = "image/png" if data[:8].startswith(bytes([0x89]) + b"PNG") else "image/svg+xml" if b"<svg" in data[:200] else "image/jpeg"
+                    return self._send(200, data, ctype)
+            return self._send(404, {"ok": False})
         if u.path == "/api/ping":
             return self._send(200, {"app": "nobad-vpn", "ver": APP_VER})
         if not self._auth(qs):

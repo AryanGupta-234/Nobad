@@ -467,6 +467,8 @@ HANDLERS = {
 
 from .netintel.api_handlers import HANDLERS as _NI_HANDLERS   # Network Intelligence (independent feature)
 HANDLERS.update(_NI_HANDLERS)
+from .streamintel.api_handlers import HANDLERS as _SI_HANDLERS   # Streaming Region Intelligence (independent feature)
+HANDLERS.update(_SI_HANDLERS)
 
 
 def api_post(path, b):
