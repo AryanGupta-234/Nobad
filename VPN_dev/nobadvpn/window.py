@@ -72,8 +72,13 @@ def mini_position(wa, w=None, h=None, margin=12):
     return max(left, right - w - margin), max(top, bottom - h - margin)
 
 
-def clamp_geometry(saved, screen):
-    """Return (x, y, w, h) with x/y None when the saved position would be off-screen (monitor unplugged)."""
+def clamp_geometry(saved, screen, area=None):
+    """Return (x, y, w, h) for the main window, always FULLY on screen (logical units).
+
+    `screen` is the whole desktop (x, y, w, h), `area` the primary work area (left, top, right, bottom). A saved
+    position that is partly off-screen is moved back inside; one that is mostly off-screen (monitor unplugged, a
+    position recorded while minimized) is dropped and the window is centred on the primary work area. Before, a
+    window with only a 120 px slice visible was accepted, so NOBAD could open pushed against a screen edge."""
     saved = saved if isinstance(saved, dict) else {}
     try:
         w = max(MIN_W, int(saved.get("w", 1280)))
@@ -81,17 +86,25 @@ def clamp_geometry(saved, screen):
     except (TypeError, ValueError):
         w, h = 1280, 820
     x, y = saved.get("x"), saved.get("y")
+    if not (isinstance(x, int) and isinstance(y, int)):
+        x = y = None
+    if area:
+        al, at, ar, ab = area
+        w, h = min(w, max(1, ar - al)), min(h, max(1, ab - at))
     if screen:
         sx, sy, sw, sh = screen
         w, h = min(w, sw), min(h, sh)
-        if isinstance(x, int) and isinstance(y, int):
-            # require a reasonable slice of the window (title bar region) to be visible
-            if not (sx - w + 120 <= x <= sx + sw - 120 and sy <= y <= sy + sh - 80):
-                x = y = None
-        else:
-            x = y = None
-    elif not (isinstance(x, int) and isinstance(y, int)):
-        x = y = None
+        if x is not None:
+            visible_w = min(x + w, sx + sw) - max(x, sx)
+            visible_h = min(y + h, sy + sh) - max(y, sy)
+            if visible_w < w * 0.5 or visible_h < h * 0.5 or y < sy:
+                x = y = None                                # mostly off-screen: don't trust it
+            else:
+                x = min(max(x, sx), sx + sw - w)            # partly off-screen: slide it back inside
+                y = min(max(y, sy), sy + sh - h)
+    if x is None and area:
+        al, at, ar, ab = area
+        x, y = al + max(0, (ar - al - w) // 2), at + max(0, (ab - at - h) // 2)
     return x, y, w, h
 
 
@@ -176,7 +189,7 @@ class WindowManager:
         self.webview = webview
         hide_console()
         saved = ctx.settings.get("window")
-        x, y, w, h = clamp_geometry(saved, virtual_screen())
+        x, y, w, h = clamp_geometry(saved, virtual_screen(), work_area())
         # Frameless: the app's own top bar is the title bar (drag, snap, edge resize and the window buttons are
         # handed to Windows natively in titlebar_action, so it behaves like a normal window).
         kw = dict(width=w, height=h, min_size=(MIN_W, MIN_H), resizable=True, background_color="#07090d",
@@ -235,7 +248,8 @@ class WindowManager:
         ev = win.events
         ev.closing += self._main_closing
         for name, fn in (("resized", lambda w, h: self._remember(w=int(w), h=int(h))),
-                         ("moved", lambda x, y: self._remember(x=int(x), y=int(y))),
+                         ("moved", lambda x, y: int(x) > -10000 and int(y) > -10000      # minimized: -32000
+                          and self._remember(x=int(x), y=int(y))),
                          ("maximized", lambda: setattr(self, "_maximized", True)),
                          ("restored", lambda: setattr(self, "_maximized", False))):
             try:

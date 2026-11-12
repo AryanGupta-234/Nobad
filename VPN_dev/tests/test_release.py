@@ -581,6 +581,30 @@ def test_window_geometry_is_logical_and_quick_view_fits(monkeypatch):
     assert window.MINI_H >= 330                                           # content measured at ~291 + title bar
 
 
+def test_main_window_always_opens_fully_on_screen():
+    from nobadvpn import window
+    screen, area = (0, 0, 1920, 1080), (0, 0, 1920, 1032)            # 1080p, taskbar at the bottom
+    # nothing saved: centred on the work area, not left to chance
+    assert window.clamp_geometry({}, screen, area) == ((1920 - 1280) // 2, (1032 - 820) // 2, 1280, 820)
+    # saved partly past the right edge: slid back so all of it is visible
+    x, y, w, h = window.clamp_geometry({"x": 1000, "y": 100, "w": 1280, "h": 820}, screen, area)
+    assert (x, y, w, h) == (1920 - 1280, 100, 1280, 820)
+    # and past the bottom edge: moved up
+    assert window.clamp_geometry({"x": 100, "y": 600, "w": 1280, "h": 820}, screen, area)[:2] == (100, 1080 - 820)
+    # mostly off-screen (old 120 px rule accepted this): dropped and centred
+    x, y, _w, _h = window.clamp_geometry({"x": 1800, "y": 300, "w": 1280, "h": 820}, screen, area)
+    assert (x, y) == ((1920 - 1280) // 2, (1032 - 820) // 2)
+    # a position recorded while minimized (-32000) or on an unplugged monitor
+    assert window.clamp_geometry({"x": -32000, "y": -32000}, screen, area)[:2] == ((1920 - 1280) // 2, (1032 - 820) // 2)
+    assert window.clamp_geometry({"x": 2500, "y": 100}, screen, area)[:2] == ((1920 - 1280) // 2, (1032 - 820) // 2)
+    # too big for the work area: shrunk to fit
+    assert window.clamp_geometry({"w": 3000, "h": 2000}, screen, area)[2:] == (1920, 1032)
+    # a normal saved position is kept
+    assert window.clamp_geometry({"x": 100, "y": 80, "w": 1280, "h": 820}, screen, area) == (100, 80, 1280, 820)
+    # no screen information at all (non-Windows): whatever was saved, unchanged
+    assert window.clamp_geometry({"x": 5, "y": 6}, None, None) == (5, 6, 1280, 820)
+
+
 def test_titlebar_api_validates_actions(monkeypatch):
     from nobadvpn import api
     calls = []

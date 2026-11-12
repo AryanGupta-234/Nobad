@@ -22,8 +22,23 @@ installers, and releases aren't code-signed yet), so download 1.2.1 from GitHub 
   Content-Security-Policy.
 
 ### Fixed
+- **Tabs that seemed to do nothing.** Settings, Servers and the other tabs appear below the status cards in the side
+  column, often below the visible area, so a click looked like it did nothing. Selecting a tab now brings it into
+  view, with a short fade.
+- **Window opening at the edge of the screen.** A remembered position with only a sliver of the window on screen was
+  accepted. The window now always opens fully on screen (moved back inside, or centred), and a position recorded
+  while minimized is never saved.
+- **Server list:** names no longer break over several lines and the address under them is readable; *Edit* is now a
+  compact icon.
+- **Network Intelligence:** its six sections sit in an even 3 × 2 grid.
 - **Kill switch:** when a firewall rule has to be recreated, a bridge copy keeps blocking until the new rule is in
   place, and failed rule changes are retried. Before, a failed re-add could leave the kill switch off mid-session.
+
+### Faster
+- **The window appears about twice as fast.** UI files are served from memory with fixed content types (Python's
+  `mimetypes` read the registry on first use and every file of the first page load waited for it: ~340 ms each, now
+  ~10 ms). Page ready 1.1 s → 0.55 s in testing.
+- Opening Settings no longer stalls a frame (long groups are laid out only when scrolled near: 33 ms → 6 ms).
 
 ## 1.2.0 · 2026-11-12
 

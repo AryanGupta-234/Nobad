@@ -1,6 +1,6 @@
 /* Network Intelligence (tab #t6): built on the app's cards, notes, .net-issue and .kvr; only the new bits live here */
-.ni-seg{display:flex;flex-wrap:wrap;gap:4px;margin-top:10px;padding:4px;border-radius:12px;background:var(--surface-2,rgba(255,255,255,.04));border:1px solid var(--line)}
-.ni-seg button{flex:1 1 auto;min-width:64px;padding:7px 8px;border:0;border-radius:9px;background:none;color:var(--mu);font:inherit;font-size:12px;cursor:pointer}
+.ni-seg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;margin-top:10px;padding:4px;border-radius:12px;background:var(--surface-2,rgba(255,255,255,.04));border:1px solid var(--line)}
+.ni-seg button{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:7px 8px;border:0;border-radius:9px;background:none;color:var(--mu);font:inherit;font-size:12px;cursor:pointer}
 .ni-seg button.a{background:color-mix(in srgb,var(--acc,#f65000) 16%,transparent);color:var(--tx);font-weight:650}
 .ni-seg button:focus-visible{outline:2px solid var(--acc,#f65000);outline-offset:1px}
 .ni-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}

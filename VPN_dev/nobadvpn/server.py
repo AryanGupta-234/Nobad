@@ -5,14 +5,13 @@ Authentication. The UI pages never contain a secret. NOBAD opens its windows wit
 clean URL. Any other local program that requests a page gets a "locked" page with no secret in it. The process-to-
 process client (lifecycle.py) uses the X-Token header with the token from the admin-only instance file."""
 import hmac
-import threading
-import time
 import json
-import mimetypes
 import os
 import queue
 import re
 import secrets
+import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
@@ -64,15 +63,39 @@ CSP = ("default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 
        "base-uri 'none'; form-action 'none'")
 
 
+# Fixed types for the only extensions _STATIC_OK allows. `mimetypes` reads the Windows registry on first use (~90 ms,
+# and every request of the page's first burst waited for it, so each UI file took ~340 ms to arrive).
+CTYPES = {".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
+          ".json": "application/json; charset=utf-8", ".svg": "image/svg+xml", ".png": "image/png",
+          ".ico": "image/x-icon"}
+_ui_cache = {}          # rel path -> (mtime, bytes): the UI is ~300 KB and served again for every window
+_ui_lock = threading.Lock()
+
+
 def _read_ui(rel):
     path = os.path.normpath(os.path.join(UI_DIR, rel))
     if not path.startswith(os.path.normpath(UI_DIR) + os.sep):
         return None
     try:
+        mtime = os.stat(path).st_mtime_ns
+        hit = _ui_cache.get(rel)
+        if hit and hit[0] == mtime:
+            return hit[1]
         with open(path, "rb") as f:
-            return f.read()
+            data = f.read()
     except OSError:
         return None
+    with _ui_lock:
+        _ui_cache[rel] = (mtime, data)
+    return data
+
+
+def preload_ui():
+    """Read every UI file once, in the background at start-up, so the first window paints from memory."""
+    for dirpath, _dirs, files in os.walk(UI_DIR):
+        for fn in files:
+            if fn.endswith((".html", ".js", ".css", ".png", ".ico", ".svg")):
+                _read_ui(os.path.relpath(os.path.join(dirpath, fn), UI_DIR).replace(os.sep, "/"))
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -158,10 +181,7 @@ class Handler(BaseHTTPRequestHandler):
             raw = _read_ui(rel)
             if raw is None:
                 return self._send(404, {"ok": False})
-            ctype = mimetypes.guess_type(rel)[0] or "application/octet-stream"
-            if ctype in ("text/javascript", "application/javascript", "text/css", "application/json"):
-                ctype += "; charset=utf-8"
-            return self._send(200, raw, ctype)
+            return self._send(200, raw, CTYPES.get(os.path.splitext(rel)[1].lower(), "application/octet-stream"))
         if u.path.startswith("/si/img/"):          # TMDB posters/logos via a validating, caching proxy (CSP stays 'self')
             parts = u.path.split("/")
             if len(parts) == 5:
@@ -243,4 +263,5 @@ class Handler(BaseHTTPRequestHandler):
 def make_server():
     srv = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     srv.daemon_threads = True
+    threading.Thread(target=preload_ui, name="ui-preload", daemon=True).start()
     return srv

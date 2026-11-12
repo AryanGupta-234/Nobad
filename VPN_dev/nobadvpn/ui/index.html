@@ -573,6 +573,21 @@ button,input,select,textarea{font-family:inherit}
 .kvr span{font-size:12px}.kvr b{font-size:12px;font-weight:600}
 .row .nm div:first-child{font-size:13px;font-weight:620;letter-spacing:-.006em}
 .row .nm div+div{font-size:11px}
+/* server rows: the side column is ~300 px, so the name keeps the space and the controls stay compact */
+#srv{container-type:inline-size}
+#srv .row{gap:8px;padding:9px 8px}
+#srv .row .nm div:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#srv .ms{width:auto;min-width:44px}
+#srv .sm.ic{padding:0;width:32px;min-width:32px;height:32px;display:inline-grid;place-items:center}
+#srv .sm.ic svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+@container (max-width:430px){#srv .bar,#srv .spk{display:none}}
+/* tabs fade in instead of cutting (opacity/transform only: composited, no layout); long settings groups are laid out
+   only when scrolled near, so opening Settings doesn't stall a frame */
+.tab.a{animation:tabIn .16s cubic-bezier(.2,.8,.2,1)}
+@keyframes tabIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.nx-grp{content-visibility:auto;contain-intrinsic-size:auto 360px}
+aside{overscroll-behavior:contain;scrollbar-gutter:stable}
+@media (prefers-reduced-motion:reduce){.tab.a{animation:none}}
 .tg b{font-size:13px;font-weight:620}.tg small{font-size:11.5px;line-height:1.5}
 .pr span{font-size:12.5px}
 /* numerals */
@@ -681,7 +696,7 @@ function render(){
  if(sortMode==="recent")visible.sort((a,b)=>(S.settings.favorites||[]).includes(b.name)-(S.settings.favorites||[]).includes(a.name));
  $("#serverCount").textContent=`${visible.length} of ${S.regions.length} locations · ${S.regions.length-(S.settings.favorites||[]).length} not favorited`;
  $("#srv").innerHTML=S.regions.length?visible.map(r=>{const p=r.ping,w=p&&p.rtt!=null?Math.max(6,100-p.rtt/3):0;
-  return `<div class="row${S.active===r.name&&S.connected?" act":""}"><div class="nm"><div>${esc(r.name)}${S.active===r.name&&S.connected?" ●":""}</div><div>${r.geo&&r.geo.city?esc(r.geo.city+(r.geo.country?", "+r.geo.country:""))+" · ":""}${esc(r.host||"no endpoint")}${r.port?":"+r.port:""}</div></div>${spark(r,w,p)}<div class="ms">${p&&p.rtt!=null?(p.est?"~":"")+p.rtt+" ms":"—"}</div><button class="star${(S.settings.favorites||[]).includes(r.name)?" y":""}" data-f="${esc(r.name)}" title="Favourite" aria-label="Favourite"><svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 16.9 6.8 19.7l1-5.9-4.3-4.1 5.9-.8z"/></svg></button><button class="sm" data-edit="${esc(r.name)}" aria-label="Edit ${esc(r.name)} config">Edit</button><button class="sm" data-c="${esc(r.name)}" aria-label="Connect to ${esc(r.name)}">Go</button></div>` }).join(""):(S.regions.length?'<div class="empty-state">No locations match these filters. Try another search or clear Favorites.</div>':'<div class="note">No servers yet. Drop WireGuard .conf files into the configs folder or press Import.</div>');
+  return `<div class="row${S.active===r.name&&S.connected?" act":""}"><div class="nm"><div title="${esc(r.name)}">${esc(r.name)}${S.active===r.name&&S.connected?" ●":""}</div><div>${r.geo&&r.geo.city?esc(r.geo.city+(r.geo.country?", "+r.geo.country:""))+" · ":""}${esc(r.host||"no endpoint")}${r.port?":"+r.port:""}</div></div>${spark(r,w,p)}<div class="ms">${p&&p.rtt!=null?(p.est?"~":"")+p.rtt+" ms":"—"}</div><button class="star${(S.settings.favorites||[]).includes(r.name)?" y":""}" data-f="${esc(r.name)}" title="Favourite" aria-label="Favourite"><svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 16.9 6.8 19.7l1-5.9-4.3-4.1 5.9-.8z"/></svg></button><button class="sm ic" data-edit="${esc(r.name)}" title="Edit config" aria-label="Edit ${esc(r.name)} config"><svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M14 6l4 4"/></svg></button><button class="sm" data-c="${esc(r.name)}" aria-label="Connect to ${esc(r.name)}">Go</button></div>` }).join(""):(S.regions.length?'<div class="empty-state">No locations match these filters. Try another search or clear Favorites.</div>':'<div class="note">No servers yet. Drop WireGuard .conf files into the configs folder or press Import.</div>');
  if(window.NX)NX.renderSettings();
   draw2();invalidate();
 }
@@ -985,7 +1000,12 @@ $("#bImp").onclick=()=>$("#file").click();
 $("#file").onchange=async e=>{const f=e.target.files[0];if(!f)return;const txt=await f.text();const r=await api("import",{name:f.name,content:txt});if(!r.ok)toast(r.error||"import failed");e.target.value=""};
 const quit=async d=>{await api("quit",{disconnect:d});if(window.pywebview&&pywebview.api)pywebview.api.close()};
 $("#bQuit").onclick=()=>quit(false);$("#bQuitD").onclick=()=>quit(true);
-$$("#dock [data-tab]").forEach(b=>b.onclick=()=>{$$("#dock [data-tab]").forEach(x=>x.classList.toggle("a",x===b));$$(".tab").forEach(t=>t.classList.toggle("a",t.id===b.dataset.tab));draw2();renderDet()});
+/* The side column shows the status cards first and the selected tab below them: bring the tab into view, or a click
+   on Settings/Servers/... seems to do nothing when the cards fill the column. */
+function showTabPanel(id){const p=document.getElementById(id),side=p&&p.closest("aside");if(!side)return;
+ const top=Math.max(0,side.scrollTop+p.getBoundingClientRect().top-side.getBoundingClientRect().top-8);if(Math.abs(side.scrollTop-top)<4)return;
+ side.scrollTo({top,behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth"})}
+$$("#dock [data-tab]").forEach(b=>b.onclick=()=>{$$("#dock [data-tab]").forEach(x=>x.classList.toggle("a",x===b));$$(".tab").forEach(t=>t.classList.toggle("a",t.id===b.dataset.tab));draw2();renderDet();requestAnimationFrame(()=>showTabPanel(b.dataset.tab))});
 $("#serverSearch").oninput=()=>{if(S.regions.length)render()};
 $("#serverSort").onchange=()=>render();
 $("#onlyFav").onchange=()=>render();
