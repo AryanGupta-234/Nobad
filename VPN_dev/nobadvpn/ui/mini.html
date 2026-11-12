@@ -45,14 +45,14 @@ function draw(){
   document.body.dataset.st=on?"on":wait?"wait":block?"block":"off";
   $("#stt").textContent=T(on?"Protected":wait?"Connecting…":block?"Blocked by kill switch":"Not connected");
   $("#sub").textContent=on?S.active:wait?S.connecting:(S.note||"");
-  const sel=$("#srv"),cur=sel.value||S.settings.last_region||"";
+  const sel=$("#srv"),cur=(on&&S.active)||(wait&&S.connecting)||sel.value||S.settings.last_region||"";
   const names=S.regions.map(r=>r.name);
   if(sel.dataset.sig!==names.join("|")){sel.dataset.sig=names.join("|");sel.innerHTML=names.map(n=>`<option></option>`).join("");[...sel.options].forEach((o,i)=>{o.value=o.textContent=names[i]})}
   sel.value=names.includes(cur)?cur:(names[0]||"");
   $("#go").textContent=T(on?"Disconnect":wait?"Connecting…":"Connect");$("#go").disabled=wait||(!on&&!names.length);
-  $("#fast").disabled=wait||!names.length;$("#ks").checked=!!S.settings.kill_switch;
+  $("#fast").disabled=wait||!names.length;$("#ks").checked=!!S.settings.kill_switch;sel.disabled=on||wait;
 }
-$("#go").onclick=()=>S.connected?api("disconnect",{}):api("connect",{name:$("#srv").value});
+$("#go").onclick=()=>{if(!S)return;S.connected?api("disconnect",{}):api("connect",{name:$("#srv").value})};
 $("#fast").onclick=()=>api("fastest",{});$("#open").onclick=()=>{api("window",{do:"show"});api("window",{do:"hide_mini"})};
 $("#ks").onchange=e=>api("settings",{key:"kill_switch",value:e.target.checked});
 addEventListener("blur",()=>setTimeout(()=>{if(!document.hasFocus())api("window",{do:"hide_mini"})},200));

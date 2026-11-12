@@ -31,6 +31,8 @@ installers, and releases aren't code-signed yet), so download 1.2.1 from GitHub 
 - **Server list:** names no longer break over several lines and the address under them is readable; *Edit* is now a
   compact icon.
 - **Network Intelligence:** its six sections sit in an even 3 × 2 grid.
+- **Tray quick view:** while connected it shows the server you are actually connected to (not the last one picked
+  there), and a click before the first status update no longer throws an error.
 - **Kill switch:** when a firewall rule has to be recreated, a bridge copy keeps blocking until the new rule is in
   place, and failed rule changes are retried. Before, a failed re-add could leave the kill switch off mid-session.
 
