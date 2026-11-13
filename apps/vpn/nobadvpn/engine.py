@@ -1,5 +1,6 @@
-"""The tunnel controller: connect / verify / repair / fail over, kill switch + DNS block, clean reconnect after
-sleep or network changes, captive-portal handling, panic reset, streaming guard and usage accounting."""
+"""The tunnel controller: connect / verify / repair / fail over, clean reconnect after sleep or network changes,
+captive-portal handling, streaming guard and usage accounting. The kill switch and DNS block live in protection.py,
+panic reset and start-up takeover in failsafe.py; both are mixed into Tunnel."""
 import ipaddress
 import json
 import os
@@ -11,12 +12,14 @@ import time
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
-from . import confparse, dpapi, firewall, netinfo, reach, recovery
+from . import confparse, dpapi, netinfo, reach, recovery
 RECONNECT_TRIES = 8
 
 from .const import (CONFIG_DIR, FAIL_THRESHOLD, GEO_PATH, HEALTH_SEC, LEGACY_CONFIG_DIR, MAX_REPAIR, PING_TARGET,
                     PING_TARGET_V6, RUNTIME_DIR, DATA_DIR, SERVICE_WAIT)
 from .ctx import ctx
+from .failsafe import FailsafeMixin
+from .protection import ProtectionMixin
 from .logbus import broadcast, log, recent_log, has_subscribers
 from .notify import notify
 from .syscmd import (is_admin, is_busy as syscmd_busy, lock_dir, ping_stats, probe_endpoint, quality_of, run,
@@ -73,7 +76,7 @@ ACTION_LABELS = {
 }
 
 
-class Tunnel:
+class Tunnel(ProtectionMixin, FailsafeMixin):
     def __init__(self):
         self.lock = threading.RLock()
         self.active = None
@@ -420,93 +423,6 @@ class Tunnel:
         except Exception:
             return
         self.push()
-
-    # ------------------------------------------------------------------ firewall (kill switch + DNS block)
-    def _fw_remove(self):
-        firewall.remove()
-        self.ks_active = False
-        self.dns_active = False
-
-    def _dns_possible(self, region):
-        return bool(region["info"]["dns"] or self._dns_injected or self._runtime_has_dns(region))
-
-    def _fw_apply(self, region):
-        """Apply whichever protections the settings ask for. Returns (kill_switch_ok, dns_block_ok)."""
-        s = ctx.settings
-        ks, dns = bool(s.get("kill_switch")), bool(s.get("dns_leak_block"))
-        if dns and not self._dns_possible(region):
-            if not self._dns_warned:
-                log("this config has no DNS line, so the DNS block was skipped (it would break name lookups). "
-                    "Add 'DNS = 1.1.1.1' to the config or enable the fallback-DNS setting.", "warn")
-                self._dns_warned = True
-            dns = False
-        if not ks and not dns:
-            self._fw_remove()
-            return False, False
-        try:
-            rules = firewall.build_rules(region["addrs"], self._all_endpoint_ips(), kill_switch=ks, dns_block=dns)
-        except ValueError:
-            log("kill switch / DNS block need an Address line in the config — not armed", "bad")
-            self.ks_active = self.dns_active = False
-            return False, False
-        res = firewall.apply(rules)
-        now = time.time()
-        if now - self._fw_state[0] > 60:
-            self._fw_state = (now, firewall.firewall_enabled())
-        if self._fw_state[1] is False:
-            if not self.fw_off:
-                log("Windows Firewall is turned OFF for at least one network profile — the kill switch and DNS block "
-                    "rules exist but are not enforced. Turn Windows Firewall on (or check your third-party firewall).",
-                    "bad")
-                notify("Protection not enforced", "Windows Firewall is off, so the kill switch can't block traffic.",
-                       "ks", "bad")
-            self.fw_off = True
-            res = {k: False for k in res}
-        else:
-            self.fw_off = False
-        self.ks_active = bool(ks and res.get(firewall.KS_RULES[0]))
-        self.dns_active = bool(dns and res.get(firewall.DNS_RULES[0]) and res.get(firewall.DNS_RULES[1]))
-        if ks and not res.get(firewall.KS_RULES[1]):
-            log("IPv6 kill-switch rule failed (IPv6 may be off) — IPv4 rule is active", "warn")
-        if ks and not self.ks_active:
-            log("kill switch could NOT be armed — traffic is not protected", "bad")
-            if not self.fw_off:
-                notify("Kill switch failed", "Traffic is not protected — see the log.", "ks", "bad")
-        if dns and not self.dns_active:
-            log("DNS leak block could not be armed", "warn")
-        return self.ks_active, self.dns_active
-
-    def set_kill_switch(self, enabled):
-        ctx.settings.set("kill_switch", bool(enabled))
-        self._reapply_fw("kill switch")
-        self.push()
-
-    def set_dns_block(self, enabled):
-        ctx.settings.set("dns_leak_block", bool(enabled))
-        self._reapply_fw("DNS leak block")
-        self.push()
-
-    def _reapply_fw(self, what):
-        with self.lock:
-            if not self.connected and not self.connecting:
-                s = ctx.settings
-                holding = bool(s.get("kill_switch") and (s.get("ks_strict") or (self.want and self._was_up)))
-                if (self.ks_active or self.dns_active or firewall.present()) and not holding:
-                    self._fw_remove()
-                    log(f"{what} changed — blocking rules removed", "warn")
-                    notify("Kill switch released", "Internet access restored.", "ks", "warn")
-                return
-            if self.connected and self.active:
-                region = self.region(self.active)
-                if region:
-                    was_ks, was_dns = self.ks_active, self.dns_active
-                    self._fw_apply(region)
-                    if self.ks_active != was_ks:
-                        log("kill switch armed" if self.ks_active else "kill switch disarmed", "ok" if self.ks_active else "warn")
-                        notify("Kill switch " + ("armed" if self.ks_active else "disarmed"), self.active or "", "ks",
-                               "ok" if self.ks_active else "warn")
-                    if self.dns_active != was_dns:
-                        log("DNS leak block " + ("on" if self.dns_active else "off"), "ok" if self.dns_active else "warn")
 
     # ------------------------------------------------------------------ connect / disconnect
     def _handshake(self, name):
@@ -1006,53 +922,6 @@ class Tunnel:
             except Exception as e:
                 log(f"guard error: {e}", "warn")
 
-    # ------------------------------------------------------------------ panic
-    def _abort_for_panic(self, wg, name):
-        run([wg, "/uninstalltunnelservice", name], timeout=25)
-        self._rm_tmp()
-        firewall.remove()
-        self.ks_active = self.dns_active = False
-        self.connected = False
-        self.connecting = None
-        self.active = None
-        self.gen += 1
-        log("connect cancelled by panic reset", "warn")
-        self.push()
-        return False
-
-    def panic_reset(self):
-        """Restore the internet no matter what state we're in. Deliberately does not wait for the lock."""
-        log("PANIC RESET requested", "warn")
-        self._panic_gen += 1
-        self.want = False
-        self._was_up = False
-        self.giveup = False
-        self._captive_gen += 1
-        self._captive_pending = False
-        got = self.lock.acquire(timeout=3)  # a connect in progress sees _panic_gen and backs out
-        try:
-            summary = recovery.panic_reset_system(self.region_names())
-        finally:
-            if got:
-                self.lock.release()
-        from . import netjournal   # explicit reset: also put back adapter DNS the fix agent changed
-        summary["dns_restored"] = netjournal.restore_all()
-        self.connected = False
-        self.connecting = None
-        self.active = None
-        self.since = None
-        self.ks_active = self.dns_active = False
-        self.health = None
-        self.exit = None
-        self._tmp = None
-        self.note = ""
-        self.last_error = None
-        self.gen += 1
-        self._up.clear()
-        self.push()
-        notify("Internet restored", "Firewall rules and tunnel services removed.", "panic", "ok")
-        return summary
-
     # ------------------------------------------------------------------ session log + background loops
     def _log_session(self):
         if not (self.connected and self.active and self.since):
@@ -1086,39 +955,6 @@ class Tunnel:
         self._stop.set()
         self._up.set()
         self._guard_kick.set()
-
-    def _adopt(self):
-        for r in self._regions:
-            if service_running(r["name"]):
-                self.active, self.connected, self.want, self._was_up = r["name"], True, True, True
-                self.since = time.time()
-                self._up.set()
-                log(f"found {r['name']} already running — attached", "ok")
-                self._fw_apply(r)
-                if ctx.settings.get("ip_lookup"):
-                    from .tools import fetch_ipinfo
-                    spawn(fetch_ipinfo)
-                return
-        self._clean_runtime_dir()  # nothing is running, so any runtime copies are leftovers
-        present = firewall.present()
-        if not present:
-            return
-        from . import lifecycle
-        s = ctx.settings
-        target = s.get("last_region")
-        crashed = not lifecycle.previous_exit_clean()
-        keep = bool(s.get("kill_switch") and target and self.has_region(target)
-                    and (s.get("ks_strict") or (crashed and not s.get("watchdog_failopen"))))
-        if keep:
-            self.ks_active = any(n in present for n in firewall.KS_RULES)
-            self.dns_active = any(n in present for n in firewall.DNS_RULES)
-            self.want = self._was_up = True
-            self._up.set()
-            why = "strict kill switch" if s.get("ks_strict") else "NOBAD did not exit cleanly"
-            log(f"kill switch kept armed at start ({why}) — reconnecting {target}", "warn")
-            spawn(self.connect, target)
-        else:
-            firewall.remove(known=set(present))   # stale rules from a cleanly-ended session would block the internet
 
     def _health_loop(self):
         bad = repairs = retries = 0

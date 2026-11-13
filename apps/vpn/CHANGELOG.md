@@ -7,6 +7,8 @@ All notable changes to NOBAD VPN. Versions follow [semantic versioning](https://
 ### Changed
 - **Start with Windows is off by default.** The installer box is unticked on a new install; turn it on there or in
   Settings. An update no longer switches it off when the box is left unticked.
+- **Code: engine.py is split (#8).** The kill switch and DNS block moved to `protection.py`, and the panic reset and
+  start-up takeover to `failsafe.py`. Nothing changes in how NOBAD behaves.
 
 ### Security
 - **The kill switch no longer gives up (#14).** After 8 failed reconnects NOBAD used to remove the blocking rules

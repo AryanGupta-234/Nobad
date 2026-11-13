@@ -185,7 +185,9 @@ usage of the running session, stop the engine threads, stop the tray, remove `in
 | `ctx.py` | process-wide singletons |
 | `const.py` | version, paths, task names, constants and setting defaults (no side effects at import) |
 | `settings.py` | versioned settings (`settings_version` 2), migration from v1, validation of every value (`coerce`), re-validation of values read from disk |
-| `engine.py` | `Tunnel`: config discovery, connect/verify, runtime copies, firewall application, health loop, reconnect, failover, captive portal, panic, streaming guard, traffic and session accounting, server geo lookup |
+| `engine.py` | `Tunnel`: config discovery, connect/verify, runtime copies, health loop, reconnect, failover, captive portal, streaming guard, traffic and session accounting, server geo lookup |
+| `protection.py` | `ProtectionMixin` (part of `Tunnel`): applies, re-applies and removes the kill switch and DNS block rules from the settings and the tunnel state |
+| `failsafe.py` | `FailsafeMixin` (part of `Tunnel`): panic reset, backing out of a connect a panic interrupted, start-up takeover (attach to a running tunnel, or keep/clear rules left by a crash) |
 | `firewall.py` | kill-switch and DNS-block rule maths (pure) and `netsh advfirewall` calls |
 | `netinfo.py` | physical-uplink fingerprint (`route print`), IPv4/IPv6 capability, default gateway, Wi-Fi name, captive-portal check, endpoint report |
 | `netwatch.py` | sleep/resume and network-change detection; trusted-network rules |

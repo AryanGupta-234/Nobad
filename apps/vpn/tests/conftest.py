@@ -117,19 +117,21 @@ class FakeWin:
 
 @pytest.fixture
 def win(monkeypatch, sample):
-    from nobadvpn import app, engine, firewall, netinfo, syscmd
+    from nobadvpn import app, engine, failsafe, firewall, netinfo, protection, syscmd
     from nobadvpn.const import CONFIG_DIR, RUNTIME_DIR
     from nobadvpn.ctx import ctx
     fw = FakeWin()
-    for mod in (syscmd, engine, firewall, netinfo, __import__("nobadvpn.recovery", fromlist=["x"])):
+    for mod in (syscmd, engine, failsafe, firewall, netinfo, __import__("nobadvpn.recovery", fromlist=["x"])):
         monkeypatch.setattr(mod, "run", fw.run, raising=False)
     monkeypatch.setattr(engine, "wg_tool", lambda exe: exe)
-    monkeypatch.setattr(engine, "service_running", lambda n: bool(fw.services.get(n)))
+    for mod in (engine, failsafe):
+        monkeypatch.setattr(mod, "service_running", lambda n: bool(fw.services.get(n)))
     monkeypatch.setattr("nobadvpn.recovery.wg_tool", lambda exe: exe)
     monkeypatch.setattr(engine, "is_admin", lambda: True)
     monkeypatch.setattr(engine, "ping_stats", lambda *a, **k: {"rtt": 20, "loss": 0, "jitter": 2})
     monkeypatch.setattr(engine, "SERVICE_WAIT", 0.5)
-    monkeypatch.setattr(engine, "notify", lambda *a, **k: None)
+    for mod in (engine, protection, failsafe):        # no real Windows notifications from the tests
+        monkeypatch.setattr(mod, "notify", lambda *a, **k: None)
     monkeypatch.setattr(engine.Tunnel, "geo_refresh", lambda self: None)
     monkeypatch.setattr("nobadvpn.tools.fetch_ipinfo", lambda: None)
     monkeypatch.setattr(engine.Tunnel, "_resolve", lambda self, h: ["203.0.113.9"] if h else [])

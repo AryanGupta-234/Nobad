@@ -132,7 +132,9 @@ def test_start_after_crash_keeps_rules_and_reconnects(win, monkeypatch):
     win.services.clear()                               # app (and tunnel) died; rules are still there
     monkeypatch.setitem(lifecycle._prev, "clean", False)
     spawned = []
-    monkeypatch.setattr(engine, "spawn", lambda fn, *a: spawned.append((fn, a)))
+    from nobadvpn import failsafe
+    for mod in (engine, failsafe):
+        monkeypatch.setattr(mod, "spawn", lambda fn, *a: spawned.append((fn, a)))
     t2 = engine.Tunnel()
     t2._adopt()
     assert "NobadKS4" in win.rules and t2.want and spawned and spawned[0][1] == ("Home",)

@@ -213,3 +213,31 @@ def test_untuned_fallback_is_a_runtime_copy_too(win, monkeypatch):
     assert all(os.path.dirname(os.path.abspath(p)) == os.path.abspath(RUNTIME_DIR) for p in paths)
     assert b"MTU = 1380" not in win.installed_conf["Home"]                # the untuned text was used
     ctx.tunnel.disconnect()
+
+
+def test_protection_and_failsafe_are_split_out_of_engine():
+    """#8: the kill switch / DNS block and the panic / takeover code live in their own modules, mixed into Tunnel."""
+    from nobadvpn import failsafe, protection
+    assert issubclass(engine.Tunnel, protection.ProtectionMixin) and issubclass(engine.Tunnel, failsafe.FailsafeMixin)
+    for name in ("_fw_apply", "_fw_remove", "_reapply_fw", "set_kill_switch", "set_dns_block"):
+        assert name in vars(protection.ProtectionMixin) and name not in vars(engine.Tunnel), name
+    for name in ("panic_reset", "_abort_for_panic", "_adopt"):
+        assert name in vars(failsafe.FailsafeMixin) and name not in vars(engine.Tunnel), name
+
+
+def test_split_modules_never_touch_the_real_system_in_tests(win, monkeypatch):
+    """The fake Windows covers the new modules too: a full cycle runs no real process and shows no toast."""
+    import subprocess
+    from nobadvpn import failsafe, notify as notify_mod, protection
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: (_ for _ in ()).throw(AssertionError(f"real process: {a}")))
+    monkeypatch.setattr(subprocess, "Popen", lambda *a, **k: (_ for _ in ()).throw(AssertionError(f"real process: {a}")))
+    monkeypatch.setattr(notify_mod, "notify", lambda *a, **k: (_ for _ in ()).throw(AssertionError("real toast")))
+    t = ctx.tunnel
+    assert t.connect("Home") and "NobadKS4" in win.rules
+    t.set_dns_block(False)
+    t.set_dns_block(True)
+    t._give_up()
+    t.panic_reset()
+    assert not win.rules and not win.services
+    t._adopt()
+    assert protection.notify is not notify_mod.notify and failsafe.notify is not notify_mod.notify
