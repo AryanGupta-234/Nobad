@@ -705,7 +705,33 @@ function titlebar(st) {
   const setMax = m => { TB.max = !!m; document.body.classList.toggle("tb-max", TB.max); const b = w.querySelector('[data-w="maximize"]');
     b.innerHTML = TB.max ? ico.res : ico.max; b.title = t(TB.max ? "Restore" : "Maximize"); b.setAttribute("aria-label", b.title); };
   const win = (act, extra) => api("window", Object.assign({ do: act }, extra || {})).then(r => { if (r && r.ok && "maximized" in r) setMax(r.maximized); return r; });
-  w.addEventListener("click", e => { const b = e.target.closest("[data-w]"); if (b) win(b.dataset.w); });
+  /* Minimize / close / restore animation. The frameless window has no native caption, so Windows doesn't animate
+     it (giving it one would route every window message through Python: too heavy). Instead the page itself fades and
+     shrinks for 150 ms before minimize/close, and settles back in when it is shown again. Opacity and transform
+     only (GPU-composited), skipped when the user prefers reduced motion. */
+  const calm = matchMedia("(prefers-reduced-motion: reduce)");
+  const root = document.documentElement;
+  let away = false;
+  const leave = () => new Promise(res => { if (calm.matches) return res(); root.classList.remove("nx-enter"); root.classList.add("nx-leave"); setTimeout(res, 150); });
+  const enter = () => {
+    if (!away && !root.classList.contains("nx-leave")) return;
+    away = false; root.classList.remove("nx-leave");
+    if (calm.matches) return;
+    root.classList.add("nx-enter"); setTimeout(() => root.classList.remove("nx-enter"), 260);
+  };
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) enter(); });
+  window.addEventListener("focus", () => { if (away) enter(); });
+  w.addEventListener("click", e => {
+    const b = e.target.closest("[data-w]"); if (!b) return;
+    const act = b.dataset.w;
+    if (act === "minimize" || act === "close") {
+      leave().then(() => { away = true; return win(act); }).then(r => {
+        // if it didn't actually minimize or close (refused, or a dialog asks first), come straight back
+        setTimeout(() => { if (!document.hidden && document.hasFocus()) enter(); }, 600);
+        return r;
+      });
+    } else win(act);
+  });
   // drag on empty title-bar space (not on buttons, inputs, links or pills); double-click maximises like Windows
   const interactive = el => el.closest("button,a,input,select,textarea,label,[role=button],.pill,.warn,#brand,.winctl");
   h.addEventListener("mousedown", e => { if (e.button === 0 && e.detail === 1 && !interactive(e.target)) win("drag"); });

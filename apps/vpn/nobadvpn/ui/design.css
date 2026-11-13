@@ -300,3 +300,29 @@ aside .card:hover{transform:translateY(-1px);box-shadow:inset 0 1px 0 var(--edge
 .nx-free .note{margin:4px 0 8px;line-height:1.55}
 .nx-steps{margin:6px 0 12px;padding-left:20px;line-height:1.6;font-size:13px}.nx-steps li{margin:2px 0}
 .nx-free .nx-inline{display:flex;flex-wrap:wrap;gap:8px}
+
+/* window minimize / close / restore: a 150 ms fade and slight shrink, then a settle-in when shown again
+   (opacity + transform only, composited by the GPU; see app_ext.js) */
+html.nx-leave body{opacity:0;transform:scale(.975);transition:opacity .15s ease,transform .15s ease}
+html.nx-enter body{animation:nxWinIn .24s cubic-bezier(.2,.8,.2,1)}
+@keyframes nxWinIn{from{opacity:0;transform:scale(.975)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){html.nx-leave body,html.nx-enter body{transition:none;animation:none;transform:none}}
+
+/* =====================================================================================================
+   Light theme glass (no blur, so it stays light): translucent white cards over a softly tinted panel, so the
+   light theme gets the same layered "frosted" depth as the dark one instead of flat white boxes. Floating panels
+   over the map are translucent too. With Visual effects on, the real backdrop blur still applies on top.
+   ===================================================================================================== */
+:root[data-theme="light"] aside{background:
+   radial-gradient(120% 50% at 100% 0%,rgba(246,80,0,.13),transparent 60%),
+   radial-gradient(110% 45% at 0% 100%,rgba(70,110,220,.14),transparent 64%),
+   linear-gradient(180deg,#dfe4ec,#e4e8ef)}
+:root[data-theme="light"] aside .card,:root[data-theme="light"] .tab>.card{background:
+   linear-gradient(180deg,rgba(255,255,255,.95),rgba(255,255,255,0) 42%) padding-box,
+   linear-gradient(160deg,rgba(255,255,255,.80),rgba(255,255,255,.58) 75%) padding-box,
+   var(--hair) border-box;
+   box-shadow:inset 0 1px 0 rgba(255,255,255,.95),0 1px 2px rgba(16,24,40,.05),0 10px 28px rgba(16,24,40,.08)}
+:root[data-theme="light"] .m,:root[data-theme="light"] .boot-item,:root[data-theme="light"] .valo-row{background:rgba(255,255,255,.55);border-color:rgba(18,26,44,.10)}
+:root[data-theme="light"] #hud,:root[data-theme="light"] #deck,:root[data-theme="light"] #dock,:root[data-theme="light"] #legend,
+:root[data-theme="light"] #mapStat,:root[data-theme="light"] #rates span{background:rgba(255,255,255,.74)!important}
+:root[data-theme="light"] header,:root[data-theme="light"] body:not(.fx) header{background:rgba(255,255,255,.72)!important}

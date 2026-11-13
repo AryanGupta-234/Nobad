@@ -2,6 +2,15 @@
 
 All notable changes to NOBAD VPN. Versions follow [semantic versioning](https://semver.org/).
 
+## Unreleased
+
+### Changed
+- **Minimize, close and restore animate.** The window fades and shrinks slightly before it minimizes or closes,
+  and settles back in when it comes back (opacity and transform only; off when Windows asks for reduced motion).
+  The custom title bar has no native caption, so Windows itself doesn't animate it.
+- **Light theme gets depth too.** Side-panel cards are translucent white over a softly tinted panel, and the
+  floating panels over the map and the top bar are translucent, like the dark theme. No blur, so it stays light.
+
 ## 1.3.2 · 2026-11-13
 
 ### Added
