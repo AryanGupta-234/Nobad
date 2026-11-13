@@ -126,6 +126,62 @@ def _wifi_profile_name():
     return True, (name.strip() or None)  # exact match only: never loosen a trust decision
 
 
+_BSSID = re.compile(r"^\s*(?:AP\s+)?BSSID\s*:\s*([0-9A-Fa-f]{2}(?:[:-][0-9A-Fa-f]{2}){5})\s*$", re.M)
+_AUTH = re.compile(r"^\s*Authentication\s*:\s*(.+?)\s*$", re.M)
+_ARP_MAC = re.compile(r"\b([0-9A-Fa-f]{2}(?:-[0-9A-Fa-f]{2}){5})\b")
+# Authentication values (netsh) that mean anyone nearby can join and copy the network: never trustable.
+OPEN_AUTH = ("open", "none", "")
+
+
+def norm_mac(mac):
+    return (mac or "").strip().lower().replace("-", ":")
+
+
+def parse_wlan(netsh_output):
+    """{'ssid', 'bssid', 'auth'} of the connected Wi-Fi from `netsh wlan show interfaces` (first interface)."""
+    out = netsh_output or ""
+    b, a = _BSSID.search(out), _AUTH.search(out)
+    return {"ssid": parse_ssid(out), "bssid": norm_mac(b.group(1)) if b else None,
+            "auth": a.group(1) if a else None}
+
+
+def parse_arp_mac(arp_output, ip):
+    for line in (arp_output or "").splitlines():
+        if line.split()[:1] == [ip]:
+            m = _ARP_MAC.search(line)
+            if m and m.group(1).lower() not in ("ff-ff-ff-ff-ff-ff", "00-00-00-00-00-00"):
+                return norm_mac(m.group(1))
+    return None
+
+
+def gateway_mac():
+    """MAC address of the LAN router (from the ARP cache), or None. Identifies a wired network far better than
+    the generic name 'Ethernet'."""
+    if os.name != "nt":
+        return None
+    gw = default_gateway()
+    if not gw:
+        return None
+    run(["ping", "-n", "1", "-w", "500", gw], timeout=4)      # make sure the ARP cache has the router
+    return parse_arp_mac(run(["arp", "-a", gw], timeout=6).stdout, gw)
+
+
+def current_network_identity():
+    """What a trust decision is based on (#15): {'name', 'kind': 'wifi'|'wired', 'auth', 'bssid', 'gw_mac'}, or
+    None when offline. A field NOBAD couldn't read is None, and a network missing any field it needs is never
+    treated as trusted."""
+    name = current_network_name()
+    if name is None:
+        return None
+    if name == "Ethernet":
+        return {"name": name, "kind": "wired", "auth": None, "bssid": None, "gw_mac": gateway_mac()}
+    w = parse_wlan(run(["netsh", "wlan", "show", "interfaces"], timeout=8).stdout) if os.name == "nt" else {}
+    same = w.get("ssid") == name
+    # Without Location permission Windows hides the access point and security type; the router still identifies it.
+    return {"name": name, "kind": "wifi", "auth": w.get("auth") if same else None,
+            "bssid": w.get("bssid") if same else None, "gw_mac": gateway_mac()}
+
+
 def current_network_name():
     """Wi-Fi SSID, 'Ethernet' for a wired uplink, UNKNOWN_WIFI when Wi-Fi is up but its name is hidden,
     or None when offline."""

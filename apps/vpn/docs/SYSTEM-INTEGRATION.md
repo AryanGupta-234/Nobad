@@ -275,6 +275,10 @@ over. The CLI repair path posts to it with proxies disabled.
 Windows Firewall must be on for every profile, or the rules are reported as not enforced. Windows 11 24H2 and later
 hide the Wi-Fi name from desktop apps without location permission; NOBAD then treats every Wi-Fi network as untrusted.
 
+With trusted-network rules on, NOBAD reads the router's MAC address (`ping -n 1` to the gateway, then `arp -a`) and,
+when Windows allows it, the Wi-Fi security type and access point (`netsh wlan show interfaces`) to recognise trusted
+networks. These stay in `settings.json` and are left out of diagnostics exports.
+
 ---
 
 ## 10. Uninstall

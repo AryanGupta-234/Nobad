@@ -12,6 +12,10 @@ All notable changes to NOBAD VPN. Versions follow [semantic versioning](https://
 - **The kill switch no longer gives up (#14).** After 8 failed reconnects NOBAD used to remove the blocking rules
   unless the strict kill switch was on, so someone who blocked the VPN's traffic could get yours outside the
   tunnel. It now keeps blocking until you choose Restore internet or Disconnect.
+- **Trusted networks check more than the name (#15).** A Wi-Fi network with your home network's name, or any network
+  cable, used to switch the VPN off. NOBAD now also checks the router and, when Windows shows them, the Wi-Fi security
+  type and access point. A mismatch keeps you protected and asks you to confirm in Settings; open Wi-Fi is never
+  trusted. Networks trusted in an older version need one confirmation.
 - **WireGuard only gets NOBAD's locked copy of a config (#16).** The tunnel service (running as SYSTEM) used to be
   handed the stored file from the configs folder when nothing was tuned, so it could be swapped after NOBAD checked
   it. Every connect now uses a copy written to the admin-only runtime folder from the checked text.

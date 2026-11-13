@@ -123,6 +123,7 @@ DEFAULTS = {
     # trusted networks
     "ssid_rules": False,
     "trusted_networks": [],
+    "trusted_fingerprints": {},    # name -> Wi-Fi security + confirmed access points, or router MAC (#15); not UI-settable
     "autoconnect_untrusted": True,
     "autodisconnect_trusted": True,
     # privacy / security

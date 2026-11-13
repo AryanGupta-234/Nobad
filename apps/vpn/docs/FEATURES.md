@@ -66,6 +66,8 @@ Some live-tunnel behaviour still needs verification on more real PCs and network
 
 * Auto-connect on untrusted networks and auto-disconnect on trusted ones (*Use trusted-network rules*, default off).
 * Trust the current network with one click, or add names by hand (Wi-Fi name or `Ethernet`).
+* Trust checks more than the name: the router's MAC address and, when Windows shows them, the Wi-Fi security type and
+  access point (BSSID). A mismatch is treated as untrusted until you confirm it; open Wi-Fi is never trusted.
 * Hidden Wi-Fi names (Windows 11 24H2+) are never trusted.
 * A manual disconnect is respected until the network changes.
 
@@ -246,6 +248,7 @@ the file is written.
 | `last_region` | `null` | last connected server; used by Connect on launch, tray "Connect (last server)", auto-reconnect, trusted-network auto-connect |
 | `favorites` | `[]` | starred servers (max 200) |
 | `trusted_networks` | `[]` | trusted network names (max 100, each up to 64 characters) |
+| `trusted_fingerprints` | `{}` | per trusted name: Wi-Fi security and confirmed access points, and router MACs; set only by *Trust current network* / *Confirm this network* |
 | `window` | `null` | main window `x`, `y`, `w`, `h`, `maximized` (minimum 1060 x 700) |
 | `last_tab` | `"t1"` | last dock tab (`t1` Streaming, `t2` Servers, `t3` Settings, `t4` Details, `t5` Network, `t6` Intel) |
 | `theme` | `"dark"` | `dark` or `light` |

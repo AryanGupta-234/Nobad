@@ -187,6 +187,16 @@ Turn on **Settings → Trusted networks → Use trusted-network rules** to let N
 Add networks with **Trust current network** or by typing a Wi-Fi name (or `Ethernet`). Each automatic choice can be
 switched off separately.
 
+A name alone isn't enough, because anyone can set up a Wi-Fi network with your network's name. When you trust the
+network you're on, NOBAD also remembers its router and, when Windows shows them, its security type (WPA2, WPA3…) and
+access point. A typed name, or a name trusted in an older version, is marked *not confirmed* until you connect to that
+network and confirm it.
+
+If a trusted name later shows up with a different router, access point or security type, NOBAD treats it as
+untrusted (the VPN stays on) and shows **"… doesn't match the network you trusted"** in Settings. Choose **Confirm
+this network** only if you're sure it's yours, for example a new router or a second access point at home. Open Wi-Fi
+(no password) can never be trusted.
+
 If you disconnect by hand, NOBAD respects that until you change network.
 
 On Windows 11 (24H2 and later) the Wi-Fi name may be hidden from apps unless you allow location access

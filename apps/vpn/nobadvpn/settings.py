@@ -34,7 +34,7 @@ def migrate(d):
 
 def coerce(key, value):
     """Validate a value coming from the UI. Returns (ok, value_or_error)."""
-    if key not in DEFAULTS or key in ("settings_version", "dpapi_runtime_ok"):
+    if key not in DEFAULTS or key in ("settings_version", "dpapi_runtime_ok", "trusted_fingerprints"):
         return False, "unknown setting"
     default = DEFAULTS[key]
     if key == "theme":
@@ -88,10 +88,40 @@ def coerce(key, value):
     return False, "unsupported"
 
 
+_MAC_RE = re.compile(r"[0-9a-f]{2}(?::[0-9a-f]{2}){5}")
+
+
+def clean_fingerprints(value):
+    """trusted_fingerprints as read from disk: keep only well-formed entries (a hand-edited file can't widen trust)."""
+    out = {}
+    if not isinstance(value, dict):
+        return out
+    for name, fp in list(value.items())[:100]:
+        if not isinstance(name, str) or not name.strip() or len(name) > 64 or not isinstance(fp, dict):
+            continue
+        macs = lambda k, n: [m for m in (fp.get(k) or [])[:n] if isinstance(m, str) and _MAC_RE.fullmatch(m)]
+        if fp.get("kind") == "wifi":
+            e = {"kind": "wifi"}
+            auth, b, g = fp.get("auth"), macs("bssids", 16), macs("gw_macs", 4)
+            if isinstance(auth, str) and 0 < len(auth) <= 40 and auth.strip().lower() not in ("open", "none") and b:
+                e.update(auth=auth, bssids=b)
+            if g:
+                e["gw_macs"] = g
+            if len(e) > 1:
+                out[name] = e
+        elif fp.get("kind") == "wired":
+            g = macs("gw_macs", 4)
+            if g:
+                out[name] = {"kind": "wired", "gw_macs": g}
+    return out
+
+
 def _sanitize(key, value):
     """A value read from disk gets the same validation as one from the UI (the file may be hand-edited or
     corrupted). Anything invalid falls back to the default instead of reaching e.g. a runtime config."""
     default = DEFAULTS[key]
+    if key == "trusted_fingerprints":
+        return clean_fingerprints(value)
     ok, v = coerce(key, value)
     if ok:
         return v

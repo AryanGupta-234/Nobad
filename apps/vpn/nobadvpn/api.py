@@ -3,7 +3,7 @@ import os
 import subprocess
 import sys
 
-from . import autostart, configstore, crash, diagnostics, netinfo
+from . import autostart, configstore, crash, diagnostics, netinfo, trust
 from . import settings as settings_mod
 from .const import EXPORT_DIR
 from .ctx import ctx
@@ -33,7 +33,8 @@ def extra_state():
             "autostart": bool(_autostart_cache["v"]),
             "update": ctx.updater.snapshot() if ctx.updater else None,
             "crash_pending": len(crash.pending()),
-            "network": {"name": nw.current if nw else None, "events": bool(nw and nw.events_ok)},
+            "network": {"name": nw.current if nw else None, "events": bool(nw and nw.events_ok),
+                        "pending": nw.pending if nw else None},
             "frozen": getattr(sys, "frozen", False)}
 
 
@@ -81,7 +82,12 @@ def apply_setting(key, val):
             spawn(t.geo_refresh)
     elif key == "tray" and ctx.tray:
         spawn(ctx.tray.apply_setting)
-    elif key in ("ssid_rules", "trusted_networks", "autoconnect_untrusted", "autodisconnect_trusted") and ctx.netwatch:
+    if key == "trusted_networks":       # a removed name takes its fingerprint with it
+        fps = ctx.settings.get("trusted_fingerprints") or {}
+        kept = {k: v for k, v in fps.items() if k in val}
+        if kept != fps:
+            ctx.settings.set("trusted_fingerprints", kept)
+    if key in ("ssid_rules", "trusted_networks", "autoconnect_untrusted", "autodisconnect_trusted") and ctx.netwatch:
         ctx.netwatch.poke()
         if key == "ssid_rules" and val:
             spawn(ctx.netwatch.evaluate_rules, "rules enabled")
@@ -419,14 +425,26 @@ def h_current_network(b):
 
 
 def h_trusted_add(b):
-    name = str(b.get("name") or "").strip() or netinfo.current_network_name()
+    """Trust the current network (records its fingerprint, #15), or add a typed name, which stays unverified
+    until NOBAD sees that network and the user confirms it."""
+    ident = netinfo.current_network_identity()
+    name = str(b.get("name") or "").strip() or (ident or {}).get("name")
     if not name:
         return {"ok": False, "error": "No network detected."}
-    lst = list(ctx.settings.get("trusted_networks") or [])
-    if name not in lst:
-        lst.append(name)
-    apply_setting("trusted_networks", lst)
-    return {"ok": True, "name": name}
+    ok, val = settings_mod.coerce("trusted_networks", list(ctx.settings.get("trusted_networks") or []) + [name])
+    if not ok or name not in val:
+        return {"ok": False, "error": "That network name isn't valid."}
+    verified = False
+    if ident and ident.get("name") == name:
+        ok, fps = trust.record(ident, ctx.settings.get("trusted_fingerprints"))
+        if not ok:
+            return {"ok": False, "error": fps}
+        ctx.settings.set("trusted_fingerprints", fps)
+        verified = True
+    apply_setting("trusted_networks", val)
+    if ctx.netwatch:
+        spawn(ctx.netwatch.evaluate_rules, "network trusted")
+    return {"ok": True, "name": name, "verified": verified}
 
 
 def h_window(b):

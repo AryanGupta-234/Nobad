@@ -501,11 +501,13 @@ function updateSettings(force) {
   ["tray", "close_to_tray"].forEach(k => { const el = $(`#tgs [data-s="${k}"]`); if (el) el.disabled = !st.tray; });
   const tr = $("#tgs [data-custom=trusted]");
   if (tr) {
-    const list = s.trusted_networks || [], cur = st.network && st.network.name;
-    const sig = JSON.stringify([list, cur]);
+    const list = s.trusted_networks || [], cur = st.network && st.network.name, pend = st.network && st.network.pending;
+    const fps = s.trusted_fingerprints || {};
+    const sig = JSON.stringify([list, cur, pend, Object.keys(fps)]);
     if (tr.dataset.sig !== sig || force) {
       tr.dataset.sig = sig;
-      tr.innerHTML = `<div class="note">${esc(t("Current network"))}: <b>${esc(cur || t("none detected"))}</b></div><div class="nx-tags" role="list">${list.map(n => `<span class="nx-tag" role="listitem">${esc(n)}<button class="sm" data-act="tdel" data-name="${esc(n)}" aria-label="${esc(t("Remove {name}", { name: n }))}">✕</button></span>`).join("") || `<span class="note">${esc(t("No trusted networks yet."))}</span>`}</div>
+      const warn = pend ? `<div class="net-issue warn" role="status"><b>${esc(t("\"{name}\" doesn't match the network you trusted", { name: pend.name }))}</b><p>${esc(t(pend.why))}. ${esc(t("NOBAD treats it as untrusted until you confirm it. Only confirm if you're sure this is your network."))}</p><button class="sm" data-act="tadd" data-name="${esc(pend.name)}">${esc(t("Confirm this network"))}</button></div>` : "";
+      tr.innerHTML = `${warn}<div class="note">${esc(t("Current network"))}: <b>${esc(cur || t("none detected"))}</b></div><div class="nx-tags" role="list">${list.map(n => `<span class="nx-tag" role="listitem">${esc(n)}${fps[n] ? "" : ` <small class="note">(${esc(t("not confirmed"))})</small>`}<button class="sm" data-act="tdel" data-name="${esc(n)}" aria-label="${esc(t("Remove {name}", { name: n }))}">✕</button></span>`).join("") || `<span class="note">${esc(t("No trusted networks yet."))}</span>`}</div>
       <div class="nx-inline"><label class="nx-sr" for="nxTAdd">${esc(t("Network name"))}</label><input class="nx-in" id="nxTAdd" placeholder="${esc(t("Wi-Fi name, or Ethernet"))}" autocomplete="off"><button class="sm" data-act="tadd">${esc(t("Add"))}</button>${cur ? `<button class="sm" data-act="tadd" data-name="${esc(cur)}">${esc(t("Trust current network"))}</button>` : ""}</div>`;
       translate(tr);
     }

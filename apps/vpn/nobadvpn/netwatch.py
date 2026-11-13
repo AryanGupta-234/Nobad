@@ -6,7 +6,7 @@ import os
 import threading
 import time
 
-from . import netinfo
+from . import netinfo, trust
 from .logbus import log
 from .notify import notify
 from .syscmd import spawn
@@ -18,13 +18,20 @@ IDLE_POLL = 15.0
 
 
 class NetWatch:
-    def __init__(self, tunnel, settings, clock=time.time, fp_fn=None, name_fn=None, use_events=True):
+    def __init__(self, tunnel, settings, clock=time.time, fp_fn=None, name_fn=None, use_events=True, ident_fn=None):
         self.tunnel = tunnel
         self.settings = settings
         self.listeners = []
         self.clock = clock
         self.fp_fn = fp_fn or netinfo.physical_fingerprint
         self.name_fn = name_fn or netinfo.current_network_name
+        # Identity used for trust decisions; with only a name_fn (tests) the fingerprint fields are unknown.
+        self.ident_fn = ident_fn or (netinfo.current_network_identity if name_fn is None else
+                                     lambda: (lambda n: n and {"name": n, "kind": "wired" if n == "Ethernet" else "wifi",
+                                                               "auth": None, "bssid": None, "gw_mac": None})(self.name_fn()))
+        self.ident = None
+        self.pending = None      # {'name', 'why'}: a trusted name seen with a fingerprint the user hasn't confirmed
+        self._pending_told = None
         self._stop = threading.Event()
         self._wake = threading.Event()
         self._ev = False
@@ -138,15 +145,29 @@ class NetWatch:
         s = self.settings
         if not s.get("ssid_rules"):
             return None
-        name = self.name_fn()
+        ident = self.ident_fn()
+        self.ident = ident
+        name = ident["name"] if ident else None
         self.current = name
         if name is None:
+            self.pending = None
             return None
         if name == netinfo.UNKNOWN_WIFI and not self._warned_hidden:
             self._warned_hidden = True
             log("Windows is hiding the Wi-Fi name (Settings → Privacy & security → Location → let desktop apps "
                 "access your location). Until then every Wi-Fi network is treated as untrusted.", "warn")
-        trusted = name != netinfo.UNKNOWN_WIFI and name in (s.get("trusted_networks") or [])
+        state, why = trust.check(ident, s.get("trusted_networks"), s.get("trusted_fingerprints"))
+        trusted = state == "trusted"
+        if state == "unverified":
+            self.pending = {"name": name, "why": why}
+            key = (name, ident.get("bssid"), ident.get("gw_mac"), ident.get("auth"))
+            if self._pending_told != key:
+                self._pending_told = key
+                log(f'"{name}" is on your trusted list but not confirmed ({why}) — treating it as untrusted', "warn")
+                notify("Check this network", f"\"{name}\" doesn't match the network you trusted. NOBAD keeps "
+                       "protecting you. Open Settings › Trusted networks to confirm it.", "trusted", "warn")
+        else:
+            self.pending = None
         t = self.tunnel
         if trusted:
             if (t.connected or t.connecting) and s.get("autodisconnect_trusted"):

@@ -103,17 +103,65 @@ def test_idle_gap_is_not_a_resume():
     assert nw.tick(need_tick=False) is None
 
 
+HOME = {"name": "Home Wi-Fi", "kind": "wifi", "auth": "WPA2-Personal", "bssid": "aa:bb:cc:dd:ee:01", "gw_mac": None}
+HOME_FP = {"Home Wi-Fi": {"kind": "wifi", "auth": "WPA2-Personal", "bssids": ["aa:bb:cc:dd:ee:01"]}}
+
+
 def test_trusted_network_disconnects_and_untrusted_connects():
     nw, t, c = make([WIFI, ETH], names="Home Wi-Fi", ssid_rules=True, trusted_networks=["Home Wi-Fi"],
-                    autodisconnect_trusted=True, autoconnect_untrusted=True, last_region="Home")
+                    trusted_fingerprints=HOME_FP, autodisconnect_trusted=True, autoconnect_untrusted=True,
+                    last_region="Home")
+    nw.ident_fn = lambda: HOME
     assert nw.evaluate_rules("test") == "disconnect"
     drain(nw)
     assert t.disconnected == [False]
     t.connected = False
-    nw.name_fn = lambda: "Airport"
+    nw.ident_fn = lambda: dict(HOME, name="Airport")
     assert nw.evaluate_rules("test") == "connect"
     drain(nw)
     assert ("connect", "Home") in t.events
+
+
+def test_evil_twin_with_trusted_name_stays_protected(monkeypatch):
+    """#15: same SSID but another access point, other security or unreadable: not trusted, the VPN connects."""
+    import nobadvpn.netwatch as nwmod
+    told = []
+    monkeypatch.setattr(nwmod, "notify", lambda *a, **k: told.append(a))
+    for twin in (dict(HOME, bssid="66:66:66:66:66:66"), dict(HOME, auth="Open"), dict(HOME, auth="WPA2-Enterprise"),
+                 dict(HOME, bssid=None)):
+        nw, t, c = make([WIFI], names="x", ssid_rules=True, trusted_networks=["Home Wi-Fi"],
+                        trusted_fingerprints=HOME_FP, autodisconnect_trusted=True, autoconnect_untrusted=True,
+                        last_region="Home")
+        nw.ident_fn = lambda twin=twin: twin
+        assert nw.evaluate_rules("test") != "disconnect" and not t.disconnected
+        t.connected = False
+        assert nw.evaluate_rules("test") == "connect"
+    assert told
+
+
+def test_name_only_entry_needs_confirming(monkeypatch):
+    import nobadvpn.netwatch as nwmod
+    monkeypatch.setattr(nwmod, "notify", lambda *a, **k: None)
+    nw, t, c = make([WIFI], names="Home Wi-Fi", ssid_rules=True, trusted_networks=["Home Wi-Fi"],
+                    autodisconnect_trusted=True)
+    nw.ident_fn = lambda: HOME
+    assert nw.evaluate_rules("test") is None and not t.disconnected
+    assert nw.pending and nw.pending["name"] == "Home Wi-Fi"
+
+
+def test_wired_network_is_identified_by_router(monkeypatch):
+    import nobadvpn.netwatch as nwmod
+    monkeypatch.setattr(nwmod, "notify", lambda *a, **k: None)
+    eth = {"name": "Ethernet", "kind": "wired", "auth": None, "bssid": None, "gw_mac": "00:11:22:33:44:55"}
+    fp = {"Ethernet": {"kind": "wired", "gw_macs": ["00:11:22:33:44:55"]}}
+    nw, t, c = make([ETH], names="Ethernet", ssid_rules=True, trusted_networks=["Ethernet"],
+                    trusted_fingerprints=fp, autodisconnect_trusted=True)
+    nw.ident_fn = lambda: eth
+    assert nw.evaluate_rules("test") == "disconnect"
+    nw2, t2, _ = make([ETH], names="Ethernet", ssid_rules=True, trusted_networks=["Ethernet"],
+                      trusted_fingerprints=fp, autodisconnect_trusted=True)
+    nw2.ident_fn = lambda: dict(eth, gw_mac="de:ad:be:ef:00:01")      # someone else's office or hotel cable
+    assert nw2.evaluate_rules("test") is None and not t2.disconnected
 
 
 def test_manual_disconnect_is_respected_until_network_changes():

@@ -16,7 +16,7 @@ from .logbus import scrub
 from .syscmd import is_admin, list_wg_services, run, wg_tool
 
 _MAC = re.compile(r"\b([0-9A-Fa-f]{2}[-:]){5}[0-9A-Fa-f]{2}\b")
-_SENSITIVE_SETTINGS = ("trusted_networks", "crash_report_url", "update_url", "window")
+_SENSITIVE_SETTINGS = ("trusted_networks", "trusted_fingerprints", "crash_report_url", "update_url", "window")
 # netsh / log lines that name a Wi-Fi network (SSIDs can identify your home or workplace)
 _WLAN_LINE = re.compile(r"(?im)^(\s*(?:SSID|Profile|Network name)\s*:\s*)(.+?)\s*$")
 
