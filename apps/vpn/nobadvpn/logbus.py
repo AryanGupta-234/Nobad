@@ -14,11 +14,15 @@ _log_ring = collections.deque(maxlen=200)
 _file_logger = None
 _LEVELS = {"ok": logging.INFO, "info": logging.INFO, "warn": logging.WARNING, "bad": logging.ERROR}
 _SECRET = re.compile(r"((?:private|preshared)key\s*[=:]\s*)\S+", re.I)
+# A raw WireGuard key (32 bytes, base64: 43 characters + "="), with no label around it, e.g. inside an exception
+# message (#18). Only a value labelled "PublicKey" is kept (it identifies the server and isn't secret).
+_RAW_KEY = re.compile(r"(publickey\s*[=:]\s*)?(?<![A-Za-z0-9+/])[A-Za-z0-9+/]{42}[AEIMQUYcgkosw048]=(?![A-Za-z0-9+/=])",
+                      re.I)
 
 
 def scrub(text):
-    """Never let key material reach a log, a toast or a diagnostics bundle."""
-    return _SECRET.sub(r"\1(hidden)", str(text))
+    """Never let key material reach a log, a toast, a crash report or a diagnostics bundle."""
+    return _RAW_KEY.sub(lambda m: m.group(0) if m.group(1) else "(hidden key)", _SECRET.sub(r"\1(hidden)", str(text)))
 
 
 def has_subscribers():

@@ -16,6 +16,9 @@ All notable changes to NOBAD VPN. Versions follow [semantic versioning](https://
   cable, used to switch the VPN off. NOBAD now also checks the router and, when Windows shows them, the Wi-Fi security
   type and access point. A mismatch keeps you protected and asks you to confirm in Settings; open Wi-Fi is never
   trusted. Networks trusted in an older version need one confirmation.
+- **Crash reports and logs hide raw keys (#18).** A WireGuard key that appeared without a "PrivateKey =" label, for
+  example inside an error message, could end up in a crash report. Any text shaped like a key is now hidden (a
+  labelled public key is kept), and crash reports also remove the real key values found in your configs.
 - **Stricter checks on every setting (#17).** On/off settings must be true or false (the text "false" used to
   count as on), text settings must be text with a length limit, update and crash-report URLs need a real host and no
   user name or password, and the window position, last server, favourites and streaming preferences can only be set

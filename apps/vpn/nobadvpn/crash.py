@@ -13,12 +13,24 @@ from .ctx import ctx
 from .logbus import log, recent_log, scrub
 
 
-def _scrub_paths(text):
+def _config_secrets():
+    """The real key values in the configs, as a second line of defence after the pattern scrub (#18)."""
+    try:
+        from .diagnostics import _secret_values
+        return _secret_values()
+    except Exception:
+        return set()
+
+
+def _scrub_paths(text, secrets=()):
     home = os.path.expanduser("~")
     user = os.environ.get("USERNAME") or os.environ.get("USER") or ""
     text = text.replace(home, "<home>")
     if user and len(user) > 2:
         text = text.replace(user, "<user>")
+    for s in secrets:
+        if s and len(s) >= 20:
+            text = text.replace(s, "(hidden)")
     return scrub(text)
 
 
@@ -27,10 +39,11 @@ def write_report(exc_type, exc, tb, where="main", fatal=True):
     background thread the app survived — kept as error-*.json for diagnostics, never shown as a crash."""
     try:
         os.makedirs(CRASH_DIR, exist_ok=True)
+        sec = _config_secrets()
         rep = {"app_version": APP_VER, "ts": int(time.time()), "where": where, "os": platform.platform(),
                "python": platform.python_version(),
-               "traceback": _scrub_paths("".join(traceback.format_exception(exc_type, exc, tb))),
-               "log_tail": [_scrub_paths(f"{e['ts']} {e['level']} {e['msg']}") for e in recent_log()[-40:]]}
+               "traceback": _scrub_paths("".join(traceback.format_exception(exc_type, exc, tb)), sec),
+               "log_tail": [_scrub_paths(f"{e['ts']} {e['level']} {e['msg']}", sec) for e in recent_log()[-40:]]}
         rep["fatal"] = bool(fatal)
         path = os.path.join(CRASH_DIR, f"{'crash' if fatal else 'error'}-{rep['ts']}.json")
         with open(path, "w", encoding="utf-8") as f:

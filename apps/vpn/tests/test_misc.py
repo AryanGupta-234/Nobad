@@ -54,3 +54,33 @@ def test_crash_report_is_local_and_scrubbed(monkeypatch, keys):
     ctx.settings = Settings(os.path.join(os.path.dirname(path), "s.json"))
     ok, msg = crash.send(path)                     # opt-in only: no URL => nothing is sent
     assert not ok and "No crash-report server" in msg
+
+
+def test_raw_key_without_label_is_scrubbed(keys):
+    """#18: a bare base64 key inside an exception message never reaches a log or a crash report."""
+    import os
+    import sys
+    from nobadvpn.logbus import scrub
+    priv = keys[0]
+    assert priv not in scrub(f"bad value {priv!r} for interface") and "(hidden key)" in scrub(f"x {priv} y")
+    assert scrub(f"PublicKey = {priv}") == f"PublicKey = {priv}"          # a labelled public key is kept
+    assert scrub("A" * 60) == "A" * 60                                    # longer base64 blobs are not keys
+    try:
+        raise ValueError(f"wg rejected {priv}")
+    except ValueError:
+        path = crash.write_report(*sys.exc_info(), fatal=False)
+    blob = json.dumps(crash.preview(path))
+    assert priv not in blob
+    os.remove(path)
+
+
+def test_crash_report_removes_real_config_keys_too(monkeypatch, keys):
+    """Second line of defence: the actual key values from the configs are removed, whatever their shape."""
+    import sys
+    secret = "not-base64-but-secret-" + "x" * 10
+    monkeypatch.setattr(crash, "_config_secrets", lambda: {secret})
+    try:
+        raise RuntimeError(f"oops {secret}")
+    except RuntimeError:
+        path = crash.write_report(*sys.exc_info(), fatal=False)
+    assert secret not in json.dumps(crash.preview(path))
