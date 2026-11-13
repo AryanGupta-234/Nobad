@@ -197,6 +197,19 @@ def try_self_elevate(args=None):
         return False
 
 
+def authenticode(path, timeout=60):
+    """The Authenticode signature of a file (#9: one check for the updater and the WireGuard installer):
+    {'status': Valid|NotSigned|HashMismatch|NotTrusted|..., 'subject': str, 'thumbprint': upper-case SHA-1}."""
+    if os.name != "nt":
+        return {"status": "Unknown", "subject": "", "thumbprint": ""}
+    lit = str(path).replace("'", "''")
+    ps = (f"$s=Get-AuthenticodeSignature -LiteralPath '{lit}'; "
+          "[string]$s.Status; [string]$s.SignerCertificate.Subject; [string]$s.SignerCertificate.Thumbprint")
+    lines = [x.strip() for x in (run(["powershell", "-NoProfile", "-NonInteractive", "-Command", ps],
+                                     timeout=timeout).stdout or "").splitlines()] + ["", "", ""]
+    return {"status": lines[0] or "UnknownError", "subject": lines[1], "thumbprint": lines[2].upper()}
+
+
 @functools.lru_cache(maxsize=1)
 def wg_dirs():
     pf = [known_folder("ProgramFiles"), known_folder("ProgramFilesX86")]

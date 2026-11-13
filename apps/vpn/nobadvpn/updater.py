@@ -16,7 +16,7 @@ from . import reach
 from .const import APP_VER, FROZEN, UPDATE_DIR, UPDATE_SIGNER_SUBJECTS, UPDATE_SIGNER_THUMBPRINTS
 from .ctx import ctx
 from .logbus import broadcast, log
-from .syscmd import private_workdir, run
+from .syscmd import authenticode, private_workdir
 
 MAX_INSTALLER = 300 * 1024 * 1024   # the installer is ~25 MB; anything near this is not a NOBAD release
 
@@ -141,15 +141,7 @@ class Updater:
     @staticmethod
     def signature_info(path):
         """{'status': Valid|NotSigned|HashMismatch|NotTrusted|..., 'subject': str, 'thumbprint': str}"""
-        if os.name != "nt":
-            return {"status": "Unknown", "subject": "", "thumbprint": ""}
-        lit = str(path).replace("'", "''")
-        ps = (f"$s=Get-AuthenticodeSignature -LiteralPath '{lit}'; "
-              "[string]$s.Status; [string]$s.SignerCertificate.Subject; [string]$s.SignerCertificate.Thumbprint")
-        lines = [x.strip() for x in (run(["powershell", "-NoProfile", "-NonInteractive", "-Command", ps],
-                                         timeout=30).stdout or "").splitlines()]
-        lines += ["", "", ""]
-        return {"status": lines[0] or "UnknownError", "subject": lines[1], "thumbprint": lines[2].upper()}
+        return authenticode(path, timeout=30)
 
     @staticmethod
     def signature_status(path):

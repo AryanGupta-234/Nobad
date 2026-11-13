@@ -356,3 +356,21 @@ def test_show_window_request_needs_no_file():
     finally:
         autostart._close(h)
     assert not autostart.show_requested()
+
+
+def test_one_shared_authenticode_check(monkeypatch):
+    """#9: the updater and the WireGuard installer use the same signature helper, and it is never cached."""
+    from nobadvpn import wginstall
+    calls = []
+
+    def fake(cmd, timeout=15, input_text=None):
+        calls.append(cmd)
+        return type("R", (), {"stdout": "Valid\nCN=WireGuard LLC, O=WireGuard LLC\nab12\n", "returncode": 0})()
+    monkeypatch.setattr(syscmd, "run", fake)
+    monkeypatch.setattr(syscmd.os, "name", "nt")
+    assert updater.Updater.signature_info("C:/x.exe") == {"status": "Valid", "subject": "CN=WireGuard LLC, O=WireGuard LLC",
+                                                          "thumbprint": "AB12"}
+    assert wginstall.signature("C:/x.msi") == ("Valid", "CN=WireGuard LLC, O=WireGuard LLC")
+    assert wginstall.signature("C:/x.msi")[0] == "Valid" and len(calls) == 3
+    syscmd.authenticode("C:/it's.msi")
+    assert "-LiteralPath 'C:/it''s.msi'" in calls[-1][-1]          # a quote in the path can't break out

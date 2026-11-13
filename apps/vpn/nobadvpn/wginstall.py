@@ -13,7 +13,7 @@ import urllib.request
 from . import reach
 from .const import BASE_DIR, FROZEN, UA, UPDATE_DIR
 from .logbus import log
-from .syscmd import private_workdir, run, wg_tool
+from .syscmd import authenticode, private_workdir, run, wg_tool
 
 WG_VERSION = "1.1.1"                       # keep in sync with packaging/build.ps1 ($wgVersion)
 WG_SIGNER = "CN=WireGuard LLC,"            # subject prefix of the official signing certificate
@@ -49,12 +49,8 @@ def bundled_msi():
 
 def signature(path):
     """(status, subject) of an Authenticode signature."""
-    lit = str(path).replace("'", "''")
-    ps = (f"$s=Get-AuthenticodeSignature -LiteralPath '{lit}'; [string]$s.Status; "
-          "[string]$s.SignerCertificate.Subject")
-    lines = [x.strip() for x in (run(["powershell", "-NoProfile", "-NonInteractive", "-Command", ps],
-                                     timeout=60).stdout or "").splitlines()] + ["", ""]
-    return lines[0], lines[1]
+    s = authenticode(path)
+    return s["status"], s["subject"]
 
 
 def signed_by_wireguard(path, sig=None):
