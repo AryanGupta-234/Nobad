@@ -230,6 +230,7 @@ class WindowManager:
             self.main.show()
         except Exception:
             pass
+        self._enable_taskbar_minimize()
         if self._on_shown:
             try:
                 self._on_shown()
@@ -286,6 +287,7 @@ class WindowManager:
             self.main.on_top = False
         except Exception:
             pass
+        self._enable_taskbar_minimize()   # also after a background start, which skips _reveal's first show
 
     def hide_main(self):
         try:
@@ -294,6 +296,33 @@ class WindowManager:
             pass
 
     # ---- custom title bar (frameless main window)
+    WS_MINIMIZEBOX, WS_SYSMENU = 0x00020000, 0x00080000
+
+    def _enable_taskbar_minimize(self):
+        """A frameless window has no minimize box or system menu in its style, so Windows ignores a click on its
+        taskbar button while it is active (other apps minimize) and Win+Down does nothing. Adding both style bits
+        changes nothing visible (there is no native caption to draw them in) but gives the window the normal
+        taskbar click-to-minimize / click-to-restore, the minimize animation and the taskbar right-click menu."""
+        if os.name != "nt" or not ctx.settings.get("custom_titlebar"):
+            return False
+        hwnd = self._hwnd()
+        if not hwnd:
+            return False
+        try:
+            u = ctypes.windll.user32
+            get = getattr(u, "GetWindowLongPtrW", u.GetWindowLongW)
+            setl = getattr(u, "SetWindowLongPtrW", u.SetWindowLongW)
+            get.restype = setl.restype = ctypes.c_ssize_t
+            get.argtypes = [ctypes.c_void_p, ctypes.c_int]
+            setl.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_ssize_t]
+            style = get(ctypes.c_void_p(hwnd), -16)                     # GWL_STYLE
+            want = style | self.WS_MINIMIZEBOX | self.WS_SYSMENU
+            if want != style:
+                setl(ctypes.c_void_p(hwnd), -16, want)
+            return True
+        except Exception:
+            return False
+
     def _hwnd(self):
         try:
             return int(self.main.native.Handle.ToInt64())

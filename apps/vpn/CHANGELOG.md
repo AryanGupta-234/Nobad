@@ -19,6 +19,9 @@ All notable changes to NOBAD VPN. Versions follow [semantic versioning](https://
   list in the wrong colours. It now uses solid theme colours and a crisp arrow, in dark and light.
 - **Sharper on high-DPI screens.** NOBAD declares per-monitor DPI awareness (v2) as the very first step, before
   any window, also when it starts in the background, so Windows never scales it as a blurry bitmap.
+- **Taskbar click minimizes NOBAD,** like other apps: clicking its taskbar button while it is in front now
+  minimizes it, and clicking again brings it back. Win+Down and the minimize animation work too. (The custom title
+  bar's window lacked the style bits Windows looks for.)
 - **Lighter, smoother side panel.** Frosted-looking cards from static gradients (no blur cost), hover that only
   moves the card, and pointer effects updated at most once per frame instead of on every mouse event.
 

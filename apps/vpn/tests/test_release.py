@@ -700,3 +700,32 @@ def test_pages_have_no_inline_scripts_or_handlers():
     for fn in ("app.js", "app_ext.js", "mini.js", "netintel.js", "streamintel.js", "palette.js"):
         js = open(os.path.join(UI, fn), encoding="utf-8").read()
         assert not re.search(r"""<[a-z][^>]*\son(click|change|input|load|error|submit|key\w+|mouse\w+)\s*=""", js), fn
+
+
+def test_frameless_window_gets_taskbar_minimize_style(monkeypatch):
+    """A frameless window lacks WS_MINIMIZEBOX/WS_SYSMENU, so a taskbar click didn't minimize it."""
+    if os.name != "nt":
+        pytest.skip("Windows only")
+    import ctypes
+    from nobadvpn import window
+    from nobadvpn.ctx import ctx
+    u = ctypes.windll.user32
+    u.CreateWindowExW.restype = ctypes.c_void_p
+    u.CreateWindowExW.argtypes = [ctypes.c_uint32, ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_uint32, ctypes.c_int, ctypes.c_int,
+                                  ctypes.c_int, ctypes.c_int, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
+    hwnd = u.CreateWindowExW(0, "STATIC", "nobad-style-test", 0x80000000, 0, 0, 10, 10, None, None, None, None)   # WS_POPUP
+    assert hwnd
+    try:
+        class S(dict):
+            def get(self, k, d=None):
+                return dict.get(self, k, d)
+        monkeypatch.setattr(ctx, "settings", S(custom_titlebar=True), raising=False)
+        wm = window.WindowManager.__new__(window.WindowManager)
+        monkeypatch.setattr(wm, "_hwnd", lambda: hwnd, raising=False)
+        assert wm._enable_taskbar_minimize()
+        u.GetWindowLongW.argtypes = [ctypes.c_void_p, ctypes.c_int]
+        style = u.GetWindowLongW(ctypes.c_void_p(hwnd), -16) & 0xFFFFFFFF
+        assert style & 0x00020000 and style & 0x00080000 and style & 0x80000000   # minimize box + sysmenu, still a popup
+    finally:
+        u.DestroyWindow.argtypes = [ctypes.c_void_p]
+        u.DestroyWindow(ctypes.c_void_p(hwnd))
