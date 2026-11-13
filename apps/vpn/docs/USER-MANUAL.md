@@ -89,6 +89,17 @@ Good to know:
 * Your configs are kept in `C:\ProgramData\NobadVPN\configs`, a folder normal programs can't read. They contain your
   private keys, so don't share them.
 
+**No servers yet? Free servers.** Press **Free servers** in the Servers tab for a short guide:
+
+* **Proton VPN Free** (no-logs, free servers in a few countries): create a free Proton account, open *Downloads →
+  WireGuard configuration*, choose Windows and a free server, download the file, and repeat for each country you
+  want. Then press **Import downloaded files** and pick them all at once. The guide's buttons open those Proton pages
+  in your normal browser.
+* **Cloudflare WARP** is free too, but Cloudflare only gives WARP connections to its own *1.1.1.1* app and always
+  picks the nearest location, so use that app for WARP. NOBAD doesn't create WARP accounts.
+* NOBAD never ships configs of its own: one shared config would give every user the same private key. For the same
+  reason, don't use configs copied from "free config" websites.
+
 **Editing a server.** Each server in the list has an **Edit** button. The editor hides your private keys as `(hidden)`
 and keeps them unchanged unless you paste a new key. It checks the text as you type. The editor also has **Delete**
 (you must disconnect from that server first).

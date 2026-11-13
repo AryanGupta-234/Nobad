@@ -2,6 +2,14 @@
 
 All notable changes to NOBAD VPN. Versions follow [semantic versioning](https://semver.org/).
 
+## Unreleased
+
+### Added
+- **Free servers guide** in the Servers tab: how to get free WireGuard servers from Proton VPN Free (several
+  countries, from your own free account) with buttons that open Proton's pages in your browser and import the
+  downloaded files in one go, and why Cloudflare WARP needs Cloudflare's own app. NOBAD never ships configs: a
+  shared config would give every user the same private key.
+
 ## 1.3.1 · 2026-11-13
 
 ### Changed

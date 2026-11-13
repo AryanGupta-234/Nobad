@@ -729,3 +729,14 @@ def test_frameless_window_gets_taskbar_minimize_style(monkeypatch):
     finally:
         u.DestroyWindow.argtypes = [ctypes.c_void_p]
         u.DestroyWindow(ctypes.c_void_p(hwnd))
+
+
+def test_free_servers_guide_links_are_allowlisted_and_https():
+    """The guide only opens fixed, allowlisted https pages, in the user's normal browser."""
+    from nobadvpn import api
+    for k in ("proton_signup", "proton_downloads", "warp_app"):
+        assert api.ALLOWED_URLS[k].startswith("https://"), k
+    js = open(os.path.join(UI, "app_ext.js"), encoding="utf-8").read()
+    used = set(re.findall(r'link\("([a-z_]+)"', js[js.index("function freeServers"):js.index("function serversTools")]))
+    assert used - {"import"} <= set(api.ALLOWED_URLS), used
+    assert 'mk("nxBtnFree"' in js

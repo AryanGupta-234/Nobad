@@ -241,6 +241,31 @@ async function importUrl() {
   const r = await api("import_url", { url });
   toast(r.ok ? t("Imported {n}: {names}", { n: 1, names: r.name }) : r.error, !!r.ok);
 }
+/* "Free servers": where to get WireGuard configs that cost nothing, and how to add them. NOBAD never ships configs
+   (a shared one would give every user the same private key) and doesn't create WARP accounts (Cloudflare only
+   issues them to its own apps), so this guides the user to their own free account and imports the files. */
+function freeServers() {
+  const link = (k, label, cls) => `<button class="sm${cls ? " " + cls : ""}" data-fs="${k}">${esc(t(label))}</button>`;
+  const m = modal({ wide: true, title: t("Free servers"), sub: t("NOBAD connects with WireGuard configs from any provider. These are free and safe ways to get some."),
+    html: `<div class="nx-grp nx-free"><div class="nx-free-h"><b>${esc(t("Proton VPN Free"))}</b><span class="chip">${esc(t("several countries"))}</span></div>
+      <p class="note">${esc(t("No-logs VPN with free servers in a few countries (for example the Netherlands, Japan, the United States, Poland and Romania). Each config is made for your own free account."))}</p>
+      <ol class="nx-steps"><li>${esc(t("Create a free Proton account (or sign in)."))}</li>
+      <li>${esc(t("Open Downloads → WireGuard configuration, choose Windows and a free server, and download the file. Repeat for each country you want."))}</li>
+      <li>${esc(t("Import the downloaded files here. You can pick several at once."))}</li></ol>
+      <div class="nx-inline">${link("proton_signup", "Create free account")}${link("proton_downloads", "Open WireGuard downloads")}${link("import", "Import downloaded files", "pri")}</div></div>
+      <div class="nx-grp nx-free"><div class="nx-free-h"><b>${esc(t("Cloudflare WARP"))}</b><span class="chip">${esc(t("nearest location"))}</span></div>
+      <p class="note">${esc(t("Free, but Cloudflare only gives WARP connections to its own app, and always picks the nearest location. Use the official 1.1.1.1 app for WARP; NOBAD is for the configs above and your own servers."))}</p>
+      <div class="nx-inline">${link("warp_app", "Get the 1.1.1.1 app")}</div></div>
+      <div class="nx-grp nx-free"><div class="nx-free-h"><b>${esc(t("Your own server or provider"))}</b></div>
+      <p class="note">${esc(t("Any WireGuard .conf works: from a paid provider, a router, or a server you run. Import it, paste it, or scan its QR code."))}</p></div>
+      <p class="note">${esc(t("Never use configs copied from \"free config\" websites: everyone using them shares the same private key, and you can't know who runs the server."))}</p>`,
+    actions: [{ label: t("Close"), fn: x => x.close() }] });
+  m.body.addEventListener("click", e => {
+    const b = e.target.closest("[data-fs]"); if (!b) return;
+    if (b.dataset.fs === "import") { m.close(); $("#file").click(); }
+    else api("open_url", { key: b.dataset.fs }).then(r => { if (!r.ok) toast(r.error); else toast(t("Opened in your browser"), true); });
+  });
+}
 function serversTools() {
   const row = $("#bRescan").parentNode;
   const mk = (id, label, fn) => { const b = document.createElement("button"); b.className = "sm"; b.id = id; b.textContent = label; b.onclick = fn; row.appendChild(b); };
@@ -248,6 +273,7 @@ function serversTools() {
   mk("nxBtnQr", t("Import QR image"), () => { const i = document.createElement("input"); i.type = "file"; i.accept = "image/*"; i.onchange = () => importFiles([...i.files]); i.click(); });
   mk("nxBtnPaste", t("Paste config"), () => openEditor(null));
   mk("nxBtnSmart", t("Smart pick"), () => api("smart", {}).then(r => { if (!r.ok) toast(r.error); }));
+  mk("nxBtnFree", t("Free servers"), freeServers);
   $("#file").onchange = async e => { const fs = [...e.target.files]; e.target.value = ""; if (fs.length) importFiles(fs); };
   $("#srv").addEventListener("click", e => { const b = e.target.closest("[data-edit]"); if (b) openEditor(b.dataset.edit); });
   const t2 = $("#t2");

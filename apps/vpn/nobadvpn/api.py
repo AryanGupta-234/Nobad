@@ -15,7 +15,12 @@ from .tools import (fetch_ipinfo, gaming_probe, network_diagnose, speed_test, st
                     valorant_region_check)
 
 ALLOWED_URLS = {"wireguard_install": "https://www.wireguard.com/install/", "neverssl": "http://neverssl.com",
-                "firewall_settings": "windowsdefender://network/"}  # Windows Security → Firewall & network protection
+                "firewall_settings": "windowsdefender://network/",  # Windows Security → Firewall & network protection
+                # "Free servers" guide: Proton VPN Free (configs come from the user's own free account) and
+                # Cloudflare's own WARP app (Cloudflare only issues WARP configs to its own apps)
+                "proton_signup": "https://account.protonvpn.com/signup",
+                "proton_downloads": "https://account.protonvpn.com/downloads",
+                "warp_app": "https://one.one.one.one/"}
 _autostart_cache = {"v": None}
 
 
