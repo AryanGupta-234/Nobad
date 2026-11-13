@@ -2,7 +2,7 @@
 
 All notable changes to NOBAD VPN. Versions follow [semantic versioning](https://semver.org/).
 
-## Unreleased
+## 1.3.2 · 2026-11-13
 
 ### Added
 - **Free servers guide** in the Servers tab: how to get free WireGuard servers from Proton VPN Free (several
