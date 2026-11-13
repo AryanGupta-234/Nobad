@@ -275,9 +275,9 @@ fails over.
 
 **While the tunnel is down but wanted** (it was up before, `auto_repair` on, not given up), it retries with backoff
 `min(120, 8 * 2^min(n-1, 4))` seconds. Attempts 1 and 2 reconnect the same server; from attempt 3 on, if there is more
-than one server, it fails over. After 8 attempts (`RECONNECT_TRIES`) it gives up: with the strict kill switch the
-rules stay and an error explains that traffic is still blocked; otherwise the rules are removed and the user is told
-they are online **without** the VPN. A later network change or a manual connect starts over.
+than one server, it fails over. After 8 attempts (`RECONNECT_TRIES`) it gives up: with the kill switch on (strict or
+not) the rules stay and an error explains that traffic is still blocked until the user chooses Restore internet or
+Disconnect; with the kill switch off, the DNS block is removed and the user is told they are online **without** the VPN. A later network change or a manual connect starts over.
 
 **Failover** (`_failover`) tears down the tunnel, probes every server, and picks the best smart-ranked server other
 than the current one (if `smart_select` is on), else the lowest measured latency, else the next server in the list.

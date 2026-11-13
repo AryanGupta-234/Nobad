@@ -15,7 +15,7 @@ Some live-tunnel behaviour still needs verification on more real PCs and network
 * Handshake verification (up to 14 s) using `wg.exe latest-handshakes`, with ping as a fallback.
 * Detailed failure diagnosis (service state, exit code, WireGuard log lines) with action buttons.
 * Health check every 8 s; auto-repair after 2 failed checks, failover to another server after 2 repairs (*Auto-repair & failover*, default on).
-* Auto-reconnect with backoff after a drop; other servers tried from the 3rd attempt; gives up after 8 attempts.
+* Auto-reconnect with backoff after a drop; other servers tried from the 3rd attempt; stops after 8 attempts and, with the kill switch on, keeps blocking until you choose Restore internet.
 * Clean reconnect after sleep/resume and network changes (*Reconnect after sleep or network changes*, default on).
 * "Network lost" state while no network is available.
 * Captive-portal detection with *Open sign-in page* and automatic reconnect after sign-in (up to 10 min).

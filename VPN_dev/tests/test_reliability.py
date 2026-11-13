@@ -57,15 +57,40 @@ def test_kill_switch_keeps_blocking_while_reconnecting_after_a_drop(win, monkeyp
     assert "NobadKS4" in win.rules and t.want         # ...but traffic stays blocked
 
 
-def test_give_up_releases_non_strict_kill_switch(win, monkeypatch):
+def test_give_up_keeps_non_strict_kill_switch(win, monkeypatch):
     t = ctx.tunnel
     assert t.connect("Home")
     _fail_verify(monkeypatch)
     t.connect("Home")
     t._give_up()
-    assert not win.rules and t.giveup and t.last_error["code"] == "reconnect_failed"
-    t.connect("Home")                                  # later failures after giving up don't re-block
+    assert "NobadKS4" in win.rules and t.giveup and t.last_error["code"] == "reconnect_failed"
+    assert "panic" in [a["id"] for a in t.last_error["actions"]]
+    t.connect("Home")                                  # a failed retry after giving up still blocks
+    assert "NobadKS4" in win.rules
+    t._reapply_fw("DNS leak block")                    # nor does a settings change release it
+    assert "NobadKS4" in win.rules
+    t.panic_reset()                                    # only the user's Restore internet does
     assert not win.rules
+
+
+def test_give_up_without_kill_switch_goes_online(win, monkeypatch):
+    ctx.settings.update(kill_switch=False)
+    t = ctx.tunnel
+    assert t.connect("Home")
+    _fail_verify(monkeypatch)
+    t.connect("Home")
+    t._give_up()
+    assert not win.rules and t.giveup
+
+
+def test_disconnect_after_give_up_releases(win, monkeypatch):
+    t = ctx.tunnel
+    assert t.connect("Home")
+    _fail_verify(monkeypatch)
+    t.connect("Home")
+    t._give_up()
+    t.disconnect()
+    assert not win.rules and not t.giveup
 
 
 def test_give_up_keeps_strict_kill_switch(win, monkeypatch):

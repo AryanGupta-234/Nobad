@@ -490,8 +490,7 @@ class Tunnel:
         with self.lock:
             if not self.connected and not self.connecting:
                 s = ctx.settings
-                holding = bool(s.get("kill_switch") and (s.get("ks_strict") or (self.want and self._was_up
-                                                                                  and not self.giveup)))
+                holding = bool(s.get("kill_switch") and (s.get("ks_strict") or (self.want and self._was_up)))
                 if (self.ks_active or self.dns_active or firewall.present()) and not holding:
                     self._fw_remove()
                     log(f"{what} changed — blocking rules removed", "warn")
@@ -565,8 +564,9 @@ class Tunnel:
         s = ctx.settings
         strict = bool(s.get("kill_switch") and s.get("ks_strict"))
         # The tunnel was up and we are trying to get it back: keep blocking (that is what a kill switch is for).
-        # A first, manual connect that fails releases the rules unless strict mode is on.
-        hold = bool(s.get("kill_switch") and self.want and self._was_up and not self.giveup)
+        # A first, manual connect that fails releases the rules unless strict mode is on. Giving up on auto-reconnect
+        # does not end the hold either: only Disconnect or Restore internet does (#14).
+        hold = bool(s.get("kill_switch") and self.want and self._was_up)
         self.connecting = None
         self.connected = False
         self.active = None
@@ -1186,19 +1186,24 @@ class Tunnel:
                 log(f"monitor error: {e}", "warn")
 
     def _give_up(self):
-        """Auto-reconnect ran out of attempts. Strict mode keeps blocking; otherwise the internet is released.
-        A later network change (NetWatch) or a manual connect starts over."""
+        """Auto-reconnect ran out of attempts. With the kill switch on, traffic stays blocked until the user chooses
+        Restore internet or Disconnect (#14): releasing it on its own would let anyone who can block the VPN's UDP
+        traffic push this PC onto the open network within minutes. A later network change (NetWatch) or a manual
+        connect starts over."""
         s = ctx.settings
         self.giveup = True
-        if s.get("kill_switch") and s.get("ks_strict"):
-            self._err("reconnect_failed", "Couldn't reconnect", "The strict kill switch keeps blocking traffic.",
+        if s.get("kill_switch"):
+            self._err("reconnect_failed", "Couldn't reconnect",
+                      f"Stopped retrying after {RECONNECT_TRIES} attempts. The kill switch keeps blocking traffic; "
+                      "choose Restore internet to go online without the VPN.",
                       ("retry", "panic", "show_log"), s.get("last_region"))
-            notify("Still offline", "Couldn't reconnect — the strict kill switch is blocking traffic.", "fail", "bad")
+            notify("Still offline", "Couldn't reconnect — the kill switch is blocking traffic. "
+                   "Open NOBAD to retry or restore internet.", "fail", "bad")
         else:
             with self.lock:
                 self._fw_remove()
             self._err("reconnect_failed", "Couldn't reconnect",
-                      f"Gave up after {RECONNECT_TRIES} attempts. The kill switch was released, so you are online "
+                      f"Gave up after {RECONNECT_TRIES} attempts. The kill switch is off, so you are online "
                       "WITHOUT the VPN.", ("retry", "show_log"), s.get("last_region"))
             notify("VPN is off", "Couldn't reconnect — you are online without the VPN.", "fail", "bad")
         self.push()

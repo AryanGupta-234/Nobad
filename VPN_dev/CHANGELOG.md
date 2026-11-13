@@ -4,7 +4,14 @@ All notable changes to NOBAD VPN. Versions follow [semantic versioning](https://
 
 ## Unreleased
 
+### Changed
+- **Start with Windows is off by default.** The installer box is unticked on a new install; turn it on there or in
+  Settings. An update no longer switches it off when the box is left unticked.
+
 ### Security
+- **The kill switch no longer gives up (#14).** After 8 failed reconnects NOBAD used to remove the blocking rules
+  unless the strict kill switch was on, so someone who blocked the VPN's traffic could get yours outside the
+  tunnel. It now keeps blocking until you choose Restore internet or Disconnect.
 - **The installed app ignores redirecting environment variables.** Its data folder and Program Files are taken
   from Windows (known folders), not from `%ProgramData%`, `%ProgramFiles%` or `NOBAD_DATA_DIR`, which a normal user
   can set for the processes NOBAD starts. Folder locking refuses junctions and symbolic links and removes any
