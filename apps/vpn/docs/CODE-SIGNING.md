@@ -19,7 +19,7 @@ What their terms ask for, and where NOBAD stands:
 
 | Condition | Status |
 |---|---|
-| OSI licence, actively maintained, already released | MIT; 1.2.0 is on GitHub Releases |
+| OSI licence, actively maintained, already released | MIT; several releases on GitHub Releases (1.2.0 onward) |
 | Verifiable build from source; manual approval per release | `.github/workflows/vpn-release.yml` builds from the tag |
 | *Code signing policy* on the home page, with team roles and a privacy policy | `/code-signing-policy/` and `/privacy/`, linked from the home page footer |
 | Product name and version on the binaries | `packaging/make_version_info.py` |
