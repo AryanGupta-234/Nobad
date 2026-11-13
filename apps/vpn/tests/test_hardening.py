@@ -275,3 +275,45 @@ def test_image_proxy_requires_a_signed_in_window():
         assert c.getresponse().status == 401
     finally:
         s.shutdown()
+
+
+def test_system_tools_run_by_full_path(monkeypatch):
+    """#19: bare tool names resolve under System32; the installed app never searches PATH."""
+    if os.name != "nt":
+        pytest.skip("Windows only")
+    seen = []
+    monkeypatch.setattr(syscmd.subprocess, "run", lambda cmd, **k: seen.append(cmd) or type("R", (), {"returncode": 0})())
+    syscmd.run(["netsh", "advfirewall", "show"])
+    syscmd.run(["schtasks.exe", "/Query"])
+    sys32 = syscmd.system32().lower()
+    assert [c[0].lower() for c in seen] == [os.path.join(sys32, "netsh.exe"), os.path.join(sys32, "schtasks.exe")]
+    assert seen[0][1:] == ["advfirewall", "show"]
+    monkeypatch.setattr(syscmd, "FROZEN", True)
+    seen.clear()
+    for bad in (["winget", "install"], [r"..\netsh"], [r"sub\ping.exe"]):
+        r = syscmd.run(bad)
+        assert r.returncode == 1 and "refusing" in r.stderr
+    assert not seen
+    abs_tool = [os.path.join(sys32, "ping.exe"), "-n", "1"]
+    syscmd.run(abs_tool)
+    assert seen == [abs_tool]                                          # full paths are used as given
+
+
+def test_wg_tool_ignores_path_when_installed(monkeypatch):
+    monkeypatch.setattr(syscmd, "wg_dirs", lambda: [])
+    monkeypatch.setattr(syscmd.shutil, "which", lambda exe: r"C:\Users\x\evil" + "\\" + exe)
+    monkeypatch.setattr(syscmd, "FROZEN", True)
+    assert syscmd.wg_tool("wireguard.exe") is None
+    monkeypatch.setattr(syscmd, "FROZEN", False)
+    assert syscmd.wg_tool("wireguard.exe").endswith("wireguard.exe")    # a source checkout may use PATH
+
+
+def test_installed_app_never_runs_winget(monkeypatch):
+    from nobadvpn import wginstall
+    calls = []
+    monkeypatch.setattr(wginstall, "FROZEN", True)
+    monkeypatch.setattr(wginstall, "run", lambda cmd, **k: calls.append(cmd))
+    monkeypatch.setattr(wginstall, "bundled_msi", lambda: None, raising=False)
+    ok, msg = wginstall.install(sig=lambda p: False, downloader=lambda: (_ for _ in ()).throw(OSError("offline")),
+                                installed=lambda: False)
+    assert not ok and not any("winget" in str(c) for c in calls) and "winget skipped" in msg

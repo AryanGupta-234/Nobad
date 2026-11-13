@@ -3,14 +3,15 @@
 Order of preference:
   1. the MSI bundled with NOBAD's installer ({app}\\redist\\wireguard-<arch>.msi): works offline;
   2. the official MSI from download.wireguard.com, downloaded over HTTPS;
-  3. winget, as a last resort.
+  3. winget, as a last resort, only when running from source: the installed app is elevated and winget is found
+     through the user's PATH, so it never runs it (#19).
 Every MSI must carry a valid Authenticode signature from WireGuard LLC before msiexec runs it (elevated)."""
 import os
 import platform
 import urllib.request
 
 from . import reach
-from .const import BASE_DIR, UA, UPDATE_DIR
+from .const import BASE_DIR, FROZEN, UA, UPDATE_DIR
 from .logbus import log
 from .syscmd import private_workdir, run, wg_tool
 
@@ -122,10 +123,15 @@ def install(sig=None, msi_runner=None, downloader=None, winget=None, installed=N
                 pass
     except Exception as e:
         tried.append(f"download failed ({type(e).__name__})")
-    r = (winget or (lambda: run(["winget", "install", "--id", "WireGuard.WireGuard", "-e", "--silent",
-                                 "--accept-source-agreements", "--accept-package-agreements"], timeout=600)))()
+    if winget is None and FROZEN:
+        r = None
+        tried.append("winget skipped (not run with admin rights)")
+    else:
+        r = (winget or (lambda: run(["winget", "install", "--id", "WireGuard.WireGuard", "-e", "--silent",
+                                     "--accept-source-agreements", "--accept-package-agreements"], timeout=600)))()
     if installed():
         return True, "WireGuard is installed."
-    tried.append("winget failed" if r is not None else "winget unavailable")
+    if r is not None or winget is not None or not FROZEN:
+        tried.append("winget failed" if r is not None else "winget unavailable")
     log("WireGuard install did not finish: " + "; ".join(tried), "bad")
     return False, "WireGuard could not be installed automatically (" + "; ".join(tried) + "). Use the download page."

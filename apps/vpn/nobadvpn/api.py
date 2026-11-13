@@ -365,7 +365,8 @@ def h_diagnostics_export(b):
             log(f"diagnostics saved: {final}", "ok")
             broadcast("fix_result", {"ok": True, "message": f"Diagnostics saved to {final} (keys removed)."})
             if os.name == "nt":
-                subprocess.Popen(["explorer", "/select,", final])
+                from .const import known_folder
+                subprocess.Popen([os.path.join(known_folder("Windows") or r"C:\Windows", "explorer.exe"), "/select,", final])
         except Exception as e:
             log(f"diagnostics export failed: {e}", "bad")
             broadcast("fix_result", {"ok": False, "message": f"Export failed: {e}"})

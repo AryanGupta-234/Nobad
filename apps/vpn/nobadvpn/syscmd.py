@@ -1,5 +1,6 @@
 """Thin wrappers around Windows tools (ping, sc, wireguard.exe) plus small thread helpers."""
 import ctypes
+import functools
 import os
 import re
 import shutil
@@ -9,7 +10,7 @@ import sys
 import threading
 import time
 
-from .const import FROZEN, WG_DIRS
+from .const import FROZEN, WG_DIRS, known_folder
 from .logbus import broadcast, log
 
 _NOWIN = getattr(subprocess, "CREATE_NO_WINDOW", 0) | getattr(subprocess, "BELOW_NORMAL_PRIORITY_CLASS", 0)
@@ -22,10 +23,46 @@ class _Result:
         self.returncode = 1
 
 
+# Windows tools NOBAD runs, relative to System32 (#19). NOBAD runs elevated, and finding a tool by name searches the
+# current folder and PATH, which a normal user can change: a planted netsh.exe would run with admin rights.
+SYSTEM_TOOLS = {
+    "powershell": r"WindowsPowerShell\v1.0\powershell.exe", "netsh": "netsh.exe", "schtasks": "schtasks.exe",
+    "sc": "sc.exe", "route": "route.exe", "taskkill": "taskkill.exe", "tasklist": "tasklist.exe", "ping": "ping.exe",
+    "icacls": "icacls.exe", "msiexec": "msiexec.exe", "ipconfig": "ipconfig.exe", "arp": "arp.exe",
+    "nslookup": "nslookup.exe", "netstat": "netstat.exe", "reg": "reg.exe", "whoami": "whoami.exe",
+    "pnputil": "pnputil.exe", "wevtutil": "wevtutil.exe", "cmd": "cmd.exe",
+}
+
+
+@functools.lru_cache(maxsize=1)
+def system32():
+    win = known_folder("Windows")
+    return os.path.join(win, "System32") if win else r"C:\Windows\System32"
+
+
+def resolve_tool(exe):
+    """Full path of a Windows tool given by bare name (`netsh`, `sc.exe`), or None if it isn't one NOBAD knows."""
+    base = os.path.basename(exe).lower()
+    name = base[:-4] if base.endswith(".exe") else base
+    rel = SYSTEM_TOOLS.get(name)
+    return os.path.join(system32(), rel) if rel and base == exe.lower() else None
+
+
+def _resolve_cmd(cmd):
+    if os.name != "nt" or not cmd or not isinstance(cmd[0], str) or os.path.isabs(cmd[0]):
+        return cmd
+    full = resolve_tool(cmd[0])
+    if full:
+        return [full] + list(cmd[1:])
+    if FROZEN:      # the installed (elevated) app never searches PATH for a program
+        raise FileNotFoundError(f"refusing to run {cmd[0]!r} by name; it is not a known Windows tool")
+    return cmd
+
+
 def run(cmd, timeout=15, input_text=None):
     try:
-        return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, creationflags=_NOWIN,
-                              input=input_text)
+        return subprocess.run(_resolve_cmd(cmd), capture_output=True, text=True, timeout=timeout,
+                              creationflags=_NOWIN, input=input_text)
     except Exception as e:  # missing exe, timeout, ...
         return _Result(str(e))
 
@@ -160,12 +197,19 @@ def try_self_elevate(args=None):
         return False
 
 
+@functools.lru_cache(maxsize=1)
+def wg_dirs():
+    pf = [known_folder("ProgramFiles"), known_folder("ProgramFilesX86")]
+    return [os.path.join(p, "WireGuard") for p in pf if p] or list(WG_DIRS)
+
+
 def wg_tool(exe):
-    for d in WG_DIRS:
+    for d in wg_dirs():
         p = os.path.join(d, exe)
         if os.path.exists(p):
             return p
-    return shutil.which(exe)
+    # Only a development run looks on PATH: the installed app is elevated and PATH is user-controlled (#19).
+    return None if FROZEN else shutil.which(exe)
 
 
 def service_running(name):

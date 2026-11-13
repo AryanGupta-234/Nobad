@@ -16,6 +16,11 @@ All notable changes to NOBAD VPN. Versions follow [semantic versioning](https://
   cable, used to switch the VPN off. NOBAD now also checks the router and, when Windows shows them, the Wi-Fi security
   type and access point. A mismatch keeps you protected and asks you to confirm in Settings; open Wi-Fi is never
   trusted. Networks trusted in an older version need one confirmation.
+- **Windows tools are started by full path (#19).** NOBAD runs with admin rights and used to find netsh, PowerShell,
+  schtasks and the rest by name, which searches folders a normal user can change. They now always come from
+  System32, WireGuard only from Program Files, and the installed app refuses to run any other program by name. The
+  last-resort winget install of WireGuard is skipped in the installed app for the same reason; the bundled and
+  downloaded installers (both signature-checked) still work.
 - **Crash reports and logs hide raw keys (#18).** A WireGuard key that appeared without a "PrivateKey =" label, for
   example inside an error message, could end up in a crash report. Any text shaped like a key is now hidden (a
   labelled public key is kept), and crash reports also remove the real key values found in your configs.
