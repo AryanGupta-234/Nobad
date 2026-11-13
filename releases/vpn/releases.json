@@ -1,8 +1,20 @@
 {
   "schemaVersion": 1,
   "product": "nobad-vpn",
-  "latest": "1.2.1",
+  "latest": "1.3.0",
   "releases": [
+    {
+      "version": "1.3.0",
+      "releaseDate": "2026-11-13",
+      "channel": "stable",
+      "platform": "Windows 10 (1809+) / 11",
+      "architecture": "x64 (ARM64 via emulation)",
+      "summary": "Security update: kill switch keeps blocking, trusted networks check the router, stricter settings, safer system tools, Start with Windows off by default.",
+      "downloadUrl": "https://github.com/AryanGupta-234/Nobad/releases/download/vpn-v1.3.0/NobadVPN-Setup-1.3.0.exe",
+      "notesUrl": "https://github.com/AryanGupta-234/Nobad/releases/tag/vpn-v1.3.0",
+      "sha256": "064c14f349f27c84dcc8a05bacf0451c8ff2fb2b65172dbfa427edb48077af60",
+      "size": "24.5 MB"
+    },
     {
       "version": "1.2.1",
       "releaseDate": "2026-11-12",
