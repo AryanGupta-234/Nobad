@@ -16,6 +16,8 @@ All notable changes to NOBAD VPN. Versions follow [semantic versioning](https://
   cable, used to switch the VPN off. NOBAD now also checks the router and, when Windows shows them, the Wi-Fi security
   type and access point. A mismatch keeps you protected and asks you to confirm in Settings; open Wi-Fi is never
   trusted. Networks trusted in an older version need one confirmation.
+- **Leftover runtime configs are wiped (#21).** Copies left behind by a crash or power cut are overwritten before
+  they are deleted, the same as on a normal disconnect.
 - **Windows tools are started by full path (#19).** NOBAD runs with admin rights and used to find netsh, PowerShell,
   schtasks and the rest by name, which searches folders a normal user can change. They now always come from
   System32, WireGuard only from Program Files, and the installed app refuses to run any other program by name. The

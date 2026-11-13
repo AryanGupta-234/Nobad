@@ -225,3 +225,18 @@ def test_system_reset_paths_also_restore_journaled_dns(monkeypatch):
     assert recovery.panic_reset_system(restore_dns=True)["dns_restored"] == [{"id": "x", "ok": True}] and calls == [1]
     src = open(recovery.__file__, encoding="utf-8").read() + open(os.path.join(os.path.dirname(recovery.__file__), "watchdog.py"), encoding="utf-8").read()
     assert src.count("panic_reset_system(restore_dns=True)") == 2
+
+
+def test_leftover_runtime_copies_are_wiped_not_just_deleted(monkeypatch, tmp_path):
+    """#21: plaintext leftovers are overwritten before removal."""
+    from nobadvpn import dpapi
+    monkeypatch.setattr(recovery, "RUNTIME_DIR", str(tmp_path))
+    (tmp_path / "Home.conf").write_text("[Interface]\nPrivateKey = secret\n")
+    (tmp_path / "Work.conf.dpapi").write_bytes(b"blob")
+    (tmp_path / "notes.txt").write_text("keep")
+    wiped = []
+    real = dpapi.wipe_and_remove
+    monkeypatch.setattr(dpapi, "wipe_and_remove", lambda p: wiped.append(os.path.basename(p)) or real(p))
+    recovery.clean_runtime_dir()
+    assert sorted(wiped) == ["Home.conf", "Work.conf.dpapi"]
+    assert os.listdir(tmp_path) == ["notes.txt"]

@@ -2,7 +2,7 @@
 on the command line, the tray menu and the watchdog."""
 import os
 
-from . import firewall
+from . import dpapi, firewall
 import re
 
 from .const import CONFIG_DIR, LEGACY_CONFIG_DIR, RUNTIME_DIR
@@ -36,13 +36,13 @@ def tunnel_services():
 
 
 def clean_runtime_dir():
+    """Remove leftover runtime copies (a crash, a power cut). They can hold a plaintext private key, so they are
+    overwritten before they are deleted, the same as on a normal disconnect (#21)."""
     try:
         for fn in os.listdir(RUNTIME_DIR):
-            if fn.lower().endswith((".conf", ".dpapi")):
-                try:
-                    os.remove(os.path.join(RUNTIME_DIR, fn))
-                except OSError:
-                    pass
+            p = os.path.join(RUNTIME_DIR, fn)
+            if fn.lower().endswith((".conf", ".dpapi")) and os.path.isfile(p) and not os.path.islink(p):
+                dpapi.wipe_and_remove(p)
     except OSError:
         pass
 
