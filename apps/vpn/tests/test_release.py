@@ -335,11 +335,12 @@ def test_lightweight_defaults():
 def test_settings_file_values_are_revalidated(tmp_path):
     p = tmp_path / "settings.json"
     p.write_text(json.dumps({"settings_version": 2, "fallback_dns": "1.1.1.1\nPostUp = calc.exe",
-                             "kill_switch": "yes", "theme": "neon", "visual_effects": True,
+                             "kill_switch": "true", "ks_strict": "yes", "theme": "neon", "visual_effects": True,
                              "trusted_networks": ["Home", "Home", "x" * 200]}))
     s = st.Settings(str(p))
     assert s.get("fallback_dns") == DEFAULTS["fallback_dns"]       # injection attempt reset
     assert s.get("kill_switch") is True and s.get("theme") == DEFAULTS["theme"]
+    assert s.get("ks_strict") is DEFAULTS["ks_strict"]                # not a boolean: back to the default
     assert s.get("visual_effects") is True and s.get("trusted_networks") == ["Home"]
 
 

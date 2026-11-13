@@ -32,9 +32,61 @@ def migrate(d):
     return d
 
 
+# Written by NOBAD itself or by a dedicated handler (favourites, streaming prefs, window, trust), never through the
+# generic "settings" call. They are still checked when read from disk (see _CLEAN).
+INTERNAL = ("settings_version", "dpapi_runtime_ok", "trusted_fingerprints", "window", "last_region", "favorites",
+            "si_my_services", "si_language")
+_CTRL = re.compile(r"[\x00-\x1f\x7f]")
+MAX_TEXT = 300
+
+
+def _ip_list(value, what, lo, hi):
+    import ipaddress
+    if not isinstance(value, str) or len(value) > MAX_TEXT:
+        return False, f"{what} must be a comma-separated list of IP addresses"
+    parts = [p.strip() for p in value.replace(";", ",").split(",") if p.strip()]
+    try:
+        parts = [str(ipaddress.ip_address(p)) for p in parts]
+    except ValueError:
+        return False, f"{what} must be a comma-separated list of IP addresses"
+    return (len(parts) >= lo), (", ".join(parts[:hi]) if len(parts) >= lo else None)
+
+
+def _https_url(value):
+    from urllib.parse import urlsplit
+    if not isinstance(value, str):
+        return False, "must be an https:// URL"
+    v = value.strip()
+    if not v:
+        return True, ""
+    if len(v) > MAX_TEXT or _CTRL.search(v) or " " in v:
+        return False, "must be an https:// URL"
+    try:
+        u = urlsplit(v)
+        host = u.hostname
+    except ValueError:
+        return False, "must be an https:// URL"
+    if u.scheme.lower() != "https" or not host or u.username or u.password:
+        return False, "must be an https:// URL with a host name (no user name or password)"
+    return True, v
+
+
+def _name_list(value, n, max_len=64):
+    if not isinstance(value, list):
+        return None
+    out = []
+    for x in value[:1000]:
+        if not isinstance(x, str):
+            continue
+        x = x.strip()
+        if x and len(x) <= max_len and not _CTRL.search(x) and x not in out:
+            out.append(x)
+    return out[:n]
+
+
 def coerce(key, value):
     """Validate a value coming from the UI. Returns (ok, value_or_error)."""
-    if key not in DEFAULTS or key in ("settings_version", "dpapi_runtime_ok", "trusted_fingerprints"):
+    if key not in DEFAULTS or key in INTERNAL:
         return False, "unknown setting"
     default = DEFAULTS[key]
     if key == "theme":
@@ -42,50 +94,58 @@ def coerce(key, value):
     if key == "guard_service":
         return (value in SERVICES_IDS), (value if value in SERVICES_IDS else "unknown service")
     if key == "last_tab":
-        return (isinstance(value, str) and re.fullmatch(r"t[1-9]", value) is not None), value
+        ok = isinstance(value, str) and re.fullmatch(r"t[1-9]", value) is not None
+        return ok, (value if ok else "unknown tab")
     if key == "fallback_dns":
-        parts = [p.strip() for p in str(value).split(",") if p.strip()]
-        import ipaddress
-        try:
-            for p in parts:
-                ipaddress.ip_address(p)
-        except ValueError:
-            return False, "fallback DNS must be a comma-separated list of IP addresses"
-        if not parts:
-            return False, "enter at least one DNS server"
-        return True, ", ".join(parts)
+        ok, v = _ip_list(value, "fallback DNS", 1, 4)
+        return (True, v) if ok else (False, v or "enter at least one DNS server")
     if key == "ni_reference_dns":
-        import ipaddress
-        parts = [p.strip() for p in str(value).replace(";", ",").split(",") if p.strip()]
-        try:
-            for p in parts:
-                ipaddress.ip_address(p)
-        except ValueError:
-            return False, "reference resolvers must be a comma-separated list of IP addresses"
-        if len(parts) < 2:
-            return False, "enter at least two independent resolvers so answers can be cross-checked"
-        return True, ", ".join(parts[:8])
+        ok, v = _ip_list(value, "reference resolvers", 2, 8)
+        return (True, v) if ok else (False, v or "enter at least two independent resolvers so answers can be cross-checked")
     if key in ("update_url", "crash_report_url"):
-        v = str(value or "").strip()
-        if v and not v.lower().startswith("https://"):
-            return False, "must be an https:// URL"
-        return True, v
+        return _https_url(value)
     if key == "trusted_networks":
-        if not isinstance(value, list):
-            return False, "expected a list"
-        out = []
-        for x in value:
-            x = str(x).strip()
-            if x and len(x) <= 64 and x not in out:
-                out.append(x)
-        return True, out[:100]
-    if key == "favorites":
-        return (isinstance(value, list)), [str(x) for x in value][:200]
-    if key in ("window", "last_region"):
-        return True, value
+        out = _name_list(value, 100)
+        return (False, "expected a list") if out is None else (True, out)
     if isinstance(default, bool):
-        return True, bool(value)
+        b = _as_bool(value)
+        return (False, "expected true or false") if b is None else (True, b)
     return False, "unsupported"
+
+
+def _as_bool(value):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int) and value in (0, 1):
+        return bool(value)
+    if isinstance(value, str) and value.strip().lower() in ("true", "false"):
+        return value.strip().lower() == "true"
+    return None
+
+
+def _clean_window(v):
+    if not isinstance(v, dict):
+        return None
+    out = {}
+    for k in ("x", "y", "w", "h"):
+        if isinstance(v.get(k), int) and not isinstance(v.get(k), bool) and -100000 <= v[k] <= 100000:
+            out[k] = v[k]
+    out["maximized"] = v.get("maximized") is True
+    return out
+
+
+def _clean_region(v):
+    return v if isinstance(v, str) and 0 < len(v) <= 64 and not _CTRL.search(v) else None
+
+
+def _clean_services(v):
+    if not isinstance(v, list):
+        return []
+    return sorted({x for x in v[:200] if isinstance(x, int) and not isinstance(x, bool) and 0 < x < 10**7})
+
+
+def _clean_language(v):
+    return v if isinstance(v, str) and re.fullmatch(r"[a-z]{2,3}(-[A-Z]{2})?", v) else DEFAULTS["si_language"]
 
 
 _MAC_RE = re.compile(r"[0-9a-f]{2}(?::[0-9a-f]{2}){5}")
@@ -120,8 +180,8 @@ def _sanitize(key, value):
     """A value read from disk gets the same validation as one from the UI (the file may be hand-edited or
     corrupted). Anything invalid falls back to the default instead of reaching e.g. a runtime config."""
     default = DEFAULTS[key]
-    if key == "trusted_fingerprints":
-        return clean_fingerprints(value)
+    if key in _CLEAN:
+        return _CLEAN[key](value)
     ok, v = coerce(key, value)
     if ok:
         return v
@@ -131,6 +191,11 @@ def _sanitize(key, value):
                 and isinstance(value, (int, float)) and not isinstance(value, bool)):
             return value
     return default
+
+
+_CLEAN = {"trusted_fingerprints": lambda v: clean_fingerprints(v), "window": _clean_window, "last_region": _clean_region,
+          "favorites": lambda v: _name_list(v, 200) or [], "si_my_services": _clean_services,
+          "si_language": _clean_language}
 
 
 class Settings:

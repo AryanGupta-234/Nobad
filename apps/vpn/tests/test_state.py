@@ -27,6 +27,39 @@ def test_settings_validation():
     assert st.coerce("dpapi_runtime_ok", True)[0] is False   # internal flag is not user-settable
 
 
+def test_settings_validation_is_strict():
+    """#17: types, sizes and allowlists for every key the UI can set."""
+    for bad in ("yes", "on", 2, None, [], {}):
+        assert st.coerce("kill_switch", bad)[0] is False
+    assert st.coerce("kill_switch", "false") == (True, False)
+    for key in ("window", "last_region", "favorites", "si_my_services", "si_language", "trusted_fingerprints"):
+        assert st.coerce(key, None)[0] is False                 # only NOBAD itself or a dedicated handler sets these
+    assert st.coerce("favorites", 5)[0] is False               # used to raise (HTTP 500)
+    assert st.coerce("trusted_networks", ["Home", {"x": 1}, 7, "a\nb", "y" * 65]) == (True, ["Home"])
+    assert st.coerce("trusted_networks", "Home")[0] is False
+    assert st.coerce("fallback_dns", ["1.1.1.1"])[0] is False
+    assert st.coerce("fallback_dns", ", ".join(["1.1.1.1"] * 9)) == (True, "1.1.1.1, 1.1.1.1, 1.1.1.1, 1.1.1.1")
+    assert st.coerce("fallback_dns", "1.1.1.1 " * 100)[0] is False
+    for bad in ("https://", "https:// x.com", "https://user:pw@x.com/u", "https://x.com/\nPostUp", 5,
+                "https://" + "a" * 400 + ".com"):
+        assert st.coerce("update_url", bad)[0] is False, bad
+    assert st.coerce("update_url", "https://nobad.example/latest.json") == (True, "https://nobad.example/latest.json")
+    assert st.coerce("update_url", "") == (True, "")
+    assert st.coerce("last_tab", 3)[0] is False
+
+
+def test_internal_values_are_checked_on_load(tmp_path):
+    import json
+    p = tmp_path / "settings.json"
+    p.write_text(json.dumps({"settings_version": 2, "window": {"x": "1", "y": 5, "w": 10 ** 9, "h": 700, "maximized": 1},
+                             "last_region": {"evil": 1}, "favorites": "Home", "si_my_services": [8, "x", True, -1],
+                             "si_language": "../../x"}))
+    s = st.Settings(str(p))
+    assert s.get("window") == {"y": 5, "h": 700, "maximized": False}
+    assert s.get("last_region") is None and s.get("favorites") == [] and s.get("si_my_services") == [8]
+    assert s.get("si_language") == "en-US"
+
+
 def test_usage_totals_and_history(tmp_path):
     u = us.Usage(str(tmp_path / "usage.json"))
     now = time.time()

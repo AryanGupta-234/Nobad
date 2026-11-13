@@ -16,6 +16,10 @@ All notable changes to NOBAD VPN. Versions follow [semantic versioning](https://
   cable, used to switch the VPN off. NOBAD now also checks the router and, when Windows shows them, the Wi-Fi security
   type and access point. A mismatch keeps you protected and asks you to confirm in Settings; open Wi-Fi is never
   trusted. Networks trusted in an older version need one confirmation.
+- **Stricter checks on every setting (#17).** On/off settings must be true or false (the text "false" used to
+  count as on), text settings must be text with a length limit, update and crash-report URLs need a real host and no
+  user name or password, and the window position, last server, favourites and streaming preferences can only be set
+  by NOBAD itself and are checked when settings are loaded.
 - **WireGuard only gets NOBAD's locked copy of a config (#16).** The tunnel service (running as SYSTEM) used to be
   handed the stored file from the configs folder when nothing was tuned, so it could be swapped after NOBAD checked
   it. Every connect now uses a copy written to the admin-only runtime folder from the checked text.
