@@ -107,3 +107,9 @@ footer { background: var(--black); color: var(--white); padding: 34px var(--gutt
   .footer-bottom { flex-direction: column; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
+
+/* polish: the logo sits in a black pill like the menu, readable on every section; the footer always reaches the
+   bottom of the window (short pages like the 404 had an orange gap under it) */
+.brand { background: var(--black); border: 1px solid rgba(255,255,255,.14); border-radius: 999px; padding: 10px 16px; box-shadow: 0 8px 24px rgba(0,0,0,.18); }
+body { min-height: 100vh; display: flex; flex-direction: column; }
+body > footer { margin-top: auto; }

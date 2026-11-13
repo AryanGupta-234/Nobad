@@ -322,12 +322,48 @@
 .cta-alt { margin: 26px 0 0; font: 700 12px var(--mono); text-transform: uppercase; }
 .cta-alt a { text-decoration: underline; text-underline-offset: 3px; }
 .footer-bottom a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+
+    /* ---- polish: readable nav everywhere, proof in the hero, real product showcase ---- */
+    .brand { background: var(--black); border: 1px solid rgba(255,255,255,.14); border-radius: 999px; padding: 10px 16px; box-shadow: 0 8px 24px rgba(0,0,0,.18); transition: transform .2s; }
+    .brand:hover { transform: translateY(-1px); }
+    .brand-logo { width: 104px; }
+    .icon-link { background: var(--black); color: var(--white); border-color: rgba(255,255,255,.18); box-shadow: 0 8px 24px rgba(0,0,0,.18); }
+    .icon-link:hover { background: var(--white); color: var(--black); }
+    .hero-actions { position: relative; z-index: 1; display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; margin-top: clamp(22px, 3vw, 34px); }
+    .btn { display: inline-flex; align-items: center; gap: 10px; padding: 14px 22px; border-radius: 999px; font: 700 12px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; border: 2px solid var(--black); transition: transform .2s, background .2s, color .2s; }
+    .btn:hover { transform: translateY(-2px); }
+    .btn-solid { background: var(--black); color: var(--white); }
+    .btn-solid:hover { background: var(--white); color: var(--black); }
+    .btn-ghost:hover { background: var(--black); color: var(--orange); }
+    .nav-pill { border: 1px solid rgba(255,255,255,.12); }
+    .receipt { margin-bottom: clamp(18px, 3vw, 30px) !important; }
+    .receipt { position: relative; z-index: 1; display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; max-width: 980px; width: 100%; margin: clamp(22px, 3vw, 32px) auto 0; border: 2px solid var(--black); border-radius: 14px; overflow: hidden; background: rgba(0,0,0,.06); }
+    .receipt > div { padding: 10px 16px; border-left: 1px dashed rgba(0,0,0,.45); min-width: 0; }
+    .receipt > div:first-child { border-left: 0; }
+    .receipt dt { font: 700 9px/1.4 var(--mono); letter-spacing: .14em; text-transform: uppercase; opacity: .7; }
+    .receipt dd { margin: 3px 0 0; font: 700 12px/1.3 var(--mono); white-space: nowrap; }
+    .receipt-hash code { display: block; overflow: hidden; text-overflow: ellipsis; font: inherit; }
+    .showcase { background: var(--black); padding: clamp(70px, 9vw, 130px) var(--gutter) clamp(60px, 8vw, 110px); position: relative; overflow: hidden; }
+    .showcase::before { content: ""; position: absolute; inset: 0; background-image: linear-gradient(rgba(255,77,0,.10) 1px, transparent 1px), linear-gradient(90deg, rgba(255,77,0,.10) 1px, transparent 1px); background-size: 64px 64px; -webkit-mask-image: radial-gradient(ellipse at 50% 40%, #000 30%, transparent 75%); mask-image: radial-gradient(ellipse at 50% 40%, #000 30%, transparent 75%); pointer-events: none; }
+    .showcase-frame { position: relative; max-width: 1180px; margin: auto; border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,.16); box-shadow: 0 50px 120px rgba(0,0,0,.6), 0 0 0 1px rgba(255,77,0,.25); transform: perspective(1800px) rotateX(7deg) scale(.97); transform-origin: 50% 0; transition: transform .8s cubic-bezier(.2,.7,.2,1); }
+    .showcase-frame:hover { transform: none; }
+    .showcase-bar { display: flex; align-items: center; gap: 7px; padding: 11px 14px; background: #111317; border-bottom: 1px solid rgba(255,255,255,.08); }
+    .showcase-bar i { width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,.18); }
+    .showcase-bar i:first-child { background: var(--orange); }
+    .showcase-bar span { margin-left: 10px; font: 700 10px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: rgba(255,255,255,.55); }
+    .showcase-frame img { display: block; width: 100%; height: auto; }
+    .showcase-cap { position: relative; max-width: 1180px; margin: 26px auto 0; display: flex; justify-content: space-between; gap: 18px; flex-wrap: wrap; color: rgba(255,255,255,.62); font: 11px/1.6 var(--mono); text-transform: uppercase; letter-spacing: .06em; }
+    .showcase-cap a { color: var(--orange); border-bottom: 1px solid currentColor; }
+    .footer-bottom { flex-wrap: wrap; }
+    .tm-note { flex-basis: 100%; order: 9; opacity: .55; font-size: 10px; line-height: 1.6; }
+    @media (max-width: 860px) { .receipt { grid-template-columns: 1fr 1fr; } .receipt > div { border-left: 0; border-top: 1px dashed rgba(0,0,0,.45); } .receipt > div:nth-child(-n+2) { border-top: 0; } .receipt-hash { grid-column: 1 / -1; } }
+    @media (prefers-reduced-motion: reduce) { .showcase-frame, .showcase-frame:hover { transform: none; transition: none; } .btn, .brand { transition: none; } }
 </style>
 </head>
 <body>
   <a class="skip-link" href="#main">SKIP TO CONTENT</a>
   <nav class="site-nav" aria-label="Main navigation">
-    <a class="brand" href="#top" aria-label="nobad home"><img class="brand-logo" src="/assets/nobad-logo.png" alt="nobad." width="1086" height="362"></a>
+    <a class="brand" href="#top" aria-label="nobad home"><img class="brand-logo" src="/assets/nobad-logo-light.png" alt="nobad." width="1086" height="362"></a>
     <button class="menu-toggle" id="menuToggle" aria-expanded="false" aria-controls="navPill">MENU +</button>
     <div class="nav-pill" id="navPill">
       <a href="#products">Products</a><a href="products/vpn/">VPN</a><a href="#services">What we do</a><a href="#downloads">Downloads</a><a href="#about">About</a>
@@ -347,6 +383,16 @@
       </div>
       <h1 class="hero-title display" id="heroTitle">NO<span class="outline">BAD</span></h1>
       <p class="hero-subtitle">Tools with a point of view.<br>Software that gets out of your way.</p>
+      <div class="hero-actions">
+        <a class="btn btn-solid" href="products/vpn/">Get NOBAD VPN {{VPN_VERSION}} <span aria-hidden="true">&rarr;</span></a>
+        <a class="btn btn-ghost" href="https://github.com/AryanGupta-234/Nobad" target="_blank" rel="noopener noreferrer">View the source</a>
+      </div>
+      <dl class="receipt" aria-label="Facts about the latest build">
+        <div><dt>Latest build</dt><dd>NOBAD VPN v{{VPN_VERSION}}</dd></div>
+        <div><dt>Released</dt><dd>{{VPN_DATE}}</dd></div>
+        <div class="receipt-hash"><dt>SHA-256</dt><dd><code title="{{VPN_SHA256}}">{{VPN_SHA256}}</code></dd></div>
+        <div><dt>Built by</dt><dd>GitHub Actions &middot; provenance attested</dd></div>
+      </dl>
       <div class="hero-meta">
         <p>Based in<br>India / Online</p>
         <a class="scroll-orbit" id="scrollOrbit" href="#products" aria-label="Scroll down to explore products" title="Scroll to explore">
@@ -388,6 +434,13 @@
           </div>
         </div>
       </div>
+    </section>
+    <section class="showcase" aria-label="NOBAD VPN screenshot">
+      <div class="showcase-frame">
+        <div class="showcase-bar" aria-hidden="true"><i></i><i></i><i></i><span>NOBAD VPN &middot; v{{VPN_VERSION}}</span></div>
+        <img src="/assets/nobad-vpn-map-dark.webp" width="2000" height="1250" loading="lazy" decoding="async" alt="NOBAD VPN main window: protected and connected to Tokyo, servers on a world map coloured by ping, live latency, jitter and loss">
+      </div>
+      <p class="showcase-cap"><span>A real screen from NOBAD VPN v{{VPN_VERSION}}, with demo servers.</span> <a href="products/vpn/#inside">See every screen &rarr;</a></p>
     </section>
 
     <section class="products section-pad" id="products">
@@ -439,7 +492,7 @@
         <div class="section-index">02 / Areas of work</div>
         <div class="services-head">
           <h2 class="display">BUILT AROUND<br>REAL PROBLEMS.</h2>
-          <p>Small focused teams. Practical engineering. Clear scope and documentation.</p>
+          <p>One maintainer, working in the open. Practical engineering. Clear scope and documentation.</p>
         </div>
         <div class="service-list">
           <a class="service-item" href="#vpn">
@@ -528,7 +581,7 @@
         <a href="#products">Products</a><a href="products/vpn/">VPN</a><a href="#services">What we do</a><a href="#downloads">Downloads</a><a href="#about">About</a><a href="mailto:ludmj99@gmail.com">Contact</a><a href="https://github.com/AryanGupta-234/Nobad">GitHub</a><a href="/code-signing-policy/">Code signing policy</a><a href="/privacy/">Privacy</a>
       </div>
     </div>
-    <div class="footer-bottom"><span>© <span id="year">2026</span> NOBAD. All rights reserved.</span><span>Made by <a href="https://github.com/AryanGupta-234">Aryan Gupta</a> · MIT-licensed open source</span><span class="ai-mark" title="Developed in collaboration with AI">✦ Built with AI · Open to contributions</span></div>
+    <div class="footer-bottom"><span>© <span id="year">2026</span> NOBAD. All rights reserved.</span><span>Made by <a href="https://github.com/AryanGupta-234">Aryan Gupta</a> · MIT-licensed open source</span><span class="tm-note">WireGuard is a registered trademark of Jason A. Donenfeld. Other names are trademarks of their owners; NOBAD is not affiliated with them.</span><span class="ai-mark" title="Developed in collaboration with AI">✦ Built with AI · Open to contributions</span></div>
   </footer>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
