@@ -349,16 +349,16 @@
     @media (prefers-reduced-motion: reduce) { .btn, .brand { transition: none; } }
 
     /* ---- contrast pass: a clear orange / black / white rhythm and text that reads at a glance ---- */
-    /* Areas of work: white, so it no longer merges with the black product shelf above it */
-    .services { background: var(--white); color: var(--black); --line-light: rgba(0,0,0,.16); }
-    .services-head p { color: rgba(0,0,0,.72); }
-    .service-item:hover { background: var(--black); color: var(--white); }
-    .service-item:hover .service-tags span { color: var(--white); border-color: rgba(255,255,255,.5); }
-    .service-num { color: var(--black); }
-    .service-item:hover .service-num { color: var(--orange); }
-    .service-tags span { color: var(--black); border-color: rgba(0,0,0,.4); font-size: 11px; }
-    .service-list { border-top: 2px solid var(--black); }
-    .service-item { border-bottom: 2px solid var(--black); }
+    /* Areas of work: black like the theme, set apart from the black product shelf by a bold orange band */
+    .services { background: var(--black); color: var(--white); border-top: 10px solid var(--orange); --line-light: rgba(255,255,255,.18); }
+    .services-head p { color: rgba(255,255,255,.82); }
+    .service-list { border-top: 2px solid var(--orange); }
+    .service-item { border-bottom: 1px solid rgba(255,255,255,.18); }
+    .service-item:hover { background: var(--orange); color: var(--black); }
+    .service-item:hover .service-num, .service-item:hover .service-arrow { color: var(--black); }
+    .service-num { color: var(--orange); }
+    .service-tags span { color: rgba(255,255,255,.9); border-color: rgba(255,255,255,.4); font-size: 11px; }
+    .service-item:hover .service-tags span { color: var(--black); border-color: rgba(0,0,0,.55); }
     /* The standard: black with the orange accent, between two orange sections */
     .manifesto { background: var(--black); color: var(--white); }
     .manifesto .eyebrow, .manifesto .section-index { color: var(--orange); }
@@ -379,8 +379,6 @@
     .product-card h3 { max-width: 62%; }
     @media (max-width: 760px) { .product-symbol { top: 12%; width: 30%; } .product-card p, .product-card h3 { max-width: 64%; } }
     /* small labels on the white section: black text, orange accent line */
-    .services .section-index { color: var(--black); }
-    .services .section-index::before { background: var(--orange); }
 </style>
 </head>
 <body>
