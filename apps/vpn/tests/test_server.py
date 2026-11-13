@@ -53,7 +53,7 @@ def test_signed_in_page_has_csp_and_no_secret(srv):
     st, h, body = req(srv, "GET", "/", jar)
     assert st == 200 and b"__TOKEN__" not in body and b"__VER__" not in body
     assert server.TOKEN.encode() not in body and server.SESSION.encode() not in body
-    assert "script-src 'self' 'unsafe-inline'" in h["Content-Security-Policy"] and "frame-ancestors 'none'" in h["Content-Security-Policy"]
+    assert "script-src 'self';" in h["Content-Security-Policy"] and "unsafe-inline';" not in h["Content-Security-Policy"].split("style-src")[0] and "frame-ancestors 'none'" in h["Content-Security-Policy"]
     assert req(srv, "GET", "/mini", jar)[0] == 200
 
 

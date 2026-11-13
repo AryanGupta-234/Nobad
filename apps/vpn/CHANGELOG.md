@@ -16,6 +16,8 @@ All notable changes to NOBAD VPN. Versions follow [semantic versioning](https://
   cable, used to switch the VPN off. NOBAD now also checks the router and, when Windows shows them, the Wi-Fi security
   type and access point. A mismatch keeps you protected and asks you to confirm in Settings; open Wi-Fi is never
   trusted. Networks trusted in an older version need one confirmation.
+- **The app window runs no inline scripts (#7).** The page scripts moved into their own files and the window's
+  security policy no longer allows inline scripts, so injected script code can't run even if a bug let it in.
 - **No admin file operations in your user folders that a link could redirect (#20).** The normal launcher now asks
   the admin copy to show its window through a Windows event instead of a file in `%LOCALAPPDATA%` that the admin
   copy deleted. Diagnostics exports find your Desktop or Downloads through Windows (not environment variables), skip

@@ -58,7 +58,9 @@ h1{font-size:20px;margin:0 0 8px}p{color:#9aa3b2;margin:0}</style></head><body><
 <p>This page only opens from NOBAD VPN itself. Open NOBAD VPN from the Start menu or the tray icon.</p>
 </main></body></html>"""
 _STATIC_OK = re.compile(r"^[A-Za-z0-9_\-]+(/[A-Za-z0-9_\-]+)*\.(js|css|json|svg|png|ico)$")
-CSP = ("default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "
+# No inline scripts (#7): an injected <script> or on*= handler can't run, so an XSS can't drive the API through
+# the session cookie. Inline styles stay allowed (style attributes); they can't run code.
+CSP = ("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
        "img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; frame-ancestors 'none'; "
        "base-uri 'none'; form-action 'none'")
 

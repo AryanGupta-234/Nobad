@@ -18,6 +18,16 @@ from nobadvpn.const import CRASH_DIR, DEFAULTS, INSTANCE_PATH
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 UI = os.path.join(ROOT, "nobadvpn", "ui")
+
+
+def _page():
+    """index.html with app.js put back where its <script> tag is: the main page as the browser runs it (#7 moved
+    the inline script out so the CSP needs no 'unsafe-inline')."""
+    html = open(os.path.join(UI, "index.html"), encoding="utf-8").read()
+    js = open(os.path.join(UI, "app.js"), encoding="utf-8").read()
+    tag = '<script src="/static/app.js"></script>'
+    assert tag in html
+    return html.replace(tag, "<script>" + js + "</script>")
 PKG = os.path.join(ROOT, "packaging")
 
 
@@ -427,7 +437,7 @@ def test_lightweight_css_and_frame_budget():
     css = open(os.path.join(UI, "app_ext.css"), encoding="utf-8").read()
     assert "body:not(.fx) *,body:not(.fx) *::before,body:not(.fx) *::after{backdrop-filter:none!important" in css
     assert "prefers-reduced-motion" in css
-    html = open(os.path.join(UI, "index.html"), encoding="utf-8").read()
+    html = _page()
     # map: no permanent frame loop. A still layer redrawn on change + an effects layer that animates in bursts.
     assert "requestAnimationFrame(frame)" not in html and "function frame(" not in html
     fxf = html[html.index("function fxFrame(t)"):]
@@ -449,12 +459,10 @@ def test_lightweight_css_and_frame_budget():
 def test_ui_scripts_are_valid_javascript(tmp_path):
     chk = tmp_path / "chk.js"
     chk.write_text(
-        "const fs=require('fs');const [,,idx,ext,mini]=process.argv;"
-        "for(const f of [idx,mini]){const h=fs.readFileSync(f,'utf8');"
-        "for(const m of h.matchAll(/<script>([\\s\\S]*?)<\\/script>/g))new Function(m[1]);}"
-        "new Function(fs.readFileSync(ext,'utf8'));")
-    r = subprocess.run(["node", str(chk), os.path.join(UI, "index.html"), os.path.join(UI, "app_ext.js"),
-                        os.path.join(UI, "mini.html")], capture_output=True, text=True, timeout=60)
+        "const fs=require('fs');for(const f of process.argv.slice(2))new Function(fs.readFileSync(f,'utf8'));")
+    files = ("app.js", "app_ext.js", "mini.js", "netintel.js", "streamintel.js", "palette.js")
+    r = subprocess.run(["node", str(chk)] + [os.path.join(UI, f) for f in files],
+                       capture_output=True, text=True, timeout=60)
     assert r.returncode == 0, r.stderr
 
 
@@ -491,7 +499,7 @@ def test_install_tasks_cli_registers_autostart(monkeypatch):
 
 
 def test_map_fades_softly_and_is_precomposited():
-    html = open(os.path.join(UI, "index.html"), encoding="utf-8").read()
+    html = _page()
     assert "function fadeMask(g)" in html and "[g1,g2,g3].forEach(fadeMask)" in html
     m = re.search(r"const MFADE_TOP=([.\d]+),MFADE_BOT=([.\d]+)", html)
     # a thin band only: the map blends into the background without dimming (or appearing to crop) the continents
@@ -580,7 +588,7 @@ def test_startup_checks_share_the_buttons_task_keys(monkeypatch):
     monkeypatch.setattr(tools.ctx, "settings", types.SimpleNamespace(get=lambda k, d=None: True), raising=False)
     tools.startup_checks()
     assert keys == ["network_diagnose", "speed", "stream", "ipinfo", "valorant_manual"]
-    html = open(os.path.join(UI, "index.html"), encoding="utf-8").read()
+    html = _page()
     assert 'case"speed_done":actionIdle("speed");' in html and 'case"valorant_done":{actionIdle("valorant_manual");' in html
     for k in ("speed", "stream", "ipinfo", "valorant_manual", "network_diagnose"):
         assert f"{k}:[" in html                                           # every key has a TASK_BUTTONS entry
@@ -630,7 +638,7 @@ def test_titlebar_api_validates_actions(monkeypatch):
 
 
 def test_new_ui_files_are_wired():
-    html = open(os.path.join(UI, "index.html"), encoding="utf-8").read()
+    html = _page()
     assert '<script src="/static/palette.js"></script>' in html
     js = open(os.path.join(UI, "app_ext.js"), encoding="utf-8").read()
     assert "function titlebar(st)" in js and 'k: "custom_titlebar"' in js and 'k: "net_adapt"' in js
@@ -665,12 +673,12 @@ def test_live_day_night_sun_position_is_astronomically_right():
     script = ("const fs=require('fs');const s=fs.readFileSync(process.argv[1],'utf8');const i=s.indexOf('function sunPos');"
               "const j=s.indexOf('function nightMask');eval(s.slice(i,j));console.log(JSON.stringify(["
               "sunPos(new Date('2026-06-21T12:00:00Z')),sunPos(new Date('2026-12-21T18:00:00Z')),sunPos(new Date('2026-03-20T00:00:00Z'))]))")
-    out = subprocess.run([node, "-e", script, os.path.join(UI, "index.html")], capture_output=True, text=True, timeout=30)
+    out = subprocess.run([node, "-e", script, os.path.join(UI, "app.js")], capture_output=True, text=True, timeout=30)
     june, dec, march = json.loads(out.stdout)
     assert abs(june["lat"] - 23.44) < 0.3 and abs(june["lon"]) < 3          # noon over Greenwich at the June solstice
     assert abs(dec["lat"] + 23.44) < 0.3 and abs(dec["lon"] + 90) < 3        # 18:00 UTC: sun over 90 W
     assert abs(march["lat"]) < 0.6 and abs(abs(march["lon"]) - 180) < 3     # equinox midnight: sun over the date line
-    html = open(os.path.join(UI, "index.html"), encoding="utf-8").read()
+    html = _page()
     assert "Math.floor(Date.now()/3e5)" in html and "setInterval(()=>{if(!document.hidden)invalidate()},300000)" in html
 
 
@@ -680,3 +688,15 @@ def test_sha256_file_is_written_with_a_single_lf():
     assert not any("Set-Content" in x and ".sha256" in x for x in ps.splitlines())
     write = next(x for x in ps.splitlines() if "WriteAllText($shaPath" in x)
     assert "exe`n\"" in write and "ASCII" in write
+
+
+def test_pages_have_no_inline_scripts_or_handlers():
+    """#7: the CSP has no 'unsafe-inline' for scripts, so the pages must not need it."""
+    for fn in ("index.html", "mini.html"):
+        h = open(os.path.join(UI, fn), encoding="utf-8").read()
+        assert not re.search(r"<script(?![^>]*src=)[^>]*>", h), fn
+        assert not re.search(r"\son[a-z]+\s*=", h), fn
+        assert "javascript:" not in h.lower(), fn
+    for fn in ("app.js", "app_ext.js", "mini.js", "netintel.js", "streamintel.js", "palette.js"):
+        js = open(os.path.join(UI, fn), encoding="utf-8").read()
+        assert not re.search(r"""<[a-z][^>]*\son(click|change|input|load|error|submit|key\w+|mouse\w+)\s*=""", js), fn
