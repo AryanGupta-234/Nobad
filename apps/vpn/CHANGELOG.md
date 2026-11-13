@@ -2,7 +2,7 @@
 
 All notable changes to NOBAD VPN. Versions follow [semantic versioning](https://semver.org/).
 
-## Unreleased
+## 1.3.1 · 2026-11-13
 
 ### Changed
 - **Where to watch is readable again.** With Visual effects off (the default) the window was see-through, so the
