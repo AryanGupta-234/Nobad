@@ -80,3 +80,5 @@ automatically.
 Released under the [MIT License](LICENSE). Third-party components bundled with NOBAD VPN are listed in
 [apps/vpn/THIRD-PARTY-NOTICES.md](apps/vpn/THIRD-PARTY-NOTICES.md). The MIT License covers the code, not the NOBAD name
 or logo.
+
+WireGuard is a registered trademark of Jason A. Donenfeld. Proton VPN, Cloudflare WARP, Netflix, Prime Video, Disney+, YouTube, Spotify, Twitch, Valorant, TMDB, JustWatch, Wikipedia, Windows and the other product names mentioned are trademarks of their owners. NOBAD is independent and is not affiliated with, endorsed by or sponsored by any of them; their names are used only to say what NOBAD works with.

@@ -35,6 +35,10 @@ your own modified copy of pystray. pystray's source is available at https://gith
 | [JustWatch](https://www.justwatch.com/) (through TMDB's watch-provider data) | streaming availability per country | Attribution to JustWatch required (shown in the app) |
 | [Wikipedia](https://en.wikipedia.org/) / [Wikidata](https://www.wikidata.org/) | documented film restrictions, identity links | Wikipedia text CC BY-SA 4.0 (records link to their source section); Wikidata CC0 |
 
+## Trademarks
+
+WireGuard is a registered trademark of Jason A. Donenfeld. Proton VPN, Cloudflare WARP, Netflix, Prime Video, Disney+, YouTube, Spotify, Twitch, Valorant, TMDB, JustWatch, Wikipedia, Windows and the other product names mentioned are trademarks of their owners. NOBAD is independent and is not affiliated with, endorsed by or sponsored by any of them; their names are used only to say what NOBAD works with.
+
 ## Names and logos
 
 The MIT License covers the code. It doesn't grant rights to the NOBAD name or logo (`nobadvpn/ui/brand/`,
