@@ -2,7 +2,7 @@
 
 All notable changes to NOBAD VPN. Versions follow [semantic versioning](https://semver.org/).
 
-## Unreleased
+## 1.3.0 · 2026-11-13
 
 ### Changed
 - **Start with Windows is off by default.** The installer box is unticked on a new install; turn it on there or in

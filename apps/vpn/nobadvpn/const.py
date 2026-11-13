@@ -7,7 +7,7 @@ APP_TITLE = "NOBAD VPN"
 # Windows AppUserModelID: taskbar grouping, jump list and the sender name on notifications. The installer registers it
 # on the Start-menu shortcut, which is what lets Windows show "NOBAD VPN" (not PowerShell/Python) on toasts.
 APP_ID = "NOBAD.VPN"
-APP_VER = "1.2.1"  # semantic version; bump on every release (build.ps1 reads it)
+APP_VER = "1.3.0"  # semantic version; bump on every release (build.ps1 reads it)
 WINDOW_TITLE = f"{APP_TITLE}  ·  v{APP_VER}"
 
 FROZEN = bool(getattr(sys, "frozen", False))
