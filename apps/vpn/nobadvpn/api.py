@@ -357,26 +357,71 @@ def h_open_url(b):
     return {"ok": True}
 
 
+def _export_diagnostics():
+    """Build the diagnostics zip (keys removed), copy it to Desktop/Downloads and select it in Explorer.
+    Returns the final path."""
+    path = diagnostics.build_bundle(EXPORT_DIR)
+    dest = diagnostics.user_destination()
+    final = path
+    if dest != EXPORT_DIR:
+        try:
+            final = diagnostics.copy_to_user_folder(path, dest)
+        except OSError as e:
+            log(f"couldn't copy diagnostics to {dest} ({e}); it stays in NOBAD's export folder", "warn")
+    log(f"diagnostics saved: {final}", "ok")
+    if os.name == "nt":
+        from .const import known_folder
+        subprocess.Popen([os.path.join(known_folder("Windows") or r"C:\Windows", "explorer.exe"), "/select,", final])
+    return final
+
+
 def h_diagnostics_export(b):
     def work():
         try:
-            path = diagnostics.build_bundle(EXPORT_DIR)
-            dest = diagnostics.user_destination()
-            final = path
-            if dest != EXPORT_DIR:
-                try:
-                    final = diagnostics.copy_to_user_folder(path, dest)
-                except OSError as e:
-                    log(f"couldn't copy diagnostics to {dest} ({e}); it stays in NOBAD's export folder", "warn")
-            log(f"diagnostics saved: {final}", "ok")
+            final = _export_diagnostics()
             broadcast("fix_result", {"ok": True, "message": f"Diagnostics saved to {final} (keys removed)."})
-            if os.name == "nt":
-                from .const import known_folder
-                subprocess.Popen([os.path.join(known_folder("Windows") or r"C:\Windows", "explorer.exe"), "/select,", final])
         except Exception as e:
             log(f"diagnostics export failed: {e}", "bad")
             broadcast("fix_result", {"ok": False, "message": f"Export failed: {e}"})
     return {"ok": True} if run_once("diag_export", work) else _busy("An export is already running.")
+
+
+def report_issue_url(zip_name="", crashes=0, area=""):
+    """A pre-filled GitHub bug report. Only the app version, the Windows build, how many crash reports were
+    saved and the zip's file name go into the URL: no IPs, network names or servers (those stay in the zip,
+    which the user reviews and attaches)."""
+    from urllib.parse import urlencode
+    from .const import APP_VER, ISSUE_FORM, REPO_URL
+    diag = (f"Attached: {zip_name} (made by Report a problem; private keys removed)." if zip_name else
+            "Settings > Report a problem saves a diagnostics zip; attach it here.")
+    if crashes:
+        diag += f" NOBAD saved {crashes} crash report(s); they are inside the zip."
+    q = {"template": ISSUE_FORM, "labels": "bug", "title": "[Bug] ", "version": APP_VER,
+         "windows": diagnostics._winver(), "diag": diag}
+    if area:
+        q["area"] = area
+    return f"{REPO_URL}/issues/new?" + urlencode(q)
+
+
+def h_report_problem(b):
+    """Report a problem: save the diagnostics zip, show it in Explorer, and open a pre-filled GitHub bug report
+    in the user's normal browser (never an admin one). The user attaches the zip and submits."""
+    area = "Other" if b.get("crash") else ""
+
+    def work():
+        try:
+            n = len(crash.pending())
+            final = _export_diagnostics()
+            url = report_issue_url(os.path.basename(final), n, area)
+            opened = open_url_as_user(url)
+            broadcast("fix_result", {"ok": True, "message": (
+                f"Diagnostics saved to {final} (keys removed). " +
+                ("A bug report opened in your browser: drag the zip into it and press Submit."
+                 if opened else "Open github.com/AryanGupta-234/Nobad/issues/new and attach it."))})
+        except Exception as e:
+            log(f"report a problem failed: {e}", "bad")
+            broadcast("fix_result", {"ok": False, "message": f"Couldn't prepare the report: {e}"})
+    return {"ok": True} if run_once("diag_export", work) else _busy("A report is already being prepared.")
 
 
 def h_update_check(b):
@@ -501,7 +546,7 @@ HANDLERS = {
     "net_repair": h_net_repair, "net_changes": h_net_changes,
     "usage": h_usage, "ui_state": h_ui_state, "wizard_done": h_wizard_done, "dismiss_error": h_dismiss_error,
     "install_wireguard": h_install_wireguard, "elevate": h_elevate, "open_url": h_open_url,
-    "diagnostics_export": h_diagnostics_export, "update_check": h_update_check, "update_install": h_update_install,
+    "diagnostics_export": h_diagnostics_export, "report_problem": h_report_problem, "update_check": h_update_check, "update_install": h_update_install,
     "crash_pending": h_crash_pending, "crash_send": h_crash_send, "crash_dismiss": h_crash_dismiss,
     "guard_check": h_guard_check, "current_network": h_current_network, "trusted_add": h_trusted_add,
     "window": h_window, "quit": h_quit, "reach_test": h_reach_test, "reach_forget": h_reach_forget,

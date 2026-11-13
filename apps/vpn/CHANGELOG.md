@@ -2,7 +2,18 @@
 
 All notable changes to NOBAD VPN. Versions follow [semantic versioning](https://semver.org/).
 
-## Unreleased
+## 1.3.3 · 2026-11-13
+
+### Added
+- **Report a problem** (Settings, the Ctrl+K palette, and a *Report it* button on the "NOBAD closed unexpectedly"
+  notice): saves a diagnostics zip with private keys removed, shows it in File Explorer, and opens a pre-filled bug
+  report on GitHub in your browser. You attach the zip and submit; NOBAD itself sends nothing. The pre-filled report
+  only carries the app version, Windows version, how many crash reports were saved and the zip's name.
+- **Crash reports are part of the diagnostics zip**, so a bug report includes the error and where it happened.
+
+### Security
+- **Diagnostics hide your home folder and Windows user name**, as crash reports already did (for example in the
+  log line that records where a zip was saved).
 
 ### Changed
 - **Minimize, close and restore animate.** The window fades and shrinks slightly before it minimizes or closes,

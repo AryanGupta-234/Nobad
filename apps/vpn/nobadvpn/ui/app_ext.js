@@ -164,7 +164,8 @@ function updateBanners(st) {
     actions: [{ label: t("Install now"), fn: () => api("update_install", {}) }, { label: t("Later"), fn: () => { NXS.dismissed.update = 1; clearBar("update"); } }] }); else clearBar("update");
   if (st.crash_pending > 0 && !NXS.dismissed.crash) setBar("crash", { kind: "info", title: t("NOBAD closed unexpectedly last time"),
     detail: t("A crash report was saved on this PC. Nothing is sent unless you choose to."),
-    actions: [{ label: t("Review report"), fn: crashReview }, { label: t("Dismiss"), fn: () => { NXS.dismissed.crash = 1; clearBar("crash"); } }] }); else clearBar("crash");
+    actions: [{ label: t("Report it"), fn: () => api("report_problem", { crash: true }).then(r => toast(r.ok ? t("Preparing your report…") : r.error, !!r.ok)) },
+      { label: t("Review report"), fn: crashReview }, { label: t("Dismiss"), fn: () => { NXS.dismissed.crash = 1; clearBar("crash"); } }] }); else clearBar("crash");
 }
 
 /* ============================== config editor / import ============================== */
@@ -451,7 +452,8 @@ const GROUPS = [
     { k: "crash_reporting", n: "Send crash reports (opt-in)", d: "Off by default. Reports are always saved locally; they're only sent if this is on and a server URL is set.", kw: "telemetry" },
     { k: "crash_report_url", n: "Crash report server", d: "HTTPS URL that receives reports.", type: "text", ph: "https://", kw: "telemetry" },
     { custom: "crash" },
-    { act: "diag", n: "Export diagnostics", d: "Bundles logs, settings and network checks into a zip with private keys removed.", label: "Export…", kw: "logs support" } ] },
+    { act: "report", n: "Report a problem", d: "Saves a diagnostics zip (private keys removed) and opens a pre-filled bug report on GitHub in your browser. You attach the zip and submit; nothing is sent by NOBAD itself.", label: "Report…", kw: "bug issue crash support help feedback github" },
+    { act: "diag", n: "Export diagnostics", d: "Bundles logs, crash reports, settings and network checks into a zip with private keys removed.", label: "Export…", kw: "logs support" } ] },
   { id: "updates", title: "Updates", rows: [
     { k: "auto_install_wg", n: "Reinstall WireGuard automatically", d: "If WireGuard for Windows goes missing, NOBAD installs the official, signature-checked copy at start-up (works offline).", kw: "wireguard install repair" },
     { k: "auto_update_check", n: "Check for updates on launch", d: "Needs an update URL below." },
@@ -493,6 +495,7 @@ function buildSettings() {
     const a = b.dataset.act;
     if (a === "panic") panic(); else if (a === "wizard") wizardOpen();
     else if (a === "diag") { b.disabled = true; api("diagnostics_export", {}).then(r => { b.disabled = false; toast(r.ok ? t("Collecting diagnostics…") : r.error, !!r.ok); }); }
+    else if (a === "report") { b.disabled = true; api("report_problem", {}).then(r => { b.disabled = false; toast(r.ok ? t("Preparing your report…") : r.error, !!r.ok); }); }
     else if (a === "tadd") { const inp = $("#nxTAdd"); api("trusted_add", { name: b.dataset.name || (inp && inp.value) || "" }).then(r => { if (!r.ok) toast(r.error); else if (inp) inp.value = ""; }); }
     else if (a === "tdel") { const l = (S.settings.trusted_networks || []).filter(x => x !== b.dataset.name); api("settings", { key: "trusted_networks", value: l }); }
     else if (a === "ucheck") api("update_check", {}); else if (a === "uinstall") api("update_install", {});

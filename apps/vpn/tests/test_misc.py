@@ -84,3 +84,43 @@ def test_crash_report_removes_real_config_keys_too(monkeypatch, keys):
     except RuntimeError:
         path = crash.write_report(*sys.exc_info(), fatal=False)
     assert secret not in json.dumps(crash.preview(path))
+
+
+def test_report_problem_link_carries_no_network_details(monkeypatch):
+    """The pre-filled GitHub issue holds only the version, Windows build, crash count and the zip's name."""
+    from urllib.parse import parse_qs, urlsplit
+    from nobadvpn import api
+    from nobadvpn.const import APP_VER
+    u = urlsplit(api.report_issue_url("NobadDiagnostics-20261113-120000.zip", 2, "Other"))
+    assert (u.scheme, u.netloc, u.path) == ("https", "github.com", "/AryanGupta-234/Nobad/issues/new")
+    q = {k: v[0] for k, v in parse_qs(u.query).items()}
+    assert q["template"] == "bug_report.yml" and q["version"] == APP_VER and "2 crash report" in q["diag"]
+    assert set(q) <= {"template", "labels", "title", "version", "windows", "diag", "area"}
+    full = u.query.lower()
+    for leak in ("192.168", "10.2.", "endpoint", "ssid", "privatekey", "%5cusers%5c", "users\\"):
+        assert leak not in full, leak
+    assert " " not in api.report_issue_url() and '"' not in api.report_issue_url()   # open_url_as_user refuses those
+
+
+def test_diagnostics_include_recent_crash_reports(monkeypatch, tmp_path):
+    from nobadvpn import diagnostics
+    monkeypatch.setattr(diagnostics, "CRASH_DIR", str(tmp_path))
+    (tmp_path / "crash-1.json").write_text('{"traceback": "boom"}', encoding="utf-8")
+    (tmp_path / "notes.txt").write_text("ignore", encoding="utf-8")
+    monkeypatch.setattr(diagnostics, "run", lambda *a, **k: type("R", (), {"stdout": "", "returncode": 0})())
+    files = diagnostics.collect()
+    assert files.get("crash/crash-1.json") == '{"traceback": "boom"}' and not any(k.endswith("notes.txt") for k in files)
+
+
+def test_report_problem_is_an_api_action():
+    from nobadvpn import api
+    assert api.HANDLERS["report_problem"] is api.h_report_problem
+
+
+def test_diagnostics_hide_home_folder_and_user_name(monkeypatch):
+    from nobadvpn import diagnostics
+    monkeypatch.setattr(diagnostics.os.path, "expanduser", lambda p: "C:" + chr(92) + "Users" + chr(92) + "Asha")
+    monkeypatch.setenv("USERNAME", "Asha")
+    line = "diagnostics saved: c:" + chr(92) + "users" + chr(92) + "asha" + chr(92) + "Desktop" + chr(92) + "x.zip by Asha (Ashanti stays)"
+    out = diagnostics.scrub_text(line)
+    assert "asha" not in out.lower().replace("ashanti", "") and "<home>" in out and "<user>" in out and "Ashanti" in out

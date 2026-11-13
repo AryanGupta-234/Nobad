@@ -10,7 +10,7 @@ import time
 import zipfile
 
 from . import confparse, firewall, netinfo
-from .const import APP_VER, EXPORT_DIR, LOG_DIR
+from .const import APP_VER, CRASH_DIR, EXPORT_DIR, LOG_DIR
 from .ctx import ctx
 from .logbus import scrub
 from .syscmd import is_admin, list_wg_services, run, wg_tool
@@ -42,6 +42,18 @@ def scrub_text(text, secrets=(), names=()):
             text = text.replace(s, "(hidden)")
     for n in names:
         text = text.replace(f'"{n}"', '"(network name hidden)"')
+    return _hide_user(text)
+
+
+def _hide_user(text):
+    """Your home folder and Windows user name, as crash reports already do (e.g. a log line with the path a
+    diagnostics zip was saved to). Case-insensitive, because Windows paths are."""
+    home = os.path.expanduser("~")
+    user = os.environ.get("USERNAME") or os.environ.get("USER") or ""
+    if home and len(home) > 3:
+        text = re.sub(re.escape(home), "<home>", text, flags=re.I)
+    if user and len(user) > 2:
+        text = re.sub(r"(?<![A-Za-z0-9])" + re.escape(user) + r"(?![A-Za-z0-9])", "<user>", text, flags=re.I)
     return text
 
 
@@ -104,6 +116,14 @@ def collect(tunnel=None):
             if fn.startswith("nobad.log"):
                 with open(os.path.join(LOG_DIR, fn), "r", encoding="utf-8", errors="replace") as f:
                     files[f"logs/{fn}"] = f.read()
+    except OSError:
+        pass
+    try:   # the newest crash / error reports, so a bug report carries the traceback (already scrubbed)
+        reps = sorted((f for f in os.listdir(CRASH_DIR) if f.endswith(".json")),
+                      key=lambda f: os.path.getmtime(os.path.join(CRASH_DIR, f)))[-10:]
+        for fn in reps:
+            with open(os.path.join(CRASH_DIR, fn), "r", encoding="utf-8", errors="replace") as f:
+                files[f"crash/{fn}"] = f.read(200_000)
     except OSError:
         pass
     cmds = {"system/ipconfig.txt": ["ipconfig", "/all"], "system/route4.txt": ["route", "print", "-4"],

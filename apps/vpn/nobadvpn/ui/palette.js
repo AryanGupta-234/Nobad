@@ -72,6 +72,7 @@
       { id: "repair", g: "Actions", t: tr("Quick network repair"), kw: "fix internet dns flush dhcp", run: () => NX.netRepair && NX.netRepair("quick") },
       { id: "theme", g: "Actions", t: tr("Switch light / dark mode"), kw: "theme appearance", run: () => $("#bTheme").click() },
       { id: "mini", g: "Actions", t: tr("Open the quick view"), kw: "mini window tray compact", run: () => api("window", { do: "mini" }) },
+      { id: "report", g: "Actions", t: tr("Report a problem"), kw: "bug issue crash support help feedback github", run: () => api("report_problem", {}).then(r => toast(r.ok ? tr("Preparing your report…") : r.error, !!r.ok)) },
       { id: "configs", g: "Actions", t: tr("Open the configs folder"), kw: "wireguard conf files", run: () => api("open_configs", {}) },
       { id: "watch", g: "Actions", t: tr("Where to watch…"), kw: "movie series anime streaming country", run: () => { tabTo("t1"); setTimeout(() => { const i = $("#siQ"); if (i) { i.scrollIntoView({ block: "center" }); i.focus(); } }, 120); } },
     ];

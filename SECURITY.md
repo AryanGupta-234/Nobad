@@ -16,7 +16,7 @@ Fixes are released as a new version, and reporters are credited unless they pref
 
 | Version | Supported |
 |---|---|
-| 1.2.x | yes |
+| 1.3.x | yes |
 | older | no (please update) |
 
 ## Scope

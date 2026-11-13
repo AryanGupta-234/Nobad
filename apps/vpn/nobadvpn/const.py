@@ -7,7 +7,7 @@ APP_TITLE = "NOBAD VPN"
 # Windows AppUserModelID: taskbar grouping, jump list and the sender name on notifications. The installer registers it
 # on the Start-menu shortcut, which is what lets Windows show "NOBAD VPN" (not PowerShell/Python) on toasts.
 APP_ID = "NOBAD.VPN"
-APP_VER = "1.3.2"  # semantic version; bump on every release (build.ps1 reads it)
+APP_VER = "1.3.3"  # semantic version; bump on every release (build.ps1 reads it)
 WINDOW_TITLE = f"{APP_TITLE}  ·  v{APP_VER}"
 
 FROZEN = bool(getattr(sys, "frozen", False))
@@ -82,6 +82,9 @@ WG_DIRS = [r"C:\Program Files\WireGuard", r"C:\Program Files (x86)\WireGuard"]
 UPDATE_SIGNER_SUBJECTS = ()      # e.g. ("CN=NOBAD Technologies Pvt Ltd, O=NOBAD Technologies Pvt Ltd, L=..., C=IN",)
 UPDATE_SIGNER_THUMBPRINTS = ()   # SHA-1, upper-case hex
 TASK_NAME = "NobadVPN"
+# Bug reports: GitHub issues (no NOBAD server, no telemetry). The report form is .github/ISSUE_TEMPLATE/bug_report.yml
+REPO_URL = "https://github.com/AryanGupta-234/Nobad"
+ISSUE_FORM = "bug_report.yml"
 LEGACY_TASK_NAME = "NomadTunnel"
 PING_TARGET = "1.1.1.1"
 PING_TARGET_V6 = "2606:4700:4700::1111"
