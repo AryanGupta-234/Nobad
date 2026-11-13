@@ -686,26 +686,29 @@ class Tunnel:
                                   ("retry", "check_endpoint", "show_log"))
         self._fw_apply(region)
 
-        stored = os.path.join(config_dir(), region["file"])
+        # WireGuard (running as SYSTEM) only ever gets a copy NOBAD wrote into the admin-only runtime folder, made
+        # from the text read and validated above. Never the stored file: the configs folder can be user-writable,
+        # so it could be swapped between the check and the service install (#16).
         cands = []
+        body = None
         if tune or dns_fb or region["enc"] or ep_ip:
             body = confparse.tuned_conf_text(text, info, stream=tune, dns_fallback=dns_fb, endpoint_ip=ep_ip)
             if region["enc"] and s.get("dpapi_runtime_ok") and dpapi.available():
                 cands.append(("enc", body))
             cands.append(("plain", body))
-        if not region["enc"]:
-            cands.append(("orig", stored))
+        if not region["enc"] and body != text:
+            cands.append(("orig", text))           # untuned fallback, still a locked runtime copy
 
         up, r, enc_failed = False, None, False
         for i, (kind, payload) in enumerate(cands):
             try:
-                path = payload if kind == "orig" else self._write_runtime(region, payload, kind == "enc")
+                path = self._write_runtime(region, payload, kind == "enc")
             except (OSError, dpapi.DpapiError) as e:
                 log(f"couldn't prepare a {kind} runtime copy: {e}", "warn")
                 if kind == "enc":
                     enc_failed = True
                 continue
-            self._tmp = None if kind == "orig" else path
+            self._tmp = path
             up, r = self._install_and_wait(wg, name, path)
             if panic_gen != self._panic_gen:
                 return self._abort_for_panic(wg, name)
@@ -721,7 +724,7 @@ class Tunnel:
                 enc_failed = True
                 log("encrypted runtime copy failed to start — retrying with a temporary plaintext copy", "warn")
             elif i + 1 < len(cands):
-                log("tuned config failed to start — retrying with the original .conf", "warn")
+                log("tuned config failed to start — retrying with the untuned config", "warn")
         if not up:
             detail = self._diagnose(name, r)
             if check["errors"]:

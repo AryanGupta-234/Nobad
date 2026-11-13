@@ -171,3 +171,45 @@ def test_traffic_and_session_accounting(win, monkeypatch):
     n0 = len(ctx.usage.summary(0)["sessions"])
     t.disconnect()
     assert len(ctx.usage.summary(0)["sessions"]) == n0 + 1
+
+
+def _install_paths(win):
+    return [c[-1] for c in win.cmds if "/installtunnelservice" in c]
+
+
+def test_untuned_connect_still_uses_locked_runtime_copy(win, monkeypatch):
+    """#16: WireGuard never gets the stored file from the configs folder, even when nothing is tuned."""
+    ctx.settings.update(stream_tuned=False, dns_leak_block=False)
+    conf = os.path.join(CONFIG_DIR, "Home.conf")
+    with open(conf, encoding="utf-8") as f:
+        text = f.read().replace("vpn.example.com", "203.0.113.9")
+    with open(conf, "w", encoding="utf-8", newline="") as f:
+        f.write(text)
+    ctx.tunnel.rescan()
+    monkeypatch.setattr(engine.Tunnel, "_pick_endpoint_ip", lambda self, region: None)
+    assert ctx.tunnel.connect("Home")
+    paths = _install_paths(win)
+    assert paths and all(os.path.dirname(os.path.abspath(p)) == os.path.abspath(RUNTIME_DIR) for p in paths)
+    stored = open(os.path.join(CONFIG_DIR, "Home.conf"), "rb").read()
+    assert win.installed_conf["Home"].replace(b"\r\n", b"\n") == stored.replace(b"\r\n", b"\n")
+    ctx.tunnel.disconnect()
+    assert not os.listdir(RUNTIME_DIR)
+
+
+def test_untuned_fallback_is_a_runtime_copy_too(win, monkeypatch):
+    real = win.run
+    fails = []
+
+    def run(cmd, timeout=15, input_text=None):
+        if "/installtunnelservice" in " ".join(cmd) and not fails:
+            fails.append(1)
+            return type("R", (), {"stdout": "", "stderr": "", "returncode": 1})()
+        return real(cmd, timeout, input_text)
+    for mod in ("nobadvpn.syscmd", "nobadvpn.engine"):
+        monkeypatch.setattr(mod + ".run", run)
+    assert ctx.tunnel.connect("Home")
+    paths = _install_paths(win)
+    assert len(paths) >= 1 and fails
+    assert all(os.path.dirname(os.path.abspath(p)) == os.path.abspath(RUNTIME_DIR) for p in paths)
+    assert b"MTU = 1380" not in win.installed_conf["Home"]                # the untuned text was used
+    ctx.tunnel.disconnect()

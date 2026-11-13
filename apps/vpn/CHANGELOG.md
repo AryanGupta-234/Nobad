@@ -12,6 +12,9 @@ All notable changes to NOBAD VPN. Versions follow [semantic versioning](https://
 - **The kill switch no longer gives up (#14).** After 8 failed reconnects NOBAD used to remove the blocking rules
   unless the strict kill switch was on, so someone who blocked the VPN's traffic could get yours outside the
   tunnel. It now keeps blocking until you choose Restore internet or Disconnect.
+- **WireGuard only gets NOBAD's locked copy of a config (#16).** The tunnel service (running as SYSTEM) used to be
+  handed the stored file from the configs folder when nothing was tuned, so it could be swapped after NOBAD checked
+  it. Every connect now uses a copy written to the admin-only runtime folder from the checked text.
 - **The installed app ignores redirecting environment variables.** Its data folder and Program Files are taken
   from Windows (known folders), not from `%ProgramData%`, `%ProgramFiles%` or `NOBAD_DATA_DIR`, which a normal user
   can set for the processes NOBAD starts. Folder locking refuses junctions and symbolic links and removes any

@@ -243,7 +243,8 @@ interface addresses, whether it routes `0.0.0.0/0` / `::/0`, and whether it has 
 6. Applies the firewall rules (`_fw_apply`, section 6).
 7. Tries candidates in order until the service reaches `RUNNING` (polled for up to 15 s, `SERVICE_WAIT`):
    encrypted runtime copy (`.conf.dpapi`, only for an encrypted config while `dpapi_runtime_ok` is on), then a
-   plaintext runtime copy, then the stored `.conf` itself (only for a non-encrypted config). Runtime copies go to
+   plaintext runtime copy, then an untuned copy of the config text (only for a non-encrypted config). WireGuard is never
+   handed the stored file: every candidate is written from the text read and validated in step 1. Runtime copies go to
    `ProgramData\NobadVPN\runtime`, whose ACL is SYSTEM + Administrators only. If WireGuard refuses the encrypted copy
    but a later candidate works, `dpapi_runtime_ok` is switched off for future connects.
 8. If no candidate starts, `_diagnose()` collects evidence (`sc query WireGuardTunnel$<name>` state and exit code, the
