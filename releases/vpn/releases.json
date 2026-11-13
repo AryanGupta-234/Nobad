@@ -1,8 +1,20 @@
 {
   "schemaVersion": 1,
   "product": "nobad-vpn",
-  "latest": "1.3.0",
+  "latest": "1.3.1",
   "releases": [
+    {
+      "version": "1.3.1",
+      "releaseDate": "2026-11-13",
+      "channel": "stable",
+      "platform": "Windows 10 (1809+) / 11",
+      "architecture": "x64 (ARM64 via emulation)",
+      "summary": "UI update: readable Where to watch, visible night and ping colours on the map, clearer light theme, themed quick view, sharper on high-DPI screens, taskbar click minimizes.",
+      "downloadUrl": "https://github.com/AryanGupta-234/Nobad/releases/download/vpn-v1.3.1/NobadVPN-Setup-1.3.1.exe",
+      "notesUrl": "https://github.com/AryanGupta-234/Nobad/releases/tag/vpn-v1.3.1",
+      "sha256": "48cefa2af7635b386c60d92d90fe4aa44ad3ac0effa5cdef86444c264f907450",
+      "size": "24.5 MB"
+    },
     {
       "version": "1.3.0",
       "releaseDate": "2026-11-13",
