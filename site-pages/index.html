@@ -323,7 +323,7 @@
 .cta-alt a { text-decoration: underline; text-underline-offset: 3px; }
 .footer-bottom a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 
-    /* ---- polish: readable nav everywhere, proof in the hero, real product showcase ---- */
+    /* ---- polish: readable nav everywhere, proof in the hero ---- */
     .brand { background: var(--black); border: 1px solid rgba(255,255,255,.14); border-radius: 999px; padding: 10px 16px; box-shadow: 0 8px 24px rgba(0,0,0,.18); transition: transform .2s; }
     .brand:hover { transform: translateY(-1px); }
     .brand-logo { width: 104px; }
@@ -343,21 +343,44 @@
     .receipt dt { font: 700 9px/1.4 var(--mono); letter-spacing: .14em; text-transform: uppercase; opacity: .7; }
     .receipt dd { margin: 3px 0 0; font: 700 12px/1.3 var(--mono); white-space: nowrap; }
     .receipt-hash code { display: block; overflow: hidden; text-overflow: ellipsis; font: inherit; }
-    .showcase { background: var(--black); padding: clamp(70px, 9vw, 130px) var(--gutter) clamp(60px, 8vw, 110px); position: relative; overflow: hidden; }
-    .showcase::before { content: ""; position: absolute; inset: 0; background-image: linear-gradient(rgba(255,77,0,.10) 1px, transparent 1px), linear-gradient(90deg, rgba(255,77,0,.10) 1px, transparent 1px); background-size: 64px 64px; -webkit-mask-image: radial-gradient(ellipse at 50% 40%, #000 30%, transparent 75%); mask-image: radial-gradient(ellipse at 50% 40%, #000 30%, transparent 75%); pointer-events: none; }
-    .showcase-frame { position: relative; max-width: 1180px; margin: auto; border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,.16); box-shadow: 0 50px 120px rgba(0,0,0,.6), 0 0 0 1px rgba(255,77,0,.25); transform: perspective(1800px) rotateX(7deg) scale(.97); transform-origin: 50% 0; transition: transform .8s cubic-bezier(.2,.7,.2,1); }
-    .showcase-frame:hover { transform: none; }
-    .showcase-bar { display: flex; align-items: center; gap: 7px; padding: 11px 14px; background: #111317; border-bottom: 1px solid rgba(255,255,255,.08); }
-    .showcase-bar i { width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,.18); }
-    .showcase-bar i:first-child { background: var(--orange); }
-    .showcase-bar span { margin-left: 10px; font: 700 10px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: rgba(255,255,255,.55); }
-    .showcase-frame img { display: block; width: 100%; height: auto; }
-    .showcase-cap { position: relative; max-width: 1180px; margin: 26px auto 0; display: flex; justify-content: space-between; gap: 18px; flex-wrap: wrap; color: rgba(255,255,255,.62); font: 11px/1.6 var(--mono); text-transform: uppercase; letter-spacing: .06em; }
-    .showcase-cap a { color: var(--orange); border-bottom: 1px solid currentColor; }
     .footer-bottom { flex-wrap: wrap; }
     .tm-note { flex-basis: 100%; order: 9; opacity: .55; font-size: 10px; line-height: 1.6; }
     @media (max-width: 860px) { .receipt { grid-template-columns: 1fr 1fr; } .receipt > div { border-left: 0; border-top: 1px dashed rgba(0,0,0,.45); } .receipt > div:nth-child(-n+2) { border-top: 0; } .receipt-hash { grid-column: 1 / -1; } }
-    @media (prefers-reduced-motion: reduce) { .showcase-frame, .showcase-frame:hover { transform: none; transition: none; } .btn, .brand { transition: none; } }
+    @media (prefers-reduced-motion: reduce) { .btn, .brand { transition: none; } }
+
+    /* ---- contrast pass: a clear orange / black / white rhythm and text that reads at a glance ---- */
+    /* Areas of work: white, so it no longer merges with the black product shelf above it */
+    .services { background: var(--white); color: var(--black); --line-light: rgba(0,0,0,.16); }
+    .services-head p { color: rgba(0,0,0,.72); }
+    .service-item:hover { background: var(--black); color: var(--white); }
+    .service-item:hover .service-tags span { color: var(--white); border-color: rgba(255,255,255,.5); }
+    .service-num { color: var(--black); }
+    .service-item:hover .service-num { color: var(--orange); }
+    .service-tags span { color: var(--black); border-color: rgba(0,0,0,.4); font-size: 11px; }
+    .service-list { border-top: 2px solid var(--black); }
+    .service-item { border-bottom: 2px solid var(--black); }
+    /* The standard: black with the orange accent, between two orange sections */
+    .manifesto { background: var(--black); color: var(--white); }
+    .manifesto .eyebrow, .manifesto .section-index { color: var(--orange); }
+    .manifesto-copy p { color: rgba(255,255,255,.88); }
+    /* faded and tiny text, raised */
+    .products-head p { color: rgba(255,255,255,.85); }
+    .footer-note { color: rgba(255,255,255,.8); font-size: 11px; }
+    .footer-links a { color: rgba(255,255,255,.9); }
+    .footer-bottom { color: rgba(255,255,255,.78); font-size: 11px; line-height: 1.6; }
+    .ai-mark { color: rgba(255,255,255,.9); }
+    .tm-note { opacity: .85; font-size: 11px; }
+    .receipt dt { opacity: .85; font-size: 10px; }
+    .hero-title .outline { -webkit-text-stroke-width: 3px; }
+    @media (max-width: 760px) { .service-tags span { font-size: 10px; } }
+    /* product cards: the drawing sits top-right and the text keeps clear of it (it used to run underneath) */
+    .product-symbol { top: 15%; right: 7%; width: 32%; max-width: 180px; }
+    .product-card p { max-width: min(430px, 58%); }
+    .product-card h3 { max-width: 62%; }
+    @media (max-width: 760px) { .product-symbol { top: 12%; width: 30%; } .product-card p, .product-card h3 { max-width: 64%; } }
+    /* small labels on the white section: black text, orange accent line */
+    .services .section-index { color: var(--black); }
+    .services .section-index::before { background: var(--orange); }
 </style>
 </head>
 <body>
@@ -434,13 +457,6 @@
           </div>
         </div>
       </div>
-    </section>
-    <section class="showcase" aria-label="NOBAD VPN screenshot">
-      <div class="showcase-frame">
-        <div class="showcase-bar" aria-hidden="true"><i></i><i></i><i></i><span>NOBAD VPN &middot; v{{VPN_VERSION}}</span></div>
-        <img src="/assets/nobad-vpn-map-dark.webp" width="2000" height="1250" loading="lazy" decoding="async" alt="NOBAD VPN main window: protected and connected to Tokyo, servers on a world map coloured by ping, live latency, jitter and loss">
-      </div>
-      <p class="showcase-cap"><span>A real screen from NOBAD VPN v{{VPN_VERSION}}, with demo servers.</span> <a href="products/vpn/#inside">See every screen &rarr;</a></p>
     </section>
 
     <section class="products section-pad" id="products">
