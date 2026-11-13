@@ -41,7 +41,7 @@ SignedUninstaller=yes
 [Files]
 Source: "..\dist\NobadVPN\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
 ; Licensing: NOBAD's MIT license and the notices for every bundled third-party component.
-Source: "..\..\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreversion
+Source: "..\..\..\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreversion
 Source: "..\THIRD-PARTY-NOTICES.md"; DestDir: "{app}"; Flags: ignoreversion
 ; Kept in {app}\redist so the app can repair a missing WireGuard later without internet access.
 Source: "redist\wireguard-amd64.msi"; DestDir: "{app}\redist"; Flags: ignoreversion

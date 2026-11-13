@@ -531,8 +531,8 @@ def test_error_notice_is_an_overlay_not_a_layout_item():
 def test_installer_ships_license_and_third_party_notices():
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     iss = open(os.path.join(root, "packaging", "installer.iss"), encoding="utf-8").read()
-    assert r'Source: "..\..\LICENSE"' in iss and "THIRD-PARTY-NOTICES.md" in iss
-    lic = open(os.path.join(os.path.dirname(root), "LICENSE"), encoding="utf-8").read()
+    assert r'Source: "..\..\..\LICENSE"' in iss and "THIRD-PARTY-NOTICES.md" in iss
+    lic = open(os.path.join(os.path.dirname(os.path.dirname(root)), "LICENSE"), encoding="utf-8").read()
     assert lic.startswith("MIT License")
     notices = open(os.path.join(root, "THIRD-PARTY-NOTICES.md"), encoding="utf-8").read()
     for dep in ("WireGuard", "pywebview", "pystray", "Pillow", "jsQR", "PyInstaller"):

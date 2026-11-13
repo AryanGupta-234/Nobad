@@ -5,9 +5,9 @@ name: NOBAD VPN tests
 on:
   push:
     branches: [main]
-    paths: ["VPN_dev/**", ".github/workflows/vpn-ci.yml"]
+    paths: ["apps/vpn/**", ".github/workflows/vpn-ci.yml"]
   pull_request:
-    paths: ["VPN_dev/**", ".github/workflows/vpn-ci.yml"]
+    paths: ["apps/vpn/**", ".github/workflows/vpn-ci.yml"]
   workflow_dispatch:
 
 permissions:
@@ -24,7 +24,7 @@ jobs:
     defaults:
       run:
         shell: pwsh
-        working-directory: VPN_dev
+        working-directory: apps/vpn
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:

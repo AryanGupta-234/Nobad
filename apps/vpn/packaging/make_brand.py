@@ -1,6 +1,6 @@
 """Regenerate the app's brand files from the platform's logo assets (run when the logo changes):
 
-    python packaging/make_brand.py [path/to/assets]      (default: ../assets next to VPN_dev)
+    python packaging/make_brand.py [path/to/assets]      (default: the repo-root assets/ folder)
 
 Writes into nobadvpn/ui/brand/:
   nobad-logo.png, nobad-logo-light.png  copies of the wordmarks (dark / light lettering)
@@ -16,7 +16,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-ASSETS = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(ROOT), "assets")
+ASSETS = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(os.path.dirname(ROOT)), "assets")
 OUT = os.path.join(ROOT, "nobadvpn", "ui", "brand")
 ORANGE = (246, 80, 0)
 CARD = (11, 12, 16)

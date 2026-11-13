@@ -4,7 +4,7 @@
   python packaging/journal.py finish <build id> <installer path> <signed 0|1>
   python packaging/journal.py fail   <version> "<step>" "<detail>"
 
-Rows go between the BUILD-LOG markers, newest last. The journal is private (VPN_dev/private/, git-ignored)."""
+Rows go between the BUILD-LOG markers, newest last. The journal is private (apps/vpn/private/, git-ignored)."""
 import datetime
 import hashlib
 import os

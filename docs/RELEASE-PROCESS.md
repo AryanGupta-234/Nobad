@@ -5,8 +5,9 @@ The website only links to files that exist there.
 
 ## 1. Prepare
 
-1. Bump `APP_VER` in `VPN_dev/nobadvpn/const.py` (semantic versioning).
-2. Add a `## <version> · <date>` entry at the top of `VPN_dev/CHANGELOG.md`. The workflows refuse a tag whose
+1. Bump `APP_VER` in `apps/vpn/nobadvpn/const.py` (semantic versioning).
+2. Add a `## <version> · <date>` entry at the top of `apps/vpn/CHANGELOG.md` (release notes: start from
+   `docs/RELEASE-NOTES-TEMPLATE.md`). The workflows refuse a tag whose
    version doesn't match both.
 3. Push to `main` and wait for **NOBAD VPN tests** (Windows, hash-pinned dependencies) and **Validate and build NOBAD**
    to pass.
@@ -55,5 +56,5 @@ Published versions are never changed or re-uploaded. If a release is bad:
 
 ## Code signing
 
-Releases are not code-signed yet; see `VPN_dev/docs/CODE-SIGNING.md`. Until they are, the app can't update itself
+Releases are not code-signed yet; see `apps/vpn/docs/CODE-SIGNING.md`. Until they are, the app can't update itself
 (it only installs signed updates), so users install new versions by hand.

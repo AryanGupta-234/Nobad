@@ -61,7 +61,7 @@ $testSummary = (($testOut | Where-Object { "$_" -match "passed|failed|error" } |
 if ($testCode) { python packaging\journal.py fail $ver "tests" "$testSummary"; throw "tests failed" }
 python -m pyflakes nobadvpn tests; if ($LASTEXITCODE) { throw "pyflakes failed" }
 python packaging\make_version_info.py $ver packaging\version_info.txt; if ($LASTEXITCODE) { throw "version info failed" }
-pyinstaller --noconfirm --clean --distpath dist --workpath build packaging\nobad.spec
+python -m PyInstaller --noconfirm --clean --distpath dist --workpath build packaging\nobad.spec
 if ($LASTEXITCODE) { python packaging\journal.py fail $ver "PyInstaller" "$testSummary"; throw "PyInstaller failed" }
 
 # ---------------------------------------------------------------- signing setup

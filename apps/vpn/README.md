@@ -141,6 +141,6 @@ decision and release. The app shows a small "built with AI" mark in its status b
 an issue or a pull request on [GitHub](https://github.com/AryanGupta-234/Nobad).
 
 ## License
-NOBAD VPN is released under the [MIT License](../LICENSE). The installer also ships third-party components under their
+NOBAD VPN is released under the [MIT License](../../LICENSE). The installer also ships third-party components under their
 own licenses (WireGuard, Python, pywebview, pystray and others), listed in
 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md). Both files are installed next to `NobadVPN.exe`.

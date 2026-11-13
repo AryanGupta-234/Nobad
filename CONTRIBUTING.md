@@ -9,7 +9,7 @@ reports, testing on your PC and network, documentation, translations and code.
   and switching between Wi-Fi and Ethernet are the most useful. Open an issue with what you saw, even when it worked.
 - **Report bugs** with the *Bug report* template. In NOBAD, *Settings → Help → Export diagnostics* creates a zip with
   private keys removed; attach it if you can.
-- **Improve docs.** The user manual is `VPN_dev/docs/USER-MANUAL.md`.
+- **Improve docs.** The user manual is `apps/vpn/docs/USER-MANUAL.md`.
 - **Send code** as a pull request (see below).
 
 ## Building NOBAD VPN
@@ -17,7 +17,7 @@ reports, testing on your PC and network, documentation, translations and code.
 Requirements: Windows 10/11 (x64), Python 3.11, and Inno Setup 6 for the installer.
 
 ```powershell
-cd VPN_dev
+cd apps/vpn
 python -m venv .venv-build; .\.venv-build\Scripts\Activate.ps1
 python -m pip install --require-hashes -r requirements-lock.txt
 python -m pytest -q tests                                        # all tests run against a simulated Windows

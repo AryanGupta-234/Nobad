@@ -8,8 +8,28 @@ first major release.
 
 | Product | What it is | Where |
 |---|---|---|
-| **NOBAD VPN** | A WireGuard client for Windows with a kill switch, DNS leak block, Network Intelligence, "Fix my internet" and Where to watch | [`VPN_dev/`](VPN_dev/) · [Releases](https://github.com/AryanGupta-234/Nobad/releases) |
+| **NOBAD VPN** | A WireGuard client for Windows with a kill switch, DNS leak block, Network Intelligence, "Fix my internet" and Where to watch | [`apps/vpn/`](apps/vpn/) · [Releases](https://github.com/AryanGupta-234/Nobad/releases) |
 | Website | [nobad-platform.aassworld99.workers.dev](https://nobad-platform.aassworld99.workers.dev/), the product pages and the download desk | [`site-pages/`](site-pages/) |
+
+## Repository layout
+
+```
+apps/vpn/            NOBAD VPN (Windows app)
+  nobadvpn/          app source (engine, UI in nobadvpn/ui/)
+  tests/             pytest suite
+  packaging/         PyInstaller spec, Inno Setup installer, build.ps1
+  docs/              user manual, architecture, features, system integration, code signing
+  CHANGELOG.md       user-facing changes per version
+site-pages/          website source (plain HTML), built into public/ by scripts/prepare-site.mjs
+releases/vpn/        releases.json, the public release manifest the download desk reads
+scripts/             site build and release-publishing helpers
+assets/              NOBAD logo and icons (shared by the site and the app)
+docs/                repo-wide docs: release process, release-notes template
+.github/             CI, release, CodeQL, Scorecard workflows; issue and PR templates
+```
+
+Installers for every version are on [GitHub Releases](https://github.com/AryanGupta-234/Nobad/releases), not in
+the repository. Local build output (`build/`, `dist/`, `dist-installer/`, `public/`) is git-ignored.
 
 ## Download NOBAD VPN
 
@@ -50,7 +70,7 @@ automatically.
 
 ## Releasing NOBAD VPN
 
-1. Bump `APP_VER` in `VPN_dev/nobadvpn/const.py` and add the version to `VPN_dev/CHANGELOG.md`.
+1. Bump `APP_VER` in `apps/vpn/nobadvpn/const.py` and add the version to `apps/vpn/CHANGELOG.md`.
 2. Commit, then tag and push: `git tag vpn-v<version> && git push origin vpn-v<version>`.
 3. The **NOBAD VPN release** workflow builds, tests and publishes the GitHub Release.
 4. Add the release (URL, SHA-256, size) to `releases/vpn/releases.json` so the website's download desk shows it.
@@ -58,5 +78,5 @@ automatically.
 ## License
 
 Released under the [MIT License](LICENSE). Third-party components bundled with NOBAD VPN are listed in
-[VPN_dev/THIRD-PARTY-NOTICES.md](VPN_dev/THIRD-PARTY-NOTICES.md). The MIT License covers the code, not the NOBAD name
+[apps/vpn/THIRD-PARTY-NOTICES.md](apps/vpn/THIRD-PARTY-NOTICES.md). The MIT License covers the code, not the NOBAD name
 or logo.
