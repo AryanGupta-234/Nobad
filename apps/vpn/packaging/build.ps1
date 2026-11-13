@@ -137,7 +137,9 @@ if ($LASTEXITCODE) { throw "manifest failed" }
 $hash = (Get-FileHash $setup -Algorithm SHA256).Hash.ToLower()
 python packaging\make_sbom.py $ver "dist-installer\NobadVPN-Setup-$ver.sbom.json"
 if ($LASTEXITCODE) { throw "SBOM failed" }
-Set-Content -Encoding ascii -Path "dist-installer\NobadVPN-Setup-$ver.exe.sha256" -Value "$hash  NobadVPN-Setup-$ver.exe"
+# One LF-terminated line, so `sha256sum -c` works on Linux/macOS too (Set-Content would write CRLF).
+$shaPath = Join-Path (Get-Location) "dist-installer\NobadVPN-Setup-$ver.exe.sha256"
+[System.IO.File]::WriteAllText($shaPath, "$hash  NobadVPN-Setup-$ver.exe`n", [System.Text.Encoding]::ASCII)
 if ($signArgs.Count) {
   $subject = (Get-AuthenticodeSignature $setup).SignerCertificate.Subject
   Write-Host "Signed as: $subject"

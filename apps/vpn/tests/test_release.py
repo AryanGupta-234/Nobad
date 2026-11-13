@@ -672,3 +672,10 @@ def test_live_day_night_sun_position_is_astronomically_right():
     assert abs(march["lat"]) < 0.6 and abs(abs(march["lon"]) - 180) < 3     # equinox midnight: sun over the date line
     html = open(os.path.join(UI, "index.html"), encoding="utf-8").read()
     assert "Math.floor(Date.now()/3e5)" in html and "setInterval(()=>{if(!document.hidden)invalidate()},300000)" in html
+
+
+def test_sha256_file_is_written_with_a_single_lf():
+    """#10: `sha256sum -c` on Linux/macOS needs LF, not the CRLF that Set-Content writes."""
+    ps = open(os.path.join(PKG, "build.ps1"), encoding="utf-8").read()
+    line = next(x for x in ps.splitlines() if ".exe.sha256" in x and "Set-Content" in x or "WriteAllText($shaPath" in x)
+    assert "Set-Content" not in line and "`n" in ps.split("WriteAllText($shaPath", 1)[1].splitlines()[0]
