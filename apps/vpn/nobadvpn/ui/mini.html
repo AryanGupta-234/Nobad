@@ -2,9 +2,10 @@
 <html lang="en"><head><meta charset="utf-8"><title>NOBAD VPN</title><link rel="icon" href="/favicon.ico">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
-:root{color-scheme:dark;--bg:#0b0c10;--tx:#eef3fc;--mu:#8e9bb2;--line:rgba(255,255,255,.14);--ok:#3dffb0;--warn:#ff9a7c;--bad:#ff5268;--brand:#f65000}
-@media (prefers-color-scheme:light){:root:not([data-theme]){color-scheme:light;--bg:#f6f7fa;--tx:#14171f;--mu:#566074;--line:rgba(0,0,0,.18)}}
-:root[data-theme=light]{color-scheme:light;--bg:#f6f7fa;--tx:#14171f;--mu:#566074;--line:rgba(0,0,0,.18)}
+:root{color-scheme:dark;--bg:#0b0c10;--tx:#eef3fc;--mu:#8e9bb2;--line:rgba(255,255,255,.14);--ok:#3dffb0;--warn:#ff9a7c;--bad:#ff5268;--brand:#f65000;
+ --field:#1a1c23;--field-hi:#22252e;--pop:#16181e}
+@media (prefers-color-scheme:light){:root:not([data-theme]){color-scheme:light;--bg:#eef1f5;--tx:#121620;--mu:#4e5665;--line:rgba(18,26,44,.16);--field:#ffffff;--field-hi:#f6f8fb;--pop:#ffffff}}
+:root[data-theme=light]{color-scheme:light;--bg:#eef1f5;--tx:#121620;--mu:#4e5665;--line:rgba(18,26,44,.16);--field:#ffffff;--field-hi:#f6f8fb;--pop:#ffffff}
 :root[data-theme=dark]{color-scheme:dark}
 .hd{display:flex;align-items:center;gap:8px}.hd img{height:20px;width:auto}.hd .on-light{display:none}
 :root[data-theme=light] .hd .on-dark{display:none}:root[data-theme=light] .hd .on-light{display:block}
@@ -14,7 +15,14 @@ main{padding:14px;display:flex;flex-direction:column;gap:10px;height:100%}
 #st{font-size:18px;font-weight:600;display:flex;gap:8px;align-items:center}#st i{width:10px;height:10px;border-radius:50%;background:var(--mu);display:inline-block}
 body[data-st=on] #st i{background:var(--ok)}body[data-st=wait] #st i{background:var(--warn)}body[data-st=block] #st i{background:var(--bad)}
 #sub{color:var(--mu);font-size:12px;min-height:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-select,button{font:inherit;color:var(--tx);background:rgba(127,127,127,.14);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+select,button{font:inherit;color:var(--tx);background:var(--field);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+button:not(.pri):hover{background:var(--field-hi)}
+/* solid colours: Windows draws the open list from these, and a translucent background made it fall back to the
+   wrong theme. A crisp SVG arrow replaces the native one so the field matches both themes. */
+select{-webkit-appearance:none;appearance:none;padding-right:32px;cursor:pointer;text-overflow:ellipsis;
+ background:var(--field) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%238e9bb2' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 12px center}
+select option{background:var(--pop);color:var(--tx)}
+select:hover{border-color:color-mix(in srgb,var(--brand) 40%,var(--line))}
 button.pri{background:linear-gradient(135deg,#ff6418,#c94400);color:#fff;border:0;font-weight:600;padding:11px}button:disabled{opacity:.5}
 button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
 .row{display:flex;gap:8px}.row>*{flex:1}.rates{display:flex;justify-content:space-between;color:var(--mu);font-size:12px}

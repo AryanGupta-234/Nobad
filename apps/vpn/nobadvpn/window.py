@@ -13,16 +13,18 @@ MINI_W, MINI_H = 340, 345   # inner content needs ~291 (+ title bar); measured w
 
 
 def set_dpi_awareness():
-    """Per-monitor DPI awareness so text stays sharp on 125–300 % displays and when moving between monitors."""
+    """Per-monitor DPI awareness so text stays sharp on 125–300 % displays and when moving between monitors.
+    Normally already set by boot.set_dpi_awareness (v2, before the splash); this is the fallback for other entry
+    points. Windows ignores a second call, so the order of these attempts only matters the first time."""
     if os.name != "nt":
         return
+    from .boot import set_dpi_awareness as _v2
+    if _v2():
+        return
     try:
-        ctypes.windll.shcore.SetProcessDpiAwareness(2)
+        ctypes.windll.user32.SetProcessDPIAware()
     except Exception:
-        try:
-            ctypes.windll.user32.SetProcessDPIAware()
-        except Exception:
-            pass
+        pass
 
 
 def ui_scale():
