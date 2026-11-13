@@ -56,7 +56,8 @@ Name: "{group}\Repair network (NOBAD)"; Filename: "{app}\{#MyAppExe}"; Parameter
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"; Tasks: desktopicon
 
 [Tasks]
-Name: "autostart"; Description: "Start NOBAD VPN when I sign in (recommended: opens instantly and keeps protection on)"; Flags: checkedonce
+; Off by default: NOBAD only starts with Windows when the user ticks this box here, or turns it on in Settings.
+Name: "autostart"; Description: "Start NOBAD VPN when I sign in"; Flags: unchecked
 Name: "desktopicon"; Description: "Create a desktop shortcut"; Flags: unchecked
 
 [Run]
@@ -66,8 +67,9 @@ Filename: "{sys}\msiexec.exe"; Parameters: "/i ""{app}\redist\{code:WireGuardMsi
   Check: NeedsWireGuard; AfterInstall: CheckWireGuard
 ; 2) Elevated scheduled tasks (registered for the installing user): no UAC prompt when NOBAD is opened, and
 ;    optionally start at sign-in. Run while Setup is still elevated, so the user never sees an extra prompt.
+;    Box left unticked: leave the current choice alone, so an update never turns off a choice made in Settings.
 Filename: "{app}\{#MyAppExe}"; Parameters: "--install-tasks --autostart on"; StatusMsg: "Setting up NOBAD VPN...";   Flags: runhidden waituntilterminated; Tasks: autostart
-Filename: "{app}\{#MyAppExe}"; Parameters: "--install-tasks --autostart off"; StatusMsg: "Setting up NOBAD VPN...";   Flags: runhidden waituntilterminated; Tasks: not autostart
+Filename: "{app}\{#MyAppExe}"; Parameters: "--install-tasks"; StatusMsg: "Setting up NOBAD VPN...";   Flags: runhidden waituntilterminated; Tasks: not autostart
 ; 3) Start NOBAD VPN.
 Filename: "{app}\{#MyAppExe}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent
 ; Silent installs come from the in-app updater, which has already quit: start the new version again.

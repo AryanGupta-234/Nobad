@@ -19,7 +19,7 @@ What NOBAD VPN installs, writes, changes and contacts on a Windows PC, taken fro
 | Bundled WireGuard | `C:\Program Files\NOBAD VPN\redist\wireguard-amd64.msi` and `wireguard-arm64.msi` (kept so the app can reinstall WireGuard offline) |
 | Start menu (`NOBAD VPN` group) | `NOBAD VPN`; `Restore internet (NOBAD)` = `NobadVPN.exe --panic --show-result`; `Repair network (NOBAD)` = `NobadVPN.exe --repair-network quick --show-result` |
 | Desktop shortcut | optional task "Create a desktop shortcut", unchecked by default |
-| Optional task | "Start NOBAD VPN when I sign in", checked on first install (`checkedonce`) |
+| Optional task | "Start NOBAD VPN when I sign in", off by default (`unchecked`); left unticked, Setup keeps the current Settings choice |
 
 Install steps, in order:
 
