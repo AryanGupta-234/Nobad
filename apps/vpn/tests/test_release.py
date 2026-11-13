@@ -677,5 +677,6 @@ def test_live_day_night_sun_position_is_astronomically_right():
 def test_sha256_file_is_written_with_a_single_lf():
     """#10: `sha256sum -c` on Linux/macOS needs LF, not the CRLF that Set-Content writes."""
     ps = open(os.path.join(PKG, "build.ps1"), encoding="utf-8").read()
-    line = next(x for x in ps.splitlines() if ".exe.sha256" in x and "Set-Content" in x or "WriteAllText($shaPath" in x)
-    assert "Set-Content" not in line and "`n" in ps.split("WriteAllText($shaPath", 1)[1].splitlines()[0]
+    assert not any("Set-Content" in x and ".sha256" in x for x in ps.splitlines())
+    write = next(x for x in ps.splitlines() if "WriteAllText($shaPath" in x)
+    assert "exe`n\"" in write and "ASCII" in write
