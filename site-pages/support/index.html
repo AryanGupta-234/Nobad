@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Support and bug reports · NOBAD</title>
+<meta name="description" content="Report a bug in NOBAD VPN, send a crash report, request a feature or report a security issue privately. Every report is read.">
+<meta name="theme-color" content="#FF4D00">
+<link rel="icon" href="/favicon.ico" sizes="any"><link rel="icon" type="image/png" href="/assets/favicon-32.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="/assets/legal.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+
+<nav class="site-nav" aria-label="Main navigation">
+  <a class="brand" href="/" aria-label="NOBAD home"><img class="brand-logo" src="/assets/nobad-logo-light.png" alt="nobad." width="1086" height="362"></a>
+  <div class="nav-pill">
+    <a href="/#products">Products</a><a href="/products/vpn/">VPN</a><a href="/#downloads">Downloads</a><a href="/support/" aria-current="page">Support</a><a href="/privacy/">Privacy</a>
+  </div>
+  <a class="nav-back" href="/">← Main site</a>
+</nav>
+
+<header class="legal-hero">
+  <div class="wrap">
+    <p class="section-index">Support / 01</p>
+    <h1>Report<br>a problem</h1>
+    <p class="legal-lede">Found a bug, had a crash, or want something added? Every report is read, and fixes ship as new releases.</p>
+    <div class="legal-meta"><span>NOBAD VPN for Windows</span><span>Reports are public GitHub issues, except security reports</span><span>Updated 13 Nov 2026</span></div>
+  </div>
+</header>
+
+<main id="main" class="legal-body wrap">
+  <nav class="toc" aria-label="On this page">
+    <a href="#bug"><span>01</span>Report a bug</a>
+    <a href="#crash"><span>02</span>After a crash</a>
+    <a href="#inside"><span>03</span>What a report contains</a>
+    <a href="#first"><span>04</span>Try this first</a>
+    <a href="#feature"><span>05</span>Request a feature</a>
+    <a href="#security"><span>06</span>Security issues</a>
+  </nav>
+
+  <div>
+    <div class="status" role="note">
+      <span class="status-tag">No telemetry</span>
+      <p>NOBAD VPN never sends crash reports or logs on its own. You decide what to share, and you see it before it
+      leaves your PC.</p>
+    </div>
+
+    <section id="bug">
+      <h2><small>01</small>Report a bug</h2>
+      <p>The fastest way is from inside the app, because it fills in the details for you:</p>
+      <ol class="steps-list">
+        <li>In NOBAD VPN, open <b>Settings → Report a problem</b> (or press <b>Ctrl+K</b> and type <i>report</i>).</li>
+        <li>NOBAD saves a diagnostics zip to your Desktop (private keys removed), shows it in File Explorer, and opens a
+        bug report on GitHub with your app version and Windows version already filled in.</li>
+        <li>Describe what happened, drag the zip into the report, and press <b>Submit</b>.</li>
+      </ol>
+      <p>Can't open the app? Report it on GitHub directly and tell us your Windows version.</p>
+      <div class="actions">
+        <a class="btn" href="https://github.com/AryanGupta-234/Nobad/issues/new?template=bug_report.yml" target="_blank" rel="noopener noreferrer">Open a bug report →</a>
+        <a class="btn ghost" href="https://github.com/AryanGupta-234/Nobad/issues" target="_blank" rel="noopener noreferrer">See known issues</a>
+      </div>
+      <p>A free GitHub account is needed to post. If you'd rather not create one, email
+      <a href="mailto:ludmj99@gmail.com?subject=NOBAD%20VPN%20bug%20report">ludmj99@gmail.com</a> and attach the zip.</p>
+    </section>
+
+    <section id="crash">
+      <h2><small>02</small>After a crash</h2>
+      <p>If NOBAD VPN closes unexpectedly, it saves a crash report on your PC and shows <i>"NOBAD closed unexpectedly
+      last time"</i> the next time it starts. Press <b>Report it</b> there: the crash reports go into the diagnostics
+      zip, and the bug report opens ready to submit. You can also <b>Review report</b> to read exactly what was saved.</p>
+      <p>If your internet stopped working after a crash, use the Start menu shortcut <b>Restore internet (NOBAD)</b>
+      first: it removes NOBAD's firewall rules and tunnels even when the app isn't running.</p>
+    </section>
+
+    <section id="inside">
+      <h2><small>03</small>What a report contains</h2>
+      <div class="table-scroll">
+        <table>
+          <tr><th>Included</th><th>Never included</th></tr>
+          <tr><td>App and Windows version, recent log lines, crash reports (the error and where it happened)</td><td>Private and preshared keys (removed, and checked against your real keys a second time)</td></tr>
+          <tr><td>Your NOBAD settings, with trusted networks and window position left out</td><td>Wi-Fi names (hidden) and MAC addresses (masked)</td></tr>
+          <tr><td>Redacted copies of your server configs (endpoints and public keys, so problems can be reproduced)</td><td>Your Windows user name and home folder path</td></tr>
+          <tr><td>Network checks: adapters, routes, NOBAD's firewall rules, WireGuard's own log</td><td>Browsing history, passwords or files from your PC</td></tr>
+        </table>
+      </div>
+      <p>The zip is a normal file: open it and check it before you share it. The pre-filled bug report itself only
+      carries your app version, Windows version and the zip's file name.</p>
+    </section>
+
+    <section id="first">
+      <h2><small>04</small>Try this first</h2>
+      <ul>
+        <li><b>No internet after disconnecting or a crash:</b> <i>Restore internet</i> in the app, the tray menu or the
+        Start menu. <i>Quick repair</i> also flushes DNS and renews your IP address.</li>
+        <li><b>A site won't open:</b> the <b>Intel</b> tab's <i>Know why</i> tests DNS, TCP, TLS and HTTP and tells you
+        which layer failed.</li>
+        <li><b>Windows says "Windows protected your PC":</b> NOBAD isn't code-signed yet. Check the SHA-256 on the
+        <a href="/products/vpn/#releases">download page</a>, then choose <i>More info → Run anyway</i>.</li>
+        <li><b>Running an old version?</b> Install the latest from the <a href="/#downloads">download desk</a>; your
+        servers and settings are kept.</li>
+      </ul>
+    </section>
+
+    <section id="feature">
+      <h2><small>05</small>Request a feature</h2>
+      <p>Ideas are welcome. Tell us the problem you want solved, not only the solution: it often leads to a better
+      fix.</p>
+      <div class="actions">
+        <a class="btn" href="https://github.com/AryanGupta-234/Nobad/issues/new?template=feature_request.yml" target="_blank" rel="noopener noreferrer">Suggest a feature →</a>
+      </div>
+    </section>
+
+    <section id="security">
+      <h2><small>06</small>Security issues</h2>
+      <p>Please <b>don't</b> post security problems as a public issue. Report them privately through GitHub, where only
+      the maintainer can see them. You'll get a reply, and a fix ships as a new release; reporters are credited unless
+      they prefer not to be.</p>
+      <div class="actions">
+        <a class="btn" href="https://github.com/AryanGupta-234/Nobad/security/advisories/new" target="_blank" rel="noopener noreferrer">Report privately →</a>
+        <a class="btn ghost" href="https://github.com/AryanGupta-234/Nobad/blob/main/SECURITY.md" target="_blank" rel="noopener noreferrer">Security policy</a>
+      </div>
+      <div class="contact-cards">
+        <div class="contact-card"><b>Bugs and crashes</b><p>Public GitHub issues, so others with the same problem can find the fix.</p></div>
+        <div class="contact-card"><b>Security</b><p>Private vulnerability reporting on GitHub. Not public until fixed.</p></div>
+        <div class="contact-card"><b>Everything else</b><p><a href="mailto:ludmj99@gmail.com">ludmj99@gmail.com</a>. NOBAD is a small independent project, so please allow a little time.</p></div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<footer>
+  <div class="footer-top">
+    <div>
+      <a class="footer-brand" href="/">NOBAD.</a>
+      <p class="footer-note">Independent software label<br>Built with intent. Released with care.</p>
+    </div>
+    <div class="footer-links">
+      <a href="/#products">Products</a><a href="/products/vpn/">VPN</a><a href="/#downloads">Downloads</a><a href="/support/" aria-current="page">Support</a><a href="https://github.com/AryanGupta-234/Nobad">GitHub</a><a href="/code-signing-policy/">Code signing policy</a><a href="/privacy/">Privacy</a>
+    </div>
+  </div>
+  <div class="footer-bottom"><span>© 2026 NOBAD · MIT-licensed open source</span><span>Independent by design / Internet-connected by choice.</span><span>✦ Built with AI · Open to contributions</span></div>
+</footer>
+</body>
+</html>

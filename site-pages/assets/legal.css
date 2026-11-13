@@ -113,3 +113,18 @@ footer { background: var(--black); color: var(--white); padding: 34px var(--gutt
 .brand { background: var(--black); border: 1px solid rgba(255,255,255,.14); border-radius: 999px; padding: 10px 16px; box-shadow: 0 8px 24px rgba(0,0,0,.18); }
 body { min-height: 100vh; display: flex; flex-direction: column; }
 body > footer { margin-top: auto; }
+
+/* support page: call-to-action buttons, numbered steps and contact cards */
+.actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 22px 0 6px; }
+.legal-body a.btn, .btn { display: inline-flex; align-items: center; gap: 10px; padding: 14px 22px; border-radius: 999px; border: 2px solid var(--black); background: var(--black); color: var(--white); font: 700 12px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; text-decoration: none; transition: transform .2s, background .2s, color .2s; }
+.legal-body a.btn:hover, .btn:hover { transform: translateY(-2px); background: var(--white); color: var(--black); }
+.legal-body a.btn.ghost, .btn.ghost { background: transparent; color: var(--black); }
+.legal-body a.btn.ghost:hover, .btn.ghost:hover { background: var(--black); color: var(--orange); }
+.steps-list { counter-reset: s; list-style: none; padding: 0; margin: 18px 0; }
+.steps-list li { counter-increment: s; position: relative; padding: 14px 0 14px 54px; border-top: 1px solid rgba(0,0,0,.2); }
+.steps-list li::before { content: counter(s, decimal-leading-zero); position: absolute; left: 0; top: 14px; font: 700 12px var(--mono); }
+.contact-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-top: 18px; }
+.contact-card { border: 2px solid var(--black); border-radius: 14px; padding: 18px; background: rgba(0,0,0,.05); }
+.contact-card b { display: block; font: 700 11px var(--mono); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 8px; }
+.contact-card p { margin: 0 0 12px; }
+@media (prefers-reduced-motion: reduce) { .btn, .legal-body a.btn { transition: none; } }

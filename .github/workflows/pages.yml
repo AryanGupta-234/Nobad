@@ -25,13 +25,14 @@ jobs:
         run: python -m json.tool public/releases/vpn/releases.json > /dev/null
       - name: Verify generated pages
         run: |
-          for f in index.html products/vpn/index.html code-signing-policy/index.html privacy/index.html 404.html \
+          for f in index.html products/vpn/index.html code-signing-policy/index.html privacy/index.html support/index.html 404.html \
                    _headers robots.txt sitemap.xml favicon.ico releases/vpn/releases.json \
                    assets/nobad-logo.png assets/nobad-logo-light.png assets/og-image.png assets/legal.css; do
             test -s "public/$f" || { echo "missing public/$f"; exit 1; }
           done
           grep -Fq 'href="/code-signing-policy/"' public/index.html
           grep -Fq 'href="/privacy/"' public/index.html
+          grep -Fq 'href="/support/"' public/index.html
           grep -Fq 'Code signing policy' public/code-signing-policy/index.html
           grep -Fq 'src="/assets/nobad-logo-light.png"' public/products/vpn/index.html
           grep -Fq 'Content-Security-Policy' public/_headers
