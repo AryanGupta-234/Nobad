@@ -2,6 +2,22 @@
 
 All notable changes to NOBAD VPN. Versions follow [semantic versioning](https://semver.org/).
 
+## Unreleased
+
+### Changed
+- **Where to watch is readable again.** With Visual effects off (the default) the window was see-through, so the
+  map and side panel showed through the results. It is now a mostly solid sheet over a darker backdrop; with
+  effects on, the frosted blur stays, a little more opaque.
+- **Night on the map is visible.** The night side is shaded in cool indigo over land and sea, with a soft amber
+  dusk/dawn band, and the day side is slightly warm, matching the "night · live" legend.
+- **Map pins show their ping colour.** NOBAD pings your own servers shortly after start and every 5 minutes, so the
+  green / amber / red colours from the legend appear without opening the Servers tab. The connected server keeps
+  its green ring around its ping colour, and the legend explains grey ("not tested").
+- **A clearer light theme.** Cool grey page and side panel, white cards with a visible edge and soft shadow, tinted
+  inner tiles, darker text, and ping labels that are readable on white.
+- **Lighter, smoother side panel.** Frosted-looking cards from static gradients (no blur cost), hover that only
+  moves the card, and pointer effects updated at most once per frame instead of on every mouse event.
+
 ## 1.3.0 · 2026-11-13
 
 ### Changed

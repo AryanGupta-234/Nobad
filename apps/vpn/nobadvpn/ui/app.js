@@ -10,6 +10,8 @@ const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;"
 const S={hist:{},det:null,connected:false,connecting:null,active:null,since:null,ks:false,settings:{},regions:[],selected:null,exit:null,health:null,rtt:[],rx:[],tx:[],rate:0,ripples:[],pos:{},hover:null,mouse:{x:0,y:0},speed:0,speedTarget:0,speedMax:100,pendingMain:""};
 const fmtRate=b=>b>=1e6?(b/1e6).toFixed(1)+" Mbps":b>=1e3?Math.round(b/1e3)+" kbps":Math.round(b)+" bps";
 const pc=p=>!p||p.rtt==null?"#7b7e87":p.rtt<80?"#3bd69b":p.rtt<180?"#ff9a7c":"#ff5268";
+/* the same scale, dark enough to read as text on the light theme */
+const pcT=p=>!isLight()?pc(p):!p||p.rtt==null?"#5d6270":p.rtt<80?"#13865d":p.rtt<180?"#c4502f":"#cc2942";
 function toast(m,ok){const t=$("#toast");t.className=ok?"ok":"";t.textContent=m;t.style.display="block";clearTimeout(toast.h);toast.h=setTimeout(()=>t.style.display="none",4500)}
 /* ---------- state -> DOM ---------- */
 function applyState(st){
@@ -84,6 +86,9 @@ $("#bTheme").onclick=()=>chooseTheme(document.documentElement.dataset.theme==="d
 $("#themeSwitch").onclick=e=>{const b=e.target.closest("[data-theme-choice]");if(b)chooseTheme(b.dataset.themeChoice)};
 $("#hChips").onclick=e=>{const b=e.target.closest("[data-k]");if(b)api("settings",{key:b.dataset.k,value:!S.settings[b.dataset.k]})};
 setInterval(()=>{if($("#t2").classList.contains("a")&&!S.connecting&&!document.hidden)api("probe",{})},30000);
+/* colour the map pins by ping without opening the Servers tab: once shortly after start, then every 5 min while the
+   window is visible (pings go only to your own servers) */
+setTimeout(()=>{if(!S.connecting)api("probe",{})},4000);setInterval(()=>{if(!S.connecting&&!document.hidden)api("probe",{})},300000);
 function tick(){const u=$("#mUp");if(S.connected&&S.since){let s=Math.floor(Date.now()/1000-S.since);const p=n=>String(n).padStart(2,"0");u.textContent=`${p(Math.floor(s/3600))}:${p(Math.floor(s%3600/60))}:${p(s%60)}`}else u.textContent="—"}
 setInterval(tick,1000);
 const fmtB=n=>n>=1e9?(n/1e9).toFixed(2)+" GB":n>=1e6?(n/1e6).toFixed(1)+" MB":n>=1e3?Math.round(n/1e3)+" KB":(n||0)+" B";
@@ -180,12 +185,20 @@ function sunPos(d){const t=d.getTime()/864e5-10957.5,rad=Math.PI/180,g=(357.529+
  L=(q+1.915*Math.sin(g)+.02*Math.sin(2*g))*rad,e=(23.439-3.6e-7*t)*rad,dec=Math.asin(Math.sin(e)*Math.sin(L)),
  ra=Math.atan2(Math.cos(e)*Math.sin(L),Math.cos(L))/rad,gmst=(280.46061837+360.98564736629*t)%360;
  return{lat:dec/rad,lon:((ra-gmst)%360+540)%360-180}}
-function nightMask(sun){const w=192,h=Math.max(24,Math.round(w*BOX.h/BOX.w)),c=document.createElement("canvas");c.width=w;c.height=h;
+/* Two small images (192 px wide, rebuilt every 5 minutes, then just scaled): "dots" tints the land dots (warm by
+   day, cool indigo by night, amber at dusk/dawn) and "veil" lays the night side and the twilight band over the
+   whole map, oceans included, so the day/night line is visible at a glance. Dark backgrounds can't get darker, so
+   night is shown by hue and contrast, not only by shade. */
+function nightMask(sun,mode){const w=192,h=Math.max(24,Math.round(w*BOX.h/BOX.w)),c=document.createElement("canvas");c.width=w;c.height=h;
  const g=c.getContext("2d"),im=g.createImageData(w,h),d=im.data,rad=Math.PI/180,sd=Math.sin(sun.lat*rad),cd=Math.cos(sun.lat*rad),
- light=isLight(),col=light?[38,50,92]:[6,10,28],A=light?.46:.66;
+ light=isLight(),veil=mode==="veil",
+ NIGHT=light?[44,58,128]:[92,112,210],DAY=light?[255,170,90]:[255,206,150],DUSK=[255,150,70],
+ AN=veil?(light?.12:.16):(light?.46:.58),AD=veil?0:(light?.08:.16),AT=veil?(light?.10:.10):(light?.24:.28);
  for(let y=0;y<h;y++){const la=(MLAT0-(y+.5)/h*MSPAN)*rad,sl=Math.sin(la),cl=Math.cos(la);
   for(let x=0;x<w;x++){const lo=(-180+(x+.5)/w*360-sun.lon)*rad,alt=Math.asin(sl*sd+cl*cd*Math.cos(lo))/rad,
-   n=smooth(Math.min(1,Math.max(0,(4-alt)/14))),k=(y*w+x)*4;d[k]=col[0];d[k+1]=col[1];d[k+2]=col[2];d[k+3]=Math.round(n*A*255)}}
+   n=smooth(Math.min(1,Math.max(0,(2-alt)/12))),tw=Math.max(0,1-Math.abs(alt+2)/4.5),k=(y*w+x)*4,
+   t=smooth(tw)*AT,a=Math.max(n*AN,(1-n)*AD,t),pick=t>=n*AN&&t>=(1-n)*AD?DUSK:n>.5?NIGHT:DAY;
+   d[k]=pick[0];d[k+1]=pick[1];d[k+2]=pick[2];d[k+3]=Math.round(a*255)}}
  g.putImageData(im,0,0);return c}
 setInterval(()=>{if(!document.hidden)invalidate()},300000);          /* the terminator moves ~1.25 deg per 5 min */
 function buildMap(){BOX=mapBox();const key=[W,H,dpr,document.documentElement.dataset.theme,Math.floor(Date.now()/3e5)].join();if(key===MAPKEY)return;MAPKEY=key;
@@ -202,7 +215,7 @@ function buildMap(){BOX=mapBox();const key=[W,H,dpr,document.documentElement.dat
   if(ds<.999&&(hash01(i>>3,j>>2)*.5+hash01(i>>1,j>>1)*.3+hash01(i,j)*.2)>ds*1.1)continue;   /* clumpy, organic thinning: the coast dissolves in patches, never in a straight line */
   g1.fillStyle="rgba("+base+","+(rim?.62:.24+n).toFixed(3)+")";g1.beginPath();g1.arc(x,y,r,0,6.3);g1.fill();
   g2.fillStyle="rgba("+hi+","+(rim?.95:.75)+")";g2.beginPath();g2.arc(x,y,r*1.1,0,6.3);g2.fill()}
- const SUN=sunPos(new Date());SUNP=SUN;{const nm=nightMask(SUN);g1.save();g1.globalCompositeOperation="source-atop";
+ const SUN=sunPos(new Date());SUNP=SUN;{const nm=nightMask(SUN,"dots");g1.save();g1.globalCompositeOperation="source-atop";
   g1.imageSmoothingEnabled=true;g1.imageSmoothingQuality="high";g1.drawImage(nm,BOX.x,BOX.y,BOX.w,BOX.h);g1.restore()}
  /* soft glow without a GPU blur filter: shrink the dots to 1/5 size and stretch them back (bilinear = free blur) */
  const[c3,g3]=mkCanvas();GLOWC=c3;const sm=document.createElement("canvas");sm.width=Math.max(1,Math.round(W/5));sm.height=Math.max(1,Math.round(H/5));
@@ -216,6 +229,8 @@ function buildMap(){BOX=mapBox();const key=[W,H,dpr,document.documentElement.dat
  g4.save();g4.translate(cxm,cym);g4.scale(1,.62);g4.translate(-cxm,-cym);g4.fillStyle=sky;g4.fillRect(-W,-H*3,W*3,H*7);g4.restore();
  if(SUN.lat<=MLAT0&&SUN.lat>=MLAT0-MSPAN){const sp=proj(SUN.lat,SUN.lon),sr=BOX.h*.42,sg=g4.createRadialGradient(sp.x,sp.y,0,sp.x,sp.y,sr);
   [[0,light?.10:.13],[.4,light?.04:.05],[1,0]].forEach(([p,a])=>sg.addColorStop(p,"rgba(255,196,120,"+a+")"));g4.fillStyle=sg;g4.fillRect(sp.x-sr,sp.y-sr,sr*2,sr*2)}
+ {const[c5,g5]=mkCanvas();g5.imageSmoothingEnabled=true;g5.imageSmoothingQuality="high";      /* night side + twilight band over the oceans too */
+  g5.drawImage(nightMask(SUN,"veil"),BOX.x,BOX.y,BOX.w,BOX.h);fadeMask(g5);g4.drawImage(c5,0,0,W,H)}
  g4.globalAlpha=.55;g4.drawImage(c3,0,0,W,H);g4.globalAlpha=1;g4.drawImage(c1,0,0,W,H);BASEC=c4}
 function regLoc(r,i){const q=r.geo;if(q&&q.lat!=null)return[q.lat,q.lon];return guessPlace(r.name)||[15,-160+i*45]}
 function homeLoc(){const h=S.home;if(h&&h.lat!=null)return[h.lat,h.lon];return[25,-new Date().getTimezoneOffset()/60*15]}
@@ -285,14 +300,14 @@ function drawMap(){const g=cx;g.clearRect(0,0,W,H);buildMap();if(BASEC)g.drawIma
  g.fillStyle=cssv("--canvas-muted","#9aa7bd");g.font="11px "+FONTS;g.textAlign="center";g.fillText("You",hp.x,hp.y+23);
  const LBL=[{x:hp.x-14,y:hp.y+12,w:28,h:14},{x:hp.x-9,y:hp.y-9,w:18,h:18}];   /* keep "You" and its dot clear */
  S.regions.forEach(r=>{const q=S.pos[r.name];LBL.push({x:q.x-9,y:q.y-9,w:18,h:18})});   /* and every pin */
- S.regions.forEach(r=>{const p=S.pos[r.name],isA=r.name===act,isS=r.name===S.selected,isH=S.hover&&S.hover.name===r.name,pcol=isA?col:pc(r.ping),rad=isA?7:5.5;
+ S.regions.forEach(r=>{const p=S.pos[r.name],isA=r.name===act,isS=r.name===S.selected,isH=S.hover&&S.hover.name===r.name,pcol=isA&&!(r.ping&&r.ping.rtt!=null)?col:pc(r.ping),rad=isA?7:5.5;
   if(isA){g.strokeStyle=col;g.globalAlpha=.35;g.lineWidth=1.4;g.beginPath();g.arc(p.x,p.y,rad+9,0,6.3);g.stroke();g.globalAlpha=1;g.shadowColor=col;g.shadowBlur=18}
   g.fillStyle=pcol;g.beginPath();g.arc(p.x,p.y,rad+(isH?1.5:0),0,6.3);g.fill();g.shadowBlur=0;g.strokeStyle="rgba(5,8,16,.9)";g.lineWidth=2;g.stroke();if(r.ping&&r.ping.rtt!=null){const qv=Math.max(.08,Math.min(1,1-r.ping.rtt/300));g.strokeStyle=pcol;g.globalAlpha=.6;g.lineWidth=1.6;g.beginPath();g.arc(p.x,p.y,rad+4.5,-Math.PI/2,-Math.PI/2+qv*6.283);g.stroke();g.globalAlpha=1}
   if(isS&&!isA){g.setLineDash([3,3]);g.strokeStyle=isLight()?"rgba(30,34,48,.7)":"rgba(255,255,255,.7)";g.lineWidth=1.2;g.beginPath();g.arc(p.x,p.y,rad+6,0,6.3);g.stroke();g.setLineDash([])}
   const nm=r.name.length>14?r.name.slice(0,13)+"…":r.name,ms=r.ping&&r.ping.rtt!=null?(r.ping.est?"~":"")+r.ping.rtt+" ms":"";
   g.font="600 12px "+FONTS;const nw=g.measureText(nm).width,L=placeLabel(p,nw,!!ms,LBL);
   g.textAlign=L.align;g.fillStyle=cssv("--canvas-label","#eaf1fb");g.fillText(nm,L.x,L.y);
-  if(ms){g.font="11px "+FONTS;g.fillStyle=pcol;g.fillText(ms,L.x,L.y2)}
+  if(ms){g.font="11px "+FONTS;g.fillStyle=isA&&!(r.ping&&r.ping.rtt!=null)?pcol:pcT(r.ping);g.fillText(ms,L.x,L.y2)}
   HIT.push({t:"n",name:r.name,x:p.x,y:p.y,r:18,r2:r})});
  if(!S.regions.length){g.fillStyle="#7d8aa0";g.font="13px "+FONTS;g.textAlign="center";g.fillText("No servers yet — import a WireGuard .conf (Servers tab)",W/2,H/2)}
  if(S.hover&&S.hover.t==="n"){const r=S.hover.r2,q=r.geo,lines=[r.name+(q&&q.city?" · "+q.city+(q.country?", "+q.country:""):""),(r.host||"?")+(r.port?":"+r.port:""),r.ping&&r.ping.rtt!=null?r.ping.rtt+" ms · "+r.ping.loss+"% loss · "+r.ping.src:"not measured yet","click to connect"];
@@ -318,9 +333,15 @@ cv.addEventListener("mousemove",e=>{const prev=S.hover&&S.hover.name,h=hit(e);S.
 cv.addEventListener("mouseleave",()=>{if(S.hover){S.hover=null;invalidate()}});
 cv.addEventListener("click",e=>{const h=hit(e);if(!h)return;S.selected=h.name;if(!(S.connected&&S.active===h.name)&&!S.connecting&&!S.pendingMain){beginMainAction("Connecting to "+h.name+"…");api("connect",{name:h.name}).then(r=>{if(!r.ok){S.pendingMain="";render();toast(r.error||"Could not connect")}})}render()});
 function mainAction(){if(S.pendingMain||S.connecting)return;if(S.connected){beginMainAction("Disconnecting…");api("disconnect",{}).then(r=>{if(!r.ok){S.pendingMain="";render();toast(r.error||"Could not disconnect")}})}else if(S.selected){beginMainAction("Connecting…");api("connect",{name:S.selected}).then(r=>{if(!r.ok){S.pendingMain="";render();toast(r.error||"Could not connect")}})}else{sendTask("#bFast","Comparing servers…","fastest",{},"fastest")}}
-document.addEventListener("pointermove",e=>{const c=e.target.closest&&e.target.closest(".card,.m");if(c){const r=c.getBoundingClientRect();c.style.setProperty("--mx",(e.clientX-r.left)+"px");c.style.setProperty("--my",(e.clientY-r.top)+"px")}
- const v=$("#view");if(v){const r=v.getBoundingClientRect();v.style.setProperty("--gx",(e.clientX-r.left)+"px");v.style.setProperty("--gy",(e.clientY-r.top)+"px")}});
-document.addEventListener("pointermove",e=>{const b=e.target.closest&&e.target.closest("button");if(b){const r=b.getBoundingClientRect();b.style.setProperty("--bx",(e.clientX-r.left)+"px");b.style.setProperty("--by",(e.clientY-r.top)+"px")}});
+// Hover light that follows the pointer: at most one update per frame (pointermove can fire 100+ times a second, and
+// each update used to force a layout and a repaint), and the map glow only while the pointer is over the map with
+// visual effects on (a variable on #view restyles the whole map subtree).
+let ptrEv=null;
+function ptrFrame(){const e=ptrEv;ptrEv=null;if(!e||!e.target||!e.target.closest)return;
+ const c=e.target.closest(".card,.m");if(c){const r=c.getBoundingClientRect();c.style.setProperty("--mx",(e.clientX-r.left)+"px");c.style.setProperty("--my",(e.clientY-r.top)+"px")}
+ const b=e.target.closest("button");if(b){const r=b.getBoundingClientRect();b.style.setProperty("--bx",(e.clientX-r.left)+"px");b.style.setProperty("--by",(e.clientY-r.top)+"px")}
+ const v=document.body.classList.contains("fx")&&e.target.closest("#view");if(v){const r=v.getBoundingClientRect();v.style.setProperty("--gx",(e.clientX-r.left)+"px");v.style.setProperty("--gy",(e.clientY-r.top)+"px")}}
+document.addEventListener("pointermove",e=>{if(!ptrEv)requestAnimationFrame(ptrFrame);ptrEv=e},{passive:true});
 document.addEventListener("pointerdown",e=>{const b=e.target.closest&&e.target.closest("button");if(!b||b.disabled||b.classList.contains("sw2"))return;const r=b.getBoundingClientRect(),s=document.createElement("i"),d=Math.max(r.width,r.height)*2;s.className="rip";s.style.cssText="width:"+d+"px;height:"+d+"px;left:"+(e.clientX-r.left-d/2)+"px;top:"+(e.clientY-r.top-d/2)+"px";b.appendChild(s);setTimeout(()=>s.remove(),600)});
 /* ---------- instantaneous action feedback ---------- */
 const TASK_BUTTONS={fastest:["#bFast","↗ Fastest"],probe:["#bProbe","Probe all"],speed:["#bSpeed","Run speed test"],stream:["#bStream","Check"],network_diagnose:["#bNetCheck","Run network check"],valorant_manual:["#bValorant","Refresh all"],gaming:["#bGameCheck","Test custom"],ipinfo:["#bIp","Refresh"],flush_dns:["#bFlushDns","Clear DNS cache"],rescan:["#bRescan","Rescan"]};
