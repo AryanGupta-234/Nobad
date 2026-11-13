@@ -317,3 +317,42 @@ def test_installed_app_never_runs_winget(monkeypatch):
     ok, msg = wginstall.install(sig=lambda p: False, downloader=lambda: (_ for _ in ()).throw(OSError("offline")),
                                 installed=lambda: False)
     assert not ok and not any("winget" in str(c) for c in calls) and "winget skipped" in msg
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows junctions")
+def test_diagnostics_copy_refuses_links_and_never_overwrites(tmp_path):
+    """#20: the elevated export never writes through a planted link or over an existing file."""
+    from nobadvpn import diagnostics
+    src = tmp_path / "nobad-diagnostics.zip"
+    src.write_bytes(b"zip")
+    desk = tmp_path / "Desktop"
+    desk.mkdir()
+    (desk / "nobad-diagnostics.zip").write_bytes(b"theirs")
+    final = diagnostics.copy_to_user_folder(str(src), str(desk))
+    assert os.path.basename(final) == "nobad-diagnostics (1).zip" and open(final, "rb").read() == b"zip"
+    assert (desk / "nobad-diagnostics.zip").read_bytes() == b"theirs"
+    victim = tmp_path / "victim"
+    victim.mkdir()
+    link = tmp_path / "LinkedDesktop"
+    _junction(link, victim)
+    with pytest.raises(OSError):
+        diagnostics.copy_to_user_folder(str(src), str(link))
+    assert not os.listdir(victim)
+    pick = {"Desktop": str(link), "Downloads": str(desk)}
+    assert diagnostics.user_destination(pick.get) == str(desk)          # the linked Desktop is skipped
+    assert diagnostics.user_destination(lambda n: None) == diagnostics.EXPORT_DIR
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows named events")
+def test_show_window_request_needs_no_file():
+    """#20: the launcher asks for the window through a session event, not a file the elevated app deletes."""
+    from nobadvpn import autostart
+    assert not autostart.consume_show_flag()
+    h = autostart.request_show()
+    try:
+        assert autostart.show_requested() and autostart.show_requested()   # peeking doesn't take it
+        assert autostart.consume_show_flag() and not autostart.consume_show_flag()
+        assert autostart.wait_show_taken(h, 1)
+    finally:
+        autostart._close(h)
+    assert not autostart.show_requested()

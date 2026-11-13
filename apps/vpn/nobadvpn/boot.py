@@ -35,8 +35,8 @@ def early_splash(argv):
     set_app_identity()
     try:
         import ctypes
-        from .const import SHOW_FLAG_PATH
-        if not wants_splash(argv, ctypes.windll.shell32.IsUserAnAdmin(), os.path.exists(SHOW_FLAG_PATH)):
+        from .autostart import show_requested
+        if not wants_splash(argv, ctypes.windll.shell32.IsUserAnAdmin(), show_requested()):
             return None
         from . import splash
         return splash.show()

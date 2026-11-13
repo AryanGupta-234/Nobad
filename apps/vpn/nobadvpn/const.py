@@ -22,7 +22,9 @@ else:
 _FOLDERID = {"ProgramData": "{62AB5D82-FDC1-4DC3-A9DD-070D1D495D97}",
              "ProgramFiles": "{905E63B6-C1BF-494E-B29C-65B732D3D21A}",
              "ProgramFilesX86": "{7C5A40EF-A0FB-4BFC-874A-C0F2E0B9FA8E}",
-             "Windows": "{F38BF404-1D43-42F2-9305-67DE0B28FC23}"}
+             "Windows": "{F38BF404-1D43-42F2-9305-67DE0B28FC23}",
+             "Desktop": "{B4BFCC3A-DB2C-424C-B029-7FE99A87C641}",
+             "Downloads": "{374DE290-123F-4565-9164-39C4925E467B}"}
 
 
 def known_folder(name):
@@ -72,8 +74,6 @@ SETTINGS_PATH = os.path.join(DATA_DIR, "settings.json")
 LEGACY_SETTINGS_PATH = os.path.join(BASE_DIR, "tunnel_settings.json")
 INSTANCE_PATH = os.path.join(DATA_DIR, "instance.json")
 CLEAN_EXIT_PATH = os.path.join(DATA_DIR, "clean_exit.flag")
-USER_DIR = os.path.join(os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"), "NobadVPN")
-SHOW_FLAG_PATH = os.path.join(USER_DIR, "show_window.flag")  # user-writable: lets a non-elevated launcher ask for the window
 
 WG_DIRS = [r"C:\Program Files\WireGuard", r"C:\Program Files (x86)\WireGuard"]
 # Who may sign updates. Default (both empty): the SAME publisher name as the signed NobadVPN.exe that is running.

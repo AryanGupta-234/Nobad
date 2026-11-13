@@ -12,8 +12,9 @@ import html
 import os
 import re
 import sys
+import time
 
-from .const import FROZEN, LEGACY_TASK_NAME, SHOW_FLAG_PATH, TASK_NAME, known_folder
+from .const import FROZEN, LEGACY_TASK_NAME, TASK_NAME, known_folder
 from .syscmd import entry_command, run
 
 LAUNCH_TASK = TASK_NAME + " Launcher"
@@ -196,23 +197,94 @@ def launch_via_task(show_window=True):
     for name in (LAUNCH_TASK, TASK_NAME):
         if not action_matches(task_action(name), exe, args):
             continue  # missing, or a stale task from another install location
+        ev = request_show() if show_window else None
         try:
-            if show_window:
-                os.makedirs(os.path.dirname(SHOW_FLAG_PATH), exist_ok=True)
-                with open(SHOW_FLAG_PATH, "w") as f:
-                    f.write("1")
-        except OSError:
-            pass
-        if run(["schtasks", "/Run", "/TN", name], timeout=20).returncode == 0:
-            return True
+            if run(["schtasks", "/Run", "/TN", name], timeout=20).returncode == 0:
+                if ev:
+                    wait_show_taken(ev)
+                return True
+        finally:
+            _close(ev)
     return False
+
+
+# ---- "show the window" hand-off (#20)
+# The non-elevated launcher asks the elevated app to show its window. This used to be a file in %LOCALAPPDATA%
+# that the elevated app deleted, and a planted junction/link could turn that delete against any file. A named event
+# in this sign-in session needs no file at all: the launcher creates it signalled and keeps it open until the app
+# has reset it (or a timeout), and the app only opens it and resets it.
+SHOW_EVENT = r"Local\NobadVPN.ShowWindow"
+_EVENT_MODIFY_STATE, _SYNCHRONIZE = 0x0002, 0x00100000
+
+
+def _kernel32():
+    import ctypes
+    from ctypes import wintypes
+    k = ctypes.WinDLL("kernel32", use_last_error=True)
+    k.CreateEventW.restype = wintypes.HANDLE
+    k.CreateEventW.argtypes = (wintypes.LPVOID, wintypes.BOOL, wintypes.BOOL, wintypes.LPCWSTR)
+    k.OpenEventW.restype = wintypes.HANDLE
+    k.OpenEventW.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.LPCWSTR)
+    k.WaitForSingleObject.argtypes = (wintypes.HANDLE, wintypes.DWORD)
+    k.ResetEvent.argtypes = (wintypes.HANDLE,)
+    k.CloseHandle.argtypes = (wintypes.HANDLE,)
+    return k
+
+
+def _close(h):
+    if h:
+        try:
+            _kernel32().CloseHandle(h)
+        except Exception:
+            pass
+
+
+def request_show():
+    """Launcher side: a manual-reset event, signalled. Returns the handle (keep it open) or None."""
+    if os.name != "nt":
+        return None
+    try:
+        return _kernel32().CreateEventW(None, True, True, SHOW_EVENT) or None
+    except Exception:
+        return None
+
+
+def wait_show_taken(h, timeout=15.0):
+    """Launcher side: wait until the elevated app has taken the request (reset the event), so it still exists
+    when the app looks for it."""
+    k = _kernel32()
+    end = time.monotonic() + timeout
+    while time.monotonic() < end:
+        if k.WaitForSingleObject(h, 0) != 0:      # no longer signalled: the app took it
+            return True
+        time.sleep(0.1)
+    return False
+
+
+def _show_event(reset):
+    if os.name != "nt":
+        return False
+    try:
+        k = _kernel32()
+        h = k.OpenEventW(_EVENT_MODIFY_STATE | _SYNCHRONIZE, False, SHOW_EVENT)
+        if not h:
+            return False
+        try:
+            wanted = k.WaitForSingleObject(h, 0) == 0
+            if wanted and reset:
+                k.ResetEvent(h)
+            return wanted
+        finally:
+            k.CloseHandle(h)
+    except Exception:
+        return False
+
+
+def show_requested():
+    """App side, early (splash decision): is a window wanted? Doesn't take the request."""
+    return _show_event(reset=False)
 
 
 def consume_show_flag():
-    try:
-        if os.path.exists(SHOW_FLAG_PATH):
-            os.remove(SHOW_FLAG_PATH)
-            return True
-    except OSError:
-        pass
-    return False
+    """App side: take the request to show the window, if there is one."""
+    return _show_event(reset=True)

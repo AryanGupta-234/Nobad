@@ -50,8 +50,9 @@ this order:
 1. If the command is not `--panic` / `--repair-network`, `autostart.launch_via_task()` tries to start an elevated
    scheduled task: first `NobadVPN Launcher`, then `NobadVPN` (start with Windows). A task is used only if its action
    matches this install (`action_matches`), so a stale task from another install location is skipped. If a window
-   is wanted, the launcher first writes `%LOCALAPPDATA%\NobadVPN\show_window.flag`; the elevated copy (started with
-   `--background`) consumes that flag and shows its window. This is the "no-UAC launcher".
+   is wanted, the launcher creates the signalled session event `Local\NobadVPN.ShowWindow` and holds it until the
+   elevated copy (started with `--background`) has reset it and shown its window (at most 15 s). No file is involved,
+   so the elevated copy never deletes anything in the user's folders. This is the "no-UAC launcher".
 2. Otherwise `syscmd.try_self_elevate()` re-runs the same command line with `ShellExecuteW(..., "runas", ...)`, which
    shows a UAC prompt.
 

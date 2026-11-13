@@ -65,14 +65,13 @@ SYSTEM and Administrators only. Setting the environment variable `NOBAD_DATA_DIR
 | `netintel\fix_profiles.json` | DNS fixes the agent made, per network |
 | `crash\crash-<time>.json` | crash reports (always saved locally); renamed to `.sent` or `.dismissed` |
 | `crash\error-<time>.json` | non-fatal background-thread errors (newest 20 kept) |
-| `exports\NobadDiagnostics-<date>-<time>.zip` | diagnostics bundles (also copied to Desktop or Downloads) |
+| `exports\NobadDiagnostics-<date>-<time>.zip` | diagnostics bundles (also copied to your Desktop or Downloads, found through Windows known folders; skipped if that folder is a link, and an existing file is never replaced) |
 | `updates\` | downloaded update installers; a downloaded WireGuard MSI is deleted after use |
 
 ### 2.2 Other locations
 
 | Path | Contents |
 |---|---|
-| `%LOCALAPPDATA%\NobadVPN\show_window.flag` | written by a non-elevated launch to ask the elevated copy (started by the launcher task) to show its window; deleted when read |
 | `C:\ProgramData\NomadTunnel` | old product's data folder: **read** once (copied into `NobadVPN` if `NobadVPN\settings.json` does not exist yet), never deleted |
 | `<app folder>\tunnel_settings.json`, `<app folder>\configs\` | very old locations, read once for migration; NOBAD logs a warning to delete the old configs (they may be synced to the cloud) |
 | WebView2 user data | managed by pywebview / WebView2; the UI stores only the theme in `localStorage` (`nobad-theme`) |
@@ -296,5 +295,5 @@ Kept on purpose:
 * **WireGuard for Windows** (other apps or the user may rely on it). Remove it in *Settings → Apps* if wanted.
 * **`C:\ProgramData\NobadVPN`**, which holds your configs and private keys, settings, history and logs. Delete it by
   hand if wanted.
-* `%LOCALAPPDATA%\NobadVPN` (at most a leftover `show_window.flag`) and `C:\ProgramData\NomadTunnel`, if present, are
+* `%LOCALAPPDATA%\NobadVPN` (only a leftover `show_window.flag` from before 1.3.0) and `C:\ProgramData\NomadTunnel`, if present, are
   not removed either.

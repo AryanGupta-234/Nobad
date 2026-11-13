@@ -143,9 +143,44 @@ def build_bundle(out_dir=None, tunnel=None, files=None):
     return path
 
 
-def user_destination():
-    for sub in ("Desktop", "Downloads"):
-        d = os.path.join(os.path.expanduser("~"), sub)
-        if os.path.isdir(d):
+def _is_link_free(d):
+    """True when no part of `d` is a junction, mount point or symbolic link (#20)."""
+    try:
+        return os.path.normcase(os.path.realpath(d)) == os.path.normcase(os.path.abspath(d))
+    except OSError:
+        return False
+
+
+def user_destination(folder_fn=None):
+    """Desktop, else Downloads, from Windows (never from environment variables), else NOBAD's own export folder.
+    The elevated app writes there, so a folder that is (or passes through) a link is skipped (#20)."""
+    from .const import known_folder
+    folder_fn = folder_fn or known_folder
+    for name in ("Desktop", "Downloads"):
+        d = folder_fn(name)
+        if d and os.path.isdir(d) and _is_link_free(d):
             return d
     return EXPORT_DIR
+
+
+def copy_to_user_folder(src, dest_dir):
+    """Copy the bundle into a user folder without following or replacing anything already there: the file is
+    created new (O_EXCL), so a planted file or link with that name makes the copy fail instead of redirecting it."""
+    if not _is_link_free(dest_dir):
+        raise OSError(f"{dest_dir} is a link; not writing there")
+    base, ext = os.path.splitext(os.path.basename(src))
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
+    for i in range(20):
+        final = os.path.join(dest_dir, base + (f" ({i})" if i else "") + ext)
+        try:
+            fd = os.open(final, flags, 0o600)
+        except FileExistsError:
+            continue
+        with os.fdopen(fd, "wb") as out, open(src, "rb") as f:
+            while True:
+                chunk = f.read(1 << 20)
+                if not chunk:
+                    break
+                out.write(chunk)
+        return final
+    raise OSError("couldn't find a free file name")

@@ -230,7 +230,7 @@ can't undo the reset.
 
 | Variable | Effect |
 |---|---|
-| `NOBAD_DATA_DIR` | replaces `C:\ProgramData\NobadVPN` for everything (settings, configs, runtime, logs, journal, history, instance file). It also disables the NOMAD Tunnel data migration. Used by the tests and for portable setups. `%LOCALAPPDATA%\NobadVPN\show_window.flag` is not affected. |
+| `NOBAD_DATA_DIR` | replaces `C:\ProgramData\NobadVPN` for everything (settings, configs, runtime, logs, journal, history, instance file). It also disables the NOMAD Tunnel data migration. Used by the tests and for portable setups. |
 | `NOBAD_SIGN_THUMBPRINT`, `NOBAD_SIGN_DLIB` + `NOBAD_SIGN_METADATA`, `NOBAD_SIGN_PFX` + `NOBAD_SIGN_PASS`, `NOBAD_RELEASE_URL` | build-time only (`packaging/build.ps1`): code signing and the URL written into `latest.json`. See [CODE-SIGNING.md](CODE-SIGNING.md). |
 
 Build script switches: `-AppOnly` (only `dist\NobadVPN\`), `-InstallTools` (install Inno Setup with winget).

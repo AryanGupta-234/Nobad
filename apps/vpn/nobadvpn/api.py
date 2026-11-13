@@ -359,9 +359,10 @@ def h_diagnostics_export(b):
             dest = diagnostics.user_destination()
             final = path
             if dest != EXPORT_DIR:
-                import shutil
-                final = os.path.join(dest, os.path.basename(path))
-                shutil.copy2(path, final)
+                try:
+                    final = diagnostics.copy_to_user_folder(path, dest)
+                except OSError as e:
+                    log(f"couldn't copy diagnostics to {dest} ({e}); it stays in NOBAD's export folder", "warn")
             log(f"diagnostics saved: {final}", "ok")
             broadcast("fix_result", {"ok": True, "message": f"Diagnostics saved to {final} (keys removed)."})
             if os.name == "nt":
