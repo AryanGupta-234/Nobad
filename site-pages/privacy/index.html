@@ -12,23 +12,27 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap">
 <link rel="stylesheet" href="/assets/legal.css">
 <script src="/assets/smooth.js" defer></script>
+<link rel="stylesheet" href="/assets/site.css">
+<script src="/assets/site.js" defer></script>
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
 
 <nav class="site-nav" aria-label="Main navigation">
-  <a class="brand" href="/" aria-label="NOBAD home"><img class="brand-logo" src="/assets/nobad-logo-light.png" alt="nobad." width="1086" height="362"></a>
-  <div class="nav-pill">
-    <a href="/#products">Products</a><a href="/products/vpn/">VPN</a><a href="/#downloads">Downloads</a><a href="/support/">Support</a><a href="/code-signing-policy/">Code signing</a><a href="/privacy/" aria-current="page">Privacy</a>
-  </div>
-  <a class="nav-back" href="/">← Main site</a>
-</nav>
+    <a class="brand" href="/" aria-label="nobad home"><img class="brand-logo" src="/assets/nobad-logo-light.png" alt="nobad." width="1086" height="362"></a>
+    <button class="menu-toggle" id="menuToggle" type="button" aria-expanded="false" aria-controls="navPill">MENU +</button>
+    <div class="nav-pill" id="navPill"><a href="/#products">Products</a><a href="/products/vpn/">VPN</a><a href="/#services">What we do</a><a href="/#downloads">Downloads</a><a href="/support/">Support</a><a href="/#about">About</a></div>
+    <div class="nav-social" aria-label="Social links">
+      <a class="icon-link" href="https://github.com/AryanGupta-234/Nobad" target="_blank" rel="noopener noreferrer" aria-label="NOBAD on GitHub"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .9a11.1 11.1 0 0 0-3.51 21.63c.56.1.76-.24.76-.54v-2.08c-3.1.67-3.76-1.32-3.76-1.32-.5-1.28-1.24-1.62-1.24-1.62-1.01-.69.08-.68.08-.68 1.12.08 1.71 1.15 1.71 1.15.99 1.7 2.59 1.21 3.22.93.1-.72.39-1.21.7-1.49-2.47-.28-5.07-1.24-5.07-5.52 0-1.22.44-2.22 1.15-3-.12-.28-.5-1.42.11-2.96 0 0 .94-.3 3.06 1.15a10.6 10.6 0 0 1 5.57 0c2.12-1.45 3.06-1.15 3.06-1.15.61 1.54.23 2.68.11 2.96.72.78 1.15 1.78 1.15 3 0 4.29-2.6 5.23-5.08 5.51.4.35.75 1.03.75 2.08v3.09c0 .3.2.65.77.54A11.1 11.1 0 0 0 12 .9Z"/></svg></a>
+      <a class="icon-link" href="mailto:ludmj99@gmail.com" aria-label="Email nobad"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="1"/><path d="m3 7 9 7 9-7"/></svg></a>
+    </div>
+  </nav>
 
 <header class="legal-hero">
   <div class="wrap">
     <p class="section-index">Policy / 02</p>
-    <h1>Privacy<br>policy</h1>
-    <p class="legal-lede">We don't sell data, we don't run user accounts, and NOBAD VPN has no telemetry.</p>
+    <h1 class="page-title">Privacy<br>policy</h1>
+    <p class="legal-lede page-lede">We don't sell data, we don't run user accounts, and NOBAD VPN has no telemetry.</p>
     <div class="legal-meta"><span>NOBAD · independent, free and open source</span><span>Applies to NOBAD VPN and this website</span><span>Updated 12 Nov 2026</span></div>
   </div>
 </header>
@@ -100,17 +104,15 @@
   </div>
 </main>
 
-<footer>
-  <div class="footer-top">
-    <div>
-      <a class="footer-brand" href="/">NOBAD.</a>
-      <p class="footer-note">Independent software label<br>Built with intent. Released with care.</p>
+<footer class="site-footer">
+    <div class="footer-top">
+      <div>
+        <a class="footer-brand" href="/">NOBAD.</a>
+        <p class="footer-note">Independent software label<br>Built with intent. Released with care.</p>
+      </div>
+      <div class="footer-links"><a href="/#products">Products</a><a href="/products/vpn/">VPN</a><a href="/#services">What we do</a><a href="/#downloads">Downloads</a><a href="/#about">About</a><a href="/support/">Support</a><a href="mailto:ludmj99@gmail.com">Contact</a><a href="https://github.com/AryanGupta-234/Nobad">GitHub</a><a href="/code-signing-policy/">Code signing policy</a><a href="/privacy/" aria-current="page">Privacy</a></div>
     </div>
-    <div class="footer-links">
-      <a href="/#products">Products</a><a href="/products/vpn/">VPN</a><a href="/#downloads">Downloads</a><a href="/support/">Support</a><a href="https://github.com/AryanGupta-234/Nobad">GitHub</a><a href="mailto:ludmj99@gmail.com">Contact</a><a href="/code-signing-policy/">Code signing policy</a><a href="/privacy/" aria-current="page">Privacy</a>
-    </div>
-  </div>
-  <div class="footer-bottom"><span>© 2026 NOBAD · MIT-licensed open source</span><span>Independent by design / Internet-connected by choice.</span><span>✦ Built with AI · Open to contributions</span></div>
-</footer>
+    <div class="footer-bottom"><span>© <span id="year" data-year>2026</span> NOBAD. All rights reserved.</span><span>Made by <a href="https://github.com/AryanGupta-234">Aryan Gupta</a> · MIT-licensed open source</span><span class="tm-note">WireGuard is a registered trademark of Jason A. Donenfeld. Other names are trademarks of their owners; NOBAD is not affiliated with them.</span><span class="ai-mark" title="Developed in collaboration with AI">✦ Built with AI · Open to contributions</span></div>
+  </footer>
 </body>
 </html>

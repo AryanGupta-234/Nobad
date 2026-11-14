@@ -1,0 +1,81 @@
+/* Shared chrome and scale for every NOBAD page: navigation, footer, page titles, labels and the glass material.
+   Loaded after each page's own styles, so these rules win and every page looks like one site. */
+:root {
+  --nb-o: #FF4D00; --nb-k: #000; --nb-w: #fff;
+  --nb-mono: "Space Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --nb-display: "Archivo Black", Impact, Haettenschweiler, sans-serif;
+  --nb-gutter: clamp(20px, 4vw, 64px);
+  --nb-glass: linear-gradient(150deg, rgba(28,28,28,.58), rgba(8,8,8,.46));
+  --nb-glass-deep: linear-gradient(150deg, rgba(20,20,20,.76), rgba(6,6,6,.66));
+  --nb-glass-light: linear-gradient(150deg, rgba(255,255,255,.3), rgba(255,255,255,.08));
+  --nb-edge: rgba(255,255,255,.16);
+  --nb-blur: blur(14px) saturate(1.5);
+  --nb-shine: inset 0 1px 0 rgba(255,255,255,.14), inset 0 -1px 0 rgba(0,0,0,.2);
+  /* one type scale for all pages */
+  --nb-title: clamp(56px, 9.5vw, 150px);      /* page titles (VPN, support, policies) */
+  --nb-h2: clamp(38px, 5.4vw, 80px);          /* section headings */
+  --nb-pad: clamp(60px, 7vw, 112px);          /* section spacing */
+}
+html { scroll-padding-top: 100px; }
+
+/* ---------- navigation: the same bar on every page ---------- */
+.site-nav { position: fixed; z-index: 1000; top: 18px; left: 0; right: 0; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; padding-inline: var(--nb-gutter); pointer-events: none; color: var(--nb-w); }
+.site-nav > * { pointer-events: auto; }
+.site-nav .brand, .site-nav .nav-pill, .site-nav .icon-link, .site-nav .menu-toggle {
+  background: var(--nb-glass); border: 1px solid var(--nb-edge);
+  -webkit-backdrop-filter: var(--nb-blur); backdrop-filter: var(--nb-blur);
+  box-shadow: var(--nb-shine), 0 10px 30px rgba(0,0,0,.18);
+  transition: background .3s, color .2s, transform .2s;
+}
+.site-nav .brand { display: inline-flex; align-items: center; justify-self: start; width: fit-content; padding: 10px 16px; border-radius: 999px; color: var(--nb-w); text-decoration: none; font: inherit; }
+.site-nav .brand:hover { transform: translateY(-1px); }
+.site-nav .brand-logo { display: block; width: 104px; height: auto; max-height: none; flex: none; }
+.site-nav .nav-pill { display: flex; align-items: center; gap: 4px; padding: 6px; border-radius: 999px; }
+.site-nav .nav-pill a { padding: 11px 17px; border-radius: 999px; color: var(--nb-w); background: transparent; font: 400 11px var(--nb-mono); letter-spacing: 0; text-transform: uppercase; text-decoration: none; white-space: nowrap; transition: background .2s, color .2s, transform .2s; }
+.site-nav .nav-pill a:hover, .site-nav .nav-pill a[aria-current] { color: var(--nb-k); background: rgba(255,255,255,.92); transform: translateY(-1px); }
+.site-nav .nav-social { justify-self: end; display: flex; align-items: center; gap: 8px; }
+.site-nav .icon-link { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; color: var(--nb-w); }
+.site-nav .icon-link svg { width: 15px; height: 15px; }
+.site-nav .icon-link:hover { background: rgba(255,255,255,.92); color: var(--nb-k); transform: scale(1.08); }
+.site-nav .menu-toggle { display: none; justify-self: end; padding: 11px 16px; border-radius: 999px; color: var(--nb-w); font: 700 11px var(--nb-mono); letter-spacing: .02em; cursor: pointer; }
+.site-nav.scrolled .brand, .site-nav.scrolled .nav-pill, .site-nav.scrolled .icon-link, .site-nav.scrolled .menu-toggle { background: var(--nb-glass-deep); }
+@media (max-width: 900px) {
+  .site-nav { grid-template-columns: 1fr auto; }
+  .site-nav .menu-toggle { display: inline-flex; }
+  .site-nav .nav-social { display: none; }
+  .site-nav .nav-pill { display: none; position: absolute; top: 60px; left: var(--nb-gutter); right: var(--nb-gutter); transform: none; flex-wrap: wrap; justify-content: center; border-radius: 22px; background: var(--nb-glass-deep); }
+  .site-nav .nav-pill.open { display: flex; }
+  .site-nav .nav-pill a { padding: 11px 13px; }
+}
+@media (max-width: 620px) { .site-nav { top: 12px; } }
+
+/* ---------- footer: the same shelf on every page ---------- */
+.site-footer { margin-top: auto; padding: 34px var(--nb-gutter) 26px; border: 0; color: var(--nb-w); background: radial-gradient(50% 120% at 100% 0%, rgba(255,77,0,.18), transparent 70%), var(--nb-k); display: block; }
+.site-footer .footer-top { max-width: 1440px; margin: 0 auto; display: flex; justify-content: space-between; align-items: flex-start; gap: 28px; padding: 26px 28px; border-radius: 24px; background: var(--nb-glass); border: 1px solid var(--nb-edge); -webkit-backdrop-filter: var(--nb-blur); backdrop-filter: var(--nb-blur); box-shadow: var(--nb-shine); }
+.site-footer .footer-brand { font: 400 clamp(36px, 5vw, 64px)/.85 var(--nb-display); letter-spacing: -.07em; text-transform: uppercase; color: var(--nb-o); text-decoration: none; }
+.site-footer .footer-note { margin: 14px 0 0; color: rgba(255,255,255,.8); font: 11px/1.7 var(--nb-mono); text-transform: uppercase; }
+.site-footer .footer-links { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px 24px; max-width: 640px; font: 11px var(--nb-mono); text-transform: uppercase; }
+.site-footer .footer-links a { color: rgba(255,255,255,.9); text-decoration: none; transition: color .2s; }
+.site-footer .footer-links a:hover, .site-footer .footer-links a[aria-current] { color: var(--nb-o); }
+.site-footer .footer-bottom { max-width: 1440px; margin: 18px auto 0; padding: 0 6px; border: 0; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px 18px; color: rgba(255,255,255,.78); font: 11px/1.6 var(--nb-mono); text-transform: uppercase; }
+.site-footer .footer-bottom a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.site-footer .tm-note { flex-basis: 100%; order: 9; opacity: .85; }
+.site-footer .ai-mark { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px; border: 1px solid rgba(255,255,255,.24); letter-spacing: .08em; color: rgba(255,255,255,.9); background: linear-gradient(90deg, rgba(255,255,255,.06), rgba(255,77,0,.22)); }
+@media (max-width: 620px) {
+  .site-footer .footer-top { flex-direction: column; padding: 20px; }
+  .site-footer .footer-links { justify-content: flex-start; }
+}
+
+/* ---------- shared type: page titles and section labels ---------- */
+.page-title { font-family: var(--nb-display) !important; font-weight: 400; font-size: var(--nb-title) !important; line-height: .86 !important; letter-spacing: -.055em !important; text-transform: uppercase; }
+.page-lede { max-width: 760px; font-size: clamp(16px, 1.6vw, 21px); line-height: 1.3; font-weight: 800; letter-spacing: -.035em; text-transform: uppercase; }
+.eyebrow-line { display: flex; align-items: center; gap: 14px; font: 700 11px var(--nb-mono); text-transform: uppercase; letter-spacing: -.02em; }
+.eyebrow-line::before { content: ""; width: 34px; height: 2px; background: currentColor; flex: none; }
+
+/* ---------- small glass chips, used for "jump to" rows ---------- */
+.jump { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.jump b { font: 700 11px var(--nb-mono); text-transform: uppercase; margin-right: 4px; }
+.jump a { padding: 7px 12px; border-radius: 999px; border: 1px solid rgba(0,0,0,.45); background: var(--nb-glass-light); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); color: var(--nb-k); font: 700 10px var(--nb-mono); text-transform: uppercase; text-decoration: none; transition: background .2s, color .2s; }
+.jump a:hover { background: var(--nb-k); color: var(--nb-o); }
+
+@media (prefers-reduced-motion: reduce) { .site-nav *, .jump a { transition: none !important; } }
