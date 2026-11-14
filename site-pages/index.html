@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="js">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -379,7 +379,388 @@
     .product-card h3 { max-width: 62%; }
     @media (max-width: 760px) { .product-symbol { top: 12%; width: 30%; } .product-card p, .product-card h3 { max-width: 64%; } }
     /* small labels on the white section: black text, orange accent line */
+
+    /* ==== futuristic pass: hero globe, plain-words explainer, platforms, how a VPN works ==== */
+    /* hero: drifting light, fine grain and floating glass cards over the wordmark */
+    .hero-fx { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+    .aurora { position: absolute; border-radius: 50%; filter: blur(70px); will-change: transform; }
+    .glass, .marquee-row, .ghost-type, .cta-badge svg { will-change: transform; }
+    .aurora.a1 { width: 52vw; height: 52vw; left: -12vw; top: -18vw; background: radial-gradient(circle, rgba(255,255,255,.55), rgba(255,255,255,0) 68%); animation: drift1 22s ease-in-out infinite alternate; }
+    .aurora.a2 { width: 46vw; height: 46vw; right: -10vw; bottom: -16vw; background: radial-gradient(circle, rgba(150,18,0,.55), rgba(150,18,0,0) 68%); animation: drift2 26s ease-in-out infinite alternate; }
+    .aurora.a3 { width: 30vw; height: 30vw; left: 40vw; top: 30%; background: radial-gradient(circle, rgba(255,190,140,.5), rgba(255,190,140,0) 70%); animation: drift3 18s ease-in-out infinite alternate; }
+    @keyframes drift1 { to { transform: translate(14vw, 10vw) scale(1.15); } }
+    @keyframes drift2 { to { transform: translate(-16vw, -8vw) scale(1.2); } }
+    @keyframes drift3 { to { transform: translate(-22vw, -6vw) scale(.85); } }
+    .hero-noise { position: absolute; inset: 0; opacity: .16; mix-blend-mode: multiply; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+    .hero-title { text-shadow: 0 30px 60px rgba(120,20,0,.18); }
+
+    .glass-layer { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+    .glass { position: absolute; width: 258px; transition: transform .5s cubic-bezier(.2,.7,.2,1); }
+    .glass-in { padding: 16px 16px 18px; border-radius: 22px; color: var(--black); background: linear-gradient(140deg, rgba(255,255,255,.42), rgba(255,255,255,.1) 60%, rgba(255,255,255,.2)); border: 1px solid rgba(255,255,255,.6); box-shadow: 0 30px 60px -10px rgba(90,15,0,.35), inset 0 1px 0 rgba(255,255,255,.75), inset 0 -1px 0 rgba(0,0,0,.06); -webkit-backdrop-filter: blur(16px) saturate(1.5); backdrop-filter: blur(16px) saturate(1.5); animation: bob 7s ease-in-out infinite; position: relative; overflow: hidden; }
+    .glass-in::after { content: ""; position: absolute; top: -60%; left: -80%; width: 60%; height: 220%; transform: rotate(25deg); background: linear-gradient(90deg, transparent, rgba(255,255,255,.45), transparent); animation: sheen 7s ease-in-out infinite; }
+    @keyframes bob { 50% { transform: translateY(-12px); } }
+    @keyframes sheen { 0%, 55% { left: -80%; } 85%, 100% { left: 150%; } }
+    .g-status { left: 4.5%; top: 31%; }
+    .g-diag { right: 4%; top: 19%; width: 272px; }
+    .g-diag .glass-in { animation-delay: -2.4s; }
+    .g-diag .glass-in::after { animation-delay: -2.4s; }
+    .g-kill { right: 9%; top: 58%; width: 226px; }
+    .g-kill .glass-in { animation-delay: -4.6s; }
+    .g-kill .glass-in::after { animation-delay: -4.6s; }
+    .g-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; font: 700 9px var(--mono); text-transform: uppercase; letter-spacing: .08em; }
+    .g-pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 999px; background: var(--black); color: var(--white); }
+    .g-pill i { width: 7px; height: 7px; border-radius: 50%; background: #3bd69b; box-shadow: 0 0 0 0 rgba(59,214,155,.7); animation: ping 1.8s ease-out infinite; }
+    @keyframes ping { to { box-shadow: 0 0 0 8px rgba(59,214,155,0); } }
+    .g-big { margin: 14px 0 2px; font: 400 30px/1 var(--display); text-transform: uppercase; letter-spacing: -.04em; }
+    .g-sub { font: 10px/1.5 var(--mono); text-transform: uppercase; opacity: .75; }
+    .g-spark { display: block; width: 100%; height: 44px; margin-top: 12px; overflow: visible; }
+    .g-spark path.line { stroke-dasharray: 320; stroke-dashoffset: 320; animation: draw 3.2s cubic-bezier(.4,0,.2,1) .8s forwards; }
+    @keyframes draw { to { stroke-dashoffset: 0; } }
+    .g-stats { display: flex; justify-content: space-between; margin-top: 8px; font: 700 10px var(--mono); text-transform: uppercase; }
+    .g-stats span { display: flex; flex-direction: column; gap: 2px; }
+    .g-stats small { font-weight: 400; font-size: 8px; opacity: .7; letter-spacing: .08em; }
+    .g-title { margin: 12px 0 10px; font: 400 18px/1 var(--display); text-transform: uppercase; letter-spacing: -.03em; }
+    .g-rows { display: grid; gap: 6px; }
+    .g-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 10px; border-radius: 10px; background: rgba(255,255,255,.3); border: 1px solid rgba(255,255,255,.45); font: 700 10px var(--mono); text-transform: uppercase; opacity: 0; animation: row-in 9s ease infinite; }
+    .g-row:nth-child(2) { animation-delay: .5s; } .g-row:nth-child(3) { animation-delay: 1s; } .g-row:nth-child(4) { animation-delay: 1.5s; }
+    @keyframes row-in { 0% { opacity: 0; transform: translateX(-8px); } 6%, 88% { opacity: 1; transform: none; } 96%, 100% { opacity: 0; } }
+    .g-row b { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 18px; padding: 0 6px; border-radius: 99px; background: var(--black); color: #3bd69b; font-size: 9px; }
+    .g-row.bad { background: rgba(0,0,0,.82); color: var(--white); border-color: transparent; }
+    .g-row.bad b { background: var(--orange); color: var(--black); }
+    .g-verdict { margin-top: 10px; font: 10px/1.5 var(--mono); text-transform: uppercase; }
+    .g-verdict strong { font-weight: 700; }
+    .g-toggle { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; }
+    .g-toggle strong { font: 400 20px/1 var(--display); text-transform: uppercase; letter-spacing: -.03em; }
+    .g-switch { position: relative; width: 50px; height: 28px; border-radius: 99px; background: var(--black); box-shadow: 0 0 18px rgba(255,77,0,.6); }
+    .g-switch::after { content: ""; position: absolute; top: 4px; left: 26px; width: 20px; height: 20px; border-radius: 50%; background: var(--orange); box-shadow: 0 0 10px var(--orange); }
+    .g-shield { width: 26px; height: 26px; }
+
+    /* load-in: the hero rises into place */
+    .hero-topline, .hero-title, .hero-subtitle, .hero-plain, .hero-actions, .hero-avail, .receipt, .hero-meta, .glass-in { animation-fill-mode: both; }
+    .hero-topline, .hero-title, .hero-subtitle, .hero-plain, .hero-actions, .hero-avail, .receipt, .hero-meta { animation: rise 1s cubic-bezier(.2,.75,.2,1) both; }
+    .hero-title { animation-delay: .08s; } .hero-subtitle { animation-delay: .2s; } .hero-plain { animation-delay: .3s; } .hero-actions { animation-delay: .4s; } .hero-avail { animation-delay: .48s; } .receipt { animation-delay: .56s; } .hero-meta { animation-delay: .64s; }
+    @keyframes rise { from { opacity: 0; transform: translateY(34px); filter: blur(6px); } to { opacity: 1; transform: none; filter: none; } }
+    .glass { animation: pop 1.1s cubic-bezier(.2,.8,.2,1) both; }
+    .g-status { animation-delay: .5s; } .g-diag { animation-delay: .65s; } .g-kill { animation-delay: .8s; }
+    @keyframes pop { from { opacity: 0; scale: .9; } to { opacity: 1; scale: 1; } }
+    @media (max-width: 1180px) { .glass-layer { display: none; } }
+    .hero-plain { position: relative; z-index: 1; max-width: 640px; margin: 18px auto 0; text-align: center; font-size: clamp(15px, 1.35vw, 18px); line-height: 1.5; font-weight: 600; letter-spacing: -.02em; }
+    .hero-plain b { font-weight: 800; }
+    .hero-avail { position: relative; z-index: 1; display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin-top: 14px; font: 700 10px var(--mono); text-transform: uppercase; letter-spacing: .06em; }
+    .hero-avail span { display: inline-flex; align-items: center; gap: 7px; padding: 6px 11px; border-radius: 999px; background: rgba(0,0,0,.08); border: 1px solid rgba(0,0,0,.35); }
+    .hero-avail svg { width: 13px; height: 13px; }
+    .receipt { background: rgba(255,77,0,.82); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+
+    /* 00 / New here: three plain cards with drawings */
+    .explain-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 18px; margin-top: clamp(40px, 6vw, 80px); }
+    .explain { position: relative; overflow: hidden; isolation: isolate; padding: 28px 26px 30px; border-radius: 22px; background: var(--black); color: var(--white); box-shadow: 0 24px 60px rgba(0,0,0,.25); transition: transform .35s cubic-bezier(.2,.7,.2,1); }
+    .explain:hover { transform: translateY(-6px); }
+    .explain::before { content: ""; position: absolute; z-index: -1; width: 240px; height: 240px; right: -80px; top: -90px; border-radius: 50%; background: radial-gradient(circle, rgba(255,77,0,.55), transparent 65%); }
+    .explain-art { width: 74px; height: 74px; color: var(--orange); margin-bottom: 34px; }
+    .explain-art svg { width: 100%; height: 100%; overflow: visible; }
+    .explain b { display: block; font: 700 11px var(--mono); color: var(--orange); text-transform: uppercase; margin-bottom: 10px; }
+    .explain h3 { margin: 0 0 10px; font: 400 clamp(26px, 2.6vw, 36px)/.95 var(--display); text-transform: uppercase; letter-spacing: -.04em; }
+    .explain p { margin: 0; font-size: 15px; line-height: 1.55; color: rgba(255,255,255,.84); }
+    .spin-slow { transform-origin: center; transform-box: fill-box; animation: spin 14s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .pulse { transform-origin: center; transform-box: fill-box; animation: pulse 2.4s ease-out infinite; }
+    @keyframes pulse { from { transform: scale(.6); opacity: .9; } to { transform: scale(1.6); opacity: 0; } }
+
+    /* product shelf: glow, pointer spotlight, platform chips */
+    .products { background: radial-gradient(55% 45% at 88% 0%, rgba(255,77,0,.26), transparent 70%), radial-gradient(40% 35% at 0% 100%, rgba(255,77,0,.14), transparent 70%), var(--black); }
+    .product-card { border-radius: 24px; isolation: isolate; }
+    .product-card::before { content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none; opacity: 0; transition: opacity .3s; background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 50%), rgba(255,255,255,.35), transparent 45%); }
+    .product-card.dark-card::before { background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 50%), rgba(255,77,0,.3), transparent 45%); }
+    .product-card:hover::before { opacity: 1; }
+    .product-card > * { position: relative; z-index: 1; }
+    .product-card .product-symbol { position: absolute; }
+    .product-symbol svg { overflow: visible; }
+    .plat-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 18px; }
+    .plat-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; border: 1px solid currentColor; font: 700 10px var(--mono); text-transform: uppercase; }
+    .plat-chip svg { width: 12px; height: 12px; }
+    .plat-chip.off { opacity: .5; border-style: dashed; }
+
+    /* platform availability matrix */
+    .platforms { margin-top: clamp(56px, 7vw, 96px); }
+    .platforms-head { display: flex; justify-content: space-between; align-items: end; gap: 24px; margin-bottom: 26px; }
+    .platforms-head h3 { margin: 0; font: 400 clamp(32px, 4.4vw, 60px)/.9 var(--display); text-transform: uppercase; letter-spacing: -.05em; }
+    .platforms-head p { max-width: 330px; margin: 0; color: rgba(255,255,255,.82); font: 11px/1.7 var(--mono); text-transform: uppercase; }
+
+
+    /* scroll reveals */
+    .js .rv { opacity: 0; transform: translateY(26px); transition: opacity .8s cubic-bezier(.2,.7,.2,1), transform .8s cubic-bezier(.2,.7,.2,1); }
+    .js .rv.in { opacity: 1; transform: none; }
+
+    @media (max-width: 900px) {
+      .explain-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 620px) {
+      .hero-avail { font-size: 9px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .aurora, .glass, .glass-in, .glass-in::after, .g-pill i, .g-row, .g-spark path.line, .hero-topline, .hero-title, .hero-subtitle, .hero-plain, .hero-actions, .hero-avail, .receipt, .hero-meta, .spin-slow, .pulse { animation: none !important; }
+      .js .rv { opacity: 1; transform: none; }
+      .g-row { opacity: 1; }
+      .g-spark path.line { stroke-dashoffset: 0; }
+    }
+
+    /* ==== whole-page pass: grain, travelling light edges, staggered reveals, richer sections ==== */
+    .aurora.a2 { background: radial-gradient(circle, rgba(120,14,0,.42), rgba(120,14,0,0) 68%); }
+    .grain { position: relative; isolation: isolate; }
+    .grain::after { content: ""; position: absolute; inset: 0; z-index: 3; pointer-events: none; opacity: .12; mix-blend-mode: multiply; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+
+    /* a thin light that travels around the edge of a card */
+    @property --edge-a { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+    .edge { position: relative; }
+    .edge::after { content: ""; position: absolute; inset: 0; z-index: 2; border-radius: inherit; padding: 1.5px; pointer-events: none; background: conic-gradient(from var(--edge-a), transparent 0 62%, rgba(255,77,0,.0) 66%, var(--orange) 80%, #ffd2bd 84%, transparent 90%); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); animation: edge-run 7s linear infinite; }
+    .product-card:not(.dark-card).edge::after { background: conic-gradient(from var(--edge-a), transparent 0 62%, rgba(255,255,255,.0) 66%, #fff 80%, transparent 90%); }
+    @keyframes edge-run { to { --edge-a: 360deg; } }
+
+    /* staggered reveals keep each card's own hover */
+    .js .rv { transition-delay: var(--d, 0s); }
+    .js .product-card.rv { transition: opacity .8s cubic-bezier(.2,.7,.2,1) var(--d,0s), transform .8s cubic-bezier(.2,.7,.2,1) var(--d,0s), background .25s, color .25s; }
+    .js .product-card.rv.in:hover, .js .explain.rv.in:hover { transform: translateY(-6px); transition-delay: 0s; }
+    .js .service-item.rv { transition: opacity .7s ease var(--d,0s), transform .7s ease var(--d,0s), background .3s, color .3s; }
+
+    /* intro cards: dark glass */
+    .explain { background: linear-gradient(160deg, rgba(22,22,22,.97), rgba(0,0,0,.93)); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+    .explain-art { transition: transform .5s cubic-bezier(.2,.7,.2,1); }
+    .explain:hover .explain-art { transform: translateY(-4px) scale(1.08) rotate(-4deg); }
+
+    /* product drawings float, with a slow dashed orbit behind them */
+    .product-symbol { animation: sym-float 6s ease-in-out infinite; transition: scale .4s; }
+    .product-symbol::before { content: ""; position: absolute; inset: -14%; border-radius: 50%; border: 2px dashed currentColor; opacity: .28; animation: spin 26s linear infinite; }
+    .product-card:nth-child(2) .product-symbol { animation-delay: -1.5s; } .product-card:nth-child(3) .product-symbol { animation-delay: -3s; } .product-card:nth-child(4) .product-symbol { animation-delay: -4.5s; }
+    .product-card:hover .product-symbol { scale: 1.07; }
+    @keyframes sym-float { 50% { transform: translateY(-10px) rotate(-3deg); } }
+    .product-card.dark-card { background: linear-gradient(160deg, #161616, #0b0b0b); }
+
+    /* areas of work: an orange sweep fills the row, and an icon slides in */
+    .service-item { grid-template-columns: 70px 1fr 96px 54px; position: relative; isolation: isolate; overflow: hidden; border-radius: 4px; }
+    .service-item::before { content: ""; position: absolute; inset: 0; z-index: -1; background: var(--orange); transform: scaleX(0); transform-origin: left; transition: transform .5s cubic-bezier(.2,.7,.2,1); }
+    .service-item:hover { background: transparent; }
+    .service-item:hover::before { transform: scaleX(1); }
+    .service-art { display: grid; place-items: center; width: 84px; height: 84px; border-radius: 50%; color: var(--orange); border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.04); transition: transform .5s cubic-bezier(.2,.7,.2,1), color .3s, background .3s, border-color .3s; }
+    .service-art svg { width: 40px; height: 40px; }
+    .service-item:hover .service-art { color: var(--orange); background: var(--black); border-color: var(--black); transform: rotate(-10deg) scale(1.06); }
+
+    /* download desk: the live build is a featured black card */
+    .download-list { border-top: 0; display: grid; gap: 12px; }
+    .download-row { border: 2px solid var(--black); border-radius: 20px; padding: 22px 20px; background: rgba(255,255,255,.06); transition: background .3s, transform .3s; }
+    .download-row:hover { background: rgba(0,0,0,.06); }
+    .download-row.featured { background: var(--black); color: var(--white); box-shadow: 0 30px 60px -18px rgba(80,10,0,.55); position: relative; overflow: hidden; }
+    .download-row.featured::before { content: ""; position: absolute; width: 380px; height: 380px; right: -100px; top: -190px; border-radius: 50%; background: radial-gradient(circle, rgba(255,77,0,.5), transparent 65%); pointer-events: none; }
+    .download-row.featured > * { position: relative; }
+    .download-row.featured .download-action { background: var(--orange); color: var(--black); border-color: var(--orange); box-shadow: 0 0 24px rgba(255,77,0,.55); }
+    .download-row.featured .download-action:hover { background: var(--white); border-color: var(--white); }
+    .download-row.featured .download-index { color: var(--orange); }
+
+    /* the standard: ghost type behind, principle tiles */
+    .manifesto { overflow: hidden; }
+    .manifesto .wrap { position: relative; z-index: 1; }
+    .manifesto { padding-bottom: clamp(190px, 21vw, 320px); }
+    .ghost-type { position: absolute; left: 0; bottom: -2%; display: flex; width: max-content; white-space: nowrap; pointer-events: none; animation: marquee 60s linear infinite; }
+    .ghost-type span { font: 400 clamp(120px, 18vw, 280px)/1 var(--display); letter-spacing: -.06em; color: transparent; -webkit-text-stroke: 1.5px rgba(255,77,0,.22); padding-right: .2em; }
+    .principles { list-style: none; margin: 34px 0 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
+    .principles li { display: flex; align-items: center; gap: 12px; padding: 16px 18px; border-radius: 16px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.12); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); font: 700 12px var(--mono); text-transform: uppercase; letter-spacing: .04em; }
+    .principles svg { flex: 0 0 22px; width: 22px; height: 22px; color: var(--orange); }
+
+    /* closing call: rotating badge beside the button */
+    .cta { overflow: hidden; }
+    .cta::before { content: ""; position: absolute; left: 50%; top: 50%; width: 900px; height: 900px; transform: translate(-50%, -50%); border-radius: 50%; background: radial-gradient(circle, rgba(120,14,0,.28), transparent 62%); pointer-events: none; z-index: -1; }
+    .cta-row { display: inline-flex; align-items: center; gap: 22px; }
+    .cta-badge { position: relative; display: grid; place-items: center; width: 108px; height: 108px; border-radius: 50%; background: var(--black); color: var(--orange); }
+    .cta-badge svg { position: absolute; inset: 0; width: 100%; height: 100%; animation: spin 16s linear infinite; }
+    .cta-badge text { font: 700 9.5px var(--mono); letter-spacing: 1.6px; fill: var(--white); }
+    .cta-badge b { font: 400 30px var(--display); letter-spacing: -.06em; }
+
+    @media (max-width: 900px) {
+      .service-item { grid-template-columns: 50px 1fr 64px 40px; }
+      .service-art { width: 58px; height: 58px; } .service-art svg { width: 28px; height: 28px; }
+    }
+    @media (max-width: 620px) {
+      .service-item { grid-template-columns: 36px 1fr 28px; }
+      .service-art { display: none; }
+      .principles { grid-template-columns: 1fr; }
+      .download-row { padding: 18px 14px; }
+      .cta-row { flex-direction: column; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .edge::after, .product-symbol, .product-symbol::before, .ghost-type, .cta-badge svg { animation: none !important; }
+      .edge::after { display: none; }
+    }
+
+    /* ==== where it runs: device cards ==== */
+    .plat-art svg { width: 100%; height: auto; overflow: visible; filter: drop-shadow(0 20px 40px rgba(255,77,0,.35)); }
+    .plat-art .pa-win { animation: sym-float 6s ease-in-out infinite; }
+    .plat-art .pa-shield { stroke-dasharray: 130; stroke-dashoffset: 130; animation: pa-draw 5s ease-in-out infinite; }
+    .plat-art .pa-check { stroke-dasharray: 30; stroke-dashoffset: 30; animation: pa-check 5s ease-in-out infinite; }
+    .plat-art .pa-bar { transform-origin: 112px 0; transform-box: view-box; animation: pa-bar 5s ease-in-out infinite; }
+    @keyframes pa-draw { 0% { stroke-dashoffset: 130; } 30%, 85% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: 130; } }
+    @keyframes pa-check { 0%, 30% { stroke-dashoffset: 30; } 42%, 85% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: 30; } }
+    @keyframes pa-bar { 0% { transform: scaleX(0); } 40%, 85% { transform: scaleX(1); } 100% { transform: scaleX(0); } }
+
+
+    @media (max-width: 900px) {
+    }
+    @media (max-width: 620px) {
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .plat-art .pa-win, .plat-art .pa-shield, .plat-art .pa-check, .plat-art .pa-bar, .plat-status i { animation: none !important; }
+      .plat-art .pa-shield, .plat-art .pa-check { stroke-dashoffset: 0; }
+    }
+
+    /* ==== sizing pass: calmer scale, tighter rhythm ==== */
+    .section-pad { padding-block: clamp(60px, 7vw, 112px); }
+    .hero { min-height: 680px; }
+    .hero-title { font-size: clamp(72px, 12vw, 184px); }
+    .hero-subtitle { font-size: clamp(15px, 1.6vw, 21px); }
+    .marquee-band { padding-block: clamp(16px, 2.4vw, 32px); }
+    .marquee-text { font-size: 6.5vw; }
+    .intro h2, .products-head h2, .services-head h2, .downloads-head h2 { font-size: clamp(38px, 5.4vw, 80px); }
+    .intro-grid { margin-top: 30px; }
+    .intro-copy p { font-size: clamp(16px, 1.4vw, 19px); }
+    .products-head, .services-head, .downloads-head { margin: 24px 0 36px; }
+    .explain-grid { margin-top: clamp(32px, 4vw, 56px); }
+    .explain { padding: 22px 22px 24px; }
+    .explain-art { width: 56px; height: 56px; margin-bottom: 22px; }
+    .explain h3 { font-size: clamp(21px, 2vw, 28px); }
+    .explain p { font-size: 14px; }
+    .product-card { min-height: 340px; padding: clamp(20px, 2.4vw, 30px); }
+    .product-card h3 { font-size: clamp(32px, 3.6vw, 52px); }
+    .product-card p { font-size: 13.5px; margin-bottom: 20px; }
+    .product-symbol { width: 26%; max-width: 140px; }
+    .platforms { margin-top: clamp(44px, 5vw, 72px); }
+    .platforms-head h3 { font-size: clamp(28px, 3.4vw, 46px); }
+    .service-item { min-height: 0; padding-block: 18px; }
+    .service-main h3 { font-size: clamp(28px, 4.2vw, 60px); }
+    .service-tags { margin-top: 12px; }
+    .service-art { width: 64px; height: 64px; }
+    .service-art svg { width: 30px; height: 30px; }
+    .download-row { padding: 18px 18px; }
+    .download-name strong { font-size: clamp(20px, 2.4vw, 30px); }
+    .manifesto h2 { font-size: clamp(42px, 6vw, 96px); }
+    .manifesto-copy p { font-size: clamp(16px, 1.5vw, 20px); }
+    .manifesto { padding-bottom: clamp(150px, 15vw, 230px); }
+    .ghost-type span { font-size: clamp(90px, 12vw, 190px); }
+    .principles li { padding: 13px 16px; }
+    .cta { padding: clamp(70px, 9vw, 130px) var(--gutter); }
+    .cta h2 { font-size: clamp(46px, 8vw, 124px); margin-bottom: 34px; }
+    .cta-badge { width: 92px; height: 92px; }
+    .footer-brand { font-size: clamp(36px, 5vw, 64px); }
+    .glass { width: 232px; } .g-diag { width: 248px; } .g-kill { width: 206px; }
+    .glass-in { padding: 14px 14px 15px; border-radius: 20px; }
+    .g-big { font-size: 25px; margin-top: 11px; } .g-title { font-size: 16px; } .g-row { padding: 6px 9px; } .g-toggle strong { font-size: 17px; }
+    /* ==== where it runs: one panel, Windows on the left, the rest as a list ==== */
+    .plat-panel { display: grid; grid-template-columns: 1.25fr 1fr; border-radius: 26px; overflow: hidden; background: linear-gradient(160deg, #151515, #0a0a0a); border: 1px solid rgba(255,255,255,.12); }
+    .plat-win { padding: clamp(22px, 2.6vw, 34px); background: radial-gradient(90% 80% at 0% 0%, rgba(255,77,0,.16), transparent 65%); }
+    .plat-win-head { display: grid; grid-template-columns: minmax(120px, 170px) 1fr; gap: clamp(16px, 2vw, 28px); align-items: center; }
+    .plat-art svg { filter: drop-shadow(0 14px 26px rgba(255,77,0,.22)); }
+    .plat-status { display: inline-flex; align-items: center; gap: 8px; padding: 5px 11px; border-radius: 999px; background: rgba(59,214,155,.1); border: 1px solid rgba(59,214,155,.4); color: #8ff0cb; font: 700 9px var(--mono); text-transform: uppercase; letter-spacing: .08em; }
+    .plat-status i { width: 7px; height: 7px; border-radius: 50%; background: #3bd69b; animation: ping 1.8s ease-out infinite; }
+    .plat-win h4 { margin: 10px 0 12px; font: 400 clamp(30px, 3vw, 42px)/.9 var(--display); text-transform: uppercase; letter-spacing: -.045em; }
+    .req { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+    .req li { padding: 5px 9px; border-radius: 8px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); color: rgba(255,255,255,.82); font: 10px var(--mono); text-transform: uppercase; letter-spacing: .02em; }
+    .plat-apps { list-style: none; margin: clamp(20px, 2.4vw, 28px) 0 18px; padding: 0; border-top: 1px solid rgba(255,255,255,.1); }
+    .plat-apps li { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 12px; padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,.1); }
+    .plat-apps b { font: 400 16px/1 var(--display); text-transform: uppercase; letter-spacing: -.02em; }
+    .plat-apps span { grid-row: 2; color: rgba(255,255,255,.58); font: 10px var(--mono); text-transform: uppercase; }
+    .plat-apps em { grid-row: 1 / 3; grid-column: 2; font: 700 9px var(--mono); font-style: normal; text-transform: uppercase; letter-spacing: .06em; padding: 5px 10px; border-radius: 999px; }
+    .plat-apps em.ok { color: #8ff0cb; border: 1px solid rgba(59,214,155,.4); }
+    .plat-apps em.pre { color: rgba(255,255,255,.7); border: 1px solid rgba(255,255,255,.25); }
+    .plat-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 18px; }
+    .plat-cta { display: inline-flex; align-items: center; gap: 10px; padding: 12px 18px; border-radius: 999px; background: var(--white); color: var(--black); font: 700 10px var(--mono); text-transform: uppercase; letter-spacing: .06em; transition: background .2s, color .2s, transform .2s; }
+    .plat-cta:hover { background: var(--orange); transform: translateY(-1px); }
+    .plat-link { color: rgba(255,255,255,.72); font: 10px var(--mono); text-transform: uppercase; letter-spacing: .04em; text-decoration: underline; text-underline-offset: 4px; }
+    .plat-link:hover { color: var(--white); }
+    .plat-rest { display: flex; flex-direction: column; padding: clamp(22px, 2.6vw, 34px); border-left: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.015); }
+    .plat-rest-title { margin: 0 0 6px; color: rgba(255,255,255,.55); font: 700 10px var(--mono); text-transform: uppercase; letter-spacing: .1em; }
+    .os-list { list-style: none; margin: 0 0 18px; padding: 0; }
+    .os-list li { display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 14px; padding: 13px 0; border-bottom: 1px solid rgba(255,255,255,.08); color: rgba(255,255,255,.5); transition: color .25s; }
+    .os-list li:hover { color: rgba(255,255,255,.85); }
+    .os-list svg { width: 34px; height: 26px; }
+    .os-name { display: flex; flex-direction: column; gap: 3px; font: 400 16px/1 var(--display); text-transform: uppercase; letter-spacing: -.02em; color: rgba(255,255,255,.82); }
+    .os-name small { font: 10px var(--mono); letter-spacing: .02em; color: rgba(255,255,255,.45); }
+    .os-state { padding: 4px 10px; border-radius: 999px; border: 1px dashed rgba(255,255,255,.28); font: 700 9px var(--mono); text-transform: uppercase; letter-spacing: .06em; }
+    .plat-ask { margin-top: auto; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 13px 16px; border-radius: 14px; border: 1px solid rgba(255,255,255,.14); color: rgba(255,255,255,.8); font: 10px var(--mono); text-transform: uppercase; transition: border-color .25s, color .25s; }
+    .plat-ask b { color: var(--white); font-weight: 700; }
+    .plat-ask:hover { border-color: rgba(255,77,0,.6); color: var(--white); }
+    .plat-ask:hover b { color: var(--orange); }
+
+    /* ==== glass everywhere: one frosted material for nav, cards, panels and controls ==== */
+    :root {
+      --glass-dark: linear-gradient(150deg, rgba(28,28,28,.58), rgba(8,8,8,.46));
+      --glass-light: linear-gradient(150deg, rgba(255,255,255,.3), rgba(255,255,255,.08));
+      --glass-edge-dark: rgba(255,255,255,.16);
+      --glass-edge-light: rgba(255,255,255,.55);
+      --glass-blur: blur(14px) saturate(1.5);
+      --glass-shine: inset 0 1px 0 rgba(255,255,255,.14), inset 0 -1px 0 rgba(0,0,0,.2);
+    }
+    /* navigation */
+    .brand, .nav-pill, .icon-link, .menu-toggle { background: var(--glass-dark); border: 1px solid var(--glass-edge-dark); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: var(--glass-shine), 0 10px 30px rgba(0,0,0,.18); }
+    .nav-pill a:hover, .nav-pill a[aria-current="location"] { background: rgba(255,255,255,.92); }
+    .icon-link { color: var(--white); }
+    .icon-link:hover { background: rgba(255,255,255,.92); color: var(--black); }
+    .menu-toggle { color: var(--white); }
+    .site-nav.scrolled .nav-pill, .site-nav.scrolled .brand, .site-nav.scrolled .icon-link { background: linear-gradient(150deg, rgba(20,20,20,.72), rgba(6,6,6,.62)); }
+    /* buttons */
+    .btn-solid { background: linear-gradient(150deg, rgba(20,20,20,.88), rgba(0,0,0,.78)); border-color: rgba(0,0,0,.9); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: var(--glass-shine); }
+    .btn-ghost { background: var(--glass-light); border-color: rgba(0,0,0,.55); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); }
+    .hero-avail span { background: var(--glass-light); border-color: rgba(255,255,255,.5); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+    .receipt { background: var(--glass-light); border: 1px solid var(--glass-edge-light); box-shadow: var(--glass-shine), 0 20px 40px -20px rgba(90,15,0,.4); }
+    .receipt > div { border-left-color: rgba(0,0,0,.22); }
+    .cta-button { background: linear-gradient(150deg, rgba(20,20,20,.88), rgba(0,0,0,.8)); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: var(--glass-shine), 0 20px 40px -18px rgba(80,10,0,.5); }
+    .text-link { padding: 10px 16px; border: 1px solid rgba(255,255,255,.5); border-radius: 999px; background: var(--glass-light); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+    /* soft light behind the black sections, so the glass has something to frost */
+    .services, .manifesto { background-image: radial-gradient(40% 50% at 92% 8%, rgba(255,77,0,.2), transparent 70%), radial-gradient(35% 45% at 4% 96%, rgba(255,77,0,.12), transparent 70%); }
+    /* cards and panels */
+    .explain, .product-card.dark-card, .plat-panel, .principles li, .download-row.featured { background: var(--glass-dark); border: 1px solid var(--glass-edge-dark); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: var(--glass-shine), 0 30px 60px -24px rgba(0,0,0,.55); }
+    .explain { background: linear-gradient(150deg, rgba(24,24,24,.86), rgba(4,4,4,.8)); }
+    .download-row.featured { background: linear-gradient(150deg, rgba(22,22,22,.9), rgba(0,0,0,.84)); }
+    .product-card:not(.dark-card) { background: linear-gradient(150deg, rgba(255,128,70,.92), rgba(255,77,0,.86)); border: 1px solid rgba(255,255,255,.42); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 30px 60px -24px rgba(255,77,0,.45); }
+    .product-card:not(.dark-card):hover { background: linear-gradient(150deg, rgba(255,255,255,.96), rgba(255,236,226,.9)); }
+    .product-state, .plat-chip { background: rgba(255,255,255,.12); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+    .download-row:not(.featured) { background: var(--glass-light); border: 1px solid var(--glass-edge-light); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: var(--glass-shine); }
+    .download-row:not(.featured):hover { background: linear-gradient(150deg, rgba(255,255,255,.4), rgba(255,255,255,.14)); }
+    .download-row:not(.featured) .download-action { background: rgba(0,0,0,.72); border-color: transparent; -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+    .service-art, .os-state, .req li, .plat-ask, .service-tags span { -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+    .service-item:hover .service-tags span { background: rgba(255,255,255,.14); }
+    .toast { background: var(--glass-dark); color: var(--white); border: 1px solid var(--glass-edge-dark); border-radius: 999px; -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: var(--glass-shine), 0 20px 40px rgba(0,0,0,.35); }
+    .scroll-orbit { background: var(--glass-dark); border: 1px solid var(--glass-edge-dark); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: var(--glass-shine), 0 20px 40px -16px rgba(0,0,0,.5); }
+    .cta-badge { background: var(--glass-dark); border: 1px solid var(--glass-edge-dark); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); }
+    /* footer: a glass shelf */
+    footer { background: radial-gradient(50% 120% at 100% 0%, rgba(255,77,0,.18), transparent 70%), var(--black); }
+    .footer-top, .footer-bottom { position: relative; }
+    .footer-top { padding: 26px 28px; border-radius: 24px; background: var(--glass-dark); border: 1px solid var(--glass-edge-dark); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: var(--glass-shine); }
+    .footer-bottom { border-top: 0; margin-top: 18px; padding-inline: 6px; }
+    @media (max-width: 620px) {
+      .nav-pill.open { background: linear-gradient(150deg, rgba(20,20,20,.82), rgba(6,6,6,.74)); }
+      .footer-top { padding: 20px; }
+    }
+
+    /* calmer download button on the featured row */
+    .download-row.featured .download-action { background: var(--white); color: var(--black); border-color: var(--white); box-shadow: none; }
+    .download-row.featured .download-action:hover { background: var(--orange); border-color: var(--orange); color: var(--black); }
+    .download-row.featured::before { opacity: .55; }
+
+    @media (max-width: 900px) {
+      .plat-panel { grid-template-columns: 1fr; }
+      .platforms-head { display: block; }
+      .platforms-head p { margin-top: 14px; }
+      .plat-rest { border-left: 0; border-top: 1px solid rgba(255,255,255,.1); }
+    }
+    @media (max-width: 520px) {
+      .plat-win-head { grid-template-columns: 1fr; }
+      .plat-art { max-width: 180px; }
+    }
+    @media (max-width: 620px) {
+      .hero-title { font-size: clamp(64px, 19vw, 110px); }
+      .marquee-text { font-size: 12vw; }
+      .product-card { min-height: 320px; }
+      .service-main h3 { font-size: clamp(26px, 8vw, 40px); }
+    }
 </style>
+<script src="/assets/smooth.js" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">SKIP TO CONTENT</a>
@@ -398,15 +779,50 @@
   <main id="main">
     <section class="hero" id="top" aria-labelledby="heroTitle">
       <div class="hero-grid" aria-hidden="true"></div>
+      <div class="hero-fx" aria-hidden="true">
+        <div class="aurora a2"></div>
+        <div class="hero-noise"></div>
+      </div>
+      <div class="glass-layer" id="glassLayer" aria-hidden="true">
+        <div class="glass g-status" data-depth="22"><div class="glass-in">
+          <div class="g-top"><span class="g-pill"><i></i>Protected</span><svg class="g-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2 20 5v6c0 5-3.4 8.6-8 11-4.6-2.4-8-6-8-11V5l8-3Z"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg></div>
+          <div class="g-big">Tokyo</div>
+          <div class="g-sub">WireGuard · tunnel up 02:14:09</div>
+          <svg class="g-spark" viewBox="0 0 220 44" fill="none" preserveAspectRatio="none"><path d="M0 40H220" stroke="rgba(0,0,0,.15)"/><path class="line" d="M0 30C14 30 18 18 30 20S48 34 62 28 80 10 96 14 118 30 132 24 150 8 166 12 186 26 200 20 214 14 220 16" stroke="#000" stroke-width="2.5" stroke-linecap="round"/></svg>
+          <div class="g-stats"><span><small>Latency</small>24 ms</span><span><small>Jitter</small>1.8 ms</span><span><small>Loss</small>0%</span></div>
+        </div></div>
+        <div class="glass g-diag" data-depth="34"><div class="glass-in">
+          <div class="g-top"><span>Network check</span><span>news.example</span></div>
+          <div class="g-title">Why won't it load?</div>
+          <div class="g-rows">
+            <div class="g-row bad"><span>DNS · filtered</span><b>!</b></div>
+            <div class="g-row"><span>TCP connect</span><b>✓</b></div>
+            <div class="g-row"><span>TLS handshake</span><b>✓</b></div>
+            <div class="g-row"><span>HTTP reply</span><b>✓</b></div>
+          </div>
+          <div class="g-verdict"><strong>Cause:</strong> the network's DNS.<br><strong>Fix:</strong> connect NOBAD VPN.</div>
+        </div></div>
+        <div class="glass g-kill" data-depth="14"><div class="glass-in">
+          <div class="g-top"><span>Kill switch</span><span>Armed</span></div>
+          <div class="g-toggle"><strong>No leaks</strong><span class="g-switch"></span></div>
+          <div class="g-sub" style="margin-top:8px">Traffic blocked outside the tunnel</div>
+        </div></div>
+      </div>
       <div class="hero-topline">
         <div class="eyebrow hero-kicker"><i class="live-dot"></i> Independent software studio</div>
         <div class="eyebrow">India / Working everywhere<br>Est. 2026</div>
       </div>
       <h1 class="hero-title display" id="heroTitle">NO<span class="outline">BAD</span></h1>
       <p class="hero-subtitle">Tools with a point of view.<br>Software that gets out of your way.</p>
+      <p class="hero-plain">nobad builds <b>free, open-source software</b> for Windows. Our first release, <b>NOBAD VPN</b>, encrypts your connection on untrusted networks and pinpoints, in plain language, exactly why a website fails to load.</p>
       <div class="hero-actions">
         <a class="btn btn-solid" href="products/vpn/">Get NOBAD VPN {{VPN_VERSION}} <span aria-hidden="true">&rarr;</span></a>
-        <a class="btn btn-ghost" href="https://github.com/AryanGupta-234/Nobad" target="_blank" rel="noopener noreferrer">View the source</a>
+        <a class="btn btn-ghost" href="#about">New here? Start here</a>
+      </div>
+      <div class="hero-avail" aria-label="Who it is for">
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M8 20h8M12 16v4"/></svg>Windows 10 &amp; 11</span>
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/><path d="M3 3l18 18"/></svg>Free, no account</span>
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m8 6-6 6 6 6M16 6l6 6-6 6"/></svg>MIT open source</span>
       </div>
       <dl class="receipt" aria-label="Facts about the latest build">
         <div><dt>Latest build</dt><dd>NOBAD VPN v{{VPN_VERSION}}</dd></div>
@@ -442,17 +858,36 @@
       </div>
     </div>
 
-    <section class="intro section-pad" id="about">
+    <section class="grain intro section-pad" id="about">
       <div class="wrap">
-        <div class="section-index">00 / The idea</div>
-        <div class="intro-grid">
+        <div class="section-index">00 / New here?</div>
+        <div class="intro-grid rv">
           <h2 class="display">LESS NOISE.<br>MORE <span style="color:var(--white);-webkit-text-stroke:2px var(--black)">CONTROL.</span></h2>
           <div class="intro-copy">
-            <p>nobad is an independent software label focused on practical tools for privacy, productivity and everyday computing.</p>
-            <p>We care about clear interfaces, honest product details and downloads that are easy to understand.</p>
-            <p>Everything is MIT-licensed and built in the open on <a class="inline-link" href="https://github.com/AryanGupta-234/Nobad">GitHub</a>, by <a class="inline-link" href="https://github.com/AryanGupta-234">Aryan Gupta</a>. Issues, ideas and pull requests are welcome.</p>
-            <a class="text-link" href="#products">Meet the products <span>↘</span></a>
+            <p>nobad is a small, independent software studio. We make free apps for Windows PCs, starting with a VPN.</p>
+            <p>The code is public on <a class="inline-link" href="https://github.com/AryanGupta-234/Nobad">GitHub</a>, so anyone can check what the apps do. Made by <a class="inline-link" href="https://github.com/AryanGupta-234">Aryan Gupta</a>.</p>
+            <a class="text-link" href="#products">See the apps <span>↘</span></a>
           </div>
+        </div>
+        <div class="explain-grid">
+          <article class="explain rv edge">
+            <div class="explain-art" aria-hidden="true"><svg viewBox="0 0 80 80" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle class="spin-slow" cx="40" cy="40" r="36" stroke-dasharray="4 8" stroke-width="2"/><path d="M40 16v32M27 36l13 13 13-13"/><path d="M20 54v8h40v-8"/></svg></div>
+            <b>01 / Free</b>
+            <h3>Download. Use. Done.</h3>
+            <p>No price, no sign-up, no ads. Install it like any other Windows app.</p>
+          </article>
+          <article class="explain rv edge">
+            <div class="explain-art" aria-hidden="true"><svg viewBox="0 0 80 80" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="14" width="64" height="48" rx="8"/><path d="M8 26h64"/><circle cx="16" cy="20" r="1.5" fill="currentColor"/><circle cx="22" cy="20" r="1.5" fill="currentColor"/><path d="m30 36-8 8 8 8M50 36l8 8-8 8M44 34l-8 20"/></svg></div>
+            <b>02 / Open</b>
+            <h3>Nothing hidden.</h3>
+            <p>Every line of code is public. Read it, build it yourself or suggest a fix.</p>
+          </article>
+          <article class="explain rv edge">
+            <div class="explain-art" aria-hidden="true"><svg viewBox="0 0 80 80" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle class="pulse" cx="40" cy="40" r="30" stroke-width="2"/><path d="M40 8 64 18v18c0 17-10 29-24 36-14-7-24-19-24-36V18L40 8Z"/><rect x="31" y="36" width="18" height="14" rx="2"/><path d="M35 36v-4a5 5 0 0 1 10 0v4"/></svg></div>
+            <b>03 / Private</b>
+            <h3>Your PC, your data.</h3>
+            <p>Settings and history stay on your computer. No telemetry, nothing sent to us.</p>
+          </article>
         </div>
       </div>
     </section>
@@ -460,43 +895,97 @@
     <section class="products section-pad" id="products">
       <div class="wrap">
         <div class="section-index">01 / Product shelf</div>
-        <div class="products-head">
+        <div class="products-head rv">
           <h2 class="display">MADE TO<br>DO A JOB.</h2>
           <p>Focused products. Clear purpose. No feature theatre. Pick a tool and see what it actually does.</p>
         </div>
         <div class="product-grid">
-          <article class="product-card" id="vpn">
+          <article class="product-card rv edge" id="vpn" style="--d:0s">
             <div class="product-card-top"><span>01 / Privacy</span><span class="product-state">Open source · v{{VPN_VERSION}}</span></div>
             <div class="product-symbol" aria-hidden="true">
               <svg viewBox="0 0 220 220" fill="none"><path d="M110 12 190 42v57c0 54-31 91-80 110-49-19-80-56-80-110V42l80-30Z" stroke="currentColor" stroke-width="5"/><path d="M110 48v112M54 105h112M70 66l80 80M150 66l-80 80" stroke="currentColor" stroke-width="3"/><circle cx="110" cy="105" r="31" stroke="currentColor" stroke-width="5"/><circle cx="110" cy="105" r="8" fill="currentColor"/></svg>
             </div>
             <h3>NOBAD<br>VPN</h3>
             <p>Our first major release, free and open source. A WireGuard client for Windows with a kill switch, DNS leak block, a Network Intelligence engine that explains why a site fails, one-click Fix my internet, and Where to watch, which finds the countries and platforms that list a film or series and matches them to your own servers.</p>
+            <div class="plat-chips" aria-label="Platforms"><span class="plat-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M8 20h8M12 16v4"/></svg>Windows 10 &amp; 11</span><span class="plat-chip off">macOS · not yet</span><span class="plat-chip off">Linux · not yet</span><span class="plat-chip off">Phones · not yet</span></div>
             <div class="product-card-foot"><span>Privacy / Network</span><a href="products/vpn/" aria-label="Explore NOBAD VPN" class="product-arrow">↗</a></div>
           </article>
-          <article class="product-card dark-card">
+          <article class="product-card dark-card rv edge" style="--d:0.1s">
             <div class="product-card-top"><span>02 / Windows</span><span class="product-state">Project preview</span></div>
             <div class="product-symbol" aria-hidden="true">
               <svg viewBox="0 0 220 220" fill="none"><path d="M110 16 202 68v84l-92 52-92-52V68l92-52Z" stroke="currentColor" stroke-width="4"/><path d="M110 16v188M18 68l92 54 92-54M18 152l92-30 92 30" stroke="currentColor" stroke-width="3"/><circle cx="110" cy="122" r="27" stroke="var(--orange)" stroke-width="5"/><path d="m100 122 7 7 15-17" stroke="var(--orange)" stroke-width="5"/></svg>
             </div>
             <h3>SENTINEL</h3>
             <p>A Windows-focused intelligence and automation ecosystem for system visibility, diagnostics and controlled actions.</p>
+            <div class="plat-chips" aria-label="Platforms"><span class="plat-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M8 20h8M12 16v4"/></svg>Windows 11 · preview</span></div>
             <div class="product-card-foot"><span>Windows / Automation</span><a href="#downloads" aria-label="See SENTINEL project information" class="product-arrow">↗</a></div>
           </article>
-          <article class="product-card dark-card">
+          <article class="product-card dark-card rv edge" style="--d:0.2s">
             <div class="product-card-top"><span>03 / Utilities</span><span class="product-state">Coming soon</span></div>
             <div class="product-symbol" aria-hidden="true"><svg viewBox="0 0 220 220" fill="none"><rect x="32" y="32" width="156" height="156" stroke="currentColor" stroke-width="5"/><path d="M32 84h156M84 32v156M136 32v156M32 136h156" stroke="currentColor" stroke-width="3"/><path d="m76 110 22 22 47-49" stroke="var(--orange)" stroke-width="8"/></svg></div>
             <h3>SMALL<br>TOOLS</h3>
             <p>A growing collection of compact utilities designed to solve specific problems without adding unnecessary complexity.</p>
+            <div class="plat-chips" aria-label="Platforms"><span class="plat-chip off">Platforms announced at release</span></div>
             <div class="product-card-foot"><span>Utilities / Desktop</span><a href="#downloads" aria-label="See utility release information" class="product-arrow">↗</a></div>
           </article>
-          <article class="product-card">
+          <article class="product-card rv edge" style="--d:.3s">
             <div class="product-card-top"><span>04 / Open source</span><span class="product-state">In progress</span></div>
             <div class="product-symbol" aria-hidden="true"><svg viewBox="0 0 220 220" fill="none"><path d="m110 25 82 47v76l-82 47-82-47V72l82-47Z" stroke="currentColor" stroke-width="5"/><path d="M70 110h80M110 70v80" stroke="var(--orange)" stroke-width="7"/></svg></div>
             <h3>OPEN<br>WORK</h3>
             <p>Experiments, source releases and practical engineering notes. Public releases will include their source and usage details.</p>
+            <div class="plat-chips" aria-label="Platforms"><span class="plat-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="m8 6-6 6 6 6M16 6l6 6-6 6"/></svg>Source on GitHub</span></div>
             <div class="product-card-foot"><span>Code / Community</span><a href="#downloads" aria-label="See open work information" class="product-arrow">↗</a></div>
           </article>
+        </div>
+
+        <div class="platforms rv" id="platforms">
+          <div class="platforms-head">
+            <h3>Where it runs.</h3>
+            <p>What you can install today, and where. Nothing is listed as available until a real, published build exists.</p>
+          </div>
+          <div class="plat-panel edge">
+            <div class="plat-win">
+              <div class="plat-win-head">
+                <div class="plat-art" aria-hidden="true">
+                  <svg viewBox="0 0 320 240" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                    <defs><radialGradient id="scrGlow" cx="50%" cy="45%" r="60%"><stop offset="0" stop-color="#ff4d00" stop-opacity=".4"/><stop offset="1" stop-color="#ff4d00" stop-opacity="0"/></radialGradient></defs>
+                    <rect x="20" y="16" width="280" height="172" rx="14" stroke="#fff" stroke-opacity=".85" stroke-width="5"/>
+                    <rect x="32" y="28" width="256" height="148" rx="6" fill="url(#scrGlow)"/>
+                    <path d="M120 218h80M160 188v30" stroke="#fff" stroke-opacity=".85" stroke-width="5"/>
+                    <g class="pa-win"><rect x="92" y="52" width="136" height="100" rx="10" fill="#0b0b0b" stroke="#ff4d00" stroke-width="3"/>
+                      <path d="M92 70h136" stroke="#ff4d00" stroke-opacity=".5" stroke-width="2"/><circle cx="104" cy="61" r="3" fill="#ff4d00"/><circle cx="114" cy="61" r="3" fill="#ff4d00" fill-opacity=".4"/>
+                      <path class="pa-shield" d="M160 82 178 89v13c0 11-7 19-18 24-11-5-18-13-18-24V89l18-7Z" stroke="#ff4d00" stroke-width="4"/>
+                      <path class="pa-check" d="m152 104 6 6 11-12" stroke="#fff" stroke-width="4"/>
+                      <rect x="112" y="136" width="96" height="5" rx="2.5" fill="#fff" fill-opacity=".12"/><rect class="pa-bar" x="112" y="136" width="96" height="5" rx="2.5" fill="#ff4d00"/></g>
+                  </svg>
+                </div>
+                <div>
+                  <span class="plat-status"><i></i>Available now</span>
+                  <h4>Windows</h4>
+                  <ul class="req" aria-label="Requirements"><li>Windows 10 · 1809+</li><li>Windows 11</li><li>64-bit (x64)</li><li>ARM64 via emulation</li></ul>
+                </div>
+              </div>
+              <ul class="plat-apps">
+                <li><b>NOBAD VPN</b><span>v{{VPN_VERSION}} · {{VPN_SIZE}} · released {{VPN_DATE}}</span><em class="ok">Available</em></li>
+                <li><b>Sentinel</b><span>Windows 11 · not downloadable yet</span><em class="pre">In development</em></li>
+              </ul>
+              <div class="plat-actions">
+                <a class="plat-cta" href="products/vpn/#releases">Download for Windows <span aria-hidden="true">↗</span></a>
+                <a class="plat-link" href="products/vpn/#releases">How to verify the file</a>
+              </div>
+            </div>
+            <div class="plat-rest">
+              <p class="plat-rest-title">Other systems</p>
+              <ul class="os-list">
+                <li><svg viewBox="0 0 64 48" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round" aria-hidden="true"><rect x="10" y="6" width="44" height="28" rx="3"/><path d="M4 40h56l-3 4H7l-3-4Z"/></svg><span class="os-name">macOS<small>Laptops and desktops</small></span><span class="os-state">Not yet</span></li>
+                <li><svg viewBox="0 0 64 48" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="4" width="52" height="40" rx="4"/><path d="m16 18 7 6-7 6M28 31h12"/></svg><span class="os-name">Linux<small>Desktop distributions</small></span><span class="os-state">Not yet</span></li>
+                <li><svg viewBox="0 0 64 48" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="20" y="2" width="24" height="44" rx="5"/><path d="M29 40h6"/></svg><span class="os-name">Android<small>Phones and tablets</small></span><span class="os-state">Not yet</span></li>
+                <li><svg viewBox="0 0 64 48" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="20" y="2" width="24" height="44" rx="6"/><path d="M28 7h8"/></svg><span class="os-name">iPhone<small>iOS and iPadOS</small></span><span class="os-state">Not yet</span></li>
+              </ul>
+              <a class="plat-ask" href="https://github.com/AryanGupta-234/Nobad/issues" target="_blank" rel="noopener noreferrer"><span>Need it on another system?</span><b>Tell us on GitHub <span aria-hidden="true">↗</span></b></a>
+            </div>
+          </div>
+          </div>
         </div>
       </div>
     </section>
@@ -504,56 +993,60 @@
     <section class="services section-pad" id="services">
       <div class="wrap">
         <div class="section-index">02 / Areas of work</div>
-        <div class="services-head">
+        <div class="services-head rv">
           <h2 class="display">BUILT AROUND<br>REAL PROBLEMS.</h2>
           <p>One maintainer, working in the open. Practical engineering. Clear scope and documentation.</p>
         </div>
         <div class="service-list">
-          <a class="service-item" href="#vpn">
+          <a class="service-item rv" style="--d:0.00s" href="#vpn">
             <span class="service-num">01</span>
             <span class="service-main"><h3>PRIVACY TOOLS</h3><span class="service-tags"><span>VPN</span><span>Network</span><span>Privacy</span></span></span>
+            <span class="service-art" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M24 4 40 10v12c0 10-7 18-16 22C15 40 8 32 8 22V10l16-6Z"/><rect x="17" y="21" width="14" height="11" rx="2"/><path d="M20 21v-3a4 4 0 0 1 8 0v3"/></svg></span>
             <span class="service-arrow" aria-hidden="true">↗</span>
           </a>
-          <a class="service-item" href="#downloads">
+          <a class="service-item rv" style="--d:0.08s" href="#downloads">
             <span class="service-num">02</span>
             <span class="service-main"><h3>DESKTOP SOFTWARE</h3><span class="service-tags"><span>Windows</span><span>Utilities</span><span>Automation</span></span></span>
+            <span class="service-art" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="7" width="40" height="26" rx="3"/><path d="M16 41h16M24 33v8M4 14h40"/></svg></span>
             <span class="service-arrow" aria-hidden="true">↗</span>
           </a>
-          <a class="service-item" href="#about">
+          <a class="service-item rv" style="--d:0.16s" href="#about">
             <span class="service-num">03</span>
             <span class="service-main"><h3>ENGINEERING</h3><span class="service-tags"><span>Python</span><span>Cloud</span><span>Security</span></span></span>
+            <span class="service-art" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m16 14-10 10 10 10M32 14l10 10-10 10M27 9l-6 30"/></svg></span>
             <span class="service-arrow" aria-hidden="true">↗</span>
           </a>
-          <a class="service-item" href="#downloads">
+          <a class="service-item rv" style="--d:0.24s" href="#downloads">
             <span class="service-num">04</span>
             <span class="service-main"><h3>OPEN SOURCE</h3><span class="service-tags"><span>Code</span><span>Experiments</span><span>Community</span></span></span>
+            <span class="service-art" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="10" r="4"/><circle cx="12" cy="38" r="4"/><circle cx="36" cy="18" r="4"/><path d="M12 14v20M36 22c0 8-12 6-22 13"/></svg></span>
             <span class="service-arrow" aria-hidden="true">↗</span>
           </a>
         </div>
       </div>
     </section>
 
-    <section class="downloads section-pad" id="downloads">
+    <section class="grain downloads section-pad" id="downloads">
       <div class="wrap">
         <div class="section-index">03 / Download desk</div>
-        <div class="downloads-head">
+        <div class="downloads-head rv">
           <h2 class="display">GET THE<br>GOOD STUFF.</h2>
           <p>Only published builds belong here. Every release is built by GitHub Actions from the public source and comes with its SHA-256 and a software bill of materials.</p>
         </div>
         <div class="download-list">
-          <div class="download-row">
+          <div class="download-row featured rv">
             <div class="download-index">01 /</div>
             <div class="download-name"><strong>NOBAD VPN {{VPN_VERSION}}</strong><small>Windows 10/11 · {{VPN_SIZE}} · Features, download and how to verify on the product page</small></div>
             <div class="download-meta">Released {{VPN_DATE}}<br>Not code-signed yet</div>
             <a class="download-action" href="products/vpn/#releases">Get it <span>↗</span></a>
           </div>
-          <div class="download-row">
+          <div class="download-row rv">
             <div class="download-index">02 /</div>
             <div class="download-name"><strong>SENTINEL</strong><small>Windows intelligence · Development preview</small></div>
             <div class="download-meta">Windows 11<br>Preview</div>
             <button class="download-action" type="button" data-product="sentinel" aria-disabled="true">In progress <span>↗</span></button>
           </div>
-          <div class="download-row">
+          <div class="download-row rv">
             <div class="download-index">03 /</div>
             <div class="download-name"><strong>SMALL TOOLS</strong><small>Utilities · Release announcements</small></div>
             <div class="download-meta">Multiple<br>Coming soon</div>
@@ -565,22 +1058,32 @@
     </section>
 
     <section class="manifesto section-pad">
+      <div class="ghost-type" aria-hidden="true"><span>NO NOISE · NO NOISE · NO NOISE · NO NOISE · </span><span>NO NOISE · NO NOISE · NO NOISE · NO NOISE · </span></div>
       <div class="wrap">
         <div class="section-index">04 / The standard</div>
-        <div class="manifesto-grid">
+        <div class="manifesto-grid rv">
           <h2 class="display">NO DARK<br>PATTERNS.<br>NO <span style="color:var(--orange)">NOISE.</span></h2>
           <div class="manifesto-copy">
             <p>Software should explain itself. Downloads should be predictable. Permissions should be visible. And product claims should be backed by details people can inspect.</p>
             <p style="margin-top:22px">That is the standard nobad is being built around.</p>
+            <ul class="principles">
+              <li class="rv edge" style="--d:0s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M6 6l12 12"/></svg><span>No ads</span></li>
+              <li class="rv edge" style="--d:.08s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><path d="M4 4l16 16"/></svg><span>No tracking</span></li>
+              <li class="rv edge" style="--d:.16s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6M3 3l18 18"/></svg><span>No accounts</span></li>
+              <li class="rv edge" style="--d:.24s"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m8 6-6 6 6 6M16 6l6 6-6 6"/></svg><span>Open code</span></li>
+            </ul>
           </div>
         </div>
       </div>
     </section>
 
-    <section class="cta" id="contact">
+    <section class="grain cta" id="contact">
       <div class="eyebrow">05 / Stay in the loop</div>
-      <h2 class="display">GOOD TOOLS.<br>NO NONSENSE.</h2>
-      <a class="cta-button" href="mailto:ludmj99@gmail.com?subject=nobad">Get in touch <span>↗</span></a>
+      <h2 class="display rv">GOOD TOOLS.<br>NO NONSENSE.</h2>
+      <div class="cta-row rv">
+        <a class="cta-button" href="mailto:ludmj99@gmail.com?subject=nobad">Get in touch <span>↗</span></a>
+        <span class="cta-badge" aria-hidden="true"><svg viewBox="0 0 120 120"><defs><path id="ctaRing" d="M60 60m-46 0a46 46 0 1 1 92 0a46 46 0 1 1-92 0"/></defs><text><textPath href="#ctaRing">FREE • OPEN SOURCE • NO TRACKING • </textPath></text></svg><b>n.</b></span>
+      </div>
       <p class="cta-alt">ludmj99@gmail.com · <a href="https://github.com/AryanGupta-234/Nobad">github.com/AryanGupta-234/Nobad</a></p>
     </section>
   </main>
@@ -606,6 +1109,12 @@
 
     // Current year is dynamic.
     document.getElementById("year").textContent = new Date().getFullYear();
+
+    // The glass nav frosts a little deeper once the page scrolls.
+    const siteNav = document.querySelector(".site-nav");
+    const markScrolled = () => siteNav.classList.toggle("scrolled", window.scrollY > 40);
+    markScrolled();
+    window.addEventListener("scroll", markScrolled, { passive: true });
 
     // Mobile navigation.
     const menuToggle = document.getElementById("menuToggle");
@@ -681,7 +1190,8 @@
 
     // Scroll-aware navigation affordance.
     const navLinks = [...document.querySelectorAll(".nav-pill a")];
-    const observedSections = navLinks.map(link => document.querySelector(link.getAttribute("href"))).filter(Boolean);
+    // Only in-page links (#id) map to sections; "products/vpn/" or "/support/" would throw in querySelector.
+    const observedSections = navLinks.map(link => link.getAttribute("href")).filter(h => /^#[\w-]+$/.test(h)).map(h => document.getElementById(h.slice(1))).filter(Boolean);
     if ("IntersectionObserver" in window) {
       const observer = new IntersectionObserver(entries => {
         entries.forEach(entry => {
@@ -694,6 +1204,53 @@
       }, { rootMargin: "-30% 0px -60% 0px" });
       observedSections.forEach(section => observer.observe(section));
     }
+
+    // Scroll reveals, the card spotlight and the hero globe (paused for reduced motion).
+    (() => {
+      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      // Glass cards drift gently against the pointer, each at its own depth.
+      const layer = document.getElementById("glassLayer");
+      const hero = document.getElementById("top");
+      if (layer && hero && !reduce && window.matchMedia("(pointer: fine)").matches) {
+        const cards = [...layer.querySelectorAll(".glass")];
+        let raf = 0;
+        hero.addEventListener("pointermove", e => {
+          cancelAnimationFrame(raf);
+          raf = requestAnimationFrame(() => {
+            const r = hero.getBoundingClientRect();
+            const x = (e.clientX - r.left) / r.width - .5, y = (e.clientY - r.top) / r.height - .5;
+            cards.forEach(c => {
+              const d = +c.dataset.depth || 20;
+              c.style.transform = `translate3d(${-x * d}px, ${-y * d}px, 0) rotateX(${y * 6}deg) rotateY(${-x * 8}deg)`;
+            });
+          });
+        });
+        hero.addEventListener("pointerleave", () => cards.forEach(c => { c.style.transform = ""; }));
+      }
+      const items = document.querySelectorAll(".rv");
+      if (reduce || !("IntersectionObserver" in window)) { items.forEach(el => el.classList.add("in")); }
+      else {
+        const io = new IntersectionObserver(entries => entries.forEach(e => {
+          if (!e.isIntersecting) return;
+          e.target.classList.add("in");
+          io.unobserve(e.target);
+        }), { threshold: .15 });
+        items.forEach(el => io.observe(el));
+      }
+      document.querySelectorAll(".product-card").forEach(card => {
+        let raf = 0, x = 0, y = 0;
+        card.addEventListener("pointermove", e => {
+          x = e.clientX; y = e.clientY;
+          if (raf) return;
+          raf = requestAnimationFrame(() => {
+            raf = 0;
+            const r = card.getBoundingClientRect();
+            card.style.setProperty("--mx", (x - r.left) + "px");
+            card.style.setProperty("--my", (y - r.top) + "px");
+          });
+        });
+      });
+    })();
   </script>
 </body>
 </html>
