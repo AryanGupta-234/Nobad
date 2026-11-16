@@ -144,3 +144,44 @@ table { background: linear-gradient(150deg, rgba(255,255,255,.26), rgba(255,255,
 .legal-meta { border-width: 2px 0; }
 .legal-body a.btn, .btn { background: linear-gradient(150deg, rgba(20,20,20,.9), rgba(0,0,0,.8)); border-color: rgba(0,0,0,.9); box-shadow: inset 0 1px 0 rgba(255,255,255,.14); }
 .legal-body a.btn.ghost, .btn.ghost { background: linear-gradient(150deg, rgba(255,255,255,.3), rgba(255,255,255,.08)); border-color: rgba(0,0,0,.55); }
+
+/* ---- polish: the same components as the product pages, kept on the orange ground ----
+   Section numbers become mono chips, inline code is a dark monospace chip, contact cards use the home page's dark
+   glass cards, the status note gets the product pages' label, and the 404's links read as buttons. */
+.legal-body section { scroll-margin-top: 110px; }
+.legal-body h2 { align-items: center; }
+.legal-body h2 small { display: inline-grid; place-items: center; min-width: 38px; padding: 7px 10px; border-radius: 999px; background: var(--black); color: var(--orange); font: 700 11px/1 var(--mono); letter-spacing: .08em; transform: translateY(-.12em); }
+.legal-body p { max-width: 74ch; }
+code { padding: 2px 7px; border: 1px solid rgba(255,255,255,.12); border-radius: 6px; background: #0b0b0c; color: #fff; font: 700 .86em/1.5 var(--mono); -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+pre { margin: 14px 0; padding: 14px 16px; border-left: 2px solid var(--black); border-radius: 12px; background: #0b0b0c; color: #fff; overflow-x: auto; }
+pre code { padding: 0; border: 0; background: none; white-space: pre; -webkit-user-select: all; user-select: all; }
+
+/* table of contents: a black bar marks the row under the pointer or keyboard */
+.toc a { position: relative; border-bottom-color: rgba(0,0,0,.28); transition: padding .25s cubic-bezier(.22,.8,.24,1), color .2s; }
+.toc a::before { content: ""; position: absolute; left: 0; top: 50%; width: 0; height: 2px; background: var(--black); transition: width .25s cubic-bezier(.22,.8,.24,1); }
+.toc a:hover, .toc a:focus-visible { padding-left: 22px; }
+.toc a:hover::before, .toc a:focus-visible::before { width: 14px; }
+
+/* status note: a dark glass card with an orange chip, like the product pages' status panel */
+.status { align-items: center; }
+.status-tag { display: inline-flex; align-items: center; gap: 8px; letter-spacing: .08em; }
+.status-tag::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--black); }
+.status :focus-visible { outline-color: var(--orange); }
+
+/* contact cards: the home page's dark glass cards on orange */
+.contact-card { position: relative; overflow: hidden; border: 1px solid rgba(255,255,255,.14); background: linear-gradient(150deg, rgba(22,22,22,.92), rgba(0,0,0,.86)); color: rgba(255,255,255,.86); box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 24px 50px -24px rgba(80,10,0,.5); transition: transform .35s cubic-bezier(.22,.8,.24,1); }
+.contact-card::before { content: ""; position: absolute; top: 0; left: 18px; width: 40px; height: 2px; background: var(--orange); box-shadow: 0 0 12px var(--orange); }
+.contact-card b { color: var(--orange); }
+.contact-card p { color: rgba(255,255,255,.86); }
+.legal-body .contact-card a { color: var(--orange); }
+.legal-body .contact-card a:hover { background: var(--orange); color: var(--black); }
+.contact-card :focus-visible { outline-color: var(--orange); }
+.contact-card:hover { transform: translateY(-3px); }
+
+/* 404: the quick links read as buttons */
+.legal-meta:has(a) { justify-content: flex-start; gap: 10px; }
+.legal-meta a { display: inline-flex; align-items: center; padding: 11px 16px; border: 1px solid rgba(0,0,0,.55); border-radius: 999px; background: linear-gradient(150deg, rgba(255,255,255,.3), rgba(255,255,255,.08)); text-decoration: none; letter-spacing: .04em; transition: background .2s, color .2s, transform .2s; }
+.legal-meta a:first-child { background: linear-gradient(150deg, rgba(20,20,20,.92), rgba(0,0,0,.84)); border-color: #000; color: #fff; }
+.legal-meta a:hover { transform: translateY(-2px); background: #000; color: var(--orange); }
+
+@media (prefers-reduced-motion: reduce) { .toc a, .toc a::before, .contact-card, .legal-meta a { transition: none !important; } .contact-card:hover, .legal-meta a:hover { transform: none; } }

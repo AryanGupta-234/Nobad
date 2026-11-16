@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" class="js">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -18,6 +18,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <script src="/assets/motion-init.js"></script>
   <style>
     :root {
       --orange: #FF4D00;
@@ -477,8 +478,8 @@
 
 
     /* scroll reveals */
-    .js .rv { opacity: 0; transform: translateY(26px); transition: opacity .8s cubic-bezier(.2,.7,.2,1), transform .8s cubic-bezier(.2,.7,.2,1); }
-    .js .rv.in { opacity: 1; transform: none; }
+    .p-js .rv { opacity: 0; transform: translateY(26px); transition: opacity .8s cubic-bezier(.2,.7,.2,1), transform .8s cubic-bezier(.2,.7,.2,1); }
+    .p-js .rv.in { opacity: 1; transform: none; }
 
     @media (max-width: 900px) {
       .explain-grid { grid-template-columns: 1fr; }
@@ -488,7 +489,7 @@
     }
     @media (prefers-reduced-motion: reduce) {
       .aurora, .glass, .glass-in, .glass-in::after, .g-pill i, .g-row, .g-spark path.line, .hero-topline, .hero-title, .hero-subtitle, .hero-plain, .hero-actions, .hero-avail, .receipt, .hero-meta, .spin-slow, .pulse { animation: none !important; }
-      .js .rv { opacity: 1; transform: none; }
+      .p-js .rv { opacity: 1; transform: none; }
       .g-row { opacity: 1; }
       .g-spark path.line { stroke-dashoffset: 0; }
     }
@@ -506,10 +507,10 @@
     @keyframes edge-run { to { --edge-a: 360deg; } }
 
     /* staggered reveals keep each card's own hover */
-    .js .rv { transition-delay: var(--d, 0s); }
-    .js .product-card.rv { transition: opacity .8s cubic-bezier(.2,.7,.2,1) var(--d,0s), transform .8s cubic-bezier(.2,.7,.2,1) var(--d,0s), background .25s, color .25s; }
-    .js .product-card.rv.in:hover, .js .explain.rv.in:hover { transform: translateY(-6px); transition-delay: 0s; }
-    .js .service-item.rv { transition: opacity .7s ease var(--d,0s), transform .7s ease var(--d,0s), background .3s, color .3s; }
+    .p-js .rv { transition-delay: var(--d, 0s); }
+    .p-js .product-card.rv { transition: opacity .8s cubic-bezier(.2,.7,.2,1) var(--d,0s), transform .8s cubic-bezier(.2,.7,.2,1) var(--d,0s), background .25s, color .25s; }
+    .p-js .product-card.rv.in:hover, .p-js .explain.rv.in:hover { transform: translateY(-6px); transition-delay: 0s; }
+    .p-js .service-item.rv { transition: opacity .7s ease var(--d,0s), transform .7s ease var(--d,0s), background .3s, color .3s; }
 
     /* intro cards: dark glass */
     .explain { background: linear-gradient(160deg, rgba(22,22,22,.97), rgba(0,0,0,.93)); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
@@ -762,13 +763,13 @@
     .grain::after, .hero-noise { mix-blend-mode: normal; }
     /* one easing curve for all motion: quick to start, long soft landing */
     :root { --ease-out: cubic-bezier(.16,1,.3,1); }
-    .js .rv { transform: translateY(18px); transition: opacity .9s var(--ease-out), transform .9s var(--ease-out); transition-delay: var(--d, 0s); }
+    .p-js .rv { transform: translateY(18px); transition: opacity .9s var(--ease-out), transform .9s var(--ease-out); transition-delay: var(--d, 0s); }
     .product-card, .explain, .download-action, .btn, .cta-button, .text-link, .service-item, .service-main h3, .service-arrow, .product-arrow {
       transition-timing-function: var(--ease-out); transition-duration: .45s;
     }
     @keyframes rise { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
     .hero-topline, .hero-title, .hero-subtitle, .hero-plain, .hero-actions, .hero-avail, .receipt, .hero-meta { animation-duration: 1.1s; animation-timing-function: var(--ease-out); }
-    @media (prefers-reduced-motion: reduce) { .js .rv { transform: none; } }
+    @media (prefers-reduced-motion: reduce) { .p-js .rv { transform: none; } }
 
     /* Built in the open: one place for collaboration and credits (rows come from /assets/home.js) */
     .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
@@ -801,6 +802,51 @@
     .roster-foot:hover { color: var(--orange); }
     @media (max-width: 900px) { .collab-grid { grid-template-columns: 1fr; } }
     @media (max-width: 560px) { .roster th:nth-child(3), .roster td:nth-child(3) { display: none; } .roster td, .roster th { padding-inline: 14px; } }
+    /* ==== from the product pages: orange hover cover, entry reveal, focus rings, button press ==== */
+    /* Hover cover: on hover or keyboard focus a deep NOBAD orange sweeps up over the dark cards, the download rows
+       and the "Built in the open" rows, and the text turns white. Same fill as product.css's highlight
+       (NOBAD orange at 84% to 68%), deep enough for white text at AA contrast. */
+    :root { --cover: linear-gradient(160deg, #d64100, #ad3400); }
+    .explain { background-image: var(--cover), linear-gradient(150deg, rgba(24,24,24,.86), rgba(4,4,4,.8)); }
+    .download-list .download-row.featured { background-image: var(--cover), linear-gradient(150deg, rgba(22,22,22,.9), rgba(0,0,0,.84)); }
+    .download-list .download-row:not(.featured), .download-list .download-row:not(.featured):hover { background-image: var(--cover), var(--glass-light); }
+    .explain, .download-list .download-row, .download-list .download-row:hover { background-repeat: no-repeat; background-position: 0 100%, 0 0; background-size: 100% 0%, 100% 100%; }
+    .explain:is(:hover, :focus-within), .download-list .download-row:is(:hover, :focus-within) { background-size: 100% 100%, 100% 100%; }
+    .explain, .download-row { transition: transform .45s var(--ease-out), background-size .45s var(--ease-out), color .3s var(--ease-out); }
+    .p-js .explain.rv, .p-js .download-row.rv { transition: opacity .9s var(--ease-out) var(--d, 0s), transform .9s var(--ease-out) var(--d, 0s), background-size .45s var(--ease-out), color .3s var(--ease-out); }
+    .explain::before, .download-row.featured::before { transition: opacity .45s var(--ease-out); }
+    .explain:is(:hover, :focus-within)::before, .download-row.featured:is(:hover, :focus-within)::before { opacity: 0; }
+    .explain b, .explain p, .explain-art, .download-row .download-index, .download-row .download-name, .download-row .download-meta { transition: color .3s var(--ease-out); }
+    .explain:is(:hover, :focus-within) :is(b, .explain-art, h3) { color: #fff; }
+    .explain:is(:hover, :focus-within) p { color: rgba(255,255,255,.94); }
+    .download-row:is(:hover, :focus-within) { color: #fff; }
+    .download-row:is(:hover, :focus-within) .download-index { color: #fff; }
+    .download-row:not(.featured):is(:hover, :focus-within) .download-action { background: #000; color: #fff; }
+    .download-row.featured:is(:hover, :focus-within) .download-action:not(:hover) { background: #fff; border-color: #fff; color: #000; }
+    .download-row:is(:hover, :focus-within) .download-action:hover { background: #fff; border-color: #fff; color: #000; }
+    .roster tbody tr { background-image: var(--cover); background-repeat: no-repeat; background-position: 0 100%; background-size: 100% 0%; transition: background-size .45s var(--ease-out); }
+    .roster tbody tr:is(:hover, :focus-within) { background-size: 100% 100%; }
+    .roster td, .roster td a, .roster .st { transition: color .3s var(--ease-out), border-color .3s var(--ease-out); }
+    .roster tbody tr:is(:hover, :focus-within) td a, .roster tbody tr:is(:hover, :focus-within) td a:hover { color: #fff; text-decoration-color: rgba(255,255,255,.8); }
+    .roster tbody tr:is(:hover, :focus-within) .st { color: #fff; border-color: rgba(255,255,255,.75); }
+    .roster tbody tr:is(:hover, :focus-within) td { border-bottom-color: transparent; }
+
+    /* Focus rings: one 2px ring with a small gap, black on the orange sections, orange on the black ones,
+       white inside an orange cover. */
+    :focus-visible { outline: 2px solid var(--black); outline-offset: 3px; }
+    :is(.products, .services, .manifesto, .collab, .download-row.featured, .explain) :focus-visible { outline-color: var(--orange); }
+    :is(.explain, .download-row, .roster tbody tr):is(:hover, :focus-within) :focus-visible { outline-color: #fff; }
+    .services .service-item:focus-visible { outline-color: var(--black); outline-offset: -4px; color: var(--black); }
+    .service-item:focus-visible::before { transform: scaleX(1); }
+    .service-item:focus-visible :is(.service-num, .service-arrow) { color: var(--black); }
+
+    /* Buttons: a small press on click */
+    :is(.btn, .cta-button, .download-action, .collab-btn, .plat-cta, .text-link):active { transform: scale(.98); transition-duration: .1s; }
+
+    /* Entry reveal: section labels slide in from the left, like the product pages (only with motion-init.js's .p-js) */
+    .p-js .section-index.rv { transform: translate3d(-12px, 0, 0); }
+    .p-js .section-index.rv.in { transform: none; }
+    @media (prefers-reduced-motion: reduce) { .p-js .section-index.rv { transform: none; } }
   </style>
 <script src="/assets/smooth.js" defer></script>
 <link rel="stylesheet" href="/assets/site.css">
@@ -899,7 +945,7 @@
 
     <section class="grain intro section-pad" id="about">
       <div class="wrap">
-        <div class="section-index">00 / New here?</div>
+        <div class="section-index rv">00 / New here?</div>
         <div class="intro-grid rv">
           <h2 class="display">LESS NOISE.<br>MORE <span style="color:var(--white);-webkit-text-stroke:2px var(--black)">CONTROL.</span></h2>
           <div class="intro-copy">
@@ -909,19 +955,19 @@
           </div>
         </div>
         <div class="explain-grid">
-          <article class="explain rv edge">
+          <article class="explain rv edge" style="--d:0s">
             <div class="explain-art" aria-hidden="true"><svg viewBox="0 0 80 80" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle class="spin-slow" cx="40" cy="40" r="36" stroke-dasharray="4 8" stroke-width="2"/><path d="M40 16v32M27 36l13 13 13-13"/><path d="M20 54v8h40v-8"/></svg></div>
             <b>01 / Free</b>
             <h3>Download. Use. Done.</h3>
             <p>No price, no sign-up, no ads. Released apps install like any other desktop app.</p>
           </article>
-          <article class="explain rv edge">
+          <article class="explain rv edge" style="--d:0.08s">
             <div class="explain-art" aria-hidden="true"><svg viewBox="0 0 80 80" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="14" width="64" height="48" rx="8"/><path d="M8 26h64"/><circle cx="16" cy="20" r="1.5" fill="currentColor"/><circle cx="22" cy="20" r="1.5" fill="currentColor"/><path d="m30 36-8 8 8 8M50 36l8 8-8 8M44 34l-8 20"/></svg></div>
             <b>02 / Open</b>
             <h3>Nothing hidden.</h3>
             <p>Every line of code is public. Read it, build it yourself or suggest a fix.</p>
           </article>
-          <article class="explain rv edge">
+          <article class="explain rv edge" style="--d:0.16s">
             <div class="explain-art" aria-hidden="true"><svg viewBox="0 0 80 80" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle class="pulse" cx="40" cy="40" r="30" stroke-width="2"/><path d="M40 8 64 18v18c0 17-10 29-24 36-14-7-24-19-24-36V18L40 8Z"/><rect x="31" y="36" width="18" height="14" rx="2"/><path d="M35 36v-4a5 5 0 0 1 10 0v4"/></svg></div>
             <b>03 / Private</b>
             <h3>Your PC, your data.</h3>
@@ -933,7 +979,7 @@
 
     <section class="products section-pad" id="products">
       <div class="wrap">
-        <div class="section-index">01 / Product shelf</div>
+        <div class="section-index rv">01 / Product shelf</div>
         <div class="products-head rv">
           <h2 class="display">MADE TO<br>DO A JOB.</h2>
           <p>Focused products. Clear purpose. No feature theatre. Pick a tool and see what it actually does.</p>
@@ -1015,7 +1061,7 @@
 
     <section class="services section-pad" id="services">
       <div class="wrap">
-        <div class="section-index">02 / Areas of work</div>
+        <div class="section-index rv">02 / Areas of work</div>
         <div class="services-head rv">
           <h2 class="display">BUILT AROUND<br>REAL PROBLEMS.</h2>
           <p>A small team, working in the open. Practical engineering. Clear scope and documentation.</p>
@@ -1051,7 +1097,7 @@
 
     <section class="grain downloads section-pad" id="downloads">
       <div class="wrap">
-        <div class="section-index">03 / Download desk</div>
+        <div class="section-index rv">03 / Download desk</div>
         <div class="downloads-head rv">
           <h2 class="display">GET THE<br>GOOD STUFF.</h2>
           <p>Only published builds belong here. Every release is built by GitHub Actions from the public source and comes with its SHA-256 and a software bill of materials.</p>
@@ -1063,7 +1109,7 @@
             <div class="download-meta">Released {{VPN_DATE}}<br>Not code-signed yet</div>
             <a class="download-action" href="/products/vpn/#releases">Get it <span>↗</span></a>
           </div>
-          <div class="download-row rv">
+          <div class="download-row rv" style="--d:0.08s">
             <div class="download-index">02 /</div>
             <div class="download-name"><strong>NOBAD FILE BRIDGE</strong><small>Linux and Windows · In development · No download yet</small></div>
             <div class="download-meta">Being hardened<br>before its first release</div>
@@ -1083,7 +1129,7 @@
     <section class="manifesto section-pad">
       <div class="ghost-type" aria-hidden="true"><span>NO NOISE · NO NOISE · NO NOISE · NO NOISE · </span><span>NO NOISE · NO NOISE · NO NOISE · NO NOISE · </span></div>
       <div class="wrap">
-        <div class="section-index">04 / The standard</div>
+        <div class="section-index rv">04 / The standard</div>
         <div class="manifesto-grid rv">
           <h2 class="display">NO DARK<br>PATTERNS.<br>NO <span style="color:var(--orange)">NOISE.</span></h2>
           <div class="manifesto-copy">
@@ -1102,7 +1148,7 @@
 
     <section class="collab section-pad" id="collaborate" aria-labelledby="collabTitle">
       <div class="wrap">
-        <div class="section-index">05 / Built in the open</div>
+        <div class="section-index rv">05 / Built in the open</div>
         <div class="collab-grid">
           <div class="collab-copy">
             <h2 class="display" id="collabTitle">BUILT IN<br>THE OPEN.</h2>

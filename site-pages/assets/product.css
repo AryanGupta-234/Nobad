@@ -344,3 +344,39 @@ body.pg { margin: 0; min-height: 100vh; display: flex; flex-direction: column; b
   .p-rv, .p-panel .p-type, .p-drift-row { opacity: 1 !important; transform: none !important; }
   .pg *, .pg *::before, .pg *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
 }
+
+/* ---------- 8. Bold NOBAD orange highlight cards (the home page's product-card treatment) ----------
+   One deliberate highlight per block: add .p-hot to a pillar, feature, step, trust item or status head.
+   The fill is the hover cover's deep orange, a little deeper still so white text stays at AA contrast. */
+.pg { --hot-1: color-mix(in srgb, var(--ac) 84%, #000); --hot-2: color-mix(in srgb, var(--ac) 68%, #000); }
+.p-hot { --hot: linear-gradient(160deg, var(--hot-1), var(--hot-2)); }
+.p-pillar.p-hot, .p-step.p-hot, .p-status-head.p-hot { background: #c43a00; background: var(--hot); color: #fff; }
+.p-pillar.p-hot { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .22); }
+.p-pillar.p-hot::before { background: #fff; box-shadow: 0 0 14px rgba(255, 255, 255, .7); }
+.p-pillar.p-hot::after, .p-step.p-hot::after { background: radial-gradient(360px circle at var(--mx, 50%) var(--my, 50%), rgba(255, 255, 255, .14), transparent 65%); }
+.p-pillar.p-hot .p-ico { border-color: rgba(255, 255, 255, .7); background: rgba(255, 255, 255, .12); color: #fff; }
+.p-pillar.p-hot .k { color: rgba(255, 255, 255, .9); }
+.p-pillar.p-hot > p, .p-pillar.p-hot li span { color: rgba(255, 255, 255, .94); }
+.p-pillar.p-hot ul, .p-pillar.p-hot li { border-color: rgba(255, 255, 255, .26); }
+.p-pillar.p-hot li::before { background: #fff; }
+/* feature and trust tiles: the hover cover simply stays up */
+:is(.p-feat, .p-trust-item).p-hot::before { transform: none; background: #c43a00; background: var(--hot); }
+:is(.p-feat, .p-trust-item).p-hot :is(h3, .k) { color: #fff; }
+:is(.p-feat, .p-trust-item).p-hot :is(p, .p-mono) { color: rgba(255, 255, 255, .94); }
+.p-trust-item.p-hot .p-check { border-color: rgba(255, 255, 255, .8); color: #fff; }
+/* how-it-works: one filled step */
+.p-step.p-hot { border-color: transparent; box-shadow: 0 30px 70px -36px rgba(var(--ac-rgb), .9), inset 0 1px 0 rgba(255, 255, 255, .22); }
+.p-step.p-hot .n { border-color: rgba(255, 255, 255, .75); background: rgba(255, 255, 255, .12); color: #fff; box-shadow: none; }
+.p-step.p-hot p { color: rgba(255, 255, 255, .94); }
+.p-step.p-hot:hover, .p-step.p-hot:focus-within { border-color: transparent; }
+/* download / status panel: the head becomes an orange CTA plate */
+.p-status-head.p-hot { border-bottom-color: transparent; }
+.p-status-head.p-hot p { color: rgba(255, 255, 255, .94); }
+.p-status-head.p-hot .p-badge { border-color: rgba(255, 255, 255, .6); background: rgba(0, 0, 0, .78); color: #fff; }
+.p-hot :focus-visible, .p-hot:focus-visible { outline-color: #fff; }
+.p-hot a:not(.p-btn) { color: #fff !important; }
+
+/* ---------- 9. Code blocks: dark, monospace, one click selects the whole command ---------- */
+.p-integrity pre { position: relative; border-left: 2px solid var(--ac); tab-size: 2; scrollbar-width: thin; scrollbar-color: rgba(var(--ac-rgb), .5) transparent; }
+.p-integrity pre code { display: block; white-space: pre; -webkit-user-select: all; user-select: all; }
+.p-integrity p code { padding: 2px 6px; border: 1px solid var(--line-2); border-radius: 6px; background: #000; }
