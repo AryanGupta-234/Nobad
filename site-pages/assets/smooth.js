@@ -27,7 +27,7 @@
   if (reduce || !finePointer) return;
 
   // 2. Inertia wheel scrolling: the wheel sets a target, each frame eases toward it.
-  const EASE = 10;                 // higher is snappier
+  const EASE = 8.5;                // higher is snappier; 8.5 gives a soft landing without feeling slow
   let target = window.scrollY, current = window.scrollY, raf = 0, last = 0;
   const maxY = () => Math.max(0, root.scrollHeight - window.innerHeight);
   const clamp = y => Math.max(0, Math.min(maxY(), y));
@@ -58,6 +58,11 @@
   window.addEventListener("wheel", e => {
     if (e.ctrlKey || e.defaultPrevented || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
     let dy = e.deltaY;
+    // Trackpads already glide (small or fractional pixel deltas): smoothing them twice feels laggy, so they stay native.
+    if (e.deltaMode === 0 && (!Number.isInteger(dy) || Math.abs(dy) < 25)) {
+      if (raf) { cancelAnimationFrame(raf); raf = 0; last = 0; }
+      return;
+    }
     if (e.deltaMode === 1) dy *= 16; else if (e.deltaMode === 2) dy *= window.innerHeight;
     if (innerScroller(e.target, dy)) return;
     e.preventDefault();

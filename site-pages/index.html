@@ -76,85 +76,74 @@
     .hero-title { position: relative; z-index: 1; margin: 0; text-align: center; font-size: clamp(92px, 16vw, 250px); line-height: .78; letter-spacing: -.075em; white-space: nowrap; }
     .hero-title .outline { color: transparent; -webkit-text-stroke: 2px var(--black); }
     .hero-subtitle { position: relative; z-index: 1; max-width: 770px; margin: clamp(28px, 4vw, 54px) auto 0; font-size: clamp(16px, 2vw, 25px); line-height: 1.16; font-weight: 800; text-align: center; letter-spacing: -.055em; text-transform: uppercase; }
-    .hero-meta { position: relative; z-index: 1; margin-top: auto; padding-top: 28px; padding-bottom: 14px; display: grid; grid-template-columns: 1fr 112px 1fr; align-items: center; gap: 24px; border-top: 2px solid var(--black); }
+    .hero-meta { position: relative; z-index: 1; margin-top: auto; padding-top: 28px; padding-bottom: 14px; display: grid; grid-template-columns: 1fr 124px 1fr; align-items: center; gap: 24px; border-top: 2px solid var(--black); }
     .hero-meta p { margin: 0; font: 700 11px/1.65 var(--mono); text-transform: uppercase; }
     .hero-meta .right { text-align: right; }
-    /* Scroll wheel: a compact black disc whose text ring responds only to downward scrolling. */
+    /* Scroll ring: a dark glass disc. The words turn smoothly while you scroll down,
+       a thin orange arc fills with page progress, and the orange core holds the arrow. */
     .scroll-orbit {
-      width: 112px;
-      height: 112px;
+      width: 124px;
+      height: 124px;
       margin: 0 auto;
       position: relative;
       display: block;
       flex: 0 0 auto;
       border-radius: 50%;
-      background: var(--black);
-      border: 2px solid var(--black);
+      background: radial-gradient(circle at 50% 30%, #262626, #050505 72%);
+      border: 1px solid rgba(255,255,255,.1);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 22px 44px -18px rgba(70,10,0,.7);
       isolation: isolate;
       cursor: pointer;
       -webkit-tap-highlight-color: transparent;
-      transition: transform .25s cubic-bezier(.2,.8,.2,1), background .25s;
+      transition: transform .5s cubic-bezier(.16,1,.3,1), box-shadow .5s cubic-bezier(.16,1,.3,1);
     }
+    /* hairlines either side of the lettering */
     .scroll-orbit::before {
       content: "";
       position: absolute;
-      inset: 7px;
-      border: 1px solid rgba(255,255,255,.34);
+      inset: 23px;
       border-radius: 50%;
-      pointer-events: none;
-      z-index: 1;
-    }
-    .scroll-orbit::after {
-      content: "";
-      position: absolute;
-      width: 4px;
-      height: 4px;
-      left: 50%;
-      top: 10px;
-      transform: translateX(-50%);
-      border-radius: 50%;
-      background: var(--orange);
-      z-index: 2;
+      border: 1px solid rgba(255,255,255,.12);
       pointer-events: none;
     }
-    .scroll-orbit:hover { transform: translateY(-4px) scale(1.045); }
-    .scroll-orbit:active { transform: translateY(-1px) scale(.98); }
-    .scroll-orbit:focus-visible { outline: 3px solid var(--white); outline-offset: 5px; }
+    .scroll-orbit:hover { transform: translateY(-3px) scale(1.04); box-shadow: inset 0 1px 0 rgba(255,255,255,.18), 0 30px 54px -18px rgba(70,10,0,.8); }
+    .scroll-orbit:active { transform: scale(.97); transition-duration: .15s; }
+    .scroll-orbit:focus-visible { outline: 2px solid var(--black); outline-offset: 6px; }
     .scroll-orbit__scroll-layer {
       position: absolute;
       inset: 0;
-      transform: rotate(var(--scroll-rotation, 0deg));
       transform-origin: 50% 50%;
       will-change: transform;
       pointer-events: none;
     }
-    .scroll-orbit__ring {
-      display: block;
-      width: 100%;
-      height: 100%;
-      overflow: visible;
-      animation: none;
-      transform-origin: 50% 50%;
-    }
+    .scroll-orbit__ring { display: block; width: 100%; height: 100%; overflow: visible; }
     .scroll-orbit__ring text {
       font-family: var(--mono);
-      font-size: 9px;
+      font-size: 8.6px;
       font-weight: 700;
-      letter-spacing: .55px;
-      fill: var(--white);
+      fill: rgba(255,255,255,.9);
     }
+    .scroll-orbit__progress { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); pointer-events: none; }
+    .scroll-orbit__progress circle { fill: none; stroke-width: 1.6; }
+    .scroll-orbit__progress .track { stroke: rgba(255,255,255,.08); }
+    .scroll-orbit__progress .bar { stroke: var(--orange); stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: var(--orbit-progress, 100); }
     .scroll-arrow {
       position: absolute;
-      inset: 0;
+      inset: 37px;
       z-index: 3;
       display: grid;
       place-items: center;
-      color: var(--white);
+      border-radius: 50%;
+      color: var(--black);
+      background: var(--orange);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 0 0 0 rgba(255,77,0,.5);
       pointer-events: none;
+      transition: transform .5s cubic-bezier(.16,1,.3,1), box-shadow .5s;
     }
-    .scroll-arrow svg { width: 25px; height: 25px; stroke: currentColor; stroke-width: 1.8; fill: none; stroke-linecap: round; stroke-linejoin: round; }
-    .scroll-orbit:hover .scroll-arrow svg { transform: translateY(3px); }
-    .scroll-arrow svg { transition: transform .2s ease; }
+    .scroll-arrow svg { width: 20px; height: 20px; stroke: currentColor; stroke-width: 2.2; fill: none; stroke-linecap: round; stroke-linejoin: round; animation: orbit-nudge 2.2s cubic-bezier(.45,0,.55,1) infinite; }
+    .scroll-orbit:hover .scroll-arrow { transform: scale(1.1); box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 0 0 8px rgba(255,77,0,.16); }
+    @keyframes orbit-nudge { 0%, 100% { transform: translateY(-2px); } 50% { transform: translateY(3px); } }
+    @media (prefers-reduced-motion: reduce) { .scroll-arrow svg { animation: none; } }
 
     /* Marquee */
     .marquee-band { background: var(--black); color: var(--orange); padding-block: clamp(26px, 4vw, 54px); transform: skewY(-2deg) scale(1.03); overflow: hidden; position: relative; z-index: 2; border-block: 2px solid var(--black); }
@@ -278,12 +267,12 @@
       .hero-topline { align-items: flex-start; font-size: 9px; }
       .hero-title { white-space: normal; font-size: clamp(82px, 22vw, 140px); line-height: .78; }
       .hero-subtitle { max-width: 340px; font-size: 16px; }
-      .hero-meta { grid-template-columns: 1fr 96px 1fr; gap: 8px; padding-top: 20px; padding-bottom: 12px; }
+      .hero-meta { grid-template-columns: 1fr 104px 1fr; gap: 8px; padding-top: 20px; padding-bottom: 12px; }
       .hero-meta p { font-size: 8px; }
-      .scroll-orbit { width: 96px; height: 96px; margin: 0 auto; }
-      .scroll-orbit::before { inset: 6px; }
-      .scroll-orbit__ring text { font-size: 8px; letter-spacing: .35px; }
-      .scroll-arrow svg { width: 20px; height: 20px; }
+      .scroll-orbit { width: 104px; height: 104px; }
+      .scroll-orbit::before { inset: 19px; }
+      .scroll-arrow { inset: 31px; }
+      .scroll-arrow svg { width: 17px; height: 17px; }
       .marquee-text { font-size: 16vw; }
       .products-head, .services-head, .downloads-head { display: block; }
       .products-head p, .services-head p, .downloads-head p { margin-top: 22px; }
@@ -726,7 +715,6 @@
     .service-art, .os-state, .req li, .plat-ask, .service-tags span { -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
     .service-item:hover .service-tags span { background: rgba(255,255,255,.14); }
     .toast { background: var(--glass-dark); color: var(--white); border: 1px solid var(--glass-edge-dark); border-radius: 999px; -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: var(--glass-shine), 0 20px 40px rgba(0,0,0,.35); }
-    .scroll-orbit { background: var(--glass-dark); border: 1px solid var(--glass-edge-dark); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: var(--glass-shine), 0 20px 40px -16px rgba(0,0,0,.5); }
     .cta-badge { background: var(--glass-dark); border: 1px solid var(--glass-edge-dark); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); }
     /* footer: a glass shelf */
     footer { background: radial-gradient(50% 120% at 100% 0%, rgba(255,77,0,.18), transparent 70%), var(--black); }
@@ -759,7 +747,29 @@
       .product-card { min-height: 320px; }
       .service-main h3 { font-size: clamp(26px, 8vw, 40px); }
     }
-</style>
+
+    /* ---- smoothness pass ----
+       Backdrop blur is only kept where something actually moves behind the glass (the fixed nav and the
+       three floating hero cards). Everywhere else the cards sit on flat colour, so the blur cost GPU time on
+       every scrolled frame for no visible change; in the hero it also re-blurred the drifting light 60x a second. */
+    .explain, .product-card, .plat-panel, .principles li, .download-row, .download-row .download-action,
+    .product-state, .plat-chip, .service-art, .os-state, .req li, .plat-ask, .service-tags span,
+    .text-link, .cta-button, .cta-badge, .btn-solid, .btn-ghost, .hero-avail span, .receipt, .footer-top {
+      -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+    }
+    .receipt { background: rgba(255,96,30,.9); }
+    /* grain: plain alpha blending looks the same on these colours and avoids a page-sized blend layer */
+    .grain::after, .hero-noise { mix-blend-mode: normal; }
+    /* one easing curve for all motion: quick to start, long soft landing */
+    :root { --ease-out: cubic-bezier(.16,1,.3,1); }
+    .js .rv { transform: translateY(18px); transition: opacity .9s var(--ease-out), transform .9s var(--ease-out); transition-delay: var(--d, 0s); }
+    .product-card, .explain, .download-action, .btn, .cta-button, .text-link, .service-item, .service-main h3, .service-arrow, .product-arrow {
+      transition-timing-function: var(--ease-out); transition-duration: .45s;
+    }
+    @keyframes rise { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
+    .hero-topline, .hero-title, .hero-subtitle, .hero-plain, .hero-actions, .hero-avail, .receipt, .hero-meta { animation-duration: 1.1s; animation-timing-function: var(--ease-out); }
+    @media (prefers-reduced-motion: reduce) { .js .rv { transform: none; } }
+  </style>
 <script src="/assets/smooth.js" defer></script>
 <link rel="stylesheet" href="/assets/site.css">
 <script src="/assets/site.js" defer></script>
@@ -834,17 +844,20 @@
         <p>Based in<br>India / Online</p>
         <a class="scroll-orbit" id="scrollOrbit" href="#products" aria-label="Scroll down to explore products" title="Scroll to explore">
           <span class="scroll-orbit__scroll-layer" id="scrollOrbitLayer" aria-hidden="true">
-            <svg class="scroll-orbit__ring" viewBox="0 0 144 144" aria-hidden="true" focusable="false">
+            <svg class="scroll-orbit__ring" viewBox="0 0 128 128" aria-hidden="true" focusable="false">
               <defs>
-                <path id="scrollOrbitPath" d="M72 72 m-56 0 a56 56 0 1 1 112 0 a56 56 0 1 1 -112 0"/>
+                <path id="scrollOrbitPath" d="M64 64 m-47 0 a47 47 0 1 1 94 0 a47 47 0 1 1 -94 0"/>
               </defs>
-              <text>
-                <textPath href="#scrollOrbitPath" startOffset="0%">SCROLL DOWN • SCROLL DOWN • SCROLL DOWN • SCROLL DOWN • </textPath>
-              </text>
+              <!-- textLength = the path's circumference (2 × π × 47), so the words close the loop with no seam -->
+              <text><textPath href="#scrollOrbitPath" textLength="295.3" lengthAdjust="spacing">SCROLL TO EXPLORE · SCROLL TO EXPLORE · </textPath></text>
             </svg>
           </span>
+          <svg class="scroll-orbit__progress" viewBox="0 0 128 128" aria-hidden="true" focusable="false">
+            <circle class="track" cx="64" cy="64" r="61"/>
+            <circle class="bar" id="scrollOrbitBar" cx="64" cy="64" r="61" pathLength="100"/>
+          </svg>
           <span class="scroll-arrow" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><path d="M12 4v16M5 13l7 7 7-7"/></svg>
+            <svg viewBox="0 0 24 24"><path d="M12 5v13M6.5 12.5 12 18l5.5-5.5"/></svg>
           </span>
         </a>
         <p class="right">A small independent<br>software label making<br>privacy and power tools.</p>
@@ -1082,7 +1095,7 @@
       <h2 class="display rv">GOOD TOOLS.<br>NO NONSENSE.</h2>
       <div class="cta-row rv">
         <a class="cta-button" href="mailto:ludmj99@gmail.com?subject=nobad">Get in touch <span>↗</span></a>
-        <span class="cta-badge" aria-hidden="true"><svg viewBox="0 0 120 120"><defs><path id="ctaRing" d="M60 60m-46 0a46 46 0 1 1 92 0a46 46 0 1 1-92 0"/></defs><text><textPath href="#ctaRing">FREE • OPEN SOURCE • NO TRACKING • </textPath></text></svg><b>n.</b></span>
+        <span class="cta-badge" aria-hidden="true"><svg viewBox="0 0 120 120"><defs><path id="ctaRing" d="M60 60m-46 0a46 46 0 1 1 92 0a46 46 0 1 1-92 0"/></defs><text><textPath href="#ctaRing" textLength="289" lengthAdjust="spacing">FREE · OPEN SOURCE · NO TRACKING · </textPath></text></svg><b>n.</b></span>
       </div>
       <p class="cta-alt">ludmj99@gmail.com · <a href="https://github.com/AryanGupta-234/Nobad">github.com/AryanGupta-234/Nobad</a></p>
     </section>
@@ -1096,7 +1109,7 @@
       </div>
       <div class="footer-links"><a href="#products">Products</a><a href="/products/vpn/">VPN</a><a href="#services">What we do</a><a href="#downloads">Downloads</a><a href="#about">About</a><a href="/support/">Support</a><a href="mailto:ludmj99@gmail.com">Contact</a><a href="https://github.com/AryanGupta-234/Nobad">GitHub</a><a href="/code-signing-policy/">Code signing policy</a><a href="/privacy/">Privacy</a></div>
     </div>
-    <div class="footer-bottom"><span>© <span id="year" data-year>2026</span> NOBAD. All rights reserved.</span><span>Made by <a href="https://github.com/AryanGupta-234">Aryan Gupta</a> · MIT-licensed open source</span><span class="tm-note">WireGuard is a registered trademark of Jason A. Donenfeld. Other names are trademarks of their owners; NOBAD is not affiliated with them.</span><span class="ai-mark" title="Developed in collaboration with AI">✦ Built with AI · Open to contributions</span></div>
+    <div class="footer-bottom"><span>© <span id="year" data-year>2026</span> NOBAD. All rights reserved.</span><span>Made by <a href="https://github.com/AryanGupta-234">Aryan Gupta</a> · MIT-licensed open source</span><span class="tm-note">WireGuard is a registered trademark of Jason A. Donenfeld. Other names are trademarks of their owners; NOBAD is not affiliated with them.</span><span class="ai-mark" title="Developed in collaboration with AI"><i aria-hidden="true">✦</i>Built with AI</span></div>
   </footer>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -1129,41 +1142,38 @@
       }
     });
 
-    // Scroll wheel: it stays still at rest and rotates only while the visitor
-    // actively scrolls downward. The separate n. stamp has been removed.
+    // Scroll ring: the words turn only while the visitor scrolls down, easing to a stop
+    // instead of jumping, and the orange arc shows how far down the page they are.
     (() => {
       const wheel = document.getElementById("scrollOrbit");
       const rotor = document.getElementById("scrollOrbitLayer");
       if (!wheel || !rotor) return;
-      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-
-      let lastY = window.scrollY;
-      let rotation = 0;
-      let pendingDelta = 0;
-      let ticking = false;
-
-      const applyRotation = () => {
-        if (pendingDelta > 0) {
-          // Accumulate only downward scroll distance; no autoplay or idle spin.
-          rotation = (rotation + pendingDelta * 0.42) % 360;
-          rotor.style.transform = `rotate(${rotation}deg)`;
-        }
-        pendingDelta = 0;
-        ticking = false;
+      const root = document.documentElement;
+      const progress = () => {
+        const max = Math.max(1, root.scrollHeight - window.innerHeight);
+        wheel.style.setProperty("--orbit-progress", (100 - Math.min(1, window.scrollY / max) * 100).toFixed(2));
       };
-
+      progress();
+      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      let lastY = window.scrollY, target = 0, angle = 0, raf = 0, last = 0;
+      const tick = t => {
+        const dt = last ? Math.min(0.05, (t - last) / 1000) : 1 / 60;
+        last = t;
+        angle += (target - angle) * (1 - Math.exp(-6 * dt));
+        if (Math.abs(target - angle) < 0.05) angle = target;
+        rotor.style.transform = `rotate(${angle.toFixed(2)}deg)`;
+        if (angle === target) { raf = 0; last = 0; return; }
+        raf = requestAnimationFrame(tick);
+      };
       window.addEventListener("scroll", () => {
-        const currentY = window.scrollY;
-        const delta = currentY - lastY;
-        lastY = currentY;
-        if (delta > 0) {
-          pendingDelta += delta;
-          if (!ticking) {
-            ticking = true;
-            window.requestAnimationFrame(applyRotation);
-          }
-        }
+        progress();
+        const y = window.scrollY, delta = y - lastY;
+        lastY = y;
+        if (reduce || delta <= 0) return;
+        target += delta * 0.3;
+        if (!raf) raf = requestAnimationFrame(tick);
       }, { passive: true });
+      window.addEventListener("resize", progress, { passive: true });
     })();
 
     // Scroll-aware navigation affordance.
