@@ -2,6 +2,16 @@
 
 All notable changes to NOBAD VPN. Versions follow [semantic versioning](https://semver.org/).
 
+## 1.5.0 · 2026-11-16
+
+### Added
+- **Free servers in two clicks.** Servers → Free servers walks you through getting your own free Proton VPN servers,
+  then finds the WireGuard files in your Downloads folder by itself while the guide is open. It shows each one's
+  country, name and server, ticks the new ones, and adds them in one click with the same checks as any import (no
+  script hooks). Servers you already have are marked and skipped. NOBAD only reads the Downloads folder.
+- NOBAD never ships shared servers: a bundled config would give every user the same private key and the same
+  one-connection account, so each user gets their own.
+
 ## 1.4.1 · 2026-11-16
 
 ### Fixed

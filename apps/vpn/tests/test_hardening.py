@@ -478,3 +478,40 @@ def test_import_folder_is_read_only_for_nobad(monkeypatch):
     assert r["imported"] == ["Dropped1.conf"] and os.path.exists(good) and os.path.exists(link)
     assert configstore.import_inbox()["skipped"] == ["Dropped1.conf"]     # already imported: left alone
     assert not any(n.startswith("Linked1") for n in os.listdir(engine.config_dir()))
+
+
+PROTON = """[Interface]
+PrivateKey = {priv}
+Address = 10.2.0.2/32
+DNS = 10.2.0.1
+
+[Peer]
+# JP-FREE#27
+PublicKey = {pub}
+AllowedIPs = 0.0.0.0/0, ::/0
+Endpoint = 212.102.51.115:51820
+"""
+
+
+def test_free_servers_found_in_downloads_and_imported_read_only(win, monkeypatch, tmp_path):
+    """Free servers: WireGuard files the user downloaded are offered and imported with the normal checks; the
+    Downloads folder is only read, links and old or oversized files are ignored."""
+    from conftest import PRIV, PUB
+    from nobadvpn import configstore, engine
+    engine.ensure_dirs()
+    dl = tmp_path / "Downloads"
+    dl.mkdir()
+    (dl / "wg-JP-FREE-27.conf").write_text(PROTON.format(priv=PRIV, pub=PUB), encoding="utf-8")
+    (dl / "notes.conf").write_text("not a wireguard file", encoding="utf-8")
+    (dl / "big.conf").write_text("[Interface]\n[Peer]\n" + "#" * 70000, encoding="utf-8")
+    (dl / "linked.conf").write_text(PROTON.format(priv=PRIV, pub=PUB).replace("212.102.51.115", "1.2.3.4"), encoding="utf-8")
+    old = dl / "old.conf"
+    old.write_text(PROTON.format(priv=PRIV, pub=PUB).replace("212.102.51.115", "5.6.7.8"), encoding="utf-8")
+    os.utime(old, (1, 1))
+    monkeypatch.setattr(configstore, "_downloads_dir", lambda: str(dl))
+    monkeypatch.setattr(syscmd, "_is_reparse", lambda p: str(p).endswith("linked.conf"))
+    found = configstore.downloads_scan()["files"]
+    assert [(f["file"], f["name"], f["country"]) for f in found] == [("wg-JP-FREE-27.conf", "JP-FREE-27", "Japan")]
+    r = configstore.downloads_import(["wg-JP-FREE-27.conf", "../secret.conf", "linked.conf"])
+    assert r["imported"] == ["JP-FREE-27"] and len(r["errors"]) == 2
+    assert sorted(os.listdir(dl)) == ["big.conf", "linked.conf", "notes.conf", "old.conf", "wg-JP-FREE-27.conf"]

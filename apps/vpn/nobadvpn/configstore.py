@@ -118,6 +118,111 @@ def import_text(name, content, untrusted=False):
 
 
 INBOX_MAX = 64 * 1024
+DOWNLOADS_DAYS = 14          # only recent downloads are offered
+_PROTON = re.compile(r"#\s*([A-Z]{2}(?:-[A-Z]{2})?)-FREE#(\d{1,4})")
+COUNTRY_HINT = {"JP": "Japan", "US": "United States", "NL": "Netherlands", "PL": "Poland", "RO": "Romania",
+                "MX": "Mexico", "CA": "Canada", "NO": "Norway", "SG": "Singapore", "CH": "Switzerland"}
+
+
+def _downloads_dir():
+    from .const import known_folder
+    d = known_folder("Downloads") if os.name == "nt" else os.path.expanduser("~/Downloads")
+    return d if d and os.path.isdir(d) else None
+
+
+def _read_small(path):
+    """Read a file from a user-writable folder: no links, no folders, at most INBOX_MAX bytes. None if refused."""
+    from .syscmd import _is_reparse
+    if _is_reparse(path) or not os.path.isfile(path):
+        return None
+    with open(path, "rb") as f:
+        raw = f.read(INBOX_MAX + 1)
+    if len(raw) > INBOX_MAX:
+        return None
+    try:
+        return raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return None
+
+
+def _suggest_name(fn, text):
+    m = _PROTON.search(text)
+    return clean_name(f"{m.group(1)}-FREE-{m.group(2)}") if m else clean_name(fn)
+
+
+def downloads_scan(now=None):
+    """WireGuard configs downloaded in the last DOWNLOADS_DAYS days (top level of the Downloads folder), each with a
+    suggested name, the server it connects to and whether NOBAD already has that server. Read-only: the Downloads
+    folder belongs to the user, so nothing there is written, moved or deleted."""
+    import time as _t
+    from .syscmd import _is_reparse
+    d = _downloads_dir()
+    if not d or _is_reparse(d):
+        return {"ok": True, "folder": d, "files": []}
+    now = now or _t.time()
+    have = {(r.get("host"), r.get("port")) for r in (getattr(ctx.tunnel, "_regions", None) or [])}
+    names = {confparse.stem_of(f) for f in os.listdir(config_dir())} if os.path.isdir(config_dir()) else set()
+    out = []
+    try:
+        entries = sorted(os.scandir(d), key=lambda e: -e.stat().st_mtime)[:400]
+    except OSError:
+        return {"ok": True, "folder": d, "files": []}
+    for e in entries:
+        if not e.name.lower().endswith(EXT_PLAIN) or now - e.stat().st_mtime > DOWNLOADS_DAYS * 86400:
+            continue
+        try:
+            text = _read_small(e.path)
+        except OSError:
+            text = None
+        if not text or "[Interface]" not in text or "[Peer]" not in text:
+            continue
+        info = confparse.parse_conf_text(text)
+        if not info.get("host"):
+            continue
+        m = _PROTON.search(text)
+        name = _suggest_name(e.name, text)
+        out.append({"file": e.name, "name": name, "host": info["host"], "port": info.get("port"),
+                    "provider": "Proton VPN Free" if m else None,
+                    "country": COUNTRY_HINT.get(m.group(1).split("-")[0]) if m else None,
+                    "already": (info["host"], info.get("port")) in have, "name_taken": name in names,
+                    "mtime": e.stat().st_mtime})
+        if len(out) >= 40:
+            break
+    return {"ok": True, "folder": d, "files": out}
+
+
+def downloads_import(files):
+    """Import the chosen files from Downloads like any picked file (validated, no script hooks). Returns per-file
+    results; servers NOBAD already has are skipped."""
+    d = _downloads_dir()
+    if not d or not isinstance(files, list):
+        return {"ok": False, "error": "Downloads folder not found"}
+    scan = {f["file"]: f for f in downloads_scan()["files"]}
+    done, errors = [], []
+    for fn in [str(x) for x in files[:40]]:
+        item = scan.get(fn)
+        if not item or os.path.basename(fn) != fn:          # only files the scan offered, by bare name
+            errors.append(f"{fn}: not found")
+            continue
+        if item["already"]:
+            errors.append(f"{fn}: you already have this server")
+            continue
+        try:
+            text = _read_small(os.path.join(d, fn))
+        except OSError:
+            text = None
+        if not text:
+            errors.append(f"{fn}: couldn't read it")
+            continue
+        name, n = item["name"] or "server", 2
+        while _find(name):
+            name = clean_name(f"{item['name']}-{n}")
+            n += 1
+        r = import_text(name, text, untrusted=True)
+        (done if r.get("ok") else errors).append(name if r.get("ok") else f"{fn}: {r.get('error')}")
+    if done:
+        log(f"imported {len(done)} server(s) from Downloads: {', '.join(done)}", "ok")
+    return {"ok": bool(done) or not errors, "imported": done, "errors": errors}
 
 
 def import_inbox():

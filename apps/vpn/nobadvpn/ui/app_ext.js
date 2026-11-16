@@ -250,21 +250,55 @@ function freeServers() {
   const m = modal({ wide: true, title: t("Free servers"), sub: t("NOBAD connects with WireGuard configs from any provider. These are free and safe ways to get some."),
     html: `<div class="nx-grp nx-free"><div class="nx-free-h"><b>${esc(t("Proton VPN Free"))}</b><span class="chip">${esc(t("several countries"))}</span></div>
       <p class="note">${esc(t("No-logs VPN with free servers in a few countries (for example the Netherlands, Japan, the United States, Poland and Romania). Each config is made for your own free account."))}</p>
-      <ol class="nx-steps"><li>${esc(t("Create a free Proton account (or sign in)."))}</li>
-      <li>${esc(t("Open Downloads → WireGuard configuration, choose Windows and a free server, and download the file. Repeat for each country you want."))}</li>
-      <li>${esc(t("Import the downloaded files here. You can pick several at once."))}</li></ol>
-      <div class="nx-inline">${link("proton_signup", "Create free account")}${link("proton_downloads", "Open WireGuard downloads")}${link("import", "Import downloaded files", "pri")}</div></div>
+      <ol class="nx-steps"><li>${esc(t("Create a free Proton account (or sign in)."))} ${link("proton_signup", "Create free account")}</li>
+      <li>${esc(t("Open Downloads → WireGuard configuration, choose Windows and a free server, and download the file. Repeat for each country you want."))} ${link("proton_downloads", "Open WireGuard downloads")}</li>
+      <li>${esc(t("Come back here: NOBAD finds the files in your Downloads folder by itself."))}</li></ol>
+      <div class="nx-found" id="fsFound" aria-live="polite"><div class="ni-busy"><i></i>${esc(t("Looking in your Downloads folder…"))}</div></div></div>
       <div class="nx-grp nx-free"><div class="nx-free-h"><b>${esc(t("Cloudflare WARP"))}</b><span class="chip">${esc(t("nearest location"))}</span></div>
       <p class="note">${esc(t("Free, but Cloudflare only gives WARP connections to its own app, and always picks the nearest location. Use the official 1.1.1.1 app for WARP; NOBAD is for the configs above and your own servers."))}</p>
       <div class="nx-inline">${link("warp_app", "Get the 1.1.1.1 app")}</div></div>
       <div class="nx-grp nx-free"><div class="nx-free-h"><b>${esc(t("Your own server or provider"))}</b></div>
       <p class="note">${esc(t("Any WireGuard .conf works: from a paid provider, a router, or a server you run. Import it, paste it, or scan its QR code."))}</p></div>
       <p class="note">${esc(t("Never use configs copied from \"free config\" websites: everyone using them shares the same private key, and you can't know who runs the server."))}</p>`,
-    actions: [{ label: t("Close"), fn: x => x.close() }] });
+    actions: [{ label: t("Close"), fn: x => { clearInterval(timer); x.close(); } }] });
+  // Watch Downloads while the guide is open: new WireGuard files appear here, one click imports them. Read-only.
+  const FS = { files: [], sel: new Set(), busy: false, sig: "" };
+  const box = () => m.body.querySelector("#fsFound");
+  const draw = () => {
+    const b = box(); if (!b) return;
+    const fresh = FS.files.filter(f => !f.already);
+    if (!FS.files.length) { b.innerHTML = `<div class="note">${esc(t("No WireGuard files downloaded in the last two weeks yet. This list updates by itself."))} <button class="linkish" data-fs="import">${esc(t("Pick files instead"))}</button></div>`; return; }
+    b.innerHTML = `<div class="nx-found-h"><b>${esc(t("Found in Downloads"))}</b><span class="note">${fresh.length} ${esc(t("new"))}</span></div>` +
+      FS.files.map(f => `<label class="nx-fitem${f.already ? " off" : ""}"><input type="checkbox" data-ff="${esc(f.file)}" ${f.already ? "disabled" : FS.sel.has(f.file) ? "checked" : ""}>
+        <span><b>${esc(f.country || f.name)}</b><small>${esc(f.name)} · ${esc(f.host)}${f.port ? ":" + esc(f.port) : ""}${f.provider ? " · " + esc(f.provider) : ""}</small></span>
+        <em>${esc(t(f.already ? "added" : "new"))}</em></label>`).join("") +
+      `<div class="nx-inline"><button class="pri" data-fs="addfound" ${FS.busy || !fresh.some(f => FS.sel.has(f.file)) ? "disabled" : ""}>${esc(t(FS.busy ? "Adding…" : "Add selected servers"))}</button>
+        <button class="sm" data-fs="import">${esc(t("Pick other files"))}</button></div>`;
+  };
+  const scan = () => api("free_scan", {}).then(r => {
+    if (!r || !r.ok) return;
+    const sig = r.files.map(f => f.file + f.already).join("|"); if (sig === FS.sig) return;
+    const known = new Set(FS.files.map(f => f.file));
+    r.files.forEach(f => { if (!f.already && !known.has(f.file)) FS.sel.add(f.file); });     // new downloads start ticked
+    FS.files = r.files; FS.sig = sig; draw();
+  });
+  scan(); const timer = setInterval(() => { if (!document.body.contains(m.body)) { clearInterval(timer); return; } scan(); }, 4000);
+  m.body.addEventListener("change", e => { const c = e.target.closest("[data-ff]"); if (!c) return; c.checked ? FS.sel.add(c.dataset.ff) : FS.sel.delete(c.dataset.ff); draw(); });
   m.body.addEventListener("click", e => {
     const b = e.target.closest("[data-fs]"); if (!b) return;
-    if (b.dataset.fs === "import") { m.close(); $("#file").click(); }
-    else api("open_url", { key: b.dataset.fs }).then(r => { if (!r.ok) toast(r.error); else toast(t("Opened in your browser"), true); });
+    if (b.dataset.fs === "addfound") {
+      const files = FS.files.filter(f => !f.already && FS.sel.has(f.file)).map(f => f.file); if (!files.length) return;
+      FS.busy = true; draw();
+      api("free_import", { files }).then(r => {
+        FS.busy = false; FS.sig = ""; FS.sel.clear();
+        if (r && r.imported && r.imported.length) toast(t("Added {n} server(s): {names}", { n: r.imported.length, names: r.imported.join(", ") }), true);
+        if (r && r.errors && r.errors.length) toast(r.errors[0]);
+        scan();
+      });
+      return;
+    }
+    if (b.dataset.fs === "import") { clearInterval(timer); m.close(); $("#file").click(); }
+    else api("open_url", { key: b.dataset.fs }).then(r => { if (!r.ok) toast(r.error); else toast(t("Opening in your browser…"), true); });
   });
 }
 function serversTools() {

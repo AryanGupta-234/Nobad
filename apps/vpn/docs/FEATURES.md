@@ -52,6 +52,9 @@ Some live-tunnel behaviour still needs verification on more real PCs and network
 
 ## Configs
 
+* **Free servers** guide: get your own free Proton VPN servers; while it is open NOBAD finds WireGuard files
+  downloaded in the last two weeks (top of the Downloads folder, read-only, links and files over 64 KB ignored) and
+  adds the ticked ones in one click. Servers you already have are skipped.
 * Import from files (several at once), drag and drop, QR image (file or pasted screenshot), pasted text, HTTPS URL, or the configs folder plus Rescan.
 * Live validation with line-numbered errors and warnings.
 * Editor with private/preshared keys hidden and preserved.
