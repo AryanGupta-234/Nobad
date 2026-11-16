@@ -6,6 +6,10 @@
 
   function control(f, value) {
     var id = "set-" + f.id.replace(/\./g, "-");
+    if (f.kind === "bool") {
+      return '<button type="button" class="sw" role="switch" id="' + id + '" data-id="' + esc(f.id) + '" aria-checked="' + (value === true) +
+        '" aria-labelledby="' + id + '-label" aria-describedby="' + id + '-desc ' + id + '-state"></button>';
+    }
     if (f.kind === "choice" && f.choices.length <= 3) {
       return '<div class="seg" role="radiogroup" aria-labelledby="' + id + '-label" data-id="' + esc(f.id) + '">' +
         f.choices.map(function (c) {
@@ -28,7 +32,7 @@
 
   function row(f, value) {
     var id = "set-" + f.id.replace(/\./g, "-");
-    var labelTag = f.kind === "choice" && f.choices.length <= 3
+    var labelTag = (f.kind === "choice" && f.choices.length <= 3) || f.kind === "bool"
       ? '<span class="set-label" id="' + id + '-label">' + esc(f.label) + "</span>"
       : '<label for="' + id + '" id="' + id + '-label">' + esc(f.label) + "</label>";
     var hint = f.kind === "int" ? " From " + f.min + " to " + f.max + "." : "";
@@ -71,6 +75,13 @@
         if (i < 0 || (e.key !== "ArrowRight" && e.key !== "ArrowLeft")) { return; }
         e.preventDefault();
         pick(radios[(i + (e.key === "ArrowRight" ? 1 : radios.length - 1)) % radios.length]);
+      });
+    });
+    $$(".sw[data-id]", root).forEach(function (sw) {
+      sw.addEventListener("click", function () {
+        var next = sw.getAttribute("aria-checked") !== "true";
+        sw.setAttribute("aria-checked", String(next));
+        save(sw, sw.getAttribute("data-id"), next);
       });
     });
     $$("select[data-id]", root).forEach(function (sel) {

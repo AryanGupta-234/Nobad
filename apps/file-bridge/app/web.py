@@ -13,7 +13,7 @@ import webbrowser
 from app_web import bus
 from app_web.context import AppContext
 from app_web.server import BridgeServer
-from app_web.window import WindowUnavailable, run_window
+from app_web.window import WindowController, WindowUnavailable
 from core.diagnostics import install_diagnostics
 
 
@@ -41,7 +41,12 @@ def main(argv: list[str] | None = None) -> int:
             print(f"NOBAD File Bridge is running at {server.base_url}. Press Ctrl+C to stop.")
             threading.Event().wait()
         else:
-            run_window(server.launch_url(), debug=args.debug)
+            ctx.window = WindowController(
+                frameless=bool(ctx.settings.get("web_ui.custom_titlebar")),
+                load_geometry=ctx.load_window_geometry,
+                save_geometry=ctx.save_window_geometry,
+            )
+            ctx.window.run(server.launch_url(), debug=args.debug)
     except WindowUnavailable as exc:
         print(exc, file=sys.stderr)
         return 2

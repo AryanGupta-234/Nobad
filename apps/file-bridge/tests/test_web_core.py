@@ -143,3 +143,20 @@ def test_a_corrupt_stored_value_falls_back_to_the_default(tmp_path: Path) -> Non
         app_data.settings(session).set("transfer.max_concurrent", {"value": "lots"})
         session.commit()
     assert SettingsStore(app_data).get("transfer.max_concurrent") == 3
+
+
+# ---------------------------------------------------------------- entry point
+def test_app_web_main_starts_the_window_with_the_title_bar_setting(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import app.web as web
+
+    seen: dict[str, object] = {}
+
+    def fake_run(self, launch_url: str, *, debug: bool = False) -> None:
+        seen.update(frameless_setting=self.frameless, url=launch_url, geometry=self._load())
+
+    monkeypatch.setattr(web, "install_diagnostics", lambda: None)
+    monkeypatch.setattr(web.WindowController, "run", fake_run)
+
+    assert web.main(["--db", str(tmp_path / "app.sqlite3")]) == 0
+    assert "/?k=" in str(seen["url"])
+    assert seen["geometry"] is None

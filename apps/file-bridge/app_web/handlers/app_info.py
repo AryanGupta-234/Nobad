@@ -15,6 +15,7 @@ def app_info(_body: dict[str, Any], ctx: AppContext) -> dict[str, Any]:
         "version": ctx.version,
         "platform": platform.system(),
         "storage_warning": getattr(ctx.app_data, "storage_warning", None),  # set by #31 (PR #35)
+        "window": ctx.window.state() if ctx.window is not None else {"frameless": False, "maximized": False},
     })
 
 

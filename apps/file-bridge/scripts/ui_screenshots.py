@@ -29,6 +29,16 @@ SIZES = {"1280x820": (1280, 820), "1060x700": (1060, 700)}
 DEFAULT_SCREENS = ["files", "settings", "connections"]
 
 
+class PreviewWindow:
+    """Stands in for the frameless pywebview window, so screenshots show the NOBAD title bar."""
+
+    def state(self) -> dict:
+        return {"frameless": True, "maximized": False}
+
+    def action(self, act: str, edge: str | None = None) -> dict:
+        return self.state()
+
+
 def find_browser() -> str:
     for candidate in EDGE_CANDIDATES:
         if Path(candidate).exists() or shutil.which(candidate):
@@ -46,6 +56,7 @@ def main(argv: list[str]) -> int:
     browser = find_browser()
     work = Path(tempfile.mkdtemp(prefix="nbfb-shots-"))
     ctx = AppContext.create(work / "app.sqlite3")
+    ctx.window = PreviewWindow()      # shows NOBAD's title bar as in the frameless app window
     server = BridgeServer(ctx)
     server.start()
     bus.log("NOBAD File Bridge 0.4.0 started.", "ok")

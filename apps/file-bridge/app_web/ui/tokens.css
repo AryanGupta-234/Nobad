@@ -34,7 +34,7 @@
   --font-disp:"Segoe UI Variable Display","Segoe UI Variable","Segoe UI",system-ui,-apple-system,"SF Pro Display",Roboto,sans-serif;
   --font-mono:"Cascadia Mono","Cascadia Code",Consolas,"SF Mono",ui-monospace,"JetBrains Mono",monospace;
 
-  --header-h:52px;--rail-w:212px;--rail-w-collapsed:64px;--dock-bar-h:38px;
+  --header-h:46px;--rail-w:212px;--rail-w-collapsed:64px;--dock-bar-h:38px;
 }
 :root[data-theme="light"]{
   color-scheme:light;

@@ -33,6 +33,23 @@ pywebview window ──GET /?k=<code>──▶ app_web/server.py (127.0.0.1, ran
   rows the Qt UI uses. The Settings screen draws itself from `settings.schema`. Only list settings that really
   change something.
 
+## NOBAD title bar
+
+On Windows the window is frameless and the header is the title bar, exactly as in NOBAD VPN
+(`apps/vpn/nobadvpn/window.py`, `ui/app_ext.js` `titlebar()`):
+
+* `app_web/window.py` `WindowController.action()` backs `POST /api/window.action`: `minimize`, `maximize` (toggle,
+  keeps the taskbar visible), `close`, `drag` (`WM_NCLBUTTONDOWN` on the caption: Windows' own move loop, so
+  snapping works), `resize` with an edge `l r t b tl tr bl br` (`WM_SYSCOMMAND SC_SIZE`), and `state`.
+* After the window appears it gets `WS_MINIMIZEBOX | WS_SYSMENU`, so its taskbar button minimises it and Win+Down
+  works. Size and position are remembered (`web_ui.window` row) and clamped back on screen.
+* pywebview opens a frameless window 16×39 px smaller than asked; the controller measures that once and adds it
+  back when saving, so the window doesn't shrink on every start.
+* `ui/titlebar.js` adds the 46 px window buttons (close turns `#c42b1c`), drag and double-click on empty header
+  space, invisible resize edges, and a 150 ms fade before minimise/close.
+* Setting **NOBAD title bar** (`web_ui.custom_titlebar`, on by default) turns it off: the system title bar
+  (dark caption) is used from the next start. Linux and macOS always use the system title bar.
+
 ## Page structure (`app_web/ui/`)
 
 | File | What |
@@ -44,6 +61,7 @@ pywebview window ──GET /?k=<code>──▶ app_web/server.py (127.0.0.1, ran
 | `core.js` | `NB.$`, `NB.esc`, `NB.api`, `NB.on/emit`, `NB.task`, `NB.toast`, `NB.modal`, theme, `NB.uiState` |
 | `shell.js` | screen list (`NB.SCREENS`), rail, routing (`#/screen`), dock, keyboard, start-up |
 | `palette.js` | Ctrl+K: screens, actions, settings |
+| `titlebar.js` | NOBAD title bar: window buttons, drag, double-click, resize edges, fade |
 | `screens/*.js` | one file per screen: `NB.screens.<id> = {ready: true, render(el, screen, opts), leave?()}` |
 
 ## Rules for new screens

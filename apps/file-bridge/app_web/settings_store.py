@@ -19,7 +19,7 @@ class SettingField:
     id: str                       # stable id used by the page, e.g. "terminal.font_size"
     row: str                      # database row key, e.g. "terminal"
     path: tuple[str, ...]         # path inside the row's value; () = the value itself
-    kind: str                     # "choice" | "int" | "text"
+    kind: str                     # "choice" | "int" | "text" | "bool"
     default: Any
     group: str
     label: str
@@ -45,6 +45,12 @@ FIELDS: tuple[SettingField, ...] = (
         "Dark or light. System follows your Windows or desktop setting.",
         choices=(("dark", "Dark"), ("light", "Light"), ("system", "System")),
         keywords=("dark mode", "light mode", "colour", "color"),
+    ),
+    SettingField(
+        "web_ui.custom_titlebar", "web_ui", ("custom_titlebar",), "bool", True, "appearance", "NOBAD title bar",
+        "NOBAD's own top bar with minimise, maximise and close. Off brings back the standard Windows title bar. "
+        "Applies the next time File Bridge starts.",
+        keywords=("window", "title bar", "frame", "buttons"),
     ),
     SettingField(
         "transfer.max_concurrent", "transfer.max_concurrent", (), "int", 3, "transfers", "Transfers at the same time",
@@ -100,6 +106,10 @@ def coerce(spec: SettingField, value: Any) -> Any:
         allowed = {key for key, _label in spec.choices}
         if value not in allowed:
             raise SettingError(f"{spec.label}: choose one of the listed options.")
+        return value
+    if spec.kind == "bool":
+        if not isinstance(value, bool):
+            raise SettingError(f"{spec.label}: turn it on or off.")
         return value
     if spec.kind == "int":
         if isinstance(value, bool):

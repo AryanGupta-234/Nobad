@@ -143,3 +143,16 @@ select{appearance:none;padding-right:34px;cursor:pointer;
   button.pri,.seg button[aria-checked=true]{forced-color-adjust:none;background:Highlight;color:HighlightText}
   .dot{forced-color-adjust:none;border:1px solid CanvasText}
 }
+
+/* switch (on/off setting): NOBAD VPN's .sw, 38x22 track, 16px knob, accent gradient when on */
+.sw{position:relative;width:38px;height:22px;min-height:22px;padding:0;border-radius:999px;border:1px solid var(--line);
+  background:var(--surface-3);flex:none;transition:background-color .2s,border-color .2s,box-shadow .2s}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;
+  box-shadow:0 1px 3px rgba(0,0,0,.35);transition:transform .2s var(--ease)}
+.sw[aria-checked=true]{background:linear-gradient(135deg,#4b8dff,var(--acc-solid));border-color:transparent;
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--acc) 16%,transparent)}
+.sw[aria-checked=true]::after{transform:translateX(16px)}
+.sw:hover:not(:disabled){background:var(--surface-3);border-color:var(--edge-hi)}
+.sw[aria-checked=true]:hover:not(:disabled){background:linear-gradient(135deg,#4b8dff,var(--acc-solid))}
+.sw:not(:disabled):active{transform:none}
+@media (forced-colors:active){.sw{border:1px solid CanvasText}.sw[aria-checked=true]{forced-color-adjust:none;background:Highlight}}

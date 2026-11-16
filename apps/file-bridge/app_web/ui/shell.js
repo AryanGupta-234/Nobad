@@ -207,6 +207,7 @@
     NB.api("app.info").then(function (r) {
       if (!r.ok) { return; }
       $("#dockMeta").textContent = "v" + r.data.version + " · ✦ made with AI";
+      if (NB.titlebar) { NB.titlebar.enable(r.data.window); }
       if (r.data.storage_warning) { NB.banner("storage", "warn", "Your data isn't being saved", r.data.storage_warning); }
     });
     NB.api("settings.schema").then(function (r) {
