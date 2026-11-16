@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import json
-import subprocess
-import sys
 
 from credentials.bulk_text_parser import credentials_text_to_json
 
@@ -86,19 +83,3 @@ def test_bulk_text_parser_strips_google_docs_bullet_markers() -> None:
     assert item["url_host"] == "https://123456789012.signin.aws.amazon.com/console"
     assert item["username"] == "ITInfonity"
     assert item["secret_value"] == "aws-secret"
-
-
-def test_bulk_text_parser_cli_reads_stdin_and_outputs_json() -> None:
-    completed = subprocess.run(
-        [sys.executable, "scripts/credentials_text_to_json.py", "--project", "Demo"],
-        input="API_KEY=secret\n",
-        text=True,
-        capture_output=True,
-        check=True,
-    )
-
-    data = json.loads(completed.stdout)
-
-    assert data["projects"][0]["name"] == "Demo"
-    assert data["projects"][0]["items"][0]["title"] == "API_KEY"
-    assert data["projects"][0]["items"][0]["secret_value"] == "secret"

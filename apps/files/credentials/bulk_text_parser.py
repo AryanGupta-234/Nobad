@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-import json
 import re
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any
 
 
@@ -74,15 +72,6 @@ def credentials_text_to_json(text: str, *, project_name: str = "Imported Credent
             }
         ]
     }
-
-
-def credentials_text_to_json_text(text: str, *, project_name: str = "Imported Credentials") -> str:
-    return json.dumps(credentials_text_to_json(text, project_name=project_name), indent=2)
-
-
-def convert_file(input_path: str | Path, output_path: str | Path, *, project_name: str) -> None:
-    text = Path(input_path).read_text(encoding="utf-8")
-    Path(output_path).write_text(credentials_text_to_json_text(text, project_name=project_name), encoding="utf-8")
 
 
 def _parse_field(line: str) -> ParsedField | None:

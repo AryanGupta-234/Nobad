@@ -10,8 +10,8 @@ def test_file_view_preferences_are_exposed_and_persisted() -> None:
     settings = (ROOT / "ui" / "settings_panel.py").read_text(encoding="utf-8")
     main = (ROOT / "ui" / "main_window.py").read_text(encoding="utf-8")
 
-    assert 'layout.addRow("Local file view", self.local_file_view)' in settings
-    assert 'layout.addRow("Remote file view", self.remote_file_view)' in settings
+    assert '("Local Pane Layout", self.local_file_view' in settings
+    assert '("Remote Pane Layout", self.remote_file_view' in settings
     assert '"file_browser"' in settings
     assert 'repo.set("file_browser",' in main
     assert 'self.local_panel.set_view_mode' in main

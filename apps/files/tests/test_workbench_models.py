@@ -14,9 +14,10 @@ from ui.workbench_models import (
 
 def test_responsive_breakpoints_match_desktop_laptop_targets() -> None:
     assert breakpoint_for_width(1440) == ResponsiveBreakpoint.WIDE
-    assert breakpoint_for_width(1366) == ResponsiveBreakpoint.MEDIUM
-    assert breakpoint_for_width(1024) == ResponsiveBreakpoint.MEDIUM
-    assert breakpoint_for_width(850) == ResponsiveBreakpoint.NARROW
+    assert breakpoint_for_width(900) == ResponsiveBreakpoint.WIDE
+    assert breakpoint_for_width(899) == ResponsiveBreakpoint.MEDIUM
+    assert breakpoint_for_width(650) == ResponsiveBreakpoint.MEDIUM
+    assert breakpoint_for_width(649) == ResponsiveBreakpoint.NARROW
 
 
 def test_navigation_groups_future_modules_out_of_primary_flow() -> None:
@@ -29,8 +30,12 @@ def test_navigation_groups_future_modules_out_of_primary_flow() -> None:
         "Connections",
         "Files",
         "Dashboard",
+        "Services",
+        "Tunnels",
+        "Logs",
         "Terminal",
         "Deployments",
+        "Playbooks",
         "Sync Jobs",
         "Credentials",
         "Editor",
@@ -42,7 +47,7 @@ def test_navigation_groups_future_modules_out_of_primary_flow() -> None:
 
 def test_narrow_file_manager_uses_single_pane_without_changing_preference() -> None:
     assert pane_mode_for_breakpoint(ResponsiveBreakpoint.WIDE, FilePaneMode.REMOTE) == FilePaneMode.DUAL
-    assert pane_mode_for_breakpoint(ResponsiveBreakpoint.MEDIUM, FilePaneMode.LOCAL) == FilePaneMode.LOCAL
+    assert pane_mode_for_breakpoint(ResponsiveBreakpoint.MEDIUM, FilePaneMode.LOCAL) == FilePaneMode.DUAL
     assert pane_mode_for_breakpoint(ResponsiveBreakpoint.NARROW, FilePaneMode.REMOTE) == FilePaneMode.REMOTE
     assert pane_mode_for_breakpoint(ResponsiveBreakpoint.NARROW, FilePaneMode.DUAL) == FilePaneMode.LOCAL
 

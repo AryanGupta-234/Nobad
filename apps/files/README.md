@@ -65,21 +65,11 @@ python -m app.main
 
 New Host supports `SSH`, `SFTP`, `FTP`, and `FTPS`. Passwords are session-only unless `Save profile` and `Remember secret` are enabled. Saved connection secrets are stored in the OS keyring; SQLite stores only keyring reference metadata. The separate Credentials page stores general developer/devops secrets in a local master-password encrypted vault.
 
-### Bulk Credentials JSON
+### Bulk import of credential notes
 
-Loose notes copied from docs can be converted into the Credentials JSON import format:
-
-```bash
-python scripts/credentials_text_to_json.py credentials.txt --project "Client Project" -o credentials.json
-```
-
-You can also paste through stdin:
-
-```bash
-python scripts/credentials_text_to_json.py --project "Client Project" > credentials.json
-```
-
-The converter recognizes mixed notes such as SSH `URL`/`Password` blocks, web login blocks, AWS/provider console logins, and `.env` lines like `API_KEY=value`.
+In the Credentials page, *Bulk Import (Text/Docs)* parses loose notes (SSH `URL`/`Password` blocks, web logins,
+provider console logins, `.env` lines like `API_KEY=value`), shows a preview, and saves the results straight into
+the encrypted vault. Nothing is written to disk in plain text.
 
 ## Test
 
