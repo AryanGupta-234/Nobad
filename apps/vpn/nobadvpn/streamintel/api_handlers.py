@@ -79,7 +79,9 @@ def h_title(b):
             log(f"streaming intelligence: restriction lookup failed: {e}", "warn")
             doc, rec = {"status": "unavailable", "records": [], "error": str(e)}, rep["recommendation"]
         broadcast("si_restrictions", {"key": rep["key"], "restrictions": doc, "recommendation": rec})
-    return {"ok": True} if run_once("si_title", work) else {"ok": False, "error": "Already loading a title."}
+    # one lock per title: opening another title while one loads used to fail with "Already loading a title" and
+    # leave the new window on its spinner
+    return {"ok": True} if run_once(f"si_title:{kind}:{tid}", work) else {"ok": True, "pending": True}
 
 
 def h_providers(b):
@@ -109,19 +111,28 @@ def h_verify(b):
         return {"ok": False, "error": "bad country"}
 
     def work():
-        from .. import tools
         t = ctx.tunnel
         res = {"country": want, "connected": bool(t.connected), "server": t.active if t.connected else None}
-        if t.connected:
-            tools.fetch_ipinfo()
-            ex = t.exit or {}
-            got = (ex.get("country") or "").upper() or None
-            res["exit_country"] = got
-            res["exit_lookup"] = "disabled" if ex.get("disabled") else ("error" if ex.get("error") else "ok")
-            res["country_match"] = (got == want) if got else None
-            res["services"] = [x for x in (tools.check_one_service(s) for s in sids) if x]
+        try:
+            _verify_into(res, t, want, sids)
+        except Exception as e:
+            log(f"streaming intelligence: verify failed: {e}", "warn")
+            res["error"] = "The check couldn't finish."
         broadcast("si_verify", res)
     return {"ok": True} if run_once("si_verify", work) else {"ok": False, "error": "A check is already running."}
+
+
+def _verify_into(res, t, want, sids):
+    from .. import tools
+    if not t.connected:
+        return
+    tools.fetch_ipinfo()
+    ex = t.exit or {}
+    got = (ex.get("country") or "").upper() or None
+    res["exit_country"] = got
+    res["exit_lookup"] = "disabled" if ex.get("disabled") else ("error" if ex.get("error") else "ok")
+    res["country_match"] = (got == want) if got else None
+    res["services"] = [x for x in (tools.check_one_service(s) for s in sids) if x]
 
 
 TRUSTED_HOSTS = {"www.themoviedb.org", "themoviedb.org", "www.imdb.com", "imdb.com", "en.wikipedia.org",

@@ -1,6 +1,7 @@
 """Windows toast notifications (tray balloon when the tray exists, PowerShell toast otherwise)."""
 import base64
 import os
+import re
 import threading
 import time
 
@@ -22,8 +23,9 @@ def app_id():
 
 
 def _toast_ps(title, msg):
-    t = title.replace("'", "''")
-    m = msg.replace("'", "''")
+    # PowerShell treats U+2018..U+201B like ' : a Wi-Fi name such as x’;Start-Process calc;’ must stay text
+    q = lambda s: re.sub("['\u2018\u2019\u201a\u201b]", "''", str(s))
+    t, m = q(title), q(msg)
     return (
         "[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null;"
         "$t=[Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02);"

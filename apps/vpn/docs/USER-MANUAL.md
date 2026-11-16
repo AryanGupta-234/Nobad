@@ -78,7 +78,7 @@ Open the **Servers** tab (globe icon at the bottom). You can add configs in seve
 | QR code | **Import QR image** and pick a screenshot or photo of the QR code. You will be asked for a name. |
 | Paste | Copy the config text and press Ctrl+V while the Servers tab is open (or use **Paste config**). A copied QR image can be pasted the same way. |
 | Link | **Import from URL** and enter an `https://` link to the `.conf` file. |
-| Folder | **Open folder** opens the configs folder; put files there and press **Rescan**. |
+| Folder | **Open folder** opens the import folder; put `.conf` files there and press **Rescan**. They are imported with the same checks as any other import (no script hooks). The configs folder itself is private to administrators. |
 
 Good to know:
 

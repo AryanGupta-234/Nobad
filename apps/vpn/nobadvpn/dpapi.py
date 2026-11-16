@@ -101,7 +101,18 @@ def unprotect(blob, expected_description=None):
     return data
 
 
+def _refuse_links(path):
+    """The configs folder is writable by the signed-in user (manual imports). The elevated app must never write or
+    wipe through a link planted there (a junction or object symlink pointing at a system file)."""
+    from .syscmd import _is_reparse
+    d = os.path.dirname(os.path.abspath(path))
+    for p in (d, path, path + ".tmp"):
+        if _is_reparse(p):
+            raise OSError(f"refused: {p} is a link")
+
+
 def write_atomic(path, data):
+    _refuse_links(path)
     tmp = path + ".tmp"
     with open(tmp, "wb") as f:
         f.write(data)
@@ -112,6 +123,10 @@ def write_atomic(path, data):
 
 def wipe_and_remove(path):
     """Best-effort secure delete: overwrite then unlink (no guarantee on SSDs / journaling filesystems)."""
+    try:
+        _refuse_links(path)
+    except OSError:
+        return
     try:
         size = os.path.getsize(path)
         with open(path, "r+b") as f:

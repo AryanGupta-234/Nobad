@@ -678,7 +678,10 @@ function handle(type, p) {
     case "guard": if (p.blocked) toast(t("{svc} looks blocked on {srv}", { svc: p.service, srv: p.server })); return true;
     case "valorant_result": { const h = $("#valoRows .skel-hold"); if (h) h.remove(); return false; }
     case "valorant_start": setTimeout(() => { const v = $("#valoRows"); if (v) v.innerHTML = '<div class="skel-hold">' + skel(4, "row") + "</div>"; }, 0); return false;
-    case "task_done": if (p.key === "network_diagnose" || p.key === "gaming") { const n = p.key === "gaming" ? $("#gameResults") : $("#netResults"); if (n) n.removeAttribute("aria-busy"); } return false;
+    case "task_done":
+      if (p.key === "reach") { const b = document.querySelector('[data-act="reach_test"]'); if (b && b.disabled) { b.disabled = false; b.textContent = t("Test"); if (p.error) toast(t("Connectivity test stopped") + ": " + p.error); } }
+      else if (p.error && typeof TASK_BUTTONS !== "undefined" && TASK_BUTTONS[p.key]) toast(t("Stopped") + ": " + p.error);
+      if (p.key === "network_diagnose" || p.key === "gaming") { const n = p.key === "gaming" ? $("#gameResults") : $("#netResults"); if (n) n.removeAttribute("aria-busy"); } return false;
     case "fix_result": announce(p.message || ""); return false;
     case "net_repair_start": NETS.busy = true; netSafetyRow(); toast(t("Repairing network…"), true); return true;
     case "net_repair_done": netRepairDone(p); return true;

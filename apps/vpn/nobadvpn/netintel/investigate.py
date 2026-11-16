@@ -148,11 +148,12 @@ def _par(fn, items, workers=8):
 
 
 # ====================================================================== site investigation
-def investigate_site(target, settings, tunnel=None, home=None, exit_info=None, snap=None):
+def investigate_site(target, settings, tunnel=None, home=None, exit_info=None, snap=None, path=None):
     t0 = time.time()
     name = normalize_target(target)
+    path = path or target_path(target)
     tname = tunnel.active if tunnel is not None and getattr(tunnel, "connected", False) else None
-    snap = snap or system.snapshot(tname)
+    snap = snap or system.cached_snapshot(tname)
     if "error" in snap:
         return {"target": name, "ok": False, "error": snap["error"], "findings": []}
     key = history.network_key(snap)
@@ -204,8 +205,18 @@ def investigate_site(target, settings, tunnel=None, home=None, exit_info=None, s
                          "Other devices on this network that use it are affected.")
     history.note_filtered(key, name, filtered_ips, enabled=hist_on)
 
+    if not cons["addrs"] and any(f["kind"] == "no-address" for f in findings):
+        refs = [r for r in resolvers if r["group"] in ("reference", "encrypted")]
+        other = name[4:] if name.startswith("www.") else "www." + name
+        c = dnsintel.consensus(dnsintel.resolve_matrix(other, refs))
+        if c["addrs"]:
+            for f in findings:
+                if f["kind"] == "no-address":
+                    f["evidence"].append(f"{other} does have addresses ({', '.join(sorted(c['addrs'])[:3])})")
+                    f["recommend"].insert(0, f"Try https://{other}/ instead.")
+
     # ---- transport: does the REAL site answer from this network?
-    reach = {}
+    reach, http_res, http_plain = {}, None, None
     if cons_v4 or cons_v6:
         tcp = _par(lambda ip: probes.tcp_connect(ip, 443, 3), cons_v4 + cons_v6)
         reach = {r["ip"]: r for r in tcp}
@@ -237,12 +248,30 @@ def investigate_site(target, settings, tunnel=None, home=None, exit_info=None, s
                     findings.append(_finding("tls-failed", "tls", "warn", 0.55, f"TLS to {name} fails ({t.get('error')})",
                                              [f"TLS to {ip}: {t.get('error')}"],
                                              ["Could be the site, a proxy or security software on this PC."]))
-            elif t.get("verify_ok"):
-                h = probes.http_probe(ip, name)
-                if h.get("ok") and h.get("status") == 451:
-                    findings.append(_finding("http-451", "http", "bad", 0.85, f"{name} answers 'Unavailable For Legal Reasons' (HTTP 451)",
-                                             [f"GET https://{name}/ via {ip}: 451" + (f" - {h['title']}" if h.get("title") else "")],
-                                             ["The block is applied by the site or its provider for your location; a VPN location elsewhere may work."]))
+            elif t.get("tls_ok"):
+                if not t.get("verify_ok") and not cert_covers(t.get("names"), name):
+                    names = ", ".join((t.get("names") or [])[:4])
+                    findings.append(_finding(
+                        "tls-cert-invalid", "tls", "warn", 0.6, f"{name} presents a certificate browsers won't accept",
+                        [f"TLS to {ip}: {t.get('error')}" + (f"; the certificate covers {names}" if names else "")
+                         + (f" (issued by {t['issuer']})" if t.get("issuer") else "")],
+                        ["Browsers show a security warning instead of the page. If the certificate names another site or an "
+                         "unknown issuer on several sites, something on this network intercepts HTTPS; connect NOBAD to compare."]))
+                h = probes.http_probe(ip, name, path=path)
+                http_res = h
+                findings += http_findings(name, path, ip, h)
+        if v4_ok or v6_ok:
+            plain = _par(lambda ip: probes.http_probe(ip, name, tls=False, path=path, timeout=4), (cons_v4 or cons_v6)[:1])
+            if plain:
+                http_plain = plain[0]
+                if plain[0].get("ok") and plain[0].get("block_words"):
+                    findings.append(_finding(
+                        "http-block-page", "http", "bad", 0.8, f"The network replaces {name} with a block page (plain HTTP)",
+                        [f"GET http://{name}{path} via {plain[0]['ip']}: {plain[0].get('status')}"
+                         + (f" - {plain[0]['title']}" if plain[0].get("title") else ""),
+                         f"the page contains: {', '.join(plain[0]['block_words'][:3])}"],
+                        ["Your provider injects a block notice on unencrypted connections. Open the https:// address, "
+                         "or connect NOBAD."]))
         if cons_v6 and v4_ok and not v6_ok:
             findings.append(_finding("ipv6-path-broken", "ipv6", "warn", 0.6, f"IPv6 to {name} fails while IPv4 works",
                                      [f"TCP 443 to {r['ip']}: {r.get('error')}" for r in tcp if ":" in r["ip"]],
@@ -265,12 +294,157 @@ def investigate_site(target, settings, tunnel=None, home=None, exit_info=None, s
             f["evidence"].append(f"the redirect target shares the name '{', '.join(isp['matches'])}' with your provider ({isp['provider_label']}): "
                                  "the filtering is most likely done by your ISP")
             f["operator"] = isp
+    page_ok = bool(http_res and http_res.get("ok") and (http_res.get("status") or 0) < 400)
+    if page_ok and not filt:
+        for f in findings:
+            if f["kind"] == "dns-divergence":   # CDNs hand out different servers; the real page loaded, so not a problem
+                f["severity"] = "info"
+                f["note"] = "The page loaded normally. Different answers are usually just different servers of the same site (CDN)."
     verdict = _verdict(findings)
+    if verdict == "ok" and http_res is None:
+        verdict = "unverified"       # nothing failed, but no page was loaded either: never claim "reachable"
     recs = recommend(verdict, findings, affected, inter["intercepted"], tunnel)
+    steps = ladder(cons, filt, reach, tls, http_res, http_plain, findings)
     res = _done(name, snap, key, findings, {"matrix": matrix, "consensus": dns["consensus"], "os": osr, "tls": tls,
-                                            "tcp": reach, "interception": inter, "isp": isp},
-                t0, hist_on, verdict=verdict, affected=affected, recommendations=recs)
+                                            "tcp": reach, "interception": inter, "isp": isp, "http": http_res,
+                                            "http_plain": http_plain},
+                t0, hist_on, verdict=verdict, affected=affected, recommendations=recs, steps=steps, path=path,
+                status=status_of(verdict, affected))
     return res
+
+
+CHALLENGE_WORDS = ("just a moment", "attention required", "checking your browser", "verify you are human", "ddos-guard")
+
+
+def cert_covers(names, host):
+    """True when the certificate's names include `host` (exact or one-label wildcard). Python can't fetch missing
+    intermediate certificates the way Windows does, so 'untrusted' alone is not evidence; a wrong name is."""
+    host = (host or "").lower()
+    for n in names or []:
+        n = n.lower()
+        if n == host or (n.startswith("*.") and host.count(".") >= n.count(".") and host.split(".", 1)[-1] == n[2:]):
+            return True
+    return False
+
+
+def target_path(target):
+    """'https://site.com/watch/abc?x=1' -> '/watch/abc?x=1': the user's own link is what gets requested."""
+    t = (target or "").strip()
+    t = re.sub(r"^[a-zA-Z][a-zA-Z0-9+.-]*://", "", t)
+    cut = [x for x in (t.find("/"), t.find("?")) if x >= 0]
+    p = t[min(cut):] if cut else "/"
+    p = p.split("#")[0] or "/"
+    if p.startswith("?"):
+        p = "/" + p
+    p = "".join(c if 0x21 <= ord(c) <= 0x7e else "".join("%%%02X" % b for b in c.encode()) for c in p)
+    return p[:512]
+
+
+def http_findings(name, path, ip, h):
+    """What the site's own server returns for the user's link, in plain words."""
+    out, url = [], f"https://{name}{path}"
+    if not h.get("ok"):
+        out.append(_finding("http-no-answer", "http", "bad", 0.65, f"{name} accepts connections but never sends the page",
+                            [f"GET {url} via {ip}: {h.get('error')}"],
+                            ["The server (or something in between) stalls after the secure connection opens. "
+                             "Try again later, or connect NOBAD to rule out your network."]))
+        return out
+    st, title = h.get("status") or 0, h.get("title") or ""
+    low = title.lower()
+    ev = [f"GET {url} via {ip}: HTTP {st}" + (f" - {title}" if title else "")]
+    loc = h.get("location") or ""
+    if st == 451:
+        out.append(_finding("http-451", "http", "bad", 0.85, f"{name} answers 'Unavailable For Legal Reasons' (HTTP 451)", ev,
+                            ["The block is applied by the site or its provider for your location; a VPN location elsewhere may work."]))
+    elif h.get("block_words"):
+        out.append(_finding("http-block-page", "http", "bad", 0.75, f"{name} shows a block notice instead of the page",
+                            ev + [f"the page contains: {', '.join(h['block_words'][:3])}"],
+                            ["A block notice is served under this site's own name. Connect NOBAD to see whether it comes "
+                             "from your network or from the site."]))
+    elif st in (403, 429, 503) and any(w in low for w in CHALLENGE_WORDS):
+        out.append(_finding("http-challenge", "http", "warn", 0.6, f"{name} shows a bot check (HTTP {st})", ev,
+                            ["A browser normally passes this check by itself. If it never finishes, the site is rejecting "
+                             "your network's address; connect NOBAD."]))
+    elif st == 403:
+        out.append(_finding("http-403", "http", "warn", 0.6, f"{name} refuses access (HTTP 403 Forbidden)", ev,
+                            ["The site rejects visitors from your address or country. A NOBAD server in another country may work."]))
+    elif st in (404, 410):
+        out.append(_finding("http-404", "http", "warn", 0.75, f"This page doesn't exist on {name} (HTTP {st})", ev,
+                            ["The site itself is reachable, but this link was removed or is mistyped. Nothing on your network blocks it."]))
+    elif st >= 500:
+        out.append(_finding("http-5xx", "http", "warn", 0.65, f"{name}'s server is failing (HTTP {st})", ev,
+                            ["The problem is on the site's side. Try again later."]))
+    elif 300 <= st < 400 and loc:
+        dest = re.sub(r"^[a-z]+://", "", loc.lower()).split("/")[0].split(":")[0]
+        if dest and dnsintel.registrable(dest) != dnsintel.registrable(name):
+            out.append(_finding("http-moved", "http", "info", 0.7, f"{name} sends visitors to {dest}",
+                                ev + [f"Location: {loc[:200]}"],
+                                [f"The site forwards to {dest}. If that page doesn't open, investigate {dest}."],
+                                moved_to=dest))
+    return out
+
+
+def status_of(verdict, affected):
+    """One plain word for the banner: blocked / not-blocked-here / restricted / site-problem / open / unknown."""
+    if verdict == "dns-filtering":
+        return "not-blocked-here" if affected is False else "blocked"
+    if verdict in ("dns-interception", "sni-filtering", "ip-unreachable", "http-451", "http-block-page"):
+        return "blocked"
+    if verdict in ("no-address", "name-does-not-exist", "http-404", "http-5xx", "http-no-answer", "tls-cert-invalid"):
+        return "site-problem"
+    if verdict in ("http-403", "http-challenge"):
+        return "restricted"
+    if verdict == "ok":
+        return "open"
+    if verdict == "local-network":
+        return "offline"
+    return "unknown"
+
+
+def ladder(cons, filt, reach, tls, http_res, http_plain, findings):
+    """DNS -> connection -> secure connection -> page: the steps a browser takes, each with what really happened."""
+    kinds = {f["kind"] for f in findings}
+    skip = lambda *names: [{"step": n, "state": "skip", "detail": ""} for n in names]
+    steps = []
+    if not cons["addrs"]:
+        steps.append({"step": "dns", "state": "bad",
+                      "detail": "the name has no address anywhere" if "no-address" in kinds else
+                      "the name does not exist" if "name-does-not-exist" in kinds else "no resolver gave an address"})
+        return steps + skip("tcp", "tls", "http")
+    used = bool(filt) and any(f.get("in_use") for f in filt)
+    steps.append({"step": "dns", "state": "bad" if used else "warn" if filt else "ok",
+                  "detail": "your network's DNS gives a fake address" if used else
+                  "a resolver on this network gives a fake address" if filt else
+                  "real address " + ", ".join(sorted(cons["addrs"])[:2])})
+    ok_tcp = [r for r in reach.values() if r.get("ok")]
+    steps.append({"step": "tcp", "state": "ok" if ok_tcp else "bad",
+                  "detail": f"{ok_tcp[0]['ip']} answered in {ok_tcp[0].get('rtt_ms')} ms" if ok_tcp else
+                  "the real addresses don't accept connections"})
+    if not ok_tcp:
+        return steps + skip("tls", "http")
+    t = tls.get(ok_tcp[0]["ip"]) or {}
+    if "sni-filtering" in kinds:
+        st, d = "bad", "cut off when the site's name is sent"
+    elif not t.get("tls_ok"):
+        st, d = "bad", t.get("error") or "failed"
+    elif not t.get("verify_ok") and not cert_covers(t.get("names"), t.get("sni")):
+        st, d = "warn", f"certificate not valid ({t.get('error')})"
+    elif not t.get("verify_ok"):
+        st, d = "ok", f"{t.get('version') or 'TLS'}, certificate is for this site"
+    else:
+        st, d = "ok", f"{t.get('version') or 'TLS'}, valid certificate"
+    steps.append({"step": "tls", "state": st, "detail": d})
+    if http_res is None:
+        steps += [{"step": "http", "state": "skip", "detail": "not reached"}]
+    elif not http_res.get("ok"):
+        steps.append({"step": "http", "state": "bad", "detail": f"no page ({http_res.get('error')})"})
+    else:
+        code = http_res.get("status") or 0
+        steps.append({"step": "http", "state": "bad" if {"http-451", "http-block-page"} & kinds else "warn" if code >= 400 else "ok",
+                      "detail": f"HTTP {code}" + (f" - {http_res['title'][:60]}" if http_res.get("title") else "")})
+    if http_plain and http_plain.get("ok") and http_plain.get("block_words"):
+        steps.append({"step": "http80", "state": "bad", "detail": "a block page is injected on plain HTTP"})
+    return steps
 
 
 def isp_evidence(filt, snap, resolvers, home, exit_info, tunnel):
@@ -302,8 +476,9 @@ def isp_evidence(filt, snap, resolvers, home, exit_info, tunnel):
 
 def _verdict(findings):
     kinds = {f["kind"] for f in findings if f["severity"] in ("bad", "warn")}
-    for k in ("offline", "dns-interception", "sni-filtering", "ip-unreachable", "http-451", "dns-filtering",
-              "resolver-failed", "resolver-error", "os-resolution-failed", "tls-failed", "ipv6-path-broken", "dns-divergence"):
+    for k in ("offline", "no-address", "dns-interception", "sni-filtering", "ip-unreachable", "http-451", "http-block-page",
+              "dns-filtering", "resolver-failed", "resolver-error", "os-resolution-failed", "tls-failed", "http-no-answer",
+              "tls-cert-invalid", "http-403", "http-challenge", "http-5xx", "http-404", "ipv6-path-broken", "dns-divergence"):
         if k in kinds:
             return k
     if any(f["kind"] == "name-does-not-exist" for f in findings):
@@ -326,7 +501,7 @@ def recommend(verdict, findings, affected, intercepted, tunnel):
                 recs.append({"id": "dns", "text": "Switch Windows DNS on this network to an independent resolver that returned the real address. "
                              "NOBAD checks that nothing else breaks and undoes it automatically if something does.", "action": "dns_fix"})
         recs.append({"id": "more", "text": "Run 'Connectivity' to confirm the real site is reachable once DNS is fixed."})
-    elif verdict in ("ip-unreachable", "sni-filtering"):
+    elif verdict in ("ip-unreachable", "sni-filtering", "http-block-page", "http-403", "http-challenge"):
         recs.append({"id": "vpn", "text": "A DNS change won't help here. Connect NOBAD to reach the site.", "action": "vpn"} if not connected
                     else {"id": "server", "text": "Already connected: try a NOBAD server in another country."})
     elif verdict == "dns-interception":
@@ -355,9 +530,10 @@ def _done(name, snap, key, findings, data, t0, hist_on, **extra):
 def overview(settings, tunnel=None):
     t0 = time.time()
     tname = tunnel.active if tunnel is not None and getattr(tunnel, "connected", False) else None
-    snap = system.snapshot(tname)
+    snap = system.snapshot(tname)          # "Analyze" always measures fresh...
     if "error" in snap:
         return {"ok": False, "error": snap["error"]}
+    system._CACHE[tname] = (time.time(), snap)   # ...and lets an investigation right after it skip the 2.5 s discovery
     key = history.network_key(snap)
     hist_on = bool(settings.get("ni_history"))
     resolvers = [r for r in resolver_set(snap, settings, include_doh=False) if r.get("ip")]

@@ -46,6 +46,16 @@ def dns_cache_entries(runner=None):
              "data": str(x.get("Data") or "").lower().rstrip(".")} for x in d if x and x.get("Entry")]
 
 
+def _par(fn, items):
+    """Canary checks side by side: one at a time, ten names took up to a minute and the Fix button looked stuck."""
+    items = list(items)
+    if not items:
+        return []
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=min(8, len(items))) as ex:
+        return list(ex.map(fn, items))
+
+
 def canary_names(entries, exclude=(), suffix="", limit=10):
     out = []
     for e in entries:
@@ -147,7 +157,7 @@ class FixAgent:
             return self._result(name, False, "refused", ["could not read the adapter's current DNS settings"])
         cache = dns_cache_entries(self.runner)
         canaries = canary_names(cache, exclude=(name,), suffix=(system.adapter(snap, idx) or {}).get("suffix", ""))
-        base = {n: probes.os_resolve(n, timeout=4).get("ok") for n in canaries}
+        base = {n: r.get("ok") for n, r in zip(canaries, _par(lambda n: probes.os_resolve(n, timeout=4), canaries))}
         base_ok = [n for n, v in base.items() if v]
         gw = ((system.adapter(snap, idx) or {}).get("gateways4") or [None])[0]
         gw_before = ping_stats(gw, count=2, timeout_ms=800)["loss"] < 100 if gw else None
@@ -155,7 +165,8 @@ class FixAgent:
         reason = f"{'Auto-fix' if not manual else 'Fix'}: {name} was filtered by the network's DNS"
         eid = netjournal.record("dns", p["adapter"], before, {"servers": p["servers"]}, reason,
                                 network=key, site=name, auto=not manual)
-        servers = "@(" + ",".join(f"'{s}'" for s in p["servers"]) + ")"
+        import ipaddress
+        servers = netjournal._ps_list([str(ipaddress.ip_address(s)) for s in p["servers"]])
         r = _ps(f"$ErrorActionPreference='Stop';Set-DnsClientServerAddress -InterfaceIndex {int(idx)} -ServerAddresses {servers};"
                 "Clear-DnsClientCache", runner=self.runner)
         if r.returncode != 0:
@@ -175,8 +186,7 @@ class FixAgent:
                        "detail": ", ".join(got.get("ips", [])[:3]) or got.get("error")})
         if not site_ok:
             bad.append(f"{name} still does not resolve to its real address")
-        for n in base_ok:
-            v = probes.os_resolve(n, timeout=5)
+        for n, v in zip(base_ok, _par(lambda n: probes.os_resolve(n, timeout=5), base_ok)):
             checks.append({"check": f"{n} still resolves", "ok": bool(v.get("ok")), "detail": v.get("error")})
             if not v.get("ok"):
                 bad.append(f"{n} stopped resolving")

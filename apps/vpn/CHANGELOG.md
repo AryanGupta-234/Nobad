@@ -2,6 +2,44 @@
 
 All notable changes to NOBAD VPN. Versions follow [semantic versioning](https://semver.org/).
 
+## 1.3.4 · 2026-11-16
+
+### Security
+- **The configs folder (private keys) is private to administrators.** It used to let the signed-in user change it,
+  and a link planted there could turn a config edit or delete into an admin-level file wipe. To add configs by
+  hand, **Open folder** now opens a separate import folder: drop `.conf` files there and press **Rescan**. They are
+  imported with the same checks as any import (no script hooks); NOBAD never writes or deletes anything there.
+- **A data folder planted before the first start is no longer adopted.** NOBAD locks its folder before copying
+  anything into it, moves aside a folder that an administrator didn't create, and never follows links while
+  migrating from NOMAD Tunnel. The installer now creates the folder itself.
+- **The inherited environment can't steer the elevated app.** `WEBVIEW2_*` variables (another browser engine, a
+  debugging port) are removed and PowerShell only loads Windows' own modules.
+- **Notifications:** curly quotes in a Wi-Fi name can no longer break out of the PowerShell toast command.
+- **Browser fallback** opens your normal browser, never an administrator one.
+- **Links** with commas, semicolons or spaces are encoded before Windows Explorer sees them (Explorer used to open
+  the Documents folder instead).
+
+### Fixed
+- **Buttons stuck on loading.** When a check failed in the background its result never came, so Network
+  Intelligence, Where to watch and Test connectivity kept spinning. Every check now ends its spinner and says why.
+- **Launch diagnostics** no longer show "Scanning regions…" forever after the VALORANT check finished.
+- **Smart fix agent switch** shows On/Off immediately (it saved the setting but never redrew).
+- **Investigate a site** no longer says "Reachable" for a site that doesn't open: a domain with no address
+  anywhere is reported as offline everywhere, and "Opens normally" requires the page to have actually loaded.
+- **Connection charts** show your direct internet latency while disconnected instead of "Waiting for live data…".
+- **Where to watch:** opening a second title while one loads, connecting, and verifying can no longer hang.
+
+### Changed
+- **Investigate a site** tests the exact link you paste and gives one plain verdict (Blocked, Not blocked on this
+  PC, Restricted by the site, Problem is the site, Opens normally) plus the steps a browser takes: name → address,
+  connection, secure connection, page. It recognises missing pages, server errors, bot checks, 403/451, ISP block
+  pages (also on plain HTTP) and sites that moved to another domain.
+- **Faster:** an investigation reuses the network discovery for 15 s (about 7 s → 1.5 s).
+- **Where to watch:** a Banned / restricted summary (countries, reasons) on Best match and Restrictions, and a
+  "restricted" tag in Countries.
+- **Side panel layout:** consistent card spacing, left-aligned headings, an even server toolbar, equal metric tiles,
+  compact empty states and status dots in Launch diagnostics.
+
 ## 1.3.3 · 2026-11-13
 
 ### Added

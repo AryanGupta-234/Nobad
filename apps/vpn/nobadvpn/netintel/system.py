@@ -67,6 +67,27 @@ def _addr_kind(ip):
     return "special"
 
 
+_CACHE = {}          # tunnel name -> (time, snapshot)
+CACHE_SEC = 15       # one PowerShell discovery costs ~2.5 s; an investigation used to run two back to back
+
+
+def cached_snapshot(tunnel_name=None):
+    """snapshot() reused for a few seconds. For reading only: anything that CHANGES settings takes a fresh one, and
+    invalidate() runs when the network changes or NOBAD changes DNS."""
+    import time
+    hit = _CACHE.get(tunnel_name)
+    if hit and time.time() - hit[0] < CACHE_SEC:
+        return hit[1]
+    s = snapshot(tunnel_name)
+    if "error" not in s:
+        _CACHE[tunnel_name] = (time.time(), s)
+    return s
+
+
+def invalidate(*_a, **_k):
+    _CACHE.clear()
+
+
 def snapshot(tunnel_name=None, runner=None):
     """Structured view of the machine's networking right now, or {'error': ...}."""
     if os.name != "nt":

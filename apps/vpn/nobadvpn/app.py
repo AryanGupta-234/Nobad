@@ -40,9 +40,15 @@ def init(headless_test=False):
     from .tray import Tray
     from .updater import Updater
     from .usage import Usage
-    migrated = migrate_legacy_data()
+    quarantined = quarantine_untrusted_data_dir()
     os.makedirs(DATA_DIR, exist_ok=True)
+    if not headless_test:
+        ensure_dirs()          # locked to Admins/SYSTEM BEFORE anything is copied or written into it
+    migrated = migrate_legacy_data()
     init_file_logging(LOG_DIR)
+    if quarantined:
+        log(f"{DATA_DIR} existed before NOBAD's first start and wasn't created by an administrator: moved it to "
+            f"{quarantined} and started clean", "warn")
     if migrated:
         log(f"copied settings, configs and history from {LEGACY_DATA_DIR} (NOMAD Tunnel) to {DATA_DIR}", "info")
     ctx.settings = Settings(SETTINGS_PATH, LEGACY_SETTINGS_PATH)
@@ -58,6 +64,8 @@ def init(headless_test=False):
     from .netintel.agent import FixAgent
     from .notify import notify
     ctx.niagent = FixAgent(ctx.settings, ctx.tunnel, notify=notify)
+    from .netintel import system as _nisys
+    ctx.netwatch.listeners.append(_nisys.invalidate)     # first: later listeners must see the new network
     ctx.netwatch.listeners.append(ctx.niagent.on_network_change)
     from . import reach
     ctx.netwatch.listeners.append(lambda *a, **k: reach.forget())   # new network: re-learn which routes work
@@ -66,19 +74,57 @@ def init(headless_test=False):
     return ctx
 
 
+def quarantine_untrusted_data_dir():
+    """Before the first start there is no settings.json. If the data folder already exists then, someone else made
+    it: a standard user can create folders in ProgramData and plant settings, journal entries, configs or a junction
+    for the elevated app to adopt. Such a folder is moved aside (never read) unless an administrator owns it and it
+    is not a link. Returns the new name, or None."""
+    from .syscmd import _is_reparse, owned_by_admins
+    if os.name != "nt" or not os.path.lexists(DATA_DIR) or os.path.exists(SETTINGS_PATH):
+        return None
+    if not _is_reparse(DATA_DIR) and owned_by_admins(DATA_DIR) and not any(_is_reparse(os.path.join(DATA_DIR, n)) for n in os.listdir(DATA_DIR)):
+        return None
+    import time as _t
+    dest = f"{DATA_DIR}.untrusted-{int(_t.time())}"
+    try:
+        if _is_reparse(DATA_DIR):
+            os.rmdir(DATA_DIR) if os.path.isdir(DATA_DIR) else os.unlink(DATA_DIR)   # the link only, never its target
+            return DATA_DIR + " (link removed)"
+        os.rename(DATA_DIR, dest)
+        return dest
+    except OSError:
+        return None
+
+
 def migrate_legacy_data():
-    """First start after the rename: copy the old ProgramData folder (configs, settings, usage, smart data).
-    The old folder is left in place; DPAPI machine-scope blobs stay valid because only the path changes."""
+    """First start after the rename: copy the old ProgramData folder (configs, settings, usage, smart data) into the
+    already-locked new one. Only from a folder an administrator owns; links are skipped, never followed (a planted
+    junction would turn the elevated copy into a write anywhere). The old folder is left in place."""
     import shutil
+    from .syscmd import _is_reparse, owned_by_admins
     if not LEGACY_DATA_DIR or not os.path.isdir(LEGACY_DATA_DIR) or os.path.exists(SETTINGS_PATH):
         return False
-    try:
-        shutil.copytree(LEGACY_DATA_DIR, DATA_DIR, dirs_exist_ok=True,
-                        ignore=shutil.ignore_patterns("runtime", "logs", "updates", "instance.json", "*.tmp",
-                                                      "clean_exit.flag"))
-        return True
-    except (OSError, shutil.Error):
+    if os.name == "nt" and (_is_reparse(LEGACY_DATA_DIR) or not owned_by_admins(LEGACY_DATA_DIR)):
         return False
+    skip = {"runtime", "logs", "updates", "instance.json", "clean_exit.flag"}
+    copied = False
+    for dirpath, dirs, files in os.walk(LEGACY_DATA_DIR, followlinks=False):
+        rel = os.path.relpath(dirpath, LEGACY_DATA_DIR)
+        dirs[:] = [d for d in dirs if d not in skip and not _is_reparse(os.path.join(dirpath, d))]
+        dst_dir = DATA_DIR if rel == "." else os.path.join(DATA_DIR, rel)
+        if _is_reparse(dst_dir):
+            continue
+        os.makedirs(dst_dir, exist_ok=True)
+        for f in files:
+            src, dst = os.path.join(dirpath, f), os.path.join(dst_dir, f)
+            if f in skip or f.endswith(".tmp") or _is_reparse(src) or os.path.lexists(dst):
+                continue
+            try:
+                shutil.copy2(src, dst)
+                copied = True
+            except OSError:
+                pass
+    return copied
 
 
 def _legacy_cleanup():
@@ -266,7 +312,10 @@ def _run_main_process(args):
             wm.revealed_event.set()   # no native window: background start-up need not wait
             if show:
                 from .server import launch_url
-                webbrowser.open(launch_url(url, "/"))
+                from .syscmd import open_url_as_user
+                # never an admin browser: it would hold the session cookie with admin rights
+                if not open_url_as_user(launch_url(url, "/")):
+                    webbrowser.open(launch_url(url, "/"))
                 print(f"pywebview not installed — opened {url} in your browser. (pip install pywebview for the native window)")
             ctx.quit_event.wait()
         if not ctx.quit_event.is_set() and ctx.settings.get("guardian") and (tunnel.connected or tunnel.want):
@@ -288,6 +337,8 @@ def _run_main_process(args):
 
 
 def main(argv=None):
+    from .syscmd import harden_environment
+    harden_environment()
     args = parse_args(argv)
     if args.version:
         print(APP_VER)

@@ -105,14 +105,30 @@ def lock_dir(path, allow_user=False):
     return True
 
 
+def _shell_safe_url(url):
+    """The URL as explorer.exe must receive it, or None. explorer.exe parses its own command line: a ',' or ';'
+    splits it into switches, and an argument it doesn't recognise makes it open the Documents folder instead of the
+    link (Wikipedia sections and news citations often contain commas). Those characters, spaces and non-ASCII
+    letters are percent-encoded, which servers read identically; quotes and control characters are refused."""
+    import urllib.parse
+    url = str(url or "")
+    if not url or len(url) > 2000 or any(c in url for c in '"\r\n\t\x00<>^`|\\'):
+        return None
+    try:
+        u = urllib.parse.urlsplit(url)
+    except ValueError:
+        return None
+    if u.scheme.lower() not in ("http", "https") or not u.netloc or u.username or u.password:
+        return None
+    return urllib.parse.quote(url, safe=":/?&=#%@+!$*()~'-._[]")
+
+
 def open_url_as_user(url):
     """Open an http(s) link in the user's normal browser, NOT as administrator. NOBAD runs elevated and anything it
     starts directly inherits that (a captive-portal page from a café Wi-Fi would run in an admin browser). explorer.exe
     hands the link to the user's own desktop shell, which opens it at normal rights. Returns True if handed over."""
-    import urllib.parse
-    url = str(url or "")
-    u = urllib.parse.urlsplit(url)
-    if u.scheme not in ("http", "https") or not u.netloc or any(c in url for c in '"\r\n\t\x00 '):
+    url = _shell_safe_url(url)
+    if not url:
         return False
     if os.name != "nt":
         import webbrowser
@@ -124,6 +140,50 @@ def open_url_as_user(url):
         return True
     except OSError:
         return False
+
+
+def owner_sid(path):
+    """String SID of the owner of `path` ('S-1-5-32-544'), None off Windows or on failure. Read from the file's own
+    security descriptor with the link itself (not its target) when it is a reparse point."""
+    if os.name != "nt":
+        return None
+    try:
+        from ctypes import wintypes
+        adv = ctypes.WinDLL("advapi32", use_last_error=True)
+        sid, sd = ctypes.c_void_p(), ctypes.c_void_p()
+        rc = adv.GetNamedSecurityInfoW(wintypes.LPCWSTR(path), 1, 1, ctypes.byref(sid), None, None, None, ctypes.byref(sd))
+        if rc != 0:
+            return None
+        try:
+            s = wintypes.LPWSTR()
+            if not adv.ConvertSidToStringSidW(sid, ctypes.byref(s)):
+                return None
+            out = s.value
+            ctypes.windll.kernel32.LocalFree(s)
+            return out
+        finally:
+            ctypes.windll.kernel32.LocalFree(sd)
+    except (OSError, AttributeError):
+        return None
+
+
+TRUSTED_OWNERS = ("S-1-5-32-544", "S-1-5-18", "S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464")  # Admins, SYSTEM, TrustedInstaller
+
+
+def owned_by_admins(path):
+    return owner_sid(path) in TRUSTED_OWNERS
+
+
+def harden_environment():
+    """NOBAD runs elevated, but a normal user decides its inherited environment (HKCU\\Environment, or by starting
+    the launcher task). Remove what would let them steer it: WEBVIEW2_* (another browser executable, a debugging
+    port) and PSModulePath (fake DnsClient / NetTCPIP modules loaded into admin PowerShell)."""
+    if os.name != "nt":
+        return
+    for k in [k for k in os.environ if k.upper().startswith("WEBVIEW2_")]:
+        os.environ.pop(k, None)
+    sysdir = os.path.join(known_folder("Windows") or r"C:\Windows", "System32")
+    os.environ["PSModulePath"] = os.path.join(sysdir, "WindowsPowerShell", "v1.0", "Modules")
 
 
 def _is_reparse(p):
@@ -299,14 +359,17 @@ def run_once(key, fn, *args):
         _busy.add(key)
 
     def w():
+        err = None
         try:
             fn(*args)
         except Exception as e:
-            log(f"{key} failed: {e}", "bad")
+            err = f"{type(e).__name__}: {e}"[:300]
+            log(f"{key} failed: {err}", "bad")
         finally:
             with _busy_lock:
                 _busy.discard(key)
-            broadcast("task_done", {"key": key})
+            # the UI clears every "loading" state on task_done; `error` says the result event will never come
+            broadcast("task_done", {"key": key, "error": err})
 
     threading.Thread(target=w, daemon=True).start()
     return True

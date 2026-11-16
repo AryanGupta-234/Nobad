@@ -117,6 +117,40 @@ def import_text(name, content, untrusted=False):
     return save(name, content, create=True, untrusted=untrusted)
 
 
+INBOX_MAX = 64 * 1024
+
+
+def import_inbox():
+    """Rescan: import .conf files the user dropped into the import folder, exactly like a picked file (validated,
+    no script hooks). The folder is user-writable, so NOBAD only reads it: links are skipped, nothing there is ever
+    written or deleted, and a name that already exists in NOBAD is left alone. Returns {imported, skipped, errors}."""
+    from .const import INBOX_DIR
+    from .syscmd import _is_reparse
+    out = {"imported": [], "skipped": [], "errors": []}
+    if not os.path.isdir(INBOX_DIR) or _is_reparse(INBOX_DIR):
+        return out
+    have = {confparse.stem_of(f) for f in os.listdir(config_dir())} if os.path.isdir(config_dir()) else set()
+    for fn in sorted(os.listdir(INBOX_DIR))[:200]:
+        p = os.path.join(INBOX_DIR, fn)
+        stem = confparse.stem_of(fn) if fn.lower().endswith(EXT_PLAIN) else None
+        if not stem or _is_reparse(p) or not os.path.isfile(p):
+            continue
+        if stem in have:
+            out["skipped"].append(fn)
+            continue
+        try:
+            with open(p, "rb") as f:
+                raw = f.read(INBOX_MAX + 1)
+            if len(raw) > INBOX_MAX:
+                raise ValueError("file too large")
+            r = import_text(stem, raw.decode("utf-8-sig"), untrusted=True)
+        except (OSError, ValueError) as e:
+            r = {"ok": False, "error": str(e)}
+        (out["imported"] if r.get("ok") else out["errors"]).append(fn if r.get("ok") else f"{fn}: {r.get('error')}")
+        have.add(stem)
+    return out
+
+
 def _public_host(host):
     """True if every address `host` resolves to is a public internet address. NOBAD runs as admin, so a link must not
     make it fetch from this PC (its own control server), the local network (router admin pages) or cloud metadata."""

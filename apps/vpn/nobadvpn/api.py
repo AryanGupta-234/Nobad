@@ -7,7 +7,7 @@ from . import autostart, configstore, crash, diagnostics, netinfo, trust
 from . import settings as settings_mod
 from .const import EXPORT_DIR
 from .ctx import ctx
-from .engine import config_dir, ensure_dirs
+from .engine import ensure_dirs
 from .lifecycle import request_quit
 from .logbus import broadcast, log
 from .syscmd import is_admin, open_url_as_user, run, run_once, spawn, try_self_elevate
@@ -197,6 +197,11 @@ def h_ipinfo(b):
 
 def h_rescan(b):
     def work():
+        got = configstore.import_inbox()
+        if got["imported"]:
+            log(f"imported {len(got['imported'])} config(s) from the import folder: {', '.join(got['imported'][:5])}", "ok")
+        for e in got["errors"][:5]:
+            log(f"import folder: {e}", "warn")
         ctx.tunnel.rescan()
         ctx.tunnel.push()
         spawn(ctx.tunnel.geo_refresh)
@@ -204,9 +209,11 @@ def h_rescan(b):
 
 
 def h_open_configs(b):
+    """Opens the import folder (drop .conf files there, then Rescan). The configs folder itself is admin-only."""
+    from .const import INBOX_DIR
     ensure_dirs()
     if os.name == "nt":
-        os.startfile(config_dir())
+        os.startfile(INBOX_DIR)
     return {"ok": True}
 
 

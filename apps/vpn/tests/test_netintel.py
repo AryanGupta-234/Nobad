@@ -1015,3 +1015,38 @@ def test_probe_error_kinds():
     assert probes._names({"subjectAltName": (("DNS", "a.com"), ("IP Address", "1.2.3.4")),
                           "issuer": ((("organizationName", "Let's Encrypt"),),)}) == (["a.com"], "Let's Encrypt")
     assert probes._names({"subject": ((("commonName", "b.com"),),)}) == (["b.com"], None)
+
+
+# ---------------------------------------------------------------- 1.3.4 regressions
+def test_domain_without_address_is_offline_not_reachable(monkeypatch):
+    """luluvido.com case: every resolver says NOERROR with no A/AAAA. Used to fall through to 'Reachable'."""
+    empty = site()
+    install_dns(monkeypatch, {NET_DNS: empty, "1.1.1.1": empty, "8.8.8.8": empty})
+    FakeProbes(os_ips=None).install(monkeypatch)
+    res = investigate.investigate_site("https://" + TARGET + "/cxenr3zx67ze", SETTINGS, snap=home_snap())
+    assert res["verdict"] == "no-address" and res["status"] == "site-problem"
+    assert res["path"] == "/cxenr3zx67ze"
+    assert res["steps"][0]["state"] == "bad" and [s["state"] for s in res["steps"][1:]] == ["skip"] * 3
+
+
+def test_missing_page_is_the_site_not_the_network(monkeypatch):
+    res = run_site(monkeypatch, site(REAL), FakeProbes(os_ips=REAL, http_status=404))
+    assert res["verdict"] == "http-404" and res["status"] == "site-problem"
+    assert [s["step"] for s in res["steps"]][:4] == ["dns", "tcp", "tls", "http"]
+
+
+def test_healthy_site_reports_open_with_all_steps_ok(monkeypatch):
+    res = run_site(monkeypatch, site(REAL), FakeProbes(os_ips=REAL))
+    assert res["status"] == "open" and all(s["state"] == "ok" for s in res["steps"])
+
+
+def test_target_path_keeps_the_users_link():
+    assert investigate.target_path("https://a.com/watch/x?y=1#frag") == "/watch/x?y=1"
+    assert investigate.target_path("a.com") == "/" and investigate.target_path("a.com?q=1") == "/?q=1"
+    assert investigate.target_path("a.com/é b") == "/%C3%A9%20b"
+
+
+def test_cert_name_check():
+    assert investigate.cert_covers(["*.example.com"], "www.example.com")
+    assert not investigate.cert_covers(["*.example.com"], "a.b.example.com")
+    assert not investigate.cert_covers(["blockpage.isp.net"], "example.com")

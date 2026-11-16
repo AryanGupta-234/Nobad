@@ -277,7 +277,9 @@ class WindowManager:
     # ---- show / hide
     def show_main(self):
         if self.main is None:
-            webbrowser.open(_signed(self.url, "/"))
+            from .syscmd import open_url_as_user
+            if not open_url_as_user(_signed(self.url, "/")):     # the user's browser, not an admin one
+                webbrowser.open(_signed(self.url, "/"))
             return
         try:
             self.main.show()

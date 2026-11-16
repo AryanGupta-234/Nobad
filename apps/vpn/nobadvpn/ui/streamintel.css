@@ -101,3 +101,10 @@
 .si-modal .si-chip,.si-card .si-chip{height:auto;min-height:0;padding:3px 10px;border-radius:99px;border:1px solid var(--line);background:none;color:var(--tx);font:inherit;font-size:11.5px;cursor:pointer}
 .si-card .si-chip:hover{border-color:color-mix(in srgb,var(--acc,#f65000) 60%,var(--line))}
 @media (prefers-reduced-motion:reduce){.si-modal button.si-tile{transition:none}}
+
+/* Banned / restricted summary (Best match + Restrictions) and the per-country tag */
+.si-ban{margin:0 0 12px;padding:12px 14px;border-radius:13px;border:1px solid color-mix(in srgb,var(--rd,#ff5268) 45%,var(--line));background:color-mix(in srgb,var(--rd,#ff5268) 7%,transparent);display:flex;flex-direction:column;gap:8px}
+.si-ban-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.si-ban-h b{font-size:14px}
+.si-ban .note{margin:0}.si-ban .linkish{align-self:flex-start}
+.si-cc-ban{color:var(--rd,#ff5268)!important;border-color:color-mix(in srgb,var(--rd,#ff5268) 45%,var(--line))!important}
+.si-bantag{margin-left:6px;font-size:10px;padding:1px 7px;border-radius:99px;color:var(--rd,#ff5268);background:color-mix(in srgb,var(--rd,#ff5268) 14%,transparent);font-weight:650;text-transform:uppercase;letter-spacing:.04em}

@@ -18,7 +18,9 @@
       ${f.layer ? `<span class="ni-layer">${E(f.layer)}</span>` : ""}${ev || contra ? `<ul class="ni-ev">${ev}${contra}</ul>` : ""}${f.note ? `<p>${E(f.note)}</p>` : ""}${rec}</div>`;
   }
   const empty = t => `<div class="empty-state">${E(tr(t))}</div>`;
-  const busy = k => NI.busy[k] ? `<div class="ni-busy" role="status"><i></i>${E(tr("Measuring…"))}</div>` : "";
+  const BUSY = { investigate: "Testing DNS, connection, secure connection and the page…", overview: "Analyzing your network…",
+    lookup: "Asking every resolver…", vpn: "Checking the tunnel…" };
+  const busy = k => NI.busy[k] ? `<div class="ni-busy" role="status"><i></i>${E(tr(BUSY[k] || "Measuring…"))}</div>` : "";
 
   function buildShell() {
     const seg = $("#niSeg"); if (!seg || seg.dataset.ok) return; seg.dataset.ok = "1";
@@ -67,23 +69,26 @@
   }
 
   function paneSites() {
-    const auto = !!(S.settings && S.settings.ni_autofix);
+    const auto = NI.autoPending != null ? NI.autoPending : !!(S.settings && S.settings.ni_autofix);
     let h = `<div class="card"><div class="h">${E(tr("Investigate a site"))}</div><div class="note">${E(tr("Compares your network's DNS with independent and encrypted resolvers, then tests TCP, TLS and HTTP to find exactly where a site is blocked or failing."))}</div>
       <div class="ni-inline"><input class="nx-in" id="niSite" placeholder="${E(tr("site.com or https://site.com/page"))}" autocomplete="off" spellcheck="false" value="${E(NI.lastTarget || "")}"><button class="pri" data-go="investigate" ${NI.busy.investigate ? "disabled" : ""}>${E(tr("Investigate"))}</button></div>
-      <label class="ni-agent"><span class="sw"><input type="checkbox" role="switch" id="niAuto" ${auto ? "checked" : ""}><i></i></span><span><b>${E(tr("Smart fix agent"))}</b><small>${E(tr(auto ? "On: fixes DNS filtering by itself, checks that nothing else broke, and undoes it automatically if something did." : "Off: nothing is changed unless you click Fix."))}</small></span></label>${busy("investigate")}`;
+      <label class="ni-agent${auto ? " on" : ""}"><span class="sw"><input type="checkbox" role="switch" id="niAuto" aria-checked="${auto}" ${auto ? "checked" : ""} ${NI.autoPending != null ? "disabled" : ""}><i></i></span><span><b>${E(tr("Smart fix agent"))} <em class="ni-state">${E(tr(auto ? "On" : "Off"))}</em></b><small>${E(tr(auto ? "On: fixes DNS filtering by itself, checks that nothing else broke, and undoes it automatically if something did." : "Off: nothing is changed unless you click Fix."))}</small></span></label>${busy("investigate")}`;
     const r = NI.inv;
     if (!r) return h + empty("Enter a site that doesn't open (or any site) to see what your network does with it.") + "</div>";
     if (!r.ok) return h + `<div class="net-issue bad"><b>${E(r.error)}</b></div></div>`;
-    const V = { "dns-filtering": "Blocked by DNS", "sni-filtering": "Blocked by site name (SNI)", "ip-unreachable": "Real addresses unreachable",
+    const V = { "no-address": "Site is offline everywhere", "http-block-page": "Replaced by a block page", "http-403": "Site refuses access",
+      "http-challenge": "Bot check in the way", "http-404": "Page not found", "http-5xx": "Site's server is failing", "http-no-answer": "Site doesn't send the page",
+      "tls-cert-invalid": "Certificate for another site", unverified: "Couldn't load the page", "references-unreachable": "Can't compare DNS",
+      "dns-filtering": "Blocked by DNS", "sni-filtering": "Blocked by site name (SNI)", "ip-unreachable": "Real addresses unreachable",
       "dns-interception": "DNS intercepted", "http-451": "Unavailable for legal reasons", "resolver-failed": "Resolver failing", "resolver-error": "Resolver error",
       "os-resolution-failed": "Windows can't resolve it", "tls-failed": "TLS failing", "ipv6-path-broken": "IPv6 path broken", "dns-divergence": "DNS answers differ",
       "name-does-not-exist": "Name does not exist", "local-network": "No internet on this PC", ok: "Reachable, nothing filtered" };
-    const top = (r.findings || []).filter(f => f.severity !== "info").sort((a, b) => b.confidence - a.confidence)[0];
-    h += `<div class="ni-verdict ni-v-${r.verdict === "ok" || r.verdict === "name-does-not-exist" ? "good" : top ? sev(top.severity) : "warn"}"><small>${E(r.target)}</small><b>${E(tr(V[r.verdict] || r.verdict))}</b>
-      ${r.affected === false && r.verdict === "dns-filtering" ? `<span>${E(tr("This PC isn't affected (Windows uses another resolver)."))}</span>` : r.affected ? `<span>${E(tr("Apps on this PC get the filtered answer."))}</span>` : ""}</div>`;
-    h += (r.recommendations || []).map(x => `<div class="ni-rec"><p>${E(x.text)}</p>${x.action === "vpn" ? `<button class="sm" data-go="vpnconnect">${E(tr("Connect NOBAD"))}</button>` : ""}${x.action === "dns_fix" ? `<button class="sm pri" data-go="fix" ${r.fixable && !r.fixable.ok ? "disabled" : ""}>${E(tr("Fix DNS safely"))}</button>` : ""}</div>`).join("");
+    h += verdictBanner(r, V);
+    h += (r.recommendations || []).map(x => `<div class="ni-rec"><p>${E(x.text)}</p>${x.action === "vpn" ? `<button class="sm" data-go="vpnconnect">${E(tr("Connect NOBAD"))}</button>` : ""}${x.action === "dns_fix" ? `<button class="sm pri" data-go="fix" ${(r.fixable && !r.fixable.ok) || NI.busy.fix ? "disabled" : ""}>${E(tr("Fix DNS safely"))}</button>` : ""}</div>`).join("");
     if (r.fixable && !r.fixable.ok && (r.recommendations || []).some(x => x.action === "dns_fix")) h += `<div class="note">${E(tr("Fix not available"))}: ${E(r.fixable.reasons.join("; "))}</div>`;
     h += fixBox();
+    const moved = (r.findings || []).find(f => f.moved_to);
+    if (moved) h += `<div class="ni-rec"><p>${E(moved.title)}</p><button class="sm" data-go="retarget" data-t="${E(moved.moved_to)}">${E(tr("Investigate"))} ${E(moved.moved_to)}</button></div>`;
     h += `<div class="ni-sub">${E(tr("Evidence"))}</div>` + (r.findings || []).map(finding).join("") || "";
     const d = r.data || {};
     h += `<div class="ni-sub">${E(tr("What each resolver answered"))}</div><div class="ni-table" role="table">` + (d.matrix || []).map(m => {
@@ -95,8 +100,31 @@
     return h + `<div class="note ni-foot">${E(tr("Measured"))} ${ago(r.ts)} ${E(tr("ago"))} · ${E(r.took_s)} s</div></div>`;
   }
 
+  // One plain answer first (blocked or not, and by whom), then the steps a browser takes with what really happened.
+  const STATUS = { blocked: ["Blocked", "bad", "Your network (or your provider) stops this site from opening."],
+    "not-blocked-here": ["Not blocked on this PC", "warn", "A resolver on this network filters it, but this PC already gets the real address."],
+    restricted: ["Restricted by the site", "warn", "The site answers but refuses visitors like you. This isn't your network."],
+    "site-problem": ["Problem is the site", "warn", "Nothing on your network blocks it: the site itself is down, moved or broken."],
+    open: ["Opens normally", "good", "The page loaded from this network. If your browser still fails, clear its cache or try another browser."],
+    offline: ["No internet", "bad", "This PC has no route to the internet."],
+    unknown: ["Not conclusive", "warn", "NOBAD couldn't load the page, so it can't say for sure."] };
+  const STEPS = { dns: "Name to address", tcp: "Connection", tls: "Secure connection", http: "Page", http80: "Plain HTTP" };
+  function verdictBanner(r, V) {
+    const st = STATUS[r.status] || (r.verdict === "name-does-not-exist" ? ["Name doesn't exist", "warn", "No such site: check the spelling."] : STATUS.unknown);
+    const isp = r.data && r.data.isp;
+    const who = r.status === "blocked" && isp && isp.matches && isp.matches.length ? `<span class="ni-who">${E(tr("Done by"))}: ${E(isp.provider_label)}</span>` : "";
+    const url = r.target + (r.path && r.path !== "/" ? r.path : "");
+    let h = `<div class="ni-verdict ni-v-${st[1]}"><div class="ni-vtop"><span class="ni-badge ni-b-${st[1]}">${E(tr(st[0]))}</span><small title="${E(url)}">${E(url.length > 64 ? url.slice(0, 61) + "…" : url)}</small></div>
+      <b>${E(tr(V[r.verdict] || r.verdict))}</b><span>${E(tr(st[2]))}</span>${who}
+      ${r.affected === false && r.verdict === "dns-filtering" ? `<span>${E(tr("This PC isn't affected (Windows uses another resolver)."))}</span>` : r.affected ? `<span>${E(tr("Apps on this PC get the filtered answer."))}</span>` : ""}`;
+    if ((r.steps || []).length) h += `<ol class="ni-steps">${r.steps.map(x => `<li class="ni-s-${E(x.state)}"><i>${x.state === "ok" ? "✓" : x.state === "skip" ? "–" : "!"}</i><span>${E(tr(STEPS[x.step] || x.step))}</span><small>${E(x.state === "skip" ? tr("not tested") : x.detail)}</small></li>`).join("")}</ol>`;
+    return h + `</div>`;
+  }
+
   function fixBox() {
-    const f = NI.fix; if (!f) return NI.busy.fix ? busy("fix") : "";
+    const f = NI.fix;
+    if (NI.busy.fix) return `<div class="ni-busy" role="status"><i></i>${E(tr(NI.fixAuto ? "Smart agent is fixing DNS, then checking other sites still work…" : "Fixing DNS safely, then checking other sites still work…"))}</div>`;
+    if (!f) return "";
     const S2 = { applied: "Fixed", refused: "Not changed", rolled_back: "Undone automatically", failed: "Could not change", busy: "Busy", rolled_back_by_user: "Undone" };
     const checks = (f.checks || []).map(c => `<div class="pr ${c.ok ? "" : "bad"}"><i>${c.ok ? "✓" : "!"}</i><span>${E(c.check)}</span><b>${E(c.detail || "")}</b></div>`).join("");
     return `<div class="net-issue ${f.ok ? "good" : f.state === "refused" ? "warn" : "bad"}"><b>${E(tr(S2[f.state] || f.state))}${f.servers ? " · " + E(f.servers.join(", ")) + " " + E(tr("on")) + " " + E(f.adapter) : ""}</b>
@@ -169,14 +197,24 @@
     else if (what === "investigate") { const t = ($("#niSite") || {}).value || ""; NI.lastTarget = t; NI.fix = null; call("ni_investigate", { target: t }, "investigate"); }
     else if (what === "lookup") { const n = ($("#niName") || {}).value || ""; NI.lastName = n; NI.types = $$("#niBody [data-rt]").filter(x => x.checked).map(x => x.dataset.rt); call("ni_lookup", { name: n, types: NI.types }, "lookup"); }
     else if (what === "vpn") call("ni_vpn", {}, "vpn");
-    else if (what === "fix") { if (!NI.inv) return; if (!confirm(tr("Change this adapter's DNS to an independent resolver that returned the real address? NOBAD saves your current DNS first, checks other sites afterwards, and undoes the change automatically if anything breaks."))) return; NI.fix = null; call("ni_fix", { id: NI.inv.id }, "fix"); }
-    else if (what === "rollback") api("ni_rollback", { entry: el.dataset.entry }).then(r => { if (!r.ok) toast(r.error || r.detail); });
+    else if (what === "fix") { if (!NI.inv || NI.busy.fix) return; if (!confirm(tr("Change this adapter's DNS to an independent resolver that returned the real address? NOBAD saves your current DNS first, checks other sites afterwards, and undoes the change automatically if anything breaks."))) return; NI.fix = null; call("ni_fix", { id: NI.inv.id }, "fix"); }
+    else if (what === "rollback") { el.disabled = true; api("ni_rollback", { entry: el.dataset.entry }).then(r => { if (!r.ok) { el.disabled = false; toast(r.error || r.detail || tr("Couldn't undo")); } }); }
     else if (what === "repair") { if (window.NX && NX.netRepair) NX.netRepair(el.dataset.level); }
     else if (what === "vpnconnect") { if (typeof mainAction === "function" && !S.connected) mainAction(); }
+    else if (what === "retarget") { NI.lastTarget = el.dataset.t; const i = $("#niSite"); if (i) i.value = el.dataset.t; go("investigate"); }
     else if (what === "hclear") { if (confirm(tr("Delete the local diagnostic history and baselines?"))) api("ni_history_clear", {}).then(loadHistory); }
   }
   function onClick(e) { const b = e.target.closest("[data-go]"); if (b) go(b.dataset.go, b); }
-  document.addEventListener("change", e => { if (e.target && e.target.id === "niAuto") api("settings", { key: "ni_autofix", value: e.target.checked }).then(r => { if (!r.ok) toast(r.error); }); });
+  // The switch used to save the setting but never redraw, so its On/Off text stayed as it was until the tab reloaded.
+  document.addEventListener("change", e => {
+    if (!e.target || e.target.id !== "niAuto") return;
+    const want = e.target.checked; NI.autoPending = want; render();
+    const done = (ok, err) => { NI.autoPending = null;
+      if (ok) { if (S.settings) S.settings.ni_autofix = want; toast(tr(want ? "Smart fix agent on" : "Smart fix agent off"), true); }
+      else toast(err || tr("Couldn't change the setting"));
+      if (NI.pane === "sites") render(); };
+    api("settings", { key: "ni_autofix", value: want }).then(r => done(r && r.ok, r && r.error), () => done(false));
+  });
   function loadHistory() { api("ni_history", {}).then(r => { if (r.ok) { NI.hist = r; if (NI.pane === "history") render(); } }); }
 
   /* ------------------------------------------------------------------ events */
@@ -188,6 +226,14 @@
       case "ni_investigation": NI.busy.investigate = false; NI.inv = p; render(); return true;
       case "ni_lookup": NI.busy.lookup = false; NI.lookup = p; render(); return true;
       case "ni_vpn": NI.busy.vpn = false; NI.vpn = p; render(); return true;
+      case "ni_fix_start": NI.busy.fix = true; NI.fixAuto = !!p.auto; NI.fix = null; if (NI.pane === "sites") render(); return true;
+      case "task_done": {   // a worker ended: if its result never came (it crashed), stop the spinner and say why
+        const k = { ni_overview: "overview", ni_investigate: "investigate", ni_lookup: "lookup", ni_vpn: "vpn", ni_fix: "fix" }[p.key];
+        if (!k) return false;
+        const stuck = NI.busy[k] || (k === "investigate" && NI.busy.fix && NI.fixAuto);
+        if (stuck) { NI.busy[k] = false; if (k === "investigate" && NI.fixAuto) NI.busy.fix = false; render(); if (p.error) toast(tr("The check stopped") + ": " + p.error); }
+        return false;
+      }
       case "ni_fix": NI.busy.fix = false; NI.fix = p; if (NI.pane === "sites") render(); if (p.state === "applied") toast(tr("Site unblocked"), true); return true;
       default: return false;
     }
@@ -195,7 +241,7 @@
   function init() {
     buildShell(); render();
     const prev = NX.handle; NX.handle = (t, p) => handle(t, p) || prev(t, p);
-    const prevState = NX.onState; NX.onState = st => { prevState(st); if (NI.pane === "sites") { const a = $("#niAuto"); if (a && document.activeElement !== a) a.checked = !!st.settings.ni_autofix; } };
+    const prevState = NX.onState; NX.onState = st => { prevState(st); if (NI.pane === "sites" && NI.autoPending == null) { const a = $("#niAuto"); if (a && a.checked !== !!(st.settings && st.settings.ni_autofix)) render(); } };
     const tab = document.querySelector('#dock [data-tab="t6"]');   /* ids are rewritten by the a11y layer */ if (tab) tab.addEventListener("click", () => { if (!NI.ov && !NI.busy.overview) go("overview"); });
   }
   if (window.NX) init(); else addEventListener("load", init);

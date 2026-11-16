@@ -46,13 +46,21 @@ def ensure_dirs():
     _dirs["done"] = True
     try:
         os.makedirs(CONFIG_DIR, exist_ok=True)
-        if not (_lock_dir(DATA_DIR, False) and _lock_dir(CONFIG_DIR, True)) and is_admin():
+        # configs hold private keys and are written/wiped by this elevated process: admins + SYSTEM only (it used to
+        # grant the user Modify, which let a planted link turn a config delete into an admin file wipe)
+        if not (_lock_dir(DATA_DIR, False) and _lock_dir(CONFIG_DIR, False)) and is_admin():
             log(f"{DATA_DIR} may be readable by other users — check its permissions", "bad")
     except OSError as e:
         _dirs["config_dir"] = LEGACY_CONFIG_DIR  # can't use ProgramData (not admin?) — fall back
         os.makedirs(LEGACY_CONFIG_DIR, exist_ok=True)
         log(f"couldn't create the private config folder ({e}) — using {LEGACY_CONFIG_DIR}", "warn")
         return LEGACY_CONFIG_DIR
+    try:
+        from .const import INBOX_DIR
+        os.makedirs(INBOX_DIR, exist_ok=True)
+        _lock_dir(INBOX_DIR, True)          # drop-box for .conf files: user-writable, read-only for NOBAD
+    except OSError as e:
+        log(f"couldn't create the import folder: {e}", "warn")
     copied = []
     try:
         if os.path.isdir(LEGACY_CONFIG_DIR) and os.path.abspath(LEGACY_CONFIG_DIR) != os.path.abspath(CONFIG_DIR):
@@ -971,6 +979,9 @@ class Tunnel(ProtectionMixin, FailsafeMixin):
                     if not (self.want and self._was_up and s.get("auto_repair")) or self.giveup:
                         retries = 0
                         next_try = 0.0
+                        if has_subscribers():   # a window is open: keep its latency chart live while disconnected
+                            d = ping_stats("1.1.1.1", 1, 1000)
+                            broadcast("direct_health", {"rtt": d.get("rtt"), "loss": d.get("loss")})
                         continue
                     if time.time() < next_try:
                         continue

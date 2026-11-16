@@ -146,9 +146,26 @@
   const prov = id => (SI.rep.availability.providers.find(p => p.id === id) || { name: "#" + id });
   const logo = (p, size) => p.logo ? `<img class="si-logo" src="${img(size || "w92", p.logo)}" alt="" title="${E(p.name)}" loading="lazy">` : `<span class="si-logo si-logo-x" title="${E(p.name)}">${E((p.name || "?")[0])}</span>`;
 
+  // Countries with a documented ban/restriction record for this exact title (Wikipedia lists), by ISO code.
+  function restrictedCodes() {
+    const d = SI.restr; if (!d || d.status !== "ok") return {};
+    const out = {}; (d.records || []).forEach(r => { const k = r.code || r.country || "?"; (out[k] = out[k] || []).push(r); }); return out;
+  }
+  function restrSummary(compact) {
+    const d = SI.restr; if (!d || d.status !== "ok" || !d.records.length) return "";
+    const by = restrictedCodes(), keys = Object.keys(by);
+    const names = keys.map(k => by[k][0].country_name || by[k][0].country || k);
+    const tags = [...new Set(d.records.flatMap(r => r.tags || []))].slice(0, 4);
+    return `<div class="si-ban${compact ? " si-ban-c" : ""}"><div class="si-ban-h"><span class="ni-badge ni-b-bad">${E(tr("Banned / restricted"))}</span>
+        <b>${E(tr("in"))} ${keys.length} ${E(tr(keys.length === 1 ? "country" : "countries"))}</b></div>
+      <div class="si-ccs">${keys.slice(0, 30).map((k, i) => `<span class="si-cc si-cc-ban" title="${E(names[i])}${by[k][0].date ? " · " + E(by[k][0].date) : ""}">${E(k.length <= 3 ? k : names[i])}</span>`).join("")}</div>
+      ${tags.length ? `<div class="si-chips">${tags.map(x => `<span class="ni-tag">${E(tr(x))}</span>`).join("")}</div>` : ""}
+      ${compact ? `<button class="linkish" data-si="pane" data-p="restrictions">${E(tr("See the records and sources"))} →</button>` : `<p class="note">${E(tr("Documented in Wikipedia's banned-film lists with their sources. A ban may be historic and lifted since; check the date and notes."))}</p>`}</div>`;
+  }
+
   function paneMatch() {
     const R = SI.rep, rec = SI.rec || R.recommendation, av = R.availability;
-    let h = "";
+    let h = restrSummary(true);
     if (rec.home) h += rec.home.listed
       ? `<div class="net-issue good"><b>${E(tr("Listed where you are"))} (${E(rec.home.code)}) · ${E(tr(rec.home.best))}</b><p>${E(tr("You may not need a VPN for this one. See Countries for the platforms."))}</p></div>`
       : `<div class="net-issue info"><b>${E(tr("Not listed in your country"))} (${E(rec.home.code)})</b><p>${E(tr("Based on the availability source; catalogues change often."))}</p></div>`;
@@ -167,6 +184,7 @@
   }
   function verifyBox(o) {
     const v = SI.verify;
+    if (v && v.server === o.server && v.error) return `<div class="net-issue warn"><b>${E(tr(v.error))}</b></div>`;
     if (SI.pending && SI.pending.server === o.server) return `<div class="ni-busy" role="status"><i></i>${E(tr(SI.pending.stage === "verify" ? "Checking the exit and platforms…" : "Connecting…"))}</div>`;
     if (!v || v.server !== o.server) return "";
     const cm = v.country_match === true ? `<li class="si-ok">${E(tr("Exit address is in"))} ${E(v.exit_country)}</li>`
@@ -176,7 +194,7 @@
     return `<ul class="si-why si-verify">${cm}${sv}</ul><div class="note">${E(tr("Reachable means the site answered from this exit. It doesn't guarantee a particular title will play."))}</div>`;
   }
   function paneCountries() {
-    const av = SI.rep.availability, mine = new Set((SI.rep.servers || []).filter(s => s.country).map(s => s.country));
+    const av = SI.rep.availability, mine = new Set((SI.rep.servers || []).filter(s => s.country).map(s => s.country)), ban = restrictedCodes();
     const q = SI.csearch.trim().toLowerCase();
     const rows = av.listed.filter(c => (SI.filter === "all" || c.offers[SI.filter]) && (!SI.provider || Object.values(c.offers).some(l => l.includes(SI.provider))) &&
       (!q || (c.name || "").toLowerCase().includes(q) || c.code.toLowerCase() === q));
@@ -184,7 +202,7 @@
     let h = `<div class="si-filters"><div class="si-fchips">${["all"].concat(OFFERS.filter(t => counts[t])).map(t => `<button class="si-f${SI.filter === t ? " a" : ""}" data-si="filter" data-f="${E(t)}">${E(tr(t === "all" ? "All" : t))}${t === "all" ? ` ${av.listed.length}` : ` ${counts[t]}`}</button>`).join("")}</div>
       <input class="nx-in" id="siCq" type="search" placeholder="${E(tr("Find a country"))}" value="${E(SI.csearch)}" aria-label="${E(tr("Find a country"))}"></div>
       ${SI.provider ? `<div class="note">${E(tr("Only"))} <b>${E(prov(SI.provider).name)}</b> · <button class="linkish" data-si="provider" data-id="">${E(tr("show all platforms"))}</button></div>` : ""}`;
-    h += rows.length ? `<div class="si-table">` + rows.map(c => `<div class="si-row"><span class="si-cc">${E(c.code)}</span><div class="si-row-n"><b>${E(c.name)}</b>${mine.has(c.code) ? `<span class="si-yours">${E(tr("your server"))}</span>` : ""}</div>
+    h += rows.length ? `<div class="si-table">` + rows.map(c => `<div class="si-row"><span class="si-cc">${E(c.code)}</span><div class="si-row-n"><b>${E(c.name)}</b>${mine.has(c.code) ? `<span class="si-yours">${E(tr("your server"))}</span>` : ""}${ban[c.code] ? `<span class="si-bantag" title="${E(tr("Documented ban or restriction: see Restrictions"))}">${E(tr("restricted"))}</span>` : ""}</div>
         <div class="si-row-o">${OFFERS.filter(t => c.offers[t]).map(t => `<div class="si-ot">${offerChip(t)}<span class="si-logos">${c.offers[t].map(id => logo(prov(id))).join("")}</span></div>`).join("")}</div>
         ${c.link ? `<button class="sm" data-si="link" data-url="${E(c.link)}" title="${E(tr("Watch options on TMDB (JustWatch data)"))}">↗</button>` : "<span></span>"}</div>`).join("") + `</div>`
       : `<div class="empty-state">${E(tr("No listed countries match."))}</div>`;
@@ -205,7 +223,7 @@
     if (!d) h += `<div class="ni-busy" role="status"><i></i>${E(tr("Loading restriction records…"))}</div>`;
     else if (d.status !== "ok") h += `<div class="net-issue ${d.status === "unavailable" ? "warn" : "info"}"><b>${E(tr(d.status === "unavailable" ? "Restriction records unavailable" : "No matchable restriction records"))}</b><p>${E(tr(d.note || ""))}</p></div>`;
     else if (!d.records.length) h += `<div class="net-issue good"><b>${E(tr("No documented bans or blocks found"))}</b><p>${E(tr("Checked Wikipedia's banned-film lists for this exact title. Absence from these lists doesn't prove there were no restrictions."))}</p></div>`;
-    else h += d.records.map(r => `<div class="si-restr"><div class="si-restr-h"><span class="si-cc">${E(r.code || "—")}</span><b>${E(r.country_name || r.country || tr("Unknown country"))}</b><span class="si-y">${E(r.date || tr("date not given"))}</span></div>
+    else h += restrSummary(false) + d.records.map(r => `<div class="si-restr"><div class="si-restr-h"><span class="si-cc">${E(r.code || "—")}</span><b>${E(r.country_name || r.country || tr("Unknown country"))}</b><span class="si-y">${E(r.date || tr("date not given"))}</span></div>
         <p>${E(r.notes || tr("No details in the list."))}</p>
         ${r.tags.length ? `<div class="si-chips">${r.tags.map(x => `<span class="ni-tag">${E(tr(x))}</span>`).join("")}<span class="note">${E(tr("from the notes"))}</span></div>` : ""}
         <div class="si-src"><span class="si-ver">${E(tr(r.verification))}</span>${(r.sources || []).map(s => s.url ? `<button class="linkish" data-si="link" data-url="${E(s.url)}">${E(s.title || s.publisher || hostOf(s.url))}</button>` : `<span>${E(s.title || s.text || "")}</span>`).join(" · ")}
@@ -283,33 +301,47 @@
     else if (a === "back") { showView("browse"); renderGrid(); }
     else if (a === "setup") setup();
     else if (a === "open") openTitle(b.dataset.key);
-    else if (a === "pane") { SI.pane = b.dataset.p; $$("#siM .si-seg [data-p]").forEach(x => { x.classList.toggle("a", x === b); x.setAttribute("aria-selected", x === b); }); renderPane(); }
+    else if (a === "pane") { SI.pane = b.dataset.p; $$("#siM .si-seg [data-p]").forEach(x => { const on = x.dataset.p === SI.pane; x.classList.toggle("a", on); x.setAttribute("aria-selected", on); }); renderPane(); }
     else if (a === "filter") { SI.filter = b.dataset.f; renderPane(); }
     else if (a === "provider") { SI.provider = b.dataset.id ? +b.dataset.id : null; SI.pane = "countries"; renderModal(); }
     else if (a === "refresh") openTitle(SI.rep.key, true);
+    else if (a === "refresh2") openTitle(b.dataset.key, true);
     else if (a === "link") openLink(b.dataset.url);
     else if (a === "connect") connect(b.dataset.server, b.dataset.cc, (b.dataset.svc || "").split(",").filter(Boolean));
   }
   function openLink(url) {
+    if (!url) { toast(tr("This item has no link")); return; }
+    const fail = r => toast((r && r.error) || tr("Couldn't open that link"));
     api("si_open", { url }).then(r => {
-      if (!r.ok && r.error === "confirm" && confirm(tr("Open this link in your browser?") + "\n" + r.host)) api("si_open", { url, confirm: true });
-      else if (!r.ok && r.error !== "confirm") toast(r.error);
-    });
+      if (r && r.ok) { toast(tr("Opened in your browser"), true); return; }
+      if (r && r.error === "confirm") { if (confirm(tr("Open this link in your browser?") + "\n" + r.host)) api("si_open", { url, confirm: true }).then(x => x && x.ok ? toast(tr("Opened in your browser"), true) : fail(x), fail); }
+      else fail(r);
+    }, fail);
   }
   function connect(server, cc, services) {
     if (S.connected && S.active === server) { SI.pending = { server, cc, services, stage: "verify" }; renderPane(); api("si_verify", { country: cc, services }); return; }
-    SI.pending = { server, cc, services, stage: "connect" }; SI.verify = null; renderPane();
+    SI.pending = { server, cc, services, stage: "connect", t0: Date.now(), seen: false }; SI.verify = null; renderPane();
     api("connect", { name: server }).then(r => { if (!r.ok) { SI.pending = null; renderPane(); toast(r.error || tr("Could not connect")); } });
   }
   function onState(st) {
     const p = SI.pending; if (!p || p.stage !== "connect") return;
     if (st.connected && st.active === p.server) { p.stage = "verify"; if (SI.modal) renderPane(); api("si_verify", { country: p.cc, services: p.services }); }
-    else if (!st.connecting && st.error && st.error.name === p.server) { SI.pending = null; if (SI.modal) renderPane(); }
+    else if (st.connecting) p.seen = true;
+    else if ((st.error && st.error.name === p.server) || (p.seen && !st.connected) || Date.now() - p.t0 > 90000) {
+      SI.pending = null; if (SI.modal) renderPane(); toast(tr("Couldn't connect to") + " " + p.server);
+    }
   }
 
   /* ------------------------------------------------------------------ events */
   function handle(type, p) {
     switch (type) {
+      case "task_done": {   // a worker ended without its result (it crashed): replace the spinner with the reason
+        const m = /^si_title:(.+)$/.exec(p.key || "");
+        if (m && SI.modal && m[1] === SI.loading && (!SI.rep || SI.rep.key !== m[1]) && p.error) $("#siM").innerHTML = `<div class="net-issue warn"><b>${E(tr("Couldn't load this title"))}</b><p>${E(p.error)}</p><button class="sm" data-si="refresh2" data-key="${E(m[1])}">${E(tr("Try again"))}</button></div>`;
+        if (m && SI.rep && SI.rep.key === m[1] && !SI.restr) { SI.restr = { status: "unavailable", records: [], note: "The restriction lookup stopped." }; renderModal(); }
+        if (p.key === "si_verify" && SI.pending && SI.pending.stage === "verify") { SI.pending = null; if (SI.modal && SI.rep) renderPane(); }
+        return false;
+      }
       case "si_title":
         if (!SI.modal || p.key !== SI.loading) return true;
         if (!p.ok) { $("#siM").innerHTML = `<div class="net-issue warn"><b>${E(p.error)}</b></div>`; return true; }

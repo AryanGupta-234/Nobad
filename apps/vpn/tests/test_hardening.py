@@ -2,6 +2,8 @@
 import hashlib
 import io
 import os
+import threading
+import time
 
 import pytest
 
@@ -374,3 +376,95 @@ def test_one_shared_authenticode_check(monkeypatch):
     assert wginstall.signature("C:/x.msi")[0] == "Valid" and len(calls) == 3
     syscmd.authenticode("C:/it's.msi")
     assert "-LiteralPath 'C:/it''s.msi'" in calls[-1][-1]          # a quote in the path can't break out
+
+
+def test_links_with_commas_reach_the_browser_not_documents(monkeypatch):
+    """explorer.exe splits its command line on ',' and ';' and then opens Documents instead of the link."""
+    started = []
+    monkeypatch.setattr(syscmd.os, "name", "nt")
+    monkeypatch.setattr(syscmd.subprocess, "Popen", lambda cmd, **k: started.append(cmd))
+    assert syscmd.open_url_as_user("https://en.wikipedia.org/wiki/List_of_banned_films#India,_2000s;x") is True
+    assert started[-1][1] == "https://en.wikipedia.org/wiki/List_of_banned_films#India%2C_2000s%3Bx"
+    assert syscmd.open_url_as_user("https://x.org/a b/é") is True and started[-1][1] == "https://x.org/a%20b/%C3%A9"
+    for bad in ("https://user:pw@x.org/", "https://x.org/|calc", "https://x.org/\\..\\x"):
+        assert syscmd.open_url_as_user(bad) is False, bad
+
+
+def test_crashed_task_tells_the_ui(monkeypatch):
+    seen = []
+    monkeypatch.setattr(syscmd, "broadcast", lambda t, p: seen.append((t, p)))
+    monkeypatch.setattr(syscmd, "log", lambda *a, **k: None)
+    done = threading.Event()
+    def boom():
+        try:
+            raise RuntimeError("kaput")
+        finally:
+            done.set()
+    assert syscmd.run_once("t_boom", boom)
+    done.wait(2)
+    for _ in range(100):
+        if seen:
+            break
+        time.sleep(0.01)
+    assert seen and seen[0][0] == "task_done" and seen[0][1]["key"] == "t_boom" and "kaput" in seen[0][1]["error"]
+
+
+def test_toast_text_cannot_break_out_with_curly_quotes():
+    from nobadvpn import notify
+    ps = notify._toast_ps("Untrusted network", "on \u201cx\u2019;Start-Process calc;\u2019\u201d")
+    assert "\u2019" not in ps and "x'';Start-Process calc;''" in ps
+
+
+def test_dpapi_never_writes_or_wipes_through_a_link(monkeypatch, tmp_path):
+    from nobadvpn import dpapi
+    target = tmp_path / "a.conf"
+    target.write_bytes(b"secret")
+    monkeypatch.setattr(syscmd, "_is_reparse", lambda p: str(p).endswith("a.conf"))
+    with pytest.raises(OSError):
+        dpapi.write_atomic(str(target), b"x")
+    dpapi.wipe_and_remove(str(target))
+    assert target.read_bytes() == b"secret"
+
+
+def test_planted_data_dir_is_moved_aside_not_adopted(monkeypatch, tmp_path):
+    d = tmp_path / "NobadVPN"
+    d.mkdir()
+    (d / "netchanges.json").write_text("{}")
+    monkeypatch.setattr(app, "DATA_DIR", str(d))
+    monkeypatch.setattr(app, "SETTINGS_PATH", str(d / "settings.json"))
+    monkeypatch.setattr(app.os, "name", "nt")
+    monkeypatch.setattr(syscmd, "owned_by_admins", lambda p: False)
+    moved = app.quarantine_untrusted_data_dir()
+    assert moved and not d.exists() and os.path.exists(os.path.join(moved, "netchanges.json"))
+    d.mkdir()
+    monkeypatch.setattr(syscmd, "owned_by_admins", lambda p: True)
+    assert app.quarantine_untrusted_data_dir() is None and d.exists()
+
+
+def test_environment_cannot_steer_webview_or_powershell(monkeypatch):
+    monkeypatch.setattr(syscmd.os, "name", "nt")
+    monkeypatch.setenv("WEBVIEW2_BROWSER_EXECUTABLE_FOLDER", "C:/Users/u/evil")
+    monkeypatch.setenv("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "--remote-debugging-port=9222")
+    monkeypatch.setenv("PSModulePath", "C:/Users/u/mods")
+    syscmd.harden_environment()
+    assert not [k for k in os.environ if k.upper().startswith("WEBVIEW2_")]
+    assert os.environ["PSModulePath"].lower().replace("\\", "/").endswith("system32/windowspowershell/v1.0/modules")
+
+
+def test_import_folder_is_read_only_for_nobad(monkeypatch):
+    """The configs folder is admin-only; .conf files dropped in the user-writable import folder are imported with
+    the normal checks on Rescan, links are skipped, and nothing in the import folder is ever changed."""
+    from conftest import SAMPLE
+    from nobadvpn import configstore, const, engine
+    engine.ensure_dirs()
+    os.makedirs(const.INBOX_DIR, exist_ok=True)
+    good = os.path.join(const.INBOX_DIR, "Dropped1.conf")
+    link = os.path.join(const.INBOX_DIR, "Linked1.conf")
+    for p in (good, link):
+        with open(p, "w", encoding="utf-8") as f:
+            f.write(SAMPLE)
+    monkeypatch.setattr(syscmd, "_is_reparse", lambda p: str(p).endswith("Linked1.conf"))
+    r = configstore.import_inbox()
+    assert r["imported"] == ["Dropped1.conf"] and os.path.exists(good) and os.path.exists(link)
+    assert configstore.import_inbox()["skipped"] == ["Dropped1.conf"]     # already imported: left alone
+    assert not any(n.startswith("Linked1") for n in os.listdir(engine.config_dir()))

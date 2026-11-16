@@ -38,3 +38,27 @@
 .ni-fixcard .ni-fixrow>div{flex:1;min-width:0}.ni-fixcard .ni-fixrow b{font-size:13px}
 .ni-fixcard .ni-fixrow p{margin:2px 0 0;font-size:12px;line-height:1.45;color:var(--mu)}
 .ni-fixcard .ni-fixrow>button{flex:none;white-space:nowrap}
+
+/* Investigate a site: plain verdict badge + the steps a browser takes */
+.ni-vtop{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.ni-vtop small{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60%}
+.ni-badge{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+.ni-badge:before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.ni-b-bad{color:var(--rd,#ff5268);background:color-mix(in srgb,var(--rd,#ff5268) 14%,transparent)}
+.ni-b-warn{color:var(--am,#ff9a7c);background:color-mix(in srgb,var(--am,#ff9a7c) 14%,transparent)}
+.ni-b-good{color:var(--good,#3bd69b);background:color-mix(in srgb,var(--good,#3bd69b) 14%,transparent)}
+.ni-v-bad{background:color-mix(in srgb,var(--rd,#ff5268) 6%,transparent)}.ni-v-warn{background:color-mix(in srgb,var(--am,#ff9a7c) 5%,transparent)}
+.ni-v-good{background:color-mix(in srgb,var(--good,#3bd69b) 5%,transparent)}
+.ni-verdict b{margin-top:4px}
+.ni-who{color:var(--tx)!important;font-weight:600}
+.ni-steps{list-style:none;margin:10px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:6px}
+.ni-steps li{position:relative;display:flex;flex-direction:column;gap:2px;padding:8px 10px 8px 32px;border-radius:10px;border:1px solid var(--line);background:var(--surface-2,rgba(255,255,255,.03));min-width:0}
+.ni-steps li i{position:absolute;left:9px;top:9px;width:16px;height:16px;border-radius:50%;display:grid;place-items:center;font-style:normal;font-size:10px;font-weight:800;color:#fff;background:var(--mu)}
+.ni-steps li span{font-size:12px;font-weight:650;color:var(--tx)}
+.ni-steps li small{font-size:11px;color:var(--mu);line-height:1.35;word-break:break-word}
+.ni-s-ok i{background:var(--good,#3bd69b)!important}.ni-s-bad i{background:var(--rd,#ff5268)!important}.ni-s-warn i{background:var(--am,#ff9a7c)!important}
+.ni-s-bad{border-color:color-mix(in srgb,var(--rd,#ff5268) 45%,var(--line))!important}.ni-s-skip{opacity:.55}
+.ni-agent .ni-state{font-style:normal;font-size:10px;font-weight:700;margin-left:6px;padding:1px 7px;border-radius:99px;background:var(--surface-2,rgba(255,255,255,.06));color:var(--mu);text-transform:uppercase;letter-spacing:.05em}
+.ni-agent.on .ni-state{color:var(--good,#3bd69b);background:color-mix(in srgb,var(--good,#3bd69b) 14%,transparent)}
+.ni-agent input:disabled+i{opacity:.6}
+@media (forced-colors:active){.ni-steps li,.ni-badge{border:1px solid CanvasText}}

@@ -116,6 +116,8 @@ def consensus(matrix, groups=("reference", "encrypted")):
                 out["cnames"].update(x["cnames"])
             elif x and x["rcode"] == "NXDOMAIN":
                 out["nxdomain"] += 1
+            elif x and x["rcode"] == "NOERROR" and not x.get("error") and not x["addrs"]:
+                out["nodata"] = out.get("nodata", 0) + 1
         a = set().union(*[set(x["addrs"]) for x in m["results"].values() if _answered(x)]) if got_any else set()
         if got_any:
             out["answered"] += 1
@@ -138,6 +140,15 @@ def analyze(name, matrix, history_sinkholes=(), tls_evidence=None):
             findings.append(_finding("name-does-not-exist", "dns", "info", 0.9, name,
                                      f"{name} does not exist: every independent resolver says NXDOMAIN.",
                                      ["Check the spelling; this is not filtering."], []))
+        elif cons.get("nodata") and not cons["failed"] >= cons["resolvers"]:
+            # the domain is registered but its owner publishes no address: true for every network, so not a block
+            findings.append(_finding("no-address", "dns", "bad", 0.9, name,
+                                     f"{name} exists but has no address: the site is offline everywhere",
+                                     ["The domain's owner has removed its web address (common when a site moves to a new "
+                                      "domain or is taken down). No network, DNS change or VPN can open it.",
+                                      "If you got the link from somewhere, look for the site's new address there."],
+                                     [f"{cons['resolvers'] - cons['failed']} independent resolver(s) answered: the name exists "
+                                      "(NOERROR) but has no A or AAAA record"]))
         elif cons["failed"]:
             findings.append(_finding("references-unreachable", "dns", "warn", 0.6, name,
                                      "None of the independent resolvers could be reached, so answers can't be compared.",

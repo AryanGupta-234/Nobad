@@ -31,11 +31,12 @@ def h_investigate(b):
         name = investigate.normalize_target(b.get("target"))
     except ValueError as e:
         return {"ok": False, "error": str(e)}
+    path = investigate.target_path(b.get("target"))
 
     def work():
         broadcast("ni_progress", {"target": name, "stage": "measuring"})
         res = investigate.investigate_site(name, ctx.settings, ctx.tunnel, getattr(ctx.tunnel, "home", None),
-                                           getattr(ctx.tunnel, "exit", None))
+                                           getattr(ctx.tunnel, "exit", None), path=path)
         res["id"] = str(next(_ids))
         _CACHE[res["id"]] = res
         for k in sorted(_CACHE, key=int)[:-10]:
@@ -44,13 +45,17 @@ def h_investigate(b):
         broadcast("ni_investigation", res)
         a = _agent()
         if a and ctx.settings.get("ni_autofix") and res.get("verdict") == "dns-filtering" and res.get("affected") is not False:
-            broadcast("ni_fix", a.fix(res, manual=False))
+            broadcast("ni_fix_start", {"target": name, "auto": True})
+            try:
+                broadcast("ni_fix", a.fix(res, manual=False))
+            finally:
+                system.invalidate()
     return {"ok": True, "target": name} if run_once("ni_investigate", work) else _busy("An investigation")
 
 
 def _fixable(res):
     from .agent import preflight
-    snap = system.snapshot(None)
+    snap = system.cached_snapshot(None)      # same discovery the investigation just made (was a second 2.5 s call)
     ok, why = preflight(res, snap, ctx.tunnel, None, manual=True) if "error" not in snap else (False, [snap["error"]])
     return {"ok": ok, "reasons": why}
 
@@ -66,7 +71,7 @@ def h_lookup(b):
 
     def work():
         from .dnsintel import lookup
-        snap = system.snapshot(ctx.tunnel.active if ctx.tunnel and ctx.tunnel.connected else None)
+        snap = system.cached_snapshot(ctx.tunnel.active if ctx.tunnel and ctx.tunnel.connected else None)
         rs = investigate.resolver_set(snap, ctx.settings) if "error" not in snap else []
         broadcast("ni_lookup", {"name": name, "types": types, "rows": lookup(name, types, rs), "ts": time.time()})
     return {"ok": True} if run_once("ni_lookup", work) else _busy("A DNS lookup")
@@ -95,7 +100,11 @@ def h_fix(b):
         return {"ok": False, "error": "Run the investigation again first (results expire)."}
 
     def work():
-        broadcast("ni_fix", a.fix(inv, manual=True))
+        broadcast("ni_fix_start", {"target": inv.get("target"), "auto": False})
+        try:
+            broadcast("ni_fix", a.fix(inv, manual=True))
+        finally:
+            system.invalidate()
     return {"ok": True} if run_once("ni_fix", work) else _busy("A fix")
 
 

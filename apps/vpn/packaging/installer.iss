@@ -47,6 +47,10 @@ Source: "..\THIRD-PARTY-NOTICES.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "redist\wireguard-amd64.msi"; DestDir: "{app}\redist"; Flags: ignoreversion
 Source: "redist\wireguard-arm64.msi"; DestDir: "{app}\redist"; Flags: ignoreversion
 
+[Dirs]
+; Created by the elevated installer, so a standard user can't create it first and plant data for the app to adopt.
+Name: "{commonappdata}\NobadVPN"; Permissions: admins-full system-full
+
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"; AppUserModelID: "NOBAD.VPN"
 ; Offline fail-safe: works with NOBAD closed (or broken) and without internet. Asks for admin rights, removes every

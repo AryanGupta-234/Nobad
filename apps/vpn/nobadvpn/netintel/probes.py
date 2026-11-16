@@ -121,6 +121,18 @@ def sni_filter_check(ip, sni, port=443, timeout=4.0):
     return {"ip": ip, "real": real, "neutral": neutral, "sni_filtered": bool(cut(real) and reached(neutral))}
 
 
+BROWSER_UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
+              "Chrome/130.0 Safari/537.36")   # a bot-looking agent gets 403s a browser never sees
+# Phrases ISP, government and court-order block notices use. Specific on purpose: a normal page that merely mentions
+# "blocked" must not match. Checked in the first 32 KB of the page only.
+BLOCK_PHRASES = ("has been blocked as per", "has been blocked under", "this website has been blocked", "this url has been blocked",
+                 "this site has been blocked", "access to this website has been", "access to this site has been",
+                 "blocked as per the directions", "as per the directions received from the department of telecommunications",
+                 "blocked by order of", "blocked pursuant to",
+                 "the requested url has been blocked", "web page blocked", "website blocked", "url blocked",
+                 "blocked by your internet service provider", "access denied by your isp")
+
+
 def http_probe(ip, host, tls=True, path="/", timeout=5.0):
     """One GET to `ip` with Host/SNI = host (certificate verification off: we want to SEE what is served, e.g. a
     block page). Reports status, redirect target, server header, <title> and size of the first 32 KB."""
@@ -137,7 +149,7 @@ def http_probe(ip, host, tls=True, path="/", timeout=5.0):
             conn.sock = ctx.wrap_socket(sock, server_hostname=host)
         else:
             conn = http.client.HTTPConnection(ip, 80, timeout=timeout)
-        conn.request("GET", path, headers={"Host": host, "User-Agent": "Mozilla/5.0 (NOBAD network check)",
+        conn.request("GET", path, headers={"Host": host, "User-Agent": BROWSER_UA,
                                            "Accept": "text/html,*/*"})
         r = conn.getresponse()
         body = r.read(32768).decode("utf-8", "replace")
@@ -149,7 +161,8 @@ def http_probe(ip, host, tls=True, path="/", timeout=5.0):
             b = low.find("</title>", a)
             title = " ".join(body[a:b if b > 0 else a + 120].split())[:120]
         return {"ip": ip, "host": host, "tls": tls, "ok": True, "status": r.status, "location": r.getheader("Location"),
-                "server": r.getheader("Server"), "title": title, "bytes": len(body)}
+                "server": r.getheader("Server"), "title": title, "bytes": len(body),
+                "block_words": [w for w in BLOCK_PHRASES if w in low][:5]}
     except (OSError, http.client.HTTPException) as e:
         return {"ip": ip, "host": host, "tls": tls, "ok": False, "error": _err_kind(e)}
     finally:
