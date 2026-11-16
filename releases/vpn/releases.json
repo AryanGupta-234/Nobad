@@ -1,8 +1,20 @@
 {
   "schemaVersion": 1,
   "product": "nobad-vpn",
-  "latest": "1.3.3",
+  "latest": "1.3.4",
   "releases": [
+    {
+      "version": "1.3.4",
+      "releaseDate": "2026-11-16",
+      "channel": "stable",
+      "platform": "Windows 10 (1809+) / 11",
+      "architecture": "x64 (ARM64 via emulation)",
+      "summary": "Security and reliability update: admin-only configs folder, no buttons stuck on loading, clear Blocked / Not blocked verdicts with the exact step that fails, faster Network Intelligence, banned-in summary in Where to watch, tidier side panel.",
+      "downloadUrl": "https://github.com/AryanGupta-234/Nobad/releases/download/vpn-v1.3.4/NobadVPN-Setup-1.3.4.exe",
+      "notesUrl": "https://github.com/AryanGupta-234/Nobad/releases/tag/vpn-v1.3.4",
+      "sha256": "91be53fe711377eaa582b71c47257762a5f901b2b7ac0f33aa9bb2d29c6a745b",
+      "size": "24.0 MB"
+    },
     {
       "version": "1.3.3",
       "releaseDate": "2026-11-13",
