@@ -5,6 +5,10 @@ Add to it when the maintainer decides something; delete lines that stop being tr
 (this repository is public): no keys, configs, personal data or private review notes.
 
 ## Standing decisions
+- 2026-11-16 Website style: premium, precise cybersecurity look; every product page uses the shared component system
+  (`site-pages/assets/product.css`) with its own accent colour. Always full product names ("NOBAD VPN", "NOBAD File
+  Bridge"). Product pages say what users get and why to trust it: no author names, tech stack or build-process detail.
+  Credits and collaboration live in one "Built in the open" section on the home page, driven by a list in `assets/home.js`.
 - 2026-11-16 Brand: NOBAD is a studio with several products; motto "Software with a point of view." used verbatim everywhere (site titles/meta/footer, READMEs, repo description). The home page is the studio; each product has its own page under /products/ (vpn, file-bridge).
 - 2026-11-16 The remote file manager app is named NOBAD File Bridge (`apps/file-bridge/`), a plain name non-technical users understand. On-disk/keyring ids stay `remote-file-manager` so existing data keeps working.
 - 2026-11-16 No built-in servers. The free-server path is the default onboarding: highlight it in the app (empty Servers tab), README, user manual and the VPN page (#free-servers).
