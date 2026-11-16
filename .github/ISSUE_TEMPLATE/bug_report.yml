@@ -10,7 +10,7 @@ body:
     id: version
     attributes:
       label: NOBAD VPN version
-      description: Filled in for you by Report a problem; otherwise see the window title (e.g. 1.6.0)
+      description: Filled in for you by Report a problem; otherwise see the window title (e.g. 1.6.1)
     validations:
       required: true
   - type: input
