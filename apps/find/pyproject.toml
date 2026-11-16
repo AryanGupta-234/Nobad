@@ -16,7 +16,7 @@ classifiers = ["Operating System :: Microsoft :: Windows", "Programming Language
 dependencies = [
   "pywebview==6.2.1",
   "sqlcipher3-wheels==0.5.7",
-  "pypdf==6.18.0",
+  "pypdf==6.21.4",
   "numpy==2.4.6",
   "onnxruntime==1.27.0",
   "tokenizers==0.23.2",
