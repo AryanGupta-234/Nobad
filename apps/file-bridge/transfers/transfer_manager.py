@@ -12,6 +12,7 @@ from PySide6.QtCore import QObject, Signal
 from core.result import OperationResult
 from file_ops.base import FileItem
 from file_ops.conflict_policy import ConflictDecision, ConflictPolicy
+from file_ops.safety import safe_destination
 from transfers.conflict_resolver import ConflictResolver
 from transfers.events import TransferLogEvent, TransferProgressEvent
 from transfers.progress import ProgressThrottler
@@ -180,20 +181,20 @@ class TransferManager(QObject):
     ) -> list[TransferJob]:
         batch_id = str(uuid4())
         target_root = Path(local_folder)
-        jobs: list[TransferJob] = []
         files = await self._remote_tree_files(remote_ops, remote_item.path)
-        for item in files:
-            relative = posixpath.relpath(item.path, remote_item.path)
-            jobs.append(
-                self.enqueue_download_file(
-                    remote_ops,
-                    remote_item=item,
-                    local_path=target_root / relative,
-                    batch_id=batch_id,
-                    conflict_decision=conflict_decision,
-                )
+        # Every local target is checked before anything is queued: one hostile name stops the whole batch
+        # instead of leaving it half-downloaded.
+        targets = [(item, safe_destination(target_root, posixpath.relpath(item.path, remote_item.path))) for item in files]
+        return [
+            self.enqueue_download_file(
+                remote_ops,
+                remote_item=item,
+                local_path=target,
+                batch_id=batch_id,
+                conflict_decision=conflict_decision,
             )
-        return jobs
+            for item, target in targets
+        ]
 
     async def run_until_idle(self) -> OperationResult:
         if self._scheduler_task and not self._scheduler_task.done():
