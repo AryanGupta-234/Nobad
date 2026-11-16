@@ -4,6 +4,7 @@ import asyncio
 from collections.abc import Callable
 import logging
 import re
+import secrets
 import shlex
 import time
 from typing import Any
@@ -446,6 +447,90 @@ def interpolate_template(template: str, variables: dict[str, Any]) -> str:
     return result
 
 
+_SUDO_WORD = re.compile(r"(?<![\w-])sudo(?![\w-])")
+
+
+def script_uses_sudo(script: str) -> bool:
+    """Whether a playbook script runs sudo, so the UI knows to ask for a sudo password before it starts."""
+    return bool(_SUDO_WORD.search(script))
+
+
+def choose_sudo_password(
+    *, typed_password: str, reuse_login_password: bool, login_password: str | None
+) -> str | None:
+    """The sudo password to use for one run. The SSH login password is only reused when the user opted in (#32)."""
+    if typed_password:
+        return typed_password
+    if reuse_login_password and login_password:
+        return login_password
+    return None
+
+
+SUDO_PROMPT_SHOWN = "[sudo] password: "
+SUDO_ASKED_AGAIN_NOTICE = (
+    "\n[NOBAD File Bridge] sudo asked for the password again. It was not sent a second time: "
+    "check the sudo password, or cancel the playbook.\n"
+)
+PASSWORD_MASK = "********"
+
+
+class SudoPromptResponder:
+    """Answers sudo's password prompt only when it is our own random prompt, and only once (issue #32).
+
+    Remote output is untrusted: a log line, a file being printed or a hostile program can print
+    "[sudo] password for ...", so the password must never be sent because some output *looks* like a prompt.
+    The script exports ``SUDO_PROMPT=<random nonce>`` (honoured by every ``sudo`` in the script, also in
+    subshells), so only a prompt from sudo itself contains a value the server has never seen before.
+
+    Plain ``sudo`` (not ``sudo -S``) is used on purpose: in a PTY, ``-S`` reads stdin without turning echo off,
+    so the terminal would echo the password back into the output. Plain sudo reads the tty with echo off."""
+
+    def __init__(self, password: str) -> None:
+        self.password = password
+        # Letters, digits and "-" only: no shell quoting needed, and no %-escapes for sudo to expand.
+        self.prompt = f"nobad-sudo-{secrets.token_hex(16)}"
+        self.answered = False
+        self.asked_again = False
+        self._pending = ""
+
+    def script_prelude(self) -> str:
+        return f"export SUDO_PROMPT={shlex.quote(self.prompt)}\n"
+
+    def feed(self, chunk: str) -> tuple[str, bool]:
+        """Return ``(text to show, send the password now)`` for one output chunk."""
+        data = self._pending + chunk
+        send = False
+        prompts = data.count(self.prompt)
+        if prompts:
+            data = data.replace(self.prompt, SUDO_PROMPT_SHOWN)
+            if not self.answered:
+                self.answered = True
+                send = True
+                prompts -= 1
+            if prompts and not self.asked_again:
+                self.asked_again = True
+                data += SUDO_ASKED_AGAIN_NOTICE
+        if self.password and self.password in data:
+            data = data.replace(self.password, PASSWORD_MASK)
+        # Hold back an ending that could be the start of the prompt (or the password), split across chunks.
+        keep = self._partial_suffix(data)
+        self._pending = data[len(data) - keep:] if keep else ""
+        return (data[: len(data) - keep] if keep else data), send
+
+    def flush(self) -> str:
+        rest, self._pending = self._pending, ""
+        return rest
+
+    def _partial_suffix(self, data: str) -> int:
+        longest = 0
+        for needle in (self.prompt, self.password):
+            for size in range(min(len(needle) - 1, len(data)), longest, -1):
+                if data.endswith(needle[:size]):
+                    longest = size
+                    break
+        return longest
+
+
 class PlaybookStreamingRunner:
     """
     Executes a playbook shell script over an AsyncSSH connection PTY session,
@@ -474,6 +559,9 @@ class PlaybookStreamingRunner:
 
         self._cancelled = False
         raw_conn = self.connection.raw_connection
+        sudo = SudoPromptResponder(sudo_password) if sudo_password else None
+        if sudo is not None:
+            script = sudo.script_prelude() + script
 
         # Wrap script in a clean bash invocation
         # Escape single quotes safely for bash -c '...'
@@ -497,13 +585,20 @@ class PlaybookStreamingRunner:
                     chunk = await self._process.stdout.read(4096)
                     if not chunk:
                         break
-                    output_buffer.append(chunk)
-                    on_output(chunk)
-
-                    # Auto-respond to standard sudo password prompt if password is provided
-                    if sudo_password and "[sudo] password for" in chunk:
-                        self._process.stdin.write(f"{sudo_password}\n")
+                    send_password = False
+                    if sudo is not None:
+                        chunk, send_password = sudo.feed(chunk)
+                    if chunk:
+                        output_buffer.append(chunk)
+                        on_output(chunk)
+                    if send_password:
+                        self._process.stdin.write(f"{sudo.password}\n")
                         await self._process.stdin.drain()
+                if sudo is not None:
+                    rest = sudo.flush()
+                    if rest:
+                        output_buffer.append(rest)
+                        on_output(rest)
 
             self._reader_task = asyncio.create_task(_reader())
             await self._reader_task
