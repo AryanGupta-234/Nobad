@@ -1,0 +1,254 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+  <link rel="stylesheet" href="./vendor/xterm.css">
+  <script src="./vendor/xterm.js"></script>
+  <script src="./vendor/addon-fit.js"></script>
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      width: 100%;
+      background: #09090b;
+      overflow: hidden;
+    }
+    #terminal {
+      box-sizing: border-box;
+      height: 100%;
+      width: 100%;
+      padding: 0;
+      margin: 0;
+      background: #09090b;
+    }
+    .xterm {
+      height: 100%;
+      padding: 4px 0px 4px 8px;
+    }
+    /* Sleek dark scrollbar matching Linear/Raycast UI with accessible click-and-drag area */
+    ::-webkit-scrollbar {
+      width: 14px;
+      height: 14px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #09090b;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #3f3f46;
+      border-radius: 7px;
+      border: 3px solid #09090b;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #71717a;
+    }
+    ::-webkit-scrollbar-thumb:active {
+      background: #818cf8;
+    }
+    .xterm .xterm-viewport {
+      background-color: transparent !important;
+      overflow-y: scroll !important;
+      scrollbar-width: thin;
+      scrollbar-color: #3f3f46 #09090b;
+    }
+  </style>
+</head>
+<body>
+  <div id="terminal"></div>
+  <script>
+    const container = document.getElementById("terminal");
+    const FitAddonClass = window.FitAddon && (window.FitAddon.FitAddon || window.FitAddon);
+    const term = new Terminal({
+      cols: 100,
+      rows: 30,
+      cursorBlink: true,
+      cursorStyle: "block",
+      fontFamily: '"JetBrains Mono", "SFMono-Regular", Consolas, monospace',
+      fontSize: 13,
+      lineHeight: 1.15,
+      scrollback: 5000,
+      convertEol: false,
+      allowTransparency: false,
+      theme: {
+        background: "#09090b",
+        foreground: "#f4f4f5",
+        cursor: "#818cf8",
+        selectionBackground: "rgba(99, 102, 241, 0.35)",
+        black: "#18181b",
+        red: "#ef4444",
+        green: "#10b981",
+        yellow: "#f59e0b",
+        blue: "#3b82f6",
+        magenta: "#a855f7",
+        cyan: "#06b6d4",
+        white: "#f4f4f5",
+        brightBlack: "#71717a",
+        brightRed: "#f87171",
+        brightGreen: "#34d399",
+        brightYellow: "#fbbf24",
+        brightBlue: "#60a5fa",
+        brightMagenta: "#c084fc",
+        brightCyan: "#22d3ee",
+        brightWhite: "#ffffff"
+      }
+    });
+    const fitAddon = FitAddonClass ? new FitAddonClass() : null;
+    if (fitAddon) {
+      term.loadAddon(fitAddon);
+    }
+    term.open(container);
+
+    let bridge = null;
+    let resizeTimer = null;
+
+    function fitAndNotify() {
+      if (fitAddon) {
+        window.requestAnimationFrame(() => {
+          fitAddon.fit();
+          notifyResize();
+        });
+        return;
+      }
+      notifyResize();
+    }
+
+    function notifyResize() {
+      if (bridge && term.cols >= 20 && term.rows >= 5) {
+        bridge.resize(term.cols, term.rows);
+      }
+    }
+
+    function clearTerminal() {
+      term.clear();
+      if (bridge) {
+        bridge.input("\x0c");
+      }
+      term.focus();
+    }
+
+    function copySelection() {
+      if (bridge && term.hasSelection && term.hasSelection()) {
+        bridge.copyText(term.getSelection());
+      }
+      term.focus();
+    }
+
+    function pasteClipboard() {
+      if (bridge) {
+        bridge.pasteFromClipboard();
+      }
+      term.focus();
+    }
+
+    function interruptTerminal() {
+      if (bridge) {
+        bridge.interrupt();
+      }
+      term.focus();
+    }
+
+    window.term = term;
+    window.rfmTerminalFocus = function() {
+      if (term) {
+        term.focus();
+      }
+    };
+    window.rfmTerminalClear = clearTerminal;
+    window.rfmTerminalCopy = copySelection;
+    window.rfmTerminalPaste = pasteClipboard;
+    window.rfmTerminalInterrupt = interruptTerminal;
+
+    window.rfmTerminalApplySettings = function(options) {
+      if (!options) {
+        return;
+      }
+      if (options.fontSize) {
+        term.options.fontSize = options.fontSize;
+      }
+      if (options.scrollback) {
+        term.options.scrollback = options.scrollback;
+      }
+      fitAndNotify();
+      term.focus();
+    };
+
+    term.onData((data) => {
+      if (bridge) {
+        bridge.input(data);
+      }
+    });
+
+    term.attachCustomKeyEventHandler((event) => {
+      if (event.type !== "keydown") {
+        return true;
+      }
+      const key = (event.key || "").toLowerCase();
+      if (event.ctrlKey && event.shiftKey && key === "c") {
+        copySelection();
+        event.preventDefault();
+        return false;
+      }
+      if (event.ctrlKey && event.shiftKey && key === "v") {
+        pasteClipboard();
+        event.preventDefault();
+        return false;
+      }
+      if (event.ctrlKey && !event.shiftKey && !event.altKey && key === "c") {
+        interruptTerminal();
+        event.preventDefault();
+        return false;
+      }
+      if (event.ctrlKey && !event.shiftKey && !event.altKey && key === "l") {
+        clearTerminal();
+        event.preventDefault();
+        return false;
+      }
+      if (!event.ctrlKey && !event.altKey && key === "enter") {
+        if (bridge) {
+          bridge.input("\r");
+        }
+        event.preventDefault();
+        return false;
+      }
+      return true;
+    });
+
+    term.onResize((size) => {
+      if (bridge) {
+        bridge.resize(size.cols, size.rows);
+      }
+    });
+
+    new QWebChannel(qt.webChannelTransport, (channel) => {
+      bridge = channel.objects.terminalBridge;
+      bridge.outputReceived.connect((data) => {
+        term.write(data);
+      });
+      bridge.statusChanged.connect((message) => {
+        term.writeln("");
+        term.writeln(message);
+      });
+      fitAndNotify();
+      window.setTimeout(fitAndNotify, 100);
+      term.focus();
+      if (bridge && typeof bridge.frontendReady === "function") {
+        bridge.frontendReady();
+      }
+    });
+
+    window.addEventListener("resize", () => {
+      window.clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(fitAndNotify, 50);
+    });
+    container.addEventListener("click", () => {
+      if (term) term.focus();
+    });
+    document.addEventListener("click", () => {
+      if (term) term.focus();
+    });
+    window.addEventListener("focus", () => {
+      if (term) term.focus();
+    });
+  </script>
+</body>
+</html>

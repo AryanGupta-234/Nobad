@@ -1,0 +1,126 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <!-- Gradients -->
+    <linearGradient id="tileGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#141418"/>
+      <stop offset="100%" stop-color="#09090b"/>
+    </linearGradient>
+    <linearGradient id="rimGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#818cf8" stop-opacity="0.8"/>
+      <stop offset="50%" stop-color="#38bdf8" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#c084fc" stop-opacity="0.4"/>
+    </linearGradient>
+    <linearGradient id="fileGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.15"/>
+    </linearGradient>
+    <linearGradient id="serverGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#18181b"/>
+      <stop offset="100%" stop-color="#111114"/>
+    </linearGradient>
+    <linearGradient id="neonCyan" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#22d3ee"/>
+    </linearGradient>
+    <linearGradient id="neonIndigo" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#818cf8"/>
+      <stop offset="100%" stop-color="#6366f1"/>
+    </linearGradient>
+
+    <!-- Filters for soft neon glow -->
+    <filter id="cyanGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="softGlow" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur stdDeviation="12" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- App Squircle Tile (with transparent outer padding) -->
+  <rect x="36" y="36" width="440" height="440" rx="100" fill="url(#tileGrad)"/>
+  <rect x="36" y="36" width="440" height="440" rx="100" stroke="url(#rimGrad)" stroke-width="3" stroke-opacity="0.7"/>
+  <rect x="38" y="38" width="436" height="436" rx="98" stroke="#ffffff" stroke-width="1" stroke-opacity="0.1"/>
+
+  <!-- Server Blades (Right background layer) -->
+  <g transform="translate(230, 140)">
+    <!-- Server Chassis Frame -->
+    <rect x="0" y="0" width="170" height="232" rx="18" fill="url(#serverGrad)" stroke="#27272a" stroke-width="2"/>
+    
+    <!-- Blade 1 -->
+    <rect x="12" y="16" width="146" height="58" rx="10" fill="#141418" stroke="#222328" stroke-width="1.5"/>
+    <circle cx="138" cy="45" r="4.5" fill="#38bdf8" filter="url(#cyanGlow)"/>
+    <circle cx="120" cy="45" r="3" fill="#34d399"/>
+    <rect x="24" y="36" width="80" height="5" rx="2.5" fill="#27272a"/>
+    <rect x="24" y="47" width="55" height="4" rx="2" fill="#1f1f23"/>
+
+    <!-- Blade 2 -->
+    <rect x="12" y="86" width="146" height="58" rx="10" fill="#141418" stroke="#222328" stroke-width="1.5"/>
+    <circle cx="138" cy="115" r="4.5" fill="#38bdf8" filter="url(#cyanGlow)"/>
+    <circle cx="120" cy="115" r="3" fill="#34d399"/>
+    <rect x="24" y="106" width="80" height="5" rx="2.5" fill="#27272a"/>
+    <rect x="24" y="117" width="65" height="4" rx="2" fill="#1f1f23"/>
+
+    <!-- Blade 3 -->
+    <rect x="12" y="156" width="146" height="58" rx="10" fill="#141418" stroke="#222328" stroke-width="1.5"/>
+    <circle cx="138" cy="185" r="4.5" fill="#38bdf8" filter="url(#cyanGlow)"/>
+    <circle cx="120" cy="185" r="3" fill="#38bdf8" opacity="0.6"/>
+    <rect x="24" y="176" width="80" height="5" rx="2.5" fill="#27272a"/>
+    <rect x="24" y="187" width="45" height="4" rx="2" fill="#1f1f23"/>
+  </g>
+
+  <!-- Glowing Frosted Hologram File Document (Foreground Layer) -->
+  <g transform="translate(105, 110)">
+    <!-- Document Body Path with Folded Top-Right Corner -->
+    <!-- Document width=200, height=270, corner fold=48 -->
+    <path d="M 16 0 L 148 0 L 200 52 L 200 254 A 16 16 0 0 1 184 270 L 16 270 A 16 16 0 0 1 0 254 L 0 16 A 16 16 0 0 1 16 0 Z"
+          fill="url(#fileGrad)"
+          stroke="url(#neonIndigo)"
+          stroke-width="3"
+          filter="url(#softGlow)"/>
+
+    <!-- Document Fold Line -->
+    <path d="M 148 0 L 148 44 A 8 8 0 0 0 156 52 L 200 52"
+          fill="#141418"
+          stroke="url(#neonIndigo)"
+          stroke-width="2.5"/>
+
+    <!-- Subtle blueprint grid lines inside document -->
+    <line x1="32" y1="75" x2="170" y2="75" stroke="#818cf8" stroke-opacity="0.15" stroke-width="1"/>
+    <line x1="32" y1="115" x2="170" y2="115" stroke="#818cf8" stroke-opacity="0.15" stroke-width="1"/>
+    <line x1="32" y1="155" x2="170" y2="155" stroke="#818cf8" stroke-opacity="0.15" stroke-width="1"/>
+    <line x1="32" y1="195" x2="170" y2="195" stroke="#818cf8" stroke-opacity="0.15" stroke-width="1"/>
+    <line x1="75" y1="40" x2="75" y2="245" stroke="#818cf8" stroke-opacity="0.15" stroke-width="1"/>
+    <line x1="125" y1="40" x2="125" y2="245" stroke="#818cf8" stroke-opacity="0.15" stroke-width="1"/>
+
+    <!-- Glowing Terminal Prompt Chevron '> _' in Center -->
+    <path d="M 46 112 L 84 142 L 46 172"
+          stroke="url(#neonCyan)"
+          stroke-width="9"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          filter="url(#cyanGlow)"/>
+    <line x1="98" y1="172" x2="148" y2="172"
+          stroke="url(#neonCyan)"
+          stroke-width="9"
+          stroke-linecap="round"
+          filter="url(#cyanGlow)"/>
+
+    <!-- Bidirectional Transfer Pulse Row -->
+    <g transform="translate(34, 222)">
+      <circle cx="8" cy="0" r="3" fill="#818cf8" opacity="0.6"/>
+      <circle cx="24" cy="0" r="3" fill="#818cf8" opacity="0.8"/>
+      <circle cx="40" cy="0" r="3.5" fill="#38bdf8"/>
+      <circle cx="56" cy="0" r="4" fill="#38bdf8" filter="url(#cyanGlow)"/>
+      <circle cx="72" cy="0" r="4.5" fill="#22d3ee" filter="url(#cyanGlow)"/>
+      <path d="M 88 -8 L 98 0 L 88 8" stroke="#38bdf8" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </g>
+  </g>
+</svg>

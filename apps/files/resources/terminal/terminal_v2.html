@@ -1,0 +1,219 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+  <link rel="stylesheet" href="./vendor/xterm.css">
+  <script src="./vendor/xterm.js"></script>
+  <script src="./vendor/addon-fit.js"></script>
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      width: 100%;
+      background: #080808;
+      overflow: hidden;
+    }
+    #terminal {
+      box-sizing: border-box;
+      height: 100%;
+      width: 100%;
+      padding: 0;
+      margin: 0;
+      background: #080808;
+    }
+    .xterm {
+      height: 100%;
+      padding: 4px 14px 4px 8px;
+    }
+    ::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #080808;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #27272a;
+      border-radius: 5px;
+      border: 2px solid #080808;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #52525b;
+    }
+    ::-webkit-scrollbar-thumb:active {
+      background: #6366f1;
+    }
+    .xterm .xterm-viewport {
+      background-color: #080808 !important;
+      scrollbar-width: thin;
+      scrollbar-color: #27272a #080808;
+    }
+  </style>
+</head>
+<body>
+  <div id="terminal"></div>
+  <script>
+    const container = document.getElementById("terminal");
+    const FitAddonClass = window.FitAddon && (window.FitAddon.FitAddon || window.FitAddon);
+    const term = new Terminal({
+      cols: 100,
+      rows: 30,
+      cursorBlink: true,
+      cursorStyle: "block",
+      fontFamily: '"JetBrains Mono", "SFMono-Regular", Consolas, monospace',
+      fontSize: 13,
+      lineHeight: 1.15,
+      scrollback: 5000,
+      convertEol: false,
+      allowTransparency: false,
+      theme: {
+        background: "#080808",
+        foreground: "#cccccc",
+        cursor: "#aeafad",
+        selectionBackground: "#264f78"
+      }
+    });
+    const fitAddon = FitAddonClass ? new FitAddonClass() : null;
+    if (fitAddon) {
+      term.loadAddon(fitAddon);
+    }
+    term.open(container);
+
+    let bridge = null;
+    let resizeTimer = null;
+
+    function fitAndNotify() {
+      if (fitAddon) {
+        window.requestAnimationFrame(() => {
+          fitAddon.fit();
+          notifyResize();
+        });
+        return;
+      }
+      notifyResize();
+    }
+
+    function notifyResize() {
+      if (bridge && term.cols >= 20 && term.rows >= 5) {
+        bridge.resize(term.cols, term.rows);
+      }
+    }
+
+    function clearTerminal() {
+      term.clear();
+      if (bridge) {
+        bridge.input("\x0c");
+      }
+      term.focus();
+    }
+
+    function copySelection() {
+      if (bridge && term.hasSelection && term.hasSelection()) {
+        bridge.copyText(term.getSelection());
+      }
+      term.focus();
+    }
+
+    function pasteClipboard() {
+      if (bridge) {
+        bridge.pasteFromClipboard();
+      }
+      term.focus();
+    }
+
+    function interruptTerminal() {
+      if (bridge) {
+        bridge.interrupt();
+      }
+      term.focus();
+    }
+
+    window.rfmTerminalClear = clearTerminal;
+    window.rfmTerminalCopy = copySelection;
+    window.rfmTerminalPaste = pasteClipboard;
+    window.rfmTerminalInterrupt = interruptTerminal;
+
+    window.rfmTerminalApplySettings = function(options) {
+      if (!options) {
+        return;
+      }
+      if (options.fontSize) {
+        term.options.fontSize = options.fontSize;
+      }
+      if (options.scrollback) {
+        term.options.scrollback = options.scrollback;
+      }
+      fitAndNotify();
+      term.focus();
+    };
+
+    term.onData((data) => {
+      if (bridge) {
+        bridge.input(data);
+      }
+    });
+
+    term.attachCustomKeyEventHandler((event) => {
+      if (event.type !== "keydown") {
+        return true;
+      }
+      const key = (event.key || "").toLowerCase();
+      if (event.ctrlKey && event.shiftKey && key === "c") {
+        copySelection();
+        event.preventDefault();
+        return false;
+      }
+      if (event.ctrlKey && event.shiftKey && key === "v") {
+        pasteClipboard();
+        event.preventDefault();
+        return false;
+      }
+      if (event.ctrlKey && !event.shiftKey && !event.altKey && key === "c") {
+        interruptTerminal();
+        event.preventDefault();
+        return false;
+      }
+      if (event.ctrlKey && !event.shiftKey && !event.altKey && key === "l") {
+        clearTerminal();
+        event.preventDefault();
+        return false;
+      }
+      if (!event.ctrlKey && !event.altKey && key === "enter") {
+        if (bridge) {
+          bridge.input("\r");
+        }
+        event.preventDefault();
+        return false;
+      }
+      return true;
+    });
+
+    term.onResize((size) => {
+      if (bridge) {
+        bridge.resize(size.cols, size.rows);
+      }
+    });
+
+    new QWebChannel(qt.webChannelTransport, (channel) => {
+      bridge = channel.objects.terminalBridge;
+      bridge.outputReceived.connect((data) => {
+        term.write(data);
+      });
+      bridge.statusChanged.connect((message) => {
+        term.writeln("");
+        term.writeln(message);
+      });
+      fitAndNotify();
+      window.setTimeout(fitAndNotify, 100);
+      term.focus();
+    });
+
+    window.addEventListener("resize", () => {
+      window.clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(fitAndNotify, 50);
+    });
+    container.addEventListener("click", () => term.focus());
+  </script>
+</body>
+</html>
