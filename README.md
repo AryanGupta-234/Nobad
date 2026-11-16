@@ -1,16 +1,27 @@
 # NOBAD
 
-**NOBAD is an independent, free and open-source software studio**: privacy tools, utilities and practical software,
-built in the open and developed in collaboration with AI. It's in its initial launch phase; **NOBAD VPN** is its
-first major release.
+*Software with a point of view.*
 
-**Website:** <https://nobad-platform.aassworld99.workers.dev/> · [Code signing policy](https://nobad-platform.aassworld99.workers.dev/code-signing-policy/) · [Privacy policy](https://nobad-platform.aassworld99.workers.dev/privacy/)
+NOBAD is an independent, free and open-source software studio. It builds privacy tools, utilities and practical
+software in the open, in collaboration with AI. Each product lives in its own folder under `apps/`.
 
-| Product | What it is | Where |
-|---|---|---|
-| **NOBAD VPN** | A WireGuard client for Windows with a kill switch, DNS leak block, Network Intelligence, "Fix my internet" and Where to watch | [`apps/vpn/`](apps/vpn/) · [Releases](https://github.com/AryanGupta-234/Nobad/releases) |
-| **NOBAD Files** | A desktop file manager for remote servers: SSH/SFTP and FTP/FTPS browsing, transfers, two-way sync, remote editing, terminals, an encrypted credential vault and deployments | [`apps/files/`](apps/files/) |
-| Website | [nobad-platform.aassworld99.workers.dev](https://nobad-platform.aassworld99.workers.dev/), the product pages and the download desk | [`site-pages/`](site-pages/) |
+[Website](https://nobad-platform.aassworld99.workers.dev/) ·
+[Releases](https://github.com/AryanGupta-234/Nobad/releases) ·
+[Discussions](https://github.com/AryanGupta-234/Nobad/discussions) ·
+[Security policy](SECURITY.md) ·
+[Code signing policy](https://nobad-platform.aassworld99.workers.dev/code-signing-policy/) ·
+[Privacy policy](https://nobad-platform.aassworld99.workers.dev/privacy/)
+
+## Products
+
+| Product | What it is | Status | Where |
+|---|---|---|---|
+| **NOBAD VPN** | A WireGuard client for Windows with a kill switch, DNS leak block, Network Intelligence, an Evil Twin network check and Where to watch. | Available | [`apps/vpn/`](apps/vpn/) · [product page](https://nobad-platform.aassworld99.workers.dev/products/vpn/) |
+| **NOBAD Files** | A remote file manager for SSH/SFTP and FTP/FTPS: transfers, sync, remote editing, terminals, an encrypted vault and deployments. Linux and Windows. By [@harshRaj1601](https://github.com/harshRaj1601). | In development: being hardened before its first release (see [issues labelled `nobad-files`](https://github.com/AryanGupta-234/Nobad/issues?q=is%3Aissue+label%3Anobad-files)) | [`apps/files/`](apps/files/) · [product page](https://nobad-platform.aassworld99.workers.dev/products/files/) |
+
+The website source is in [`site-pages/`](site-pages/).
+
+AI coding assistants: read [AGENTS.md](AGENTS.md) first.
 
 ## Repository layout
 
@@ -62,8 +73,10 @@ run VPN servers and doesn't collect telemetry.
 
 ## Contributing
 
-Bug reports, testing on your PC and network, documentation and code are all welcome; see
-[CONTRIBUTING.md](CONTRIBUTING.md). Report security problems privately: [SECURITY.md](SECURITY.md).
+Bug reports, testing on your PC and network, documentation and code are all welcome, for either product; see
+[CONTRIBUTING.md](CONTRIBUTING.md). Questions and ideas go to
+[Discussions](https://github.com/AryanGupta-234/Nobad/discussions). Report security problems privately:
+[SECURITY.md](SECURITY.md).
 
 ## Website: local development and deployment
 

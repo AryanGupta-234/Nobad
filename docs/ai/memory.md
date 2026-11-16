@@ -5,6 +5,7 @@ Add to it when the maintainer decides something; delete lines that stop being tr
 (this repository is public): no keys, configs, personal data or private review notes.
 
 ## Standing decisions
+- 2026-11-16 Brand: NOBAD is a studio with several products; motto "Software with a point of view." used verbatim everywhere (site titles/meta/footer, READMEs, repo description). The home page is the studio; each product has its own page under /products/.
 - 2026-11-16 No built-in servers. The free-server path is the default onboarding: highlight it in the app (empty Servers tab), README, user manual and the VPN page (#free-servers).
 - 2026-11-16 Release "everywhere" every time: version, changelog, docs, site, `main`, CI release (playbook `release.md`).
 - 2026-11-16 Releases come only from CI (tag → `vpn-release.yml`, attested, immutable). Never create one by hand.
@@ -27,6 +28,7 @@ Add to it when the maintainer decides something; delete lines that stop being tr
   open source is the planned route (see `apps/vpn/docs/CODE-SIGNING.md`).
 
 ## Release history
+- 1.6.1 Window resizing fixed (SC_SIZE), hidden warning cards fixed, Investigate a site layout; site rebranded as the NOBAD studio with a NOBAD Files page.
 - 1.6.0 Get free servers in 2 minutes (empty Servers tab + background Downloads pick-up); uninstall stops every NOBAD process; upgrades stop the old copy first.
 - 1.5.1 Security: import folder outside the locked data folder, quarantine by ownership, .NET profiler variables stripped, links only on this session's desktop; site without inline scripts; strict attestation check documented.
 - 1.5.0 Free servers in two clicks (Downloads folder pick-up).

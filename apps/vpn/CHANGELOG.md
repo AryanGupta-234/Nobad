@@ -2,6 +2,17 @@
 
 All notable changes to NOBAD VPN. Versions follow [semantic versioning](https://semver.org/).
 
+## 1.6.1 · 2026-11-16
+
+### Fixed
+- **Resizing the window works again.** Dragging an edge or corner of NOBAD's own (frameless) window did nothing,
+  because Windows ignores border clicks on a window without a sizing border. NOBAD now starts Windows' own resize,
+  with live resizing, snapping and the minimum size.
+- **Warnings were invisible.** A leftover style for the small "not administrator" badge hid every yellow notice in
+  the app, including the evidence under *Investigate a site* and "needs a look" tiles in Launch diagnostics.
+- **Investigate a site** is easier to read: the resolver table has aligned columns (who answered, what, how fast),
+  long IPv6 answers wrap neatly, timings are rounded, and advice is no longer shown twice.
+
 ## 1.6.0 · 2026-11-16
 
 ### Added

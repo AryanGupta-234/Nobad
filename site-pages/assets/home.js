@@ -1,6 +1,6 @@
 /* Moved out of index.html so the site's Content-Security-Policy needs no 'unsafe-inline'. */
     const NOBAD_CONFIG = {
-      downloads: { sentinel: "", tools: "" }   // add a URL only once a real, published build exists
+      downloads: {}   // e.g. files: "https://...". Add a URL only once a real, published build exists
     };
 
     // Current year is dynamic.
@@ -63,14 +63,15 @@
 
     // Scroll-aware navigation affordance.
     const navLinks = [...document.querySelectorAll(".nav-pill a")];
-    // Only in-page links (#id) map to sections; "products/vpn/" or "/support/" would throw in querySelector.
-    const observedSections = navLinks.map(link => link.getAttribute("href")).filter(h => /^#[\w-]+$/.test(h)).map(h => document.getElementById(h.slice(1))).filter(Boolean);
+    // Only links to a section of this page ("#id" or "/#id") map to sections; "/products/vpn/" or "/support/" don't.
+    const sectionId = link => { const m = /^\/?#([\w-]+)$/.exec(link.getAttribute("href") || ""); return m ? m[1] : null; };
+    const observedSections = navLinks.map(sectionId).filter(Boolean).map(id => document.getElementById(id)).filter(Boolean);
     if ("IntersectionObserver" in window) {
       const observer = new IntersectionObserver(entries => {
         entries.forEach(entry => {
           if (!entry.isIntersecting) return;
           navLinks.forEach(link => {
-            if (link.getAttribute("href") === "#" + entry.target.id) link.setAttribute("aria-current", "location");
+            if (sectionId(link) === entry.target.id) link.setAttribute("aria-current", "location");
             else link.removeAttribute("aria-current");
           });
         });

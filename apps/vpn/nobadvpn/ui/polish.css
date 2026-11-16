@@ -112,3 +112,15 @@ aside .nx-row{padding:11px 6px!important}
 .qs-steps em{font-style:normal;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--good,#3bd69b)}
 .qs-steps .sm{white-space:nowrap}
 .qs-more{display:flex;gap:14px;flex-wrap:wrap}
+
+/* Investigate a site: resolver table with aligned columns (who | answer | time), wrapped long IPv6 answers */
+.ni-table .ni-rrow{display:grid;grid-template-columns:132px minmax(0,1fr) 52px;gap:12px;align-items:start;padding:9px 0}
+.ni-who-c{display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-width:0}
+.ni-who-c b{font-size:12px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ni-rrow .ni-ans{display:flex;flex-direction:column;gap:3px;font-size:12px;line-height:1.45;word-break:break-word}
+.ni-rrow .ni-ans small{color:var(--mu);font-size:11px;word-break:break-all}
+.ni-rrow .ni-ms{text-align:right;color:var(--mu);font-variant-numeric:tabular-nums;white-space:nowrap}
+/* verdict steps: equal tile heights, icon and label on one baseline */
+.ni-steps li{min-height:62px}
+.ni-steps li span{line-height:1.25}
+.ni-verdict .ni-vtop small{font-family:var(--font-mono,ui-monospace,monospace);font-size:11px}

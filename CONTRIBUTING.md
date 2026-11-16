@@ -1,7 +1,21 @@
 # Contributing to NOBAD
 
-NOBAD is an independent, free and open-source software studio. Contributions of every size are welcome: bug
-reports, testing on your PC and network, documentation, translations and code.
+NOBAD is an independent, free and open-source software studio. *Software with a point of view.* Contributions of
+every size are welcome: bug reports, testing on your PC and network, documentation, translations and code.
+
+## Products and their tests
+
+Each product has its own folder and its own test suite. Run the tests from that folder.
+
+| Product | Folder | Tests |
+|---|---|---|
+| NOBAD VPN | [`apps/vpn/`](apps/vpn/) | `python -m pytest -q` |
+| NOBAD Files | [`apps/files/`](apps/files/) | `python -m pytest -q tests` |
+
+Changes to `apps/files/` are reviewed by its code owner (@harshRaj1601) and the maintainer.
+
+AI coding assistants: read [AGENTS.md](AGENTS.md) first (and [apps/files/AGENTS.md](apps/files/AGENTS.md) for
+NOBAD Files).
 
 ## Ways to help
 
@@ -20,10 +34,24 @@ Requirements: Windows 10/11 (x64), Python 3.11, and Inno Setup 6 for the install
 cd apps/vpn
 python -m venv .venv-build; .\.venv-build\Scripts\Activate.ps1
 python -m pip install --require-hashes -r requirements-lock.txt
-python -m pytest -q tests                                        # all tests run against a simulated Windows
+python -m pytest -q                                              # all tests run against a simulated Windows
 python nobad_vpn.py                                              # run from source (asks for admin rights)
 powershell -ExecutionPolicy Bypass -File packaging\build.ps1     # full installer (tests, app, WireGuard, Inno)
 ```
+
+## Building NOBAD Files
+
+Requirements: Python 3.12. From `apps/files`:
+
+```bash
+pip install -e ".[dev]"
+python -m pytest -q tests        # Qt offscreen: QT_QPA_PLATFORM=offscreen
+python -m app.main               # run from source
+```
+
+See [apps/files/README.md](apps/files/README.md) for details.
+
+## Website
 
 The website lives in `site-pages/` as plain HTML and is built by `npm run build` at the repository root.
 
@@ -44,8 +72,8 @@ The website lives in `site-pages/` as plain HTML and is built by `npm run build`
 ## Pull requests
 
 1. Keep each PR focused on one change, and explain *why* in the description.
-2. Add or update tests. The suite must pass (`python -m pytest -q tests`) and lint must be clean
-   (`python -m pyflakes nobadvpn tests`).
+2. Add or update tests. The product's suite must pass (see *Products and their tests*). For NOBAD VPN, lint must
+   also be clean (`python -m pyflakes nobadvpn tests`, from `apps/vpn`).
 3. Keep the existing style: plain, honest UI text that never claims more than the code measures; no tracking; no
    new outbound connections without a setting and an entry in `docs/SYSTEM-INTEGRATION.md`.
 4. Anything that changes Windows network settings must be undoable by every reset path (see `netjournal.py` and

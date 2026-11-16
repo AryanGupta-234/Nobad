@@ -351,7 +351,8 @@ class WindowManager:
         except Exception:
             fn()
 
-    HT = {"move": 2, "l": 10, "r": 11, "t": 12, "tl": 13, "tr": 14, "b": 15, "bl": 16, "br": 17}
+    HT = {"move": 2}
+    WMSZ = {"l": 1, "r": 2, "t": 3, "tl": 4, "tr": 5, "b": 6, "bl": 7, "br": 8}    # SC_SIZE directions
 
     def titlebar_action(self, act, edge=None):
         """minimize | maximize (toggle) | close | drag | resize(edge) | state. Returns the window state."""
@@ -381,14 +382,25 @@ class WindowManager:
             if self._main_closing():          # True: really close (no tray / quitting)
                 from .lifecycle import request_quit
                 request_quit(False)
-        elif act in ("drag", "resize"):
-            ht = self.HT.get("move" if act == "drag" else edge or "")
+        elif act == "drag":
             hwnd = self._hwnd()
-            if ht and hwnd and not (act == "resize" and self._maximized):
+            if hwnd:
                 def go():
                     u = ctypes.windll.user32
                     u.ReleaseCapture()
-                    u.PostMessageW(hwnd, 0x00A1, ht, 0)      # WM_NCLBUTTONDOWN: Windows runs the move/size loop
+                    u.PostMessageW(hwnd, 0x00A1, self.HT["move"], 0)   # WM_NCLBUTTONDOWN on the caption: move loop
+                self._on_ui_thread(go)
+        elif act == "resize":
+            # A frameless window has no sizing border, so Windows ignores WM_NCLBUTTONDOWN with HTLEFT/HTBOTTOM/...
+            # (that's why edge resizing did nothing). WM_SYSCOMMAND SC_SIZE + direction starts Windows' own size loop
+            # for any window, with the normal live resize, snapping and the form's minimum size.
+            d = self.WMSZ.get(edge or "")
+            hwnd = self._hwnd()
+            if d and hwnd and not self._maximized:
+                def go():
+                    u = ctypes.windll.user32
+                    u.ReleaseCapture()
+                    u.PostMessageW(hwnd, 0x0112, 0xF000 + d, 0)   # WM_SYSCOMMAND, SC_SIZE | WMSZ_*
                 self._on_ui_thread(go)
         return {"maximized": bool(self._maximized)}
 

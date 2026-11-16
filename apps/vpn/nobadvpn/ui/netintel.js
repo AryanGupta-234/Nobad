@@ -84,7 +84,8 @@
       "os-resolution-failed": "Windows can't resolve it", "tls-failed": "TLS failing", "ipv6-path-broken": "IPv6 path broken", "dns-divergence": "DNS answers differ",
       "name-does-not-exist": "Name does not exist", "local-network": "No internet on this PC", ok: "Reachable, nothing filtered" };
     h += verdictBanner(r, V);
-    h += (r.recommendations || []).map(x => `<div class="ni-rec"><p>${E(x.text)}</p>${x.action === "vpn" ? `<button class="sm" data-go="vpnconnect">${E(tr("Connect NOBAD"))}</button>` : ""}${x.action === "dns_fix" ? `<button class="sm pri" data-go="fix" ${(r.fixable && !r.fixable.ok) || NI.busy.fix ? "disabled" : ""}>${E(tr("Fix DNS safely"))}</button>` : ""}</div>`).join("");
+    // "info" recommendations repeat a finding's own advice, which the Evidence card already shows
+    h += (r.recommendations || []).filter(x => x.id !== "info").map(x => `<div class="ni-rec"><p>${E(x.text)}</p>${x.action === "vpn" ? `<button class="sm" data-go="vpnconnect">${E(tr("Connect NOBAD"))}</button>` : ""}${x.action === "dns_fix" ? `<button class="sm pri" data-go="fix" ${(r.fixable && !r.fixable.ok) || NI.busy.fix ? "disabled" : ""}>${E(tr("Fix DNS safely"))}</button>` : ""}</div>`).join("");
     if (r.fixable && !r.fixable.ok && (r.recommendations || []).some(x => x.action === "dns_fix")) h += `<div class="note">${E(tr("Fix not available"))}: ${E(r.fixable.reasons.join("; "))}</div>`;
     h += fixBox();
     const moved = (r.findings || []).find(f => f.moved_to);
@@ -94,7 +95,9 @@
     h += `<div class="ni-sub">${E(tr("What each resolver answered"))}</div><div class="ni-table" role="table">` + (d.matrix || []).map(m => {
       const a = m.results.A || {}, q = m.results.AAAA || {};
       const ans = a.rcode === "NOERROR" ? (a.cnames || []).map(c => `<code>→ ${E(c)}</code>`).join(" ") + " " + E((a.addrs || []).join(", ") || tr("no address")) : E(a.error || a.rcode);
-      return `<div class="ni-tr" role="row"><span class="ni-g ni-g-${E(m.group)}">${E(tr(m.group))}</span><b>${E(m.ip || (m.doh || "").split("/")[2])}</b><span class="ni-ans">${ans}${q.addrs && q.addrs.length ? `<br><small>${E(q.addrs.join(", "))}</small>` : ""}</span><small>${a.rtt_ms != null ? E(a.rtt_ms) + " ms" : ""}</small></div>`;
+      // one stacked "who" column (group + resolver) and fixed column widths, so every row lines up
+      const who = m.ip || (m.doh || "").split("/")[2];
+      return `<div class="ni-tr ni-rrow" role="row"><span class="ni-who-c" role="cell"><span class="ni-g ni-g-${E(m.group)}">${E(tr(m.group))}</span><b title="${E(who)}">${E(who)}</b></span><span class="ni-ans" role="cell">${ans}${q.addrs && q.addrs.length ? `<small>${E(q.addrs.join(", "))}</small>` : ""}</span><small class="ni-ms" role="cell">${a.rtt_ms != null ? E(Math.round(a.rtt_ms)) + " ms" : "—"}</small></div>`;
     }).join("") + `</div>`;
     if (d.isp) h += `<div class="ni-sub">${E(tr("Who is doing it"))}</div><div class="note">${d.isp.matches && d.isp.matches.length ? E(tr("Evidence links the filtering to your provider")) + ": " + E(d.isp.provider_label) : E(d.isp.note || tr("Not enough evidence to name the operator."))}</div>`;
     return h + `<div class="note ni-foot">${E(tr("Measured"))} ${ago(r.ts)} ${E(tr("ago"))} · ${E(r.took_s)} s</div></div>`;

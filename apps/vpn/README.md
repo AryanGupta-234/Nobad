@@ -1,6 +1,8 @@
 # NOBAD VPN
 
-WireGuard VPN client for Windows, part of the NOBAD platform. It includes:
+NOBAD VPN · part of [NOBAD](../../README.md): software with a point of view.
+
+WireGuard VPN client for Windows. It includes:
 
 * a kill switch and a DNS leak block
 * a tray icon and a compact mini window

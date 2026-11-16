@@ -1,7 +1,13 @@
 # NOBAD Files (Remote File Manager)
 
-A cross-platform desktop file manager for remote servers, part of the NOBAD platform. It's built with Python 3.12
-and PySide6.
+NOBAD Files · part of [NOBAD](../../README.md): software with a point of view.
+
+A cross-platform desktop file manager for remote servers. It's built with Python 3.12 and PySide6. Author and code
+owner: @harshRaj1601.
+
+**Status:** in development, not released yet. The open issues
+[#29](https://github.com/AryanGupta-234/Nobad/issues/29) to [#33](https://github.com/AryanGupta-234/Nobad/issues/33)
+must be fixed before the first release. AI assistants: see [AGENTS.md](AGENTS.md) in this folder.
 
 All commands below are run from `apps/files/`.
 
