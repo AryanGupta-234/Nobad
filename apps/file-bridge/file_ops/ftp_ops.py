@@ -10,7 +10,13 @@ from typing import Any
 from core.result import OperationResult, result_from_exception
 from file_ops.base import FileItem, FileKind
 from file_ops.remote import ProgressCallback
-from file_ops.safety import ensure_not_protected
+from file_ops.safety import (
+    DOT_ENTRIES,
+    ensure_not_protected,
+    is_unsafe_entry_name,
+    safe_destination,
+    skipped_names_warning,
+)
 
 
 class FTPFileOperations:
@@ -21,13 +27,23 @@ class FTPFileOperations:
     async def list_dir(self, path: str = ".", *, show_hidden: bool = False) -> OperationResult:
         try:
             items: list[FileItem] = []
+            skipped: list[str] = []
+            listed_folder = PurePosixPath(path)
             async for remote_path, info in self._client.list(path):
-                name = PurePosixPath(str(remote_path)).name
-                if name in {".", ".."} or (not show_hidden and name.startswith(".")):
+                entry = PurePosixPath(str(remote_path))
+                name = entry.name
+                if name in DOT_ENTRIES:
+                    continue
+                # aioftp joins the server's name onto the listed folder, so a hostile name such as "../x", "/etc/x"
+                # or "a/b" shows up as an entry whose parent is not the folder we asked for.
+                if is_unsafe_entry_name(name) or entry.parent != listed_folder:
+                    skipped.append(str(remote_path))
+                    continue
+                if not show_hidden and name.startswith("."):
                     continue
                 items.append(self._item(str(remote_path), info))
             items.sort(key=lambda item: (not item.is_dir, item.name.lower()))
-            return OperationResult.success("Remote directory listed.", data=items)
+            return OperationResult.success("Remote directory listed.", data=items, warnings=skipped_names_warning(skipped))
         except Exception as exc:
             return result_from_exception("Could not list remote directory.", exc, retryable=True)
 
@@ -173,7 +189,9 @@ class FTPFileOperations:
         except Exception as exc:
             return result_from_exception("Could not calculate remote checksum.", exc, retryable=True)
 
-    async def _download_tree(self, remote_path: str, local_path: Path) -> None:
+    async def _download_tree(self, remote_path: str, local_root: Path, relative: str = "") -> None:
+        """Download ``remote_path`` into ``local_root``; every local path is checked with ``safe_destination``."""
+        local_path = safe_destination(local_root, relative) if relative else local_root
         stat_result = await self.stat(remote_path)
         if not stat_result.ok:
             raise RuntimeError(stat_result.message)
@@ -183,7 +201,8 @@ class FTPFileOperations:
             if not listed.ok:
                 raise RuntimeError(listed.message)
             for item in listed.data:
-                await self._download_tree(item.path, local_path / item.name)
+                child_relative = posixpath.join(relative, item.name) if relative else item.name
+                await self._download_tree(item.path, local_root, child_relative)
         else:
             result = await self.download_file(remote_path, local_path)
             if not result.ok:

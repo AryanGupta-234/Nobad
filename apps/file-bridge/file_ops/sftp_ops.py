@@ -9,7 +9,14 @@ from typing import Any, Callable
 
 from core.result import OperationResult, result_from_exception
 from file_ops.base import FileItem, FileKind
-from file_ops.safety import ensure_not_protected
+from file_ops.safety import (
+    DOT_ENTRIES,
+    ensure_not_protected,
+    ensure_safe_entry_name,
+    is_unsafe_entry_name,
+    safe_destination,
+    skipped_names_warning,
+)
 
 
 class SFTPFileOperations:
@@ -19,14 +26,20 @@ class SFTPFileOperations:
     async def list_dir(self, path: str = ".", *, show_hidden: bool = False) -> OperationResult:
         try:
             items: list[FileItem] = []
+            skipped: list[str] = []
             async for entry in self._sftp.scandir(path):
                 name = self._decode_path(entry.filename)
+                if name in DOT_ENTRIES:
+                    continue
+                if is_unsafe_entry_name(name):
+                    skipped.append(name)
+                    continue
                 if not show_hidden and name.startswith("."):
                     continue
                 full_path = posixpath.join(path, name) if path not in {"", "."} else name
                 items.append(self._item_from_attrs(name, full_path, entry.attrs))
             items.sort(key=lambda item: (not item.is_dir, item.name.lower()))
-            return OperationResult.success("Remote directory listed.", data=items)
+            return OperationResult.success("Remote directory listed.", data=items, warnings=skipped_names_warning(skipped))
         except Exception as exc:
             return result_from_exception("Could not list remote directory.", exc, retryable=True)
 
@@ -116,8 +129,8 @@ class SFTPFileOperations:
     async def delete(self, remote_path: str, *, recursive: bool = False) -> OperationResult:
         try:
             ensure_not_protected(remote_path)
-            attrs = await self._sftp.stat(remote_path)
-            if self._is_dir(attrs):
+            attrs = await self._sftp.lstat(remote_path)
+            if self._is_dir(attrs) and not self._is_link(attrs):
                 if recursive:
                     await self._delete_tree(remote_path)
                 else:
@@ -161,21 +174,38 @@ class SFTPFileOperations:
         except Exception as exc:
             return result_from_exception("Could not calculate remote checksum.", exc, retryable=True)
 
-    async def _download_tree(self, remote_path: str, local_root: Path) -> None:
-        attrs = await self._sftp.stat(remote_path)
+    async def _download_tree(self, remote_path: str, local_root: Path, relative: str = "") -> None:
+        """Download ``remote_path`` into ``local_root``. Every local path is checked with ``safe_destination``
+        against the top download folder, and symlinked folders are not followed (no loops, no escapes)."""
+        local_path = safe_destination(local_root, relative) if relative else local_root
+        attrs = await self._sftp.lstat(remote_path) if relative else await self._sftp.stat(remote_path)
+        if self._is_link(attrs):
+            attrs = await self._sftp.stat(remote_path)
+            if self._is_dir(attrs):
+                return
         if self._is_dir(attrs):
-            local_root.mkdir(parents=True, exist_ok=True)
-            for name in await self._sftp.listdir(remote_path):
-                await self._download_tree(posixpath.join(remote_path, name), local_root / name)
+            local_path.mkdir(parents=True, exist_ok=True)
+            for raw in await self._sftp.listdir(remote_path):
+                name = self._decode_path(raw)
+                if name in DOT_ENTRIES:
+                    continue
+                ensure_safe_entry_name(name)
+                child_relative = posixpath.join(relative, name) if relative else name
+                await self._download_tree(posixpath.join(remote_path, name), local_root, child_relative)
         else:
-            local_root.parent.mkdir(parents=True, exist_ok=True)
-            await self._sftp.get(remote_path, str(local_root))
+            local_path.parent.mkdir(parents=True, exist_ok=True)
+            await self._sftp.get(remote_path, str(local_path))
 
     async def _delete_tree(self, remote_path: str) -> None:
-        for name in await self._sftp.listdir(remote_path):
+        """Delete a remote folder. Uses lstat so a symlink is removed itself and never followed."""
+        for raw in await self._sftp.listdir(remote_path):
+            name = self._decode_path(raw)
+            if name in DOT_ENTRIES:
+                continue
+            ensure_safe_entry_name(name)
             child = posixpath.join(remote_path, name)
-            attrs = await self._sftp.stat(child)
-            if self._is_dir(attrs):
+            attrs = await self._sftp.lstat(child)
+            if self._is_dir(attrs) and not self._is_link(attrs):
                 await self._delete_tree(child)
             else:
                 await self._sftp.remove(child)
@@ -206,6 +236,10 @@ class SFTPFileOperations:
     def _is_dir(self, attrs: Any) -> bool:
         mode = getattr(attrs, "permissions", None) or getattr(attrs, "mode", 0) or 0
         return stat.S_ISDIR(mode)
+
+    def _is_link(self, attrs: Any) -> bool:
+        mode = getattr(attrs, "permissions", None) or getattr(attrs, "mode", 0) or 0
+        return stat.S_ISLNK(mode)
 
     def _wrap_progress(self, progress_callback: Callable[[str, str, int, int], None] | None):
         if progress_callback is None:

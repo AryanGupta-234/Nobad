@@ -7,11 +7,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from uuid import uuid4
 
-from PySide6.QtCore import QObject, Signal
-
+from core.events import Event
 from core.result import OperationResult
 from file_ops.base import FileItem
 from file_ops.conflict_policy import ConflictDecision, ConflictPolicy
+from file_ops.safety import safe_destination
 from transfers.conflict_resolver import ConflictResolver
 from transfers.events import TransferLogEvent, TransferProgressEvent
 from transfers.progress import ProgressThrottler
@@ -33,10 +33,9 @@ class TransferPlan:
     conflict_decision: ConflictDecision
 
 
-class TransferManager(QObject):
-    job_updated = Signal(object)
-    log_event = Signal(object)
-    batch_finished = Signal(str)
+class TransferManager:
+    """Queues and runs transfers on the asyncio runtime. Qt-free: listeners subscribe to plain events, which fire
+    on the runtime thread (the Qt UI re-emits them through ``ui.qt_bridge.QtTransferSignals``)."""
 
     def __init__(
         self,
@@ -44,7 +43,9 @@ class TransferManager(QObject):
         max_concurrent: int = DEFAULT_CONCURRENT_TRANSFERS,
         progress_emit_interval: float = DEFAULT_PROGRESS_EMIT_INTERVAL_SECONDS,
     ) -> None:
-        super().__init__()
+        self.job_updated: Event[TransferJob] = Event("transfer.job_updated")
+        self.log_event: Event[TransferLogEvent] = Event("transfer.log_event")
+        self.batch_finished: Event[str] = Event("transfer.batch_finished")
         self.queue = TransferQueue()
         self.max_concurrent = clamp_concurrent_transfers(max_concurrent)
         self.progress_emit_interval = max(0.01, float(progress_emit_interval))
@@ -180,20 +181,20 @@ class TransferManager(QObject):
     ) -> list[TransferJob]:
         batch_id = str(uuid4())
         target_root = Path(local_folder)
-        jobs: list[TransferJob] = []
         files = await self._remote_tree_files(remote_ops, remote_item.path)
-        for item in files:
-            relative = posixpath.relpath(item.path, remote_item.path)
-            jobs.append(
-                self.enqueue_download_file(
-                    remote_ops,
-                    remote_item=item,
-                    local_path=target_root / relative,
-                    batch_id=batch_id,
-                    conflict_decision=conflict_decision,
-                )
+        # Every local target is checked before anything is queued: one hostile name stops the whole batch
+        # instead of leaving it half-downloaded.
+        targets = [(item, safe_destination(target_root, posixpath.relpath(item.path, remote_item.path))) for item in files]
+        return [
+            self.enqueue_download_file(
+                remote_ops,
+                remote_item=item,
+                local_path=target,
+                batch_id=batch_id,
+                conflict_decision=conflict_decision,
             )
-        return jobs
+            for item, target in targets
+        ]
 
     async def run_until_idle(self) -> OperationResult:
         if self._scheduler_task and not self._scheduler_task.done():

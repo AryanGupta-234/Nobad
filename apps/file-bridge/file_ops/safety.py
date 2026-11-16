@@ -45,7 +45,35 @@ def ensure_not_protected(path: str, *, configured_protected_paths: set[str] | No
         raise UnsafePathError(f"Refusing dangerous operation on protected path: {path}")
 
 
+DOT_ENTRIES = {".", ".."}
+
+
+def is_unsafe_entry_name(name: str) -> bool:
+    """True when a name from a directory listing is not exactly one plain path component.
+
+    Remote servers are untrusted: a listing can contain ``.``/``..`` (SFTP readdir always does) or a hostile name such
+    as ``../../x``, ``..\\x`` or ``a/b`` that would escape the destination once joined into a local path."""
+    return not name or name in DOT_ENTRIES or any(ch in name for ch in ("/", "\\", "\0"))
+
+
+def ensure_safe_entry_name(name: str) -> str:
+    if is_unsafe_entry_name(name):
+        raise UnsafePathError(f"Refusing unsafe name from the server: {name!r}")
+    return name
+
+
+def skipped_names_warning(skipped: list[str]) -> list[str]:
+    """One warning for listing entries hidden because their names are unsafe (kept short; names are repr()'d)."""
+    if not skipped:
+        return []
+    shown = ", ".join(repr(name) for name in skipped[:5])
+    more = f" and {len(skipped) - 5} more" if len(skipped) > 5 else ""
+    return [f"Hid {len(skipped)} item(s) with unsafe names from the server: {shown}{more}."]
+
+
 def is_path_traversal(member_name: str) -> bool:
+    if "\0" in member_name:
+        return True
     normalized = member_name.replace("\\", "/")
     if normalized.startswith("/"):
         return True
@@ -54,6 +82,7 @@ def is_path_traversal(member_name: str) -> bool:
 
 
 def safe_destination(root: Path, member_name: str) -> Path:
+    """Local path for ``member_name`` inside ``root``; raises UnsafePathError if it would land anywhere else."""
     if is_path_traversal(member_name):
         raise UnsafePathError(f"Archive member escapes destination: {member_name}")
     root_resolved = root.resolve()
