@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 import logging
 from typing import Any
 import uuid
@@ -19,7 +20,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from core.playbooks_manager import PREBUNDLED_RECIPES, PlaybookStreamingRunner, interpolate_template
+from core.playbooks_manager import (
+    PREBUNDLED_RECIPES,
+    PlaybookStreamingRunner,
+    interpolate_template,
+    script_uses_sudo,
+)
 from core.playbooks_models import (
     PlaybookCategory,
     PlaybookExecutionRecord,
@@ -29,6 +35,7 @@ from core.playbooks_models import (
 from storage.app_data import AppDataService
 from ui.async_worker import AsyncProgressWorker
 from ui.icons import get_icon
+from ui.sudo_password_dialog import SudoPasswordDialog
 from ui.playbooks_components import (
     NewSnippetDialog,
     PlaybookCardWidget,
@@ -356,16 +363,20 @@ class PlaybooksPanel(QWidget):
             return
 
         interpolated_script = interpolate_template(self._selected_recipe.script_template, param_values)
+        target_name = getattr(self.connection, "host", "remote-host")
+
+        # Ask for the sudo password per run; the SSH login password is only reused if the user opts in (#32).
+        sudo_password = None
+        if script_uses_sudo(interpolated_script):
+            login_password = getattr(self._current_profile, "password", None) if self._current_profile else None
+            dialog = SudoPasswordDialog(target_name, login_password_available=bool(login_password), parent=self)
+            if dialog.exec() != SudoPasswordDialog.DialogCode.Accepted:
+                return
+            sudo_password = dialog.sudo_password(login_password)
 
         # Show execution dock
         self.dock.show()
-        target_name = getattr(self.connection, "host", "remote-host")
         self.dock.start_execution(target_name, self._selected_recipe.steps)
-
-        # Sudo password resolution if available in profile/credentials
-        sudo_password = None
-        if self._current_profile and getattr(self._current_profile, "password", None):
-            sudo_password = self._current_profile.password
 
         self._runner = PlaybookStreamingRunner(self.connection)
 
