@@ -38,7 +38,8 @@ The website lives in `site-pages/` as plain HTML and is built by `npm run build`
    resolved, and the site build check passing. A new push after approval needs a fresh approval.
 4. `main` can't be force-pushed or deleted, and release tags (`vpn-v*`) can only be created by the maintainer.
    Releases are built from a tag by `.github/workflows/vpn-release.yml` on a clean GitHub runner and carry a signed
-   build-provenance attestation (`gh attestation verify NobadVPN-Setup-<version>.exe -R AryanGupta-234/Nobad`).
+   build-provenance attestation. Check it with
+   `gh attestation verify NobadVPN-Setup-<version>.exe -R AryanGupta-234/Nobad --signer-workflow AryanGupta-234/Nobad/.github/workflows/vpn-release.yml --source-ref refs/tags/vpn-v<version> --deny-self-hosted-runners`.
 
 ## Pull requests
 

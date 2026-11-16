@@ -18,6 +18,7 @@ from nobadvpn import syscmd as _syscmd  # noqa: E402
 _engine._lock_dir = lambda path, allow_user: True
 _real_lock_dir = _syscmd.lock_dir
 _syscmd.lock_dir = lambda path, allow_user=False: True
+_syscmd.lock_folder_only = lambda path, allow_user=False: True
 _engine.Tunnel._secure_runtime_dir = lambda self: os.makedirs(_engine.RUNTIME_DIR, exist_ok=True)
 
 PRIV = "yAnz5TF+lXXJte14tji3zlMNq+hd2rYUIgJBgB3fBmk="

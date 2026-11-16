@@ -26,6 +26,11 @@ from .syscmd import (is_admin, is_busy as syscmd_busy, lock_dir, ping_stats, pro
                      service_running, spawn, wg_tool)
 
 
+def _lock_inbox(path):
+    from .syscmd import lock_folder_only
+    return lock_folder_only(path, allow_user=True)
+
+
 def _lock_dir(path, allow_user):
     """Restrict a folder to SYSTEM + Administrators (+ the current user for the configs folder)."""
     return lock_dir(path, allow_user)
@@ -58,7 +63,7 @@ def ensure_dirs():
     try:
         from .const import INBOX_DIR
         os.makedirs(INBOX_DIR, exist_ok=True)
-        _lock_dir(INBOX_DIR, True)          # drop-box for .conf files: user-writable, read-only for NOBAD
+        _lock_inbox(INBOX_DIR)              # drop-box for .conf files: user-writable, read-only for NOBAD
     except OSError as e:
         log(f"couldn't create the import folder: {e}", "warn")
     copied = []

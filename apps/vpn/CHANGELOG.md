@@ -2,6 +2,24 @@
 
 All notable changes to NOBAD VPN. Versions follow [semantic versioning](https://semver.org/).
 
+## 1.5.1 · 2026-11-16
+
+### Security
+- **The import folder moved out of NOBAD's data folder** (now `ProgramData\NobadVPN-import`). The data folder is
+  locked recursively at every start; a user-writable folder inside it could have let a planted link steer that
+  administrator-level change at another folder. The import folder's own permissions are now set without touching
+  its contents.
+- **A prepared data folder is detected by who owns its files,** not by whether `settings.json` exists, so a planted
+  settings file can no longer skip the check. The installer locks the folder before writing settings.
+- **.NET profiler and PowerShell policy variables are removed** from the elevated app's environment, so they can't
+  load code into the PowerShell commands NOBAD runs.
+- **Links open only on your own desktop session,** never on another signed-in user's, and a lone `%` in a link is
+  encoded so it can't expand Windows variables.
+
+### Changed
+- Verifying a download now checks that it was built by NOBAD's release workflow from that version's tag (see the
+  VPN page and `docs/RELEASE-PROCESS.md`).
+
 ## 1.5.0 · 2026-11-16
 
 ### Added
