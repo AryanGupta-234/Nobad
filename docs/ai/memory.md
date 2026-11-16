@@ -5,6 +5,7 @@ Add to it when the maintainer decides something; delete lines that stop being tr
 (this repository is public): no keys, configs, personal data or private review notes.
 
 ## Standing decisions
+- 2026-11-16 Auto-approve for NOBAD File Bridge: PRs that change only `apps/file-bridge/` need no review (the folder has no CODEOWNERS owner; the ruleset requires 0 approvals but code-owner review) and merge once `file-bridge-tests` + `site-build` pass. Everything else needs @AryanGupta-234. No AI bot gets approval rights.
 - 2026-11-16 Website style: premium, precise cybersecurity look; every product page uses the shared component system
   (`site-pages/assets/product.css`) with its own accent colour. Always full product names ("NOBAD VPN", "NOBAD File
   Bridge"). Product pages say what users get and why to trust it: no author names, tech stack or build-process detail.

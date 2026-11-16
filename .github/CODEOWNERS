@@ -1,8 +1,12 @@
-# Every change needs a review from a code owner (see the "Protect main" ruleset).
+# Every change needs a review from a code owner (see the "Protect main" ruleset), EXCEPT the paths below that
+# have no owner: those merge without a review once the required checks pass.
 * @AryanGupta-234
 
-# NOBAD File Bridge: its author can review changes to it; the maintainer still approves releases and CI changes.
-/apps/file-bridge/ @harshRaj1601 @AryanGupta-234
+# NOBAD File Bridge: owned by its maintainer (@harshRaj1601). A pull request that changes ONLY this folder needs no
+# approval; it merges once "file-bridge-tests" and "site-build" pass. A PR that also changes anything else (VPN,
+# website, workflows, rules, AI instructions) still needs @AryanGupta-234. (No owner listed on purpose: GitHub
+# doesn't let an author approve their own PR, so listing Harsh here would block his own changes.)
+/apps/file-bridge/
 
 # Workflows, repository rules and the AI instructions stay with the maintainer.
 /.github/ @AryanGupta-234
