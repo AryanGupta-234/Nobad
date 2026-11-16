@@ -9,11 +9,15 @@ first major release.
 | Product | What it is | Where |
 |---|---|---|
 | **NOBAD VPN** | A WireGuard client for Windows with a kill switch, DNS leak block, Network Intelligence, "Fix my internet" and Where to watch | [`apps/vpn/`](apps/vpn/) · [Releases](https://github.com/AryanGupta-234/Nobad/releases) |
+| **NOBAD Files** | A desktop file manager for remote servers: SSH/SFTP and FTP/FTPS browsing, transfers, two-way sync, remote editing, terminals, an encrypted credential vault and deployments | [`apps/files/`](apps/files/) |
 | Website | [nobad-platform.aassworld99.workers.dev](https://nobad-platform.aassworld99.workers.dev/), the product pages and the download desk | [`site-pages/`](site-pages/) |
 
 ## Repository layout
 
 ```
+apps/files/          NOBAD Files (remote file manager, Python + PySide6)
+  tests/             pytest suite
+  packaging/         Linux .deb script; PyInstaller spec is build.spec
 apps/vpn/            NOBAD VPN (Windows app)
   nobadvpn/          app source (engine, UI in nobadvpn/ui/)
   tests/             pytest suite
