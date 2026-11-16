@@ -20,7 +20,7 @@ from .const import (CONFIG_DIR, FAIL_THRESHOLD, GEO_PATH, HEALTH_SEC, LEGACY_CON
 from .ctx import ctx
 from .failsafe import FailsafeMixin
 from .protection import ProtectionMixin
-from .logbus import broadcast, log, recent_log, has_subscribers
+from .logbus import broadcast, log, recent_log, has_subscribers, has_viewers
 from .notify import notify
 from .syscmd import (is_admin, is_busy as syscmd_busy, lock_dir, ping_stats, probe_endpoint, quality_of, run,
                      service_running, spawn, wg_tool)
@@ -981,7 +981,7 @@ class Tunnel(ProtectionMixin, FailsafeMixin):
                     if not (self.want and self._was_up and s.get("auto_repair")) or self.giveup:
                         retries = 0
                         next_try = 0.0
-                        if has_subscribers():   # a window is open: keep its latency chart live while disconnected
+                        if has_viewers():   # a window is on screen: keep its latency chart live while disconnected
                             d = ping_stats("1.1.1.1", 1, 1000)
                             broadcast("direct_health", {"rtt": d.get("rtt"), "loss": d.get("loss")})
                         continue
@@ -1064,7 +1064,9 @@ class Tunnel(ProtectionMixin, FailsafeMixin):
         """2 s sampling while a window is open, 30 s otherwise (so usage history stays accurate with the UI closed)."""
         while not self._stop.is_set():
             self._up.wait()
-            if self._stop.wait(2 if has_subscribers() else 30):
+            # 2 s while someone looks at the charts; 30 s hidden in the tray or minimized (usage stays accurate,
+            # and NOBAD stops starting wg.exe every 2 s in the background)
+            if self._stop.wait(2 if has_viewers() else 30):
                 return
             if not self.connected or not self.active:
                 continue

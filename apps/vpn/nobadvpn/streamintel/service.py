@@ -6,7 +6,7 @@ import re
 import threading
 import time
 
-from . import availability, net, recommend, restrictions, servers, store, tmdb
+from . import availability, net, recommend, restrictions, servers, store, tmdb, wikidata
 from .countries import Countries
 
 IMG_SIZES = {"w92", "w154", "w185", "w342"}
@@ -24,6 +24,7 @@ class StreamIntel:
         self.cred = credential or store.Credential()
         self.tmdb_factory = tmdb_factory or (lambda key, lang: tmdb.TMDB(key, lang))
         self.wiki = wiki or restrictions.WikiSource()
+        self.wd = wikidata.Wikidata()
         self.clock = clock
         self.img_dir = img_dir or os.path.join(store.ROOT, "img")
         self._index_lock = threading.Lock()
@@ -94,6 +95,33 @@ class StreamIntel:
         raw, ts, fresh = self._cached(ck, "search", (lambda: api.find_external(q)) if is_imdb else (lambda: api.search(q, year)), "tmdb")
         return {"ok": True, "query": q, "year": year, "results": tmdb.rank(raw, q, year)[:20], "fetched": ts, "fresh": fresh}
 
+    # ---- key-free mode (Wikidata): works out of the box, no setup ----------------------------------------
+    def basic_search(self, query, language="en-US"):
+        q, _year, _imdb = tmdb.parse_query(query)
+        if len(q) < 2:
+            return {"ok": False, "error": "Type at least two characters."}
+        lang = language.split("-")[0]
+        raw, ts, fresh = self._cached(f"wdsearch:{lang}:{q.casefold()}", "search", lambda: self.wd.search(q, lang), "wikidata")
+        return {"ok": True, "query": q, "results": raw[:20], "fetched": ts, "fresh": fresh, "mode": "basic"}
+
+    def basic_report(self, qid, tunnel, smart, settings, force=False):
+        import urllib.parse
+        lang = (settings.get("si_language") or "en-US").split("-")[0]
+        ck = f"wdtitle:{lang}:{qid}"
+        if force:
+            self.cache.delete(ck)
+        d, fetched, fresh = self._cached(ck, "title", lambda: self.wd.report(qid, lang), "wikidata")
+        s = d["summary"]
+        title = {"title": s["title"], "year": s["year"], "type": s["type"], "overview": s["overview"], "genres": [],
+                 "runtime": d.get("runtime"), "seasons": None, "status": None, "poster": None, "original_title": None,
+                 "alternative_titles": [], "ids": d["ids"],
+                 "tmdb_url": f"https://www.themoviedb.org/{s['kind']}/{d['ids']['tmdb']}" if d["ids"].get("tmdb") else None}
+        q = urllib.parse.quote(s["title"])
+        return {"ok": True, "mode": "basic", "key": f"wd:{qid}", "title": title, "platforms": d["platforms"],
+                "justwatch_url": f"https://www.justwatch.com/us/search?q={q}", "fetched": fetched, "fresh": fresh,
+                "servers": servers.inventory(tunnel, smart, self.countries(settings.get("si_language") or "en-US")),
+                "certifications": [], "restrictions": {"status": "loading"}, "generated": self.clock()}
+
     # ---- title report -------------------------------------------------------------------------------------
     def report(self, kind, tmdb_id, tunnel, smart, settings, force=False):
         language = settings.get("si_language") or "en-US"
@@ -152,6 +180,8 @@ class StreamIntel:
         doc = self.restriction_doc(rep["title"], countries)
         for r in doc["records"]:
             r["country_name"] = countries.name(r["code"]) if r.get("code") else r.get("country")
+        if rep.get("mode") == "basic":
+            return doc, None
         rec = recommend.recommend(rep["availability"], rep["servers"], doc, settings.get("si_my_services") or [],
                                   rep["home_country"])
         return doc, rec

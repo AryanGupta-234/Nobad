@@ -109,6 +109,8 @@ Some live-tunnel behaviour still needs verification on more real PCs and network
   server-country evidence, past service results, data freshness, restrictions). Server load is shown as not reported.
 * One-click connect through the existing engine, then verification of the exit country and platform reachability.
 * Freshness labels, stale-data fallback, a six-month cache limit (TMDB terms), required TMDB/JustWatch attribution.
+* Works without any setup: search and title pages come from Wikidata (which platforms carry the title, with direct
+  links) and Wikipedia (documented bans). A free TMDB key is an optional upgrade for country-by-country availability.
 * Your own TMDB key, checked before saving and stored DPAPI-encrypted outside `settings.json`; optional
   "services you have" filter.
 

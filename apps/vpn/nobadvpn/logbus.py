@@ -29,6 +29,20 @@ def has_subscribers():
     return bool(_subs)
 
 
+# Whether a NOBAD window is actually on screen. The page stays connected (and counts as a subscriber) while the
+# window sits hidden in the tray or minimized, so "someone is watching" must also ask the window manager.
+_ui = {"visible": True}
+
+
+def set_ui_visible(v):
+    _ui["visible"] = bool(v)
+
+
+def has_viewers():
+    """True only when a window is open AND visible: live charts and 2-second sampling are for eyes, not the tray."""
+    return bool(_subs) and _ui["visible"]
+
+
 def broadcast(kind, payload):
     msg = json.dumps({"type": kind, "payload": payload})
     with _subs_lock:

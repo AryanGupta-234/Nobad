@@ -209,16 +209,28 @@ def test_start_with_windows_refused_outside_program_files(monkeypatch):
     assert ok is False and "Program Files" in msg
 
 
-def test_links_open_through_explorer_never_as_admin(monkeypatch):
-    started = []
+def _capture_links(monkeypatch):
+    """open_url_as_user inline, elevated: returns the PowerShell scripts it would run."""
+    scripts = []
     monkeypatch.setattr(syscmd.os, "name", "nt")
-    monkeypatch.setattr(syscmd.subprocess, "Popen", lambda cmd, **k: started.append(cmd))
+    monkeypatch.setattr(syscmd, "OPEN_ASYNC", False)
+    monkeypatch.setattr(syscmd, "is_admin", lambda: True)
+    monkeypatch.setattr(syscmd.subprocess, "Popen", lambda cmd, **k: pytest.fail("fell back to explorer.exe"))
+    monkeypatch.setattr(syscmd, "run", lambda cmd, **k: scripts.append(cmd[-1]) or type("R", (), {"returncode": 0, "stderr": ""})())
+    return scripts
+
+
+def test_links_open_in_the_users_browser_never_as_admin(monkeypatch):
+    """explorer.exe <url> opened File Explorer on Windows 11; the link now runs as the signed-in user (limited)."""
+    scripts = _capture_links(monkeypatch)
     assert syscmd.open_url_as_user("https://portal.example/login?a=1&b=2") is True
-    assert started[-1][0].lower().endswith("explorer.exe") and started[-1][1] == "https://portal.example/login?a=1&b=2"
+    ps = scripts[-1]
+    assert "-RunLevel Limited" in ps and "-LogonType Interactive" in ps and "Unregister-ScheduledTask" in ps
+    assert "'url.dll,FileProtocolHandler '+'https://portal.example/login?a=1&b=2'" in ps
     for bad in ("javascript:alert(1)", "file:///C:/Windows/system32/cmd.exe", 'https://x" /c calc', "https://x\n",
                 "ms-settings:", "", None):
         assert syscmd.open_url_as_user(bad) is False, bad
-    assert len(started) == 1
+    assert len(scripts) == 1
 
 
 def test_tampered_journal_never_reaches_powershell(monkeypatch):
@@ -378,14 +390,12 @@ def test_one_shared_authenticode_check(monkeypatch):
     assert "-LiteralPath 'C:/it''s.msi'" in calls[-1][-1]          # a quote in the path can't break out
 
 
-def test_links_with_commas_reach_the_browser_not_documents(monkeypatch):
-    """explorer.exe splits its command line on ',' and ';' and then opens Documents instead of the link."""
-    started = []
-    monkeypatch.setattr(syscmd.os, "name", "nt")
-    monkeypatch.setattr(syscmd.subprocess, "Popen", lambda cmd, **k: started.append(cmd))
+def test_links_are_encoded_and_quotes_cant_break_the_script(monkeypatch):
+    scripts = _capture_links(monkeypatch)
     assert syscmd.open_url_as_user("https://en.wikipedia.org/wiki/List_of_banned_films#India,_2000s;x") is True
-    assert started[-1][1] == "https://en.wikipedia.org/wiki/List_of_banned_films#India%2C_2000s%3Bx"
-    assert syscmd.open_url_as_user("https://x.org/a b/é") is True and started[-1][1] == "https://x.org/a%20b/%C3%A9"
+    assert "https://en.wikipedia.org/wiki/List_of_banned_films#India%2C_2000s%3Bx'" in scripts[-1]
+    assert syscmd.open_url_as_user("https://x.org/a b/\u00e9") is True and "https://x.org/a%20b/%C3%A9'" in scripts[-1]
+    assert syscmd.open_url_as_user("https://x.org/it's") is True and "https://x.org/it''s'" in scripts[-1]
     for bad in ("https://user:pw@x.org/", "https://x.org/|calc", "https://x.org/\\..\\x"):
         assert syscmd.open_url_as_user(bad) is False, bad
 

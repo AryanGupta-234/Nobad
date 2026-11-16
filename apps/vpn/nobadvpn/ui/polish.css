@@ -2,7 +2,7 @@
    both themes keep their palette. Each block names the problem it fixes. */
 
 /* Side cards: one rhythm for every card - same padding, heading and note spacing, no extra air at the bottom. */
-aside .card{padding:18px 18px 16px}
+aside .card{padding:20px 22px 18px!important}
 aside .card>.h,aside .card .h{margin:0 0 4px;line-height:1.25}
 aside .card .note{line-height:1.5}
 aside .card>*:last-child{margin-bottom:0}
@@ -73,3 +73,22 @@ aside .empty-state:before{content:"i";flex:none;width:18px;height:18px;border-ra
 .et-row ul{margin:4px 0 0;padding:0;list-style:none}.et-row li code{font-size:10.5px;padding:1px 5px;border-radius:5px;background:var(--surface-2,rgba(255,255,255,.06))}
 .et-row em{font-style:normal;font-size:11px;font-weight:700;color:var(--rd,#ff5268)}.et-r-warn em{color:var(--am,#ff9a7c)}
 .et-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px}.et-foot .note{font-size:11px}
+
+/* Speed test: the gauge sat alone in a tall, mostly empty card. Gauge left, reading and actions right. */
+#gaugeWrap{display:grid!important;grid-template-columns:168px minmax(0,1fr);grid-template-rows:auto auto auto auto;column-gap:16px;row-gap:6px;align-items:center;text-align:left!important}
+#gaugeWrap #gauge{grid-row:1/5;grid-column:1;width:168px!important;height:92px!important}
+#gaugeWrap .gw-h{grid-column:2;display:flex;flex-direction:column;gap:2px}.gw-h b{font-size:15px}.gw-h .note{font-size:11.5px}
+#gaugeWrap #gv{grid-column:2;margin:0!important;font-size:24px}
+#gaugeWrap .chips{grid-column:2;justify-content:flex-start;margin:0}
+#gaugeWrap>div:last-child{grid-column:2;margin-top:4px!important}
+@media (max-width:420px){#gaugeWrap{grid-template-columns:1fr}#gaugeWrap>*{grid-column:1!important}#gaugeWrap #gauge{grid-row:auto;margin:0 auto}}
+
+/* Settings: group border + row padding + card padding stacked three insets. One inset is enough. */
+aside .nx-grp{padding:0 10px!important}
+aside .nx-row{padding:11px 6px!important}
+
+/* Details while disconnected: one line instead of seven dashes */
+.det-off{margin-top:8px}
+
+/* Where to watch mode line: tag and text on one line, link below */
+.si-mode{display:grid;grid-template-columns:auto 1fr;gap:4px 8px;align-items:center}.si-mode .linkish{grid-column:1/-1;justify-self:start}

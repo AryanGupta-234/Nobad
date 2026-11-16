@@ -213,14 +213,15 @@ agent.
 
 ### 8.5 Streaming Region Intelligence (Streaming tab → Where to watch)
 
-Nothing runs until you add a TMDB key and search. Requests carry the User-Agent `NOBAD-VPN/<version>`.
+Nothing runs until you search. Without a TMDB key, search and title pages use Wikidata only (no key, nothing about
+you is sent); with a key, TMDB adds country-by-country availability. Requests carry the User-Agent `NOBAD-VPN/<version>`.
 
 | Destination | Purpose |
 |---|---|
 | `https://api.tmdb.org/3/...`, falling back to `https://api.themoviedb.org/3/...` | search, title details (with alternative titles, external ids, age ratings and watch providers in one request), the covered-country list, country names and provider lists. Sends **your TMDB key**. |
 | `https://image.tmdb.org/t/p/...` | posters and platform logos, fetched by NOBAD's local server and cached (the UI never loads remote images directly) |
 | `https://en.wikipedia.org/w/api.php` | the banned-film lists (about a dozen pages, rebuilt at most weekly) and redirects for the selected title |
-| `https://www.wikidata.org/w/api.php` | maps the title's Wikidata id to its Wikipedia article |
+| `https://www.wikidata.org/w/api.php` | key-free search and title pages (platforms and their IDs), and maps the title's Wikidata id to its Wikipedia article |
 | your exit IP lookup and the existing service checks | only after you connect from a recommendation (*verify*), and the IP lookup only when that privacy setting is on |
 
 Data is cached in `streamintel\cache.sqlite` and `streamintel\img\` (TMDB content at most six months). The TMDB key is

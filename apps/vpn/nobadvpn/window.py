@@ -7,6 +7,7 @@ import webbrowser
 
 from .const import UI_DIR, WINDOW_TITLE
 from .ctx import ctx
+from .logbus import set_ui_visible
 
 MIN_W, MIN_H = 1060, 700
 MINI_W, MINI_H = 340, 345   # inner content needs ~291 (+ title bar); measured with the real page
@@ -211,6 +212,7 @@ class WindowManager:
         self._on_shown = on_shown
         self._revealed = False
         if start_hidden:
+            set_ui_visible(False)       # started in the tray: background pace until the window is opened
             self.revealed_event.set()   # nothing to wait for
         if not start_hidden:
             self.main.events.loaded += self._reveal
@@ -253,8 +255,10 @@ class WindowManager:
         for name, fn in (("resized", lambda w, h: self._remember(w=int(w), h=int(h))),
                          ("moved", lambda x, y: int(x) > -10000 and int(y) > -10000      # minimized: -32000
                           and self._remember(x=int(x), y=int(y))),
-                         ("maximized", lambda: setattr(self, "_maximized", True)),
-                         ("restored", lambda: setattr(self, "_maximized", False))):
+                         ("maximized", lambda: (setattr(self, "_maximized", True), set_ui_visible(True))),
+                         ("restored", lambda: (setattr(self, "_maximized", False), set_ui_visible(True))),
+                         ("minimized", lambda: set_ui_visible(False)),
+                         ("shown", lambda: set_ui_visible(True))):
             try:
                 getattr(ev, name).__iadd__(fn)
             except Exception:
@@ -276,6 +280,7 @@ class WindowManager:
 
     # ---- show / hide
     def show_main(self):
+        set_ui_visible(True)
         if self.main is None:
             from .syscmd import open_url_as_user
             if not open_url_as_user(_signed(self.url, "/")):     # the user's browser, not an admin one
@@ -292,6 +297,7 @@ class WindowManager:
         self._enable_taskbar_minimize()   # also after a background start, which skips _reveal's first show
 
     def hide_main(self):
+        set_ui_visible(False)          # background: slow sampling, no chart pings (see logbus.has_viewers)
         try:
             self.main.hide()
         except Exception:

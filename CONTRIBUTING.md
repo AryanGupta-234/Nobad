@@ -27,6 +27,19 @@ powershell -ExecutionPolicy Bypass -File packaging\build.ps1     # full installe
 
 The website lives in `site-pages/` as plain HTML and is built by `npm run build` at the repository root.
 
+## How changes reach `main`
+
+`main` is protected. Only the maintainer can push to it; everyone else contributes through a pull request from a fork:
+
+1. Fork the repository and create a branch for your change.
+2. Open a pull request against `main`. GitHub Actions runs on it only after a maintainer approves the run (all
+   outside contributors, not just first-timers), and with a read-only token.
+3. Every pull request needs an approving review from the code owner (`.github/CODEOWNERS`), all review threads
+   resolved, and the site build check passing. A new push after approval needs a fresh approval.
+4. `main` can't be force-pushed or deleted, and release tags (`vpn-v*`) can only be created by the maintainer.
+   Releases are built from a tag by `.github/workflows/vpn-release.yml` on a clean GitHub runner and carry a signed
+   build-provenance attestation (`gh attestation verify NobadVPN-Setup-<version>.exe -R AryanGupta-234/Nobad`).
+
 ## Pull requests
 
 1. Keep each PR focused on one change, and explain *why* in the description.
