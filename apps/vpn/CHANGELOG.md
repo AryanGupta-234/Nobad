@@ -2,6 +2,23 @@
 
 All notable changes to NOBAD VPN. Versions follow [semantic versioning](https://semver.org/).
 
+## 1.6.0 · 2026-11-16
+
+### Added
+- **Get free servers in 2 minutes, right where you start.** With no servers yet, the Servers tab shows three steps
+  with direct buttons: *Sign up* (Proton VPN Free, e-mail only), *Open downloads* (WireGuard configs for Windows),
+  and done. While you have no servers, NOBAD checks your Downloads folder every few seconds (only while the window
+  is visible) and shows **Found free servers in Downloads** with **Add now**: no guide to keep open. The map and the
+  status panel point to it too.
+
+### Fixed
+- **Uninstalling stops every NOBAD process.** The app, its tray icon and the crash watchdog kept running after an
+  uninstall (and the watchdog could restart the app). The uninstaller now asks NOBAD to close, then stops every
+  copy at once, restores internet, removes the tunnels and scheduled tasks, deletes the program folder, and asks
+  whether to delete your settings, configs and logs too (default: keep them, they hold your keys).
+- **Upgrades** stop the running copy and restore internet before replacing files, so files in use never block an
+  update.
+
 ## 1.5.1 · 2026-11-16
 
 ### Security

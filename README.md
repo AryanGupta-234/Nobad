@@ -31,6 +31,19 @@ docs/                repo-wide docs: release process, release-notes template
 Installers for every version are on [GitHub Releases](https://github.com/AryanGupta-234/Nobad/releases), not in
 the repository. Local build output (`build/`, `dist/`, `dist-installer/`, `public/`) is git-ignored.
 
+## Free servers in 2 minutes
+
+NOBAD is the app, not a server company, but you don't need to pay for servers to start:
+
+1. **Install NOBAD VPN** (below) and open the **Servers** tab.
+2. **Create a free Proton VPN account:** <https://account.protonvpn.com/signup> (e-mail only, no payment).
+3. **Download WireGuard configs:** <https://account.protonvpn.com/downloads> → WireGuard configuration → Windows →
+   a free country → Create. Repeat for each country you want.
+4. **Done.** NOBAD finds the files in your Downloads folder by itself and offers **Add now**.
+
+Servers are never built into NOBAD: a shared config would give everyone the same private key and the same
+one-connection free account. Each person gets their own.
+
 ## Download NOBAD VPN
 
 Get the installer from **[GitHub Releases](https://github.com/AryanGupta-234/Nobad/releases)**. Each release is built

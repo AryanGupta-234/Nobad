@@ -5,6 +5,7 @@ Add to it when the maintainer decides something; delete lines that stop being tr
 (this repository is public): no keys, configs, personal data or private review notes.
 
 ## Standing decisions
+- 2026-11-16 No built-in servers. The free-server path is the default onboarding: highlight it in the app (empty Servers tab), README, user manual and the VPN page (#free-servers).
 - 2026-11-16 Release "everywhere" every time: version, changelog, docs, site, `main`, CI release (playbook `release.md`).
 - 2026-11-16 Releases come only from CI (tag → `vpn-release.yml`, attested, immutable). Never create one by hand.
 - 2026-11-16 Never bundle WireGuard configs in the app or repo (shared private keys, one-connection free accounts,
@@ -24,6 +25,7 @@ Add to it when the maintainer decides something; delete lines that stop being tr
   open source is the planned route (see `apps/vpn/docs/CODE-SIGNING.md`).
 
 ## Release history
+- 1.6.0 Get free servers in 2 minutes (empty Servers tab + background Downloads pick-up); uninstall stops every NOBAD process; upgrades stop the old copy first.
 - 1.5.1 Security: import folder outside the locked data folder, quarantine by ownership, .NET profiler variables stripped, links only on this session's desktop; site without inline scripts; strict attestation check documented.
 - 1.5.0 Free servers in two clicks (Downloads folder pick-up).
 - 1.4.1 Links open in the browser as the user; key-free Where to watch; lighter in the background.

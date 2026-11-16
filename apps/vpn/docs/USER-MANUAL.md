@@ -69,6 +69,18 @@ checklist**.
 
 ## 3. Adding your servers
 
+### Free servers in 2 minutes (no servers yet)
+
+1. Open the **Servers** tab. With no servers it shows **Get free servers in 2 minutes**.
+2. **Sign up** opens Proton VPN Free's sign-up page (e-mail only, no payment).
+3. **Open downloads** opens Proton's downloads page: WireGuard configuration → **Windows** → a free country →
+   **Create**. Repeat for every country you want.
+4. That's it. While you have no servers, NOBAD checks your Downloads folder every few seconds; when a config
+   arrives it shows **Found free servers in Downloads** with **Add now**. (NOBAD only reads the folder; it never
+   moves or deletes your files.)
+
+The full guide (also for other providers) is **Servers → Free servers**.
+
 Open the **Servers** tab (globe icon at the bottom). You can add configs in several ways:
 
 | Way | How |

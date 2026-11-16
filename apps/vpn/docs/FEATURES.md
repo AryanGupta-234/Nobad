@@ -52,6 +52,8 @@ Some live-tunnel behaviour still needs verification on more real PCs and network
 
 ## Configs
 
+* **Get free servers in 2 minutes** (empty Servers tab): direct Sign up / Open downloads buttons, and while there
+  are no servers NOBAD watches the Downloads folder (every 6 s, window visible only) and offers **Add now**.
 * **Free servers** guide: get your own free Proton VPN servers; while it is open NOBAD finds WireGuard files
   downloaded in the last two weeks (top of the Downloads folder, read-only, links and files over 64 KB ignored) and
   adds the ticked ones in one click. Servers you already have are skipped.
