@@ -15,7 +15,8 @@
     });
   });
 
-  if (reduce) return;
+  // motion-init.js sets .p-js in <head>; without it (or with reduced motion) nothing is hidden or animated.
+  if (reduce || !root.classList.contains("p-js")) return;
 
   // Consoles further down the page start typing only when they come into view.
   if ("IntersectionObserver" in window) {
@@ -43,27 +44,32 @@
         el.removeEventListener("transitionend", done);
         finish(el);
       });
-      setTimeout(() => finish(el), 2000);
+      setTimeout(() => finish(el), 1400);
     }), { threshold: 0.12, rootMargin: "0px 0px -6% 0px" });
     groups.forEach(g => {
       const own = g.split(/[ >]+/).pop();
       document.querySelectorAll("main section " + g).forEach(el => {
         const idx = [...el.parentElement.children].filter(c => c.matches(own)).indexOf(el);
-        el.style.setProperty("--d", Math.min(Math.max(idx, 0), 7) * 0.07 + "s");
+        el.style.setProperty("--d", Math.min(Math.max(idx, 0), 6) * 0.06 + "s");
       });
     });
     items.forEach(el => { el.classList.add("p-rv"); io.observe(el); });
-    root.classList.add("p-motion");
   }
 
   if (!fine) return;
 
   // A soft light follows the pointer across pillars and steps.
   document.querySelectorAll(".p-pillar, .p-step").forEach(card => {
+    let raf = 0, x = 0, y = 0;
     card.addEventListener("pointermove", e => {
-      const r = card.getBoundingClientRect();
-      card.style.setProperty("--mx", e.clientX - r.left + "px");
-      card.style.setProperty("--my", e.clientY - r.top + "px");
+      x = e.clientX; y = e.clientY;
+      if (raf) return;
+      raf = requestAnimationFrame(() => {      // one read and one write per frame
+        raf = 0;
+        const r = card.getBoundingClientRect();
+        card.style.setProperty("--mx", x - r.left + "px");
+        card.style.setProperty("--my", y - r.top + "px");
+      });
     });
   });
 
