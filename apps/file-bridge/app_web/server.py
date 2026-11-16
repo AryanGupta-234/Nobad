@@ -72,13 +72,20 @@ class Session:
         return issued is not None and time.monotonic() - issued <= LAUNCH_TTL
 
 
-def _read_ui(rel: str) -> bytes | None:
-    path = (UI_DIR / rel).resolve()
-    try:
-        path.relative_to(UI_DIR)
-        return path.read_bytes()
-    except (ValueError, OSError):
-        return None
+def index_ui_files(root: Path) -> dict[str, Path]:
+    """Every file the UI may serve, by its URL path (``screens/settings.js``), found once at start-up.
+
+    A request only picks an entry from this index; it never builds a filesystem path, so ``..``, absolute paths,
+    links or odd encodings can't reach anything else."""
+    root = root.resolve()
+    files: dict[str, Path] = {}
+    for path in root.rglob("*"):
+        if not path.is_file() or path.is_symlink():
+            continue
+        rel = path.relative_to(root).as_posix()
+        if rel == "index.html" or _STATIC_OK.match(rel):
+            files[rel] = path
+    return files
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -136,7 +143,7 @@ class Handler(BaseHTTPRequestHandler):
             return None
         if not self._authed():
             return self._send(403, LOCKED_PAGE, "text/html; charset=utf-8")
-        raw = _read_ui("index.html")
+        raw = self.server.read_ui("index.html")
         if raw is None:
             return self._send(404, {"ok": False})
         html = raw.decode("utf-8").replace("__VER__", self.server.ctx.version)
@@ -149,11 +156,11 @@ class Handler(BaseHTTPRequestHandler):
         if url.path == "/":
             return self._page(parse_qs(url.query))
         if url.path == "/favicon.ico":
-            raw = _read_ui("brand/favicon.ico")
+            raw = self.server.read_ui("brand/favicon.ico")
             return self._send(200, raw, CTYPES[".ico"]) if raw else self._send(404, {"ok": False})
         if url.path.startswith("/static/"):
             rel = url.path[len("/static/"):]
-            raw = _read_ui(rel) if _STATIC_OK.match(rel) else None
+            raw = self.server.read_ui(rel) if rel != "index.html" else None
             if raw is None:
                 return self._send(404, {"ok": False})
             return self._send(200, raw, CTYPES.get(os.path.splitext(rel)[1].lower(), "application/octet-stream"))
@@ -237,6 +244,16 @@ class BridgeServer(ThreadingHTTPServer):
         self.ctx = ctx
         self.session = Session()
         self.stopping = threading.Event()
+        self.ui_files = index_ui_files(UI_DIR)
+
+    def read_ui(self, rel: str) -> bytes | None:
+        path = self.ui_files.get(rel)
+        if path is None:
+            return None
+        try:
+            return path.read_bytes()
+        except OSError:
+            return None
 
     @property
     def base_url(self) -> str:

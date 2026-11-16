@@ -160,3 +160,25 @@ def test_app_web_main_starts_the_window_with_the_title_bar_setting(tmp_path: Pat
     assert web.main(["--db", str(tmp_path / "app.sqlite3")]) == 0
     assert "/?k=" in str(seen["url"])
     assert seen["geometry"] is None
+
+
+# ---------------------------------------------------------------- scrub stays fast on hostile input (CodeQL #39)
+@pytest.mark.parametrize("hostile", [
+    "-----BEGIN PRIVATE KEY-----" * 20_000,                 # many BEGIN markers, no END
+    "a" * 200_000,                                          # a long run that could start a URL scheme
+    "x://" + "u" * 100_000 + ":" + "p" * 100_000,           # credentials-looking URL with no '@'
+], ids=["begin-markers", "letter-run", "url-no-at"])
+def test_scrub_is_linear_on_hostile_input(hostile: str) -> None:
+    started = time.perf_counter()
+    bus.scrub(hostile)
+    assert time.perf_counter() - started < 1.0
+
+
+def test_a_cut_off_private_key_is_still_hidden() -> None:
+    cleaned = bus.scrub("log: -----BEGIN RSA PRIVATE KEY-----\nMIIEsecretsecret")
+    assert cleaned == "log: (hidden private key)"
+
+
+def test_text_around_several_keys_is_kept() -> None:
+    key = "-----BEGIN OPENSSH PRIVATE KEY-----\nAAAA\n-----END OPENSSH PRIVATE KEY-----"
+    assert bus.scrub(f"a {key} b {key} c") == "a (hidden private key) b (hidden private key) c"

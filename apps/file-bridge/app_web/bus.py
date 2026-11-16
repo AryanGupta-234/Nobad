@@ -24,13 +24,35 @@ _SECRET_FIELD = re.compile(
     r"((?:pass(?:word|wd|phrase)?|secret|token|api[_-]?key|private[_-]?key|authorization)[\"']?\s*[=:]\s*)(\"[^\"]*\"|'[^']*'|[^\s,}]+)",
     re.I,
 )
-_URL_CREDENTIALS = re.compile(r"(\b[a-z][a-z0-9+.-]*://[^/\s:@]+:)[^@\s/]+@", re.I)
-_PRIVATE_KEY = re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----", re.S)
+# Bounded repeats: scrub() runs on output from untrusted servers, so no pattern may backtrack polynomially.
+_URL_CREDENTIALS = re.compile(r"(\b[a-z][a-z0-9+.-]{0,31}://[^/\s:@]{1,256}:)[^@\s/]{1,512}@", re.I)
+_KEY_BEGIN = re.compile(r"-----BEGIN [A-Z ]{0,40}PRIVATE KEY-----")
+_KEY_END = re.compile(r"-----END [A-Z ]{0,40}PRIVATE KEY-----")
+HIDDEN_KEY = "(hidden private key)"
+
+
+def _hide_private_keys(value: str) -> str:
+    """Replace every PEM private key block. Linear: one forward scan, no regex spanning the key body. A block with
+    no END marker hides everything after its BEGIN (a cut-off key is still a key)."""
+    parts: list[str] = []
+    pos = 0
+    while True:
+        begin = _KEY_BEGIN.search(value, pos)
+        if begin is None:
+            parts.append(value[pos:])
+            break
+        parts.append(value[pos:begin.start()])
+        parts.append(HIDDEN_KEY)
+        end = _KEY_END.search(value, begin.end())
+        if end is None:
+            break
+        pos = end.end()
+    return "".join(parts)
 
 
 def scrub(text: object) -> str:
     """Never let secrets reach a log line, a toast or the page."""
-    value = _PRIVATE_KEY.sub("(hidden private key)", str(text))
+    value = _hide_private_keys(str(text))
     value = _URL_CREDENTIALS.sub(r"\1(hidden)@", value)
     return _SECRET_FIELD.sub(r"\1(hidden)", value)
 

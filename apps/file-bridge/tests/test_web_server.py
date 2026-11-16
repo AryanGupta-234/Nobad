@@ -84,9 +84,9 @@ def test_page_has_strict_csp_and_no_inline_scripts(server) -> None:
     assert res.getheader("X-Content-Type-Options") == "nosniff"
     html = body.decode()
     assert "__VER__" not in html
-    for tag in re.findall(r"<script\b[^>]*>", html):
+    for tag in re.findall(r"<script\b[^>]*>", html, flags=re.I):
         assert 'src="/static/' in tag, tag
-    assert not re.search(r"\son[a-z]+=", html), "no inline event handlers"
+    assert not re.search(r"\son[a-z]+\s*=", html, flags=re.I), "no inline event handlers"
 
 
 # ---------------------------------------------------------------- request checks
@@ -172,3 +172,16 @@ def test_events_stream_delivers_broadcasts(server) -> None:
 
     assert line.startswith("data: ")
     assert json.loads(line[len("data: "):]) == {"type": "ping", "payload": {"n": 1}}
+
+
+def test_ui_index_holds_only_servable_files(tmp_path) -> None:
+    from app_web.server import index_ui_files
+
+    (tmp_path / "index.html").write_text("x")
+    (tmp_path / "app.js").write_text("x")
+    (tmp_path / "secret.py").write_text("x")
+    (tmp_path / ".env").write_text("x")
+    (tmp_path / "sub").mkdir()
+    (tmp_path / "sub" / "style.css").write_text("x")
+
+    assert set(index_ui_files(tmp_path)) == {"index.html", "app.js", "sub/style.css"}
