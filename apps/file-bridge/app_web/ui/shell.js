@@ -89,7 +89,20 @@
     NB.uiState("screen", id);
     if (opts.focus !== false) { $("#main").focus({ preventScroll: true }); }
   }
-  window.addEventListener("hashchange", function () { show(location.hash.replace(/^#\//, "") || "files", {}); });
+  // Deep links: #/screen?new=1 (Connections: new connection form), #/files?dock=transfers|activity.
+  function parseHash() {
+    var raw = location.hash.replace(/^#\//, ""), q = raw.indexOf("?"), id = q >= 0 ? raw.slice(0, q) : raw, opts = {};
+    if (q >= 0) {
+      new URLSearchParams(raw.slice(q + 1)).forEach(function (v, k) { opts[k] = v; });
+      if (opts.new) { opts.create = true; }
+    }
+    return { id: id || "files", opts: opts };
+  }
+  NB.parseHash = parseHash;
+  function applyHashOpts(opts) {
+    if (opts.dock === "transfers" || opts.dock === "activity") { setDock(true, opts.dock); }
+  }
+  window.addEventListener("hashchange", function () { var h = parseHash(); show(h.id, h.opts); applyHashOpts(h.opts); });
 
   // ---------------------------------------------------------------- banners
   NB.banner = function (id, kind, title, text) {
@@ -122,7 +135,7 @@
     if (!dockOpen()) { return; }
     var body = $("#dockBody");
     if (dockTab === "transfers") {
-      body.innerHTML = '<div class="dock-empty">No transfers yet. Uploads and downloads you start will show here with their speed and progress.</div>';
+      if (NB.renderTransfers) { NB.renderTransfers(body); }
       return;
     }
     if (!logEntries.length) { body.innerHTML = '<div class="dock-empty">Nothing logged yet.</div>'; return; }
@@ -201,8 +214,11 @@
     if (NB.uiState("railCollapsed")) { setRailCollapsed(true); }
     var dock = NB.uiState("dock") || {};
     setDock(!!dock.open, dock.tab || "transfers");
-    var first = location.hash.replace(/^#\//, "") || NB.uiState("screen") || "files";
-    go(first, { focus: false });
+    var first = parseHash();
+    if (!location.hash) { first.id = NB.uiState("screen") || "files"; }
+    first.opts.focus = false;
+    go(first.id, first.opts);
+    applyHashOpts(first.opts);
 
     NB.api("app.info").then(function (r) {
       if (!r.ok) { return; }

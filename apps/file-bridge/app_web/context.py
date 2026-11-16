@@ -31,8 +31,16 @@ class AppContext:
     version: str = field(default_factory=app_version)
     window: Any = None            # app_web.window.WindowController, or None in --browser mode and tests
 
+    session: Any = field(init=False)
+    transfers: Any = field(init=False)
+
     def __post_init__(self) -> None:
+        from app_web.session import SessionService
+        from app_web.transfers import TransferService
+
         self.settings = SettingsStore(self.app_data)
+        self.session = SessionService(self.app_data)
+        self.transfers = TransferService(max_concurrent=int(self.settings.get("transfer.max_concurrent")))
 
     @classmethod
     def create(cls, db_path: str | Path | None = None) -> "AppContext":

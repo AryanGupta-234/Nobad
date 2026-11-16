@@ -68,6 +68,27 @@ Ported from NOBAD VPN (`index.html`, `design.css`, `app_ext.css`, `app.js`), in 
 Rules: animate transform and opacity only; one pointer update per frame; nothing ambient unless Visual effects is
 on; every animation stops under `prefers-reduced-motion`. VPN's map, comet and connect-button effects stay VPN's.
 
+## Connections, Files and transfers (stage 3)
+
+* `app_web/session.py` (`SessionService`): one active connection, saved profiles (shared with the classic window;
+  secrets stay in the OS keyring) and the host-key flow. An untrusted key stops the connection and sends a
+  `hostkey` event with a one-time token (also included in `conn.state`, so a reloaded page still asks); only
+  `conn.trust {token, accept: true}` trusts it and reconnects. A changed key shows a red warning with Cancel as the
+  default action.
+* `app_web/files.py`: compact listings (`[name, kind, size, mtime, perms]`) for fast large folders; local folders
+  are listed on the request thread so a busy server can't slow the local pane; typed names must be one plain path
+  component (and valid on Windows); listing errors include the server's own reason.
+* `app_web/transfers.py` (`TransferService`): `xfer.plan` finds conflicts first, the page asks once
+  (Keep both / Skip / Replace for the whole batch), `xfer.start` queues with that choice (otherwise "ask", which
+  fails safely). Queueing runs on the asyncio thread; job updates reach the page at most every 100 ms per job.
+* Page: `screens/files.js` (dual pane, `vlist.js` virtual list, keyboard map below, drag between panes, context
+  menu, splitter), `screens/connections.js` (saved servers, new connection form, paste an ssh command),
+  `session.js` (status pill, host-key dialog, password prompts), `transfers.js` (dock queue, overall progress).
+* Deep links: `#/connections?new=1` opens the form, `#/files?dock=transfers|activity` opens the dock.
+* Tests: `tests/test_web_e2e_sftp.py` runs a real AsyncSSH SFTP server on 127.0.0.1 (chrooted to a temp folder):
+  host-key prompt and trust, connect, browse, mkdir/rename/delete, upload, conflict "keep both", folder
+  download, disconnect, wrong password, declined key, reload during a prompt.
+
 ## Page structure (`app_web/ui/`)
 
 | File | What |
@@ -105,5 +126,9 @@ on; every animation stops under `prefers-reduced-motion`. VPN's map, comet and c
 | Ctrl+1 … Ctrl+7 | Files, Connections, Terminal, Editor, Sync jobs, Deployments, Credential vault |
 | Ctrl+, | Settings |
 | Ctrl+J | show or hide the dock |
+| In a file pane: ↑ ↓ Home End PgUp PgDn, Shift/Ctrl to select, Space toggle, Ctrl+A | move and select |
+| Enter / Backspace or Alt+↑ | open / up one folder |
+| F5 · F2 · F7 · Delete | copy to the other pane · rename · new folder · delete |
+| Ctrl+R · type letters | refresh · jump to a name |
 | Ctrl+B | collapse or expand the sidebar |
 | ↑ ↓ in the sidebar, ← → in the dock and segmented controls | move |

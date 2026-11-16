@@ -306,6 +306,16 @@ class WindowController:
         except Exception:
             return False
 
+    # ---- native file dialogs (the page can't see real paths on its own)
+    def pick(self, kind: str, start: str | None = None) -> list[str]:
+        if self.window is None:
+            return []
+        import webview
+
+        dialog = {"file": webview.FileDialog.OPEN, "files": webview.FileDialog.OPEN, "folder": webview.FileDialog.FOLDER}[kind]
+        chosen = self.window.create_file_dialog(dialog, directory=start or "", allow_multiple=kind == "files")
+        return [str(p) for p in (chosen or [])]
+
     # ---- title-bar actions
     def state(self) -> dict[str, Any]:
         return {"frameless": self.frameless and self.window is not None, "maximized": bool(self.maximized)}

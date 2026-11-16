@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+* New interface (`python -m app.web`): Connections and Files. Save servers, connect with a password, SSH key or
+  agent (paste an `ssh` command to fill the form), and check an unknown server's fingerprint before trusting it.
+  Files shows this computer and the server side by side, stays quick in folders with thousands of files, and
+  works from the keyboard (F5 copy, F2 rename, F7 new folder, Delete). Uploads and downloads show live progress in
+  the dock; if something already exists you choose once: keep both, skip or replace.
 * Security: a server can no longer make a download write outside the folder you chose. Names such as `../x`,
   `..\x`, `a/b` or `/etc/x` in a listing are hidden (with a warning) and refused by folder downloads (#29).
 * Fixed: deleting a folder on an SFTP server no longer follows symlinks inside it, and deleting a symlink to a

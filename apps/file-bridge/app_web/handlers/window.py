@@ -19,3 +19,15 @@ def window_action(body: dict[str, Any], ctx: AppContext) -> dict[str, Any]:
         return ok(ctx.window.action(act, edge))
     except ValueError as exc:
         return fail(str(exc))
+
+
+@handler("window.pick")
+def window_pick(body: dict[str, Any], ctx: AppContext) -> dict[str, Any]:
+    """Native open-file / open-folder dialog. Without a window (browser mode) the page asks for a typed path."""
+    kind = body.get("kind")
+    if kind not in {"file", "files", "folder"}:
+        return fail("Unknown dialog.")
+    if ctx.window is None:
+        return ok({"paths": [], "available": False})
+    start = body.get("start") if isinstance(body.get("start"), str) else None
+    return ok({"paths": ctx.window.pick(kind, start), "available": True})

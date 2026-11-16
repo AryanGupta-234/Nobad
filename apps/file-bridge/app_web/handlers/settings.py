@@ -24,5 +24,7 @@ def settings_set(body: dict[str, Any], ctx: AppContext) -> dict[str, Any]:
         return fail(str(exc))
     except Exception as exc:
         return fail(f"Couldn't save the setting: {exc}")
+    if field_id == "transfer.max_concurrent":
+        ctx.transfers.manager.set_max_concurrent(int(value))
     bus.broadcast("setting_changed", {"id": field_id, "value": value})
     return ok({"id": field_id, "value": value})

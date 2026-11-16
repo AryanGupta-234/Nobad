@@ -6,6 +6,8 @@
 
   function actions() {
     return [
+      { group: "Actions", icon: "plus", label: "New connection", run: function () { NB.go("connections"); NB.newConnection(); } },
+      { group: "Actions", icon: "close", label: "Disconnect", run: function () { NB.disconnect(); } },
       { group: "Actions", icon: "sun", label: "Switch between dark and light theme", run: NB.toggleTheme },
       { group: "Actions", icon: "window", label: "Show or hide the dock", hint: "Ctrl J", run: function () { NB.setDock(document.getElementById("dock").classList.contains("collapsed")); } },
       { group: "Actions", icon: "sidebar", label: "Collapse or expand the sidebar", hint: "Ctrl B", run: function () { document.getElementById("railToggle").click(); } },
