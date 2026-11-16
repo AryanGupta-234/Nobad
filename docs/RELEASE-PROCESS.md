@@ -33,7 +33,14 @@ Anyone can check that a download was built by **the release workflow, from that 
 some workflow in this repository, which anyone with write access could add on a branch):
 
 ```
-gh attestation verify NobadVPN-Setup-<version>.exe -R AryanGupta-234/Nobad --signer-workflow AryanGupta-234/Nobad/.github/workflows/vpn-release.yml --source-ref refs/tags/vpn-v<version> --deny-self-hosted-runners
+gh attestation verify NobadVPN-Setup-<version>.exe -R nobad-studio/nobad --signer-workflow nobad-studio/nobad/.github/workflows/vpn-release.yml --source-ref refs/tags/vpn-v<version> --deny-self-hosted-runners
+```
+
+Releases up to 1.6.1 were published before the repository moved from `nobad-studio/nobad` to
+`nobad-studio/nobad`. Their attestations stay with the old owner, so check those with:
+
+```
+gh attestation verify NobadVPN-Setup-<version>.exe --owner AryanGupta-234 --signer-workflow nobad-studio/nobad/.github/workflows/vpn-release.yml --source-ref refs/tags/vpn-v<version> --deny-self-hosted-runners
 ```
 
 ## 3. Put it on the website

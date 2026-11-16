@@ -433,7 +433,7 @@ def h_report_problem(b):
             broadcast("fix_result", {"ok": True, "message": (
                 f"Diagnostics saved to {final} (keys removed). " +
                 ("A bug report opened in your browser: drag the zip into it and press Submit."
-                 if opened else "Open github.com/AryanGupta-234/Nobad/issues/new and attach it."))})
+                 if opened else "Open github.com/nobad-studio/nobad/issues/new and attach it."))})
         except Exception as e:
             log(f"report a problem failed: {e}", "bad")
             broadcast("fix_result", {"ok": False, "message": f"Couldn't prepare the report: {e}"})

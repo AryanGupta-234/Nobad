@@ -15,9 +15,9 @@ assistant runs. Stop and report on the first failure. Work from the repo root un
    `git tag -a vpn-vX.Y.Z -m "NOBAD VPN X.Y.Z" && git push origin vpn-vX.Y.Z`, then
    `gh run watch <id of the latest vpn-release.yml run> --exit-status`. Both `build` and `publish` must succeed.
 7. **Verify the published installer** in a scratch folder outside the repo:
-   `gh release download vpn-vX.Y.Z -R AryanGupta-234/Nobad -p "NobadVPN-Setup-X.Y.Z.exe*"`, compare `sha256sum` with
-   the `.sha256` file, and run `gh attestation verify NobadVPN-Setup-X.Y.Z.exe -R AryanGupta-234/Nobad --signer-workflow
-   AryanGupta-234/Nobad/.github/workflows/vpn-release.yml --source-ref refs/tags/vpn-vX.Y.Z --deny-self-hosted-runners`
+   `gh release download vpn-vX.Y.Z -R nobad-studio/nobad -p "NobadVPN-Setup-X.Y.Z.exe*"`, compare `sha256sum` with
+   the `.sha256` file, and run `gh attestation verify NobadVPN-Setup-X.Y.Z.exe -R nobad-studio/nobad --signer-workflow
+   nobad-studio/nobad/.github/workflows/vpn-release.yml --source-ref refs/tags/vpn-vX.Y.Z --deny-self-hosted-runners`
    (exit 0). Without the last three options the check accepts any workflow in the repo.
 8. **Manifest.** New first entry in `releases/vpn/releases.json` (same fields as the others; `size` in decimal MB,
    e.g. 24547952 bytes → "24.5 MB") with the **CI** installer's sha256 and size; set `latest`. Bump the example

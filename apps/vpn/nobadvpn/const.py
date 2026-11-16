@@ -88,7 +88,7 @@ UPDATE_SIGNER_SUBJECTS = ()      # e.g. ("CN=NOBAD Technologies Pvt Ltd, O=NOBAD
 UPDATE_SIGNER_THUMBPRINTS = ()   # SHA-1, upper-case hex
 TASK_NAME = "NobadVPN"
 # Bug reports: GitHub issues (no NOBAD server, no telemetry). The report form is .github/ISSUE_TEMPLATE/bug_report.yml
-REPO_URL = "https://github.com/AryanGupta-234/Nobad"
+REPO_URL = "https://github.com/nobad-studio/nobad"
 ISSUE_FORM = "bug_report.yml"
 LEGACY_TASK_NAME = "NomadTunnel"
 PING_TARGET = "1.1.1.1"

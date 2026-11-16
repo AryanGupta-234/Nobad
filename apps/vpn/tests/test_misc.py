@@ -92,7 +92,7 @@ def test_report_problem_link_carries_no_network_details(monkeypatch):
     from nobadvpn import api
     from nobadvpn.const import APP_VER
     u = urlsplit(api.report_issue_url("NobadDiagnostics-20261113-120000.zip", 2, "Other"))
-    assert (u.scheme, u.netloc, u.path) == ("https", "github.com", "/AryanGupta-234/Nobad/issues/new")
+    assert (u.scheme, u.netloc, u.path) == ("https", "github.com", "/nobad-studio/nobad/issues/new")
     q = {k: v[0] for k, v in parse_qs(u.query).items()}
     assert q["template"] == "bug_report.yml" and q["version"] == APP_VER and "2 crash report" in q["diag"]
     assert set(q) <= {"template", "labels", "title", "version", "windows", "diag", "area"}

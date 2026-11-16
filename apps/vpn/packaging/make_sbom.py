@@ -62,7 +62,7 @@ def sbom(version):
             "metadata": {"timestamp": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
                          "component": {"type": "application", "name": "NOBAD VPN", "version": version,
                                        "licenses": [{"license": {"id": "MIT"}}],
-                                       "externalReferences": [{"type": "vcs", "url": "https://github.com/AryanGupta-234/Nobad"}]}},
+                                       "externalReferences": [{"type": "vcs", "url": "https://github.com/nobad-studio/nobad"}]}},
             "components": components()}
 
 

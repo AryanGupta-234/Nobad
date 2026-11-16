@@ -248,7 +248,7 @@ Type a movie, series or anime and pick it from the results. NOBAD shows:
 1. Create a free TMDB account at <https://www.themoviedb.org/signup> and confirm your e-mail.
 2. Open <https://www.themoviedb.org/settings/api> (Settings → API).
 3. Request an API key for **personal, non-commercial use** and accept TMDB's terms. For the app details you can
-   enter: name *NOBAD VPN (personal)*, URL *https://github.com/AryanGupta-234/Nobad*, summary *Personal use of
+   enter: name *NOBAD VPN (personal)*, URL *https://github.com/nobad-studio/nobad*, summary *Personal use of
    Where to watch in NOBAD VPN*.
 4. Back on <https://www.themoviedb.org/settings/api>, copy the **API Read Access Token** (the long one starting with
    `eyJ`, recommended) or the shorter **API Key**.

@@ -15,11 +15,11 @@ terminals, an encrypted credential vault, deployments). Python 3.12 + PySide6. A
 ## Before the first NOBAD File Bridge release: fix these (open issues)
 | Issue | Severity | What |
 |---|---|---|
-| [#29](https://github.com/AryanGupta-234/Nobad/issues/29) | high | Remote file names can make downloads write outside the target folder (`file_ops/sftp_ops.py`, `transfers/transfer_manager.py`, `file_ops/ftp_ops.py`). Validate names; always use `safety.safe_destination`. |
-| [#30](https://github.com/AryanGupta-234/Nobad/issues/30) | high | Monaco loaded from cdnjs/unpkg without integrity, in a page with a Python bridge. Bundle it locally. |
-| [#31](https://github.com/AryanGupta-234/Nobad/issues/31) | medium | Data folder 0700, database 0600; no shared `/tmp` fallback. |
-| [#32](https://github.com/AryanGupta-234/Nobad/issues/32) | medium | Don't auto-type the sudo password on server-controlled output (`sudo -S -p <nonce>`). |
-| [#33](https://github.com/AryanGupta-234/Nobad/issues/33) | low | Green test suite plus smaller hardening (quoting, Argon2 limits, auto-lock, export permissions, `xargs -0`). |
+| [#29](https://github.com/nobad-studio/nobad/issues/29) | high | Remote file names can make downloads write outside the target folder (`file_ops/sftp_ops.py`, `transfers/transfer_manager.py`, `file_ops/ftp_ops.py`). Validate names; always use `safety.safe_destination`. |
+| [#30](https://github.com/nobad-studio/nobad/issues/30) | high | Monaco loaded from cdnjs/unpkg without integrity, in a page with a Python bridge. Bundle it locally. |
+| [#31](https://github.com/nobad-studio/nobad/issues/31) | medium | Data folder 0700, database 0600; no shared `/tmp` fallback. |
+| [#32](https://github.com/nobad-studio/nobad/issues/32) | medium | Don't auto-type the sudo password on server-controlled output (`sudo -S -p <nonce>`). |
+| [#33](https://github.com/nobad-studio/nobad/issues/33) | low | Green test suite plus smaller hardening (quoting, Argon2 limits, auto-lock, export permissions, `xargs -0`). |
 
 Close an issue in the PR that fixes it (`Fixes #29`), with a test that would have caught it.
 
