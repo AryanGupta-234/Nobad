@@ -224,6 +224,14 @@ def h_import(b):
     return configstore.import_text(b.get("name"), b.get("content"), untrusted=True)
 
 
+def h_free_scan(b):
+    return configstore.downloads_scan()
+
+
+def h_free_import(b):
+    return configstore.downloads_import(b.get("files"))
+
+
 def h_import_url(b):
     return configstore.import_url(b.get("url"), b.get("name"))
 
@@ -549,6 +557,7 @@ HANDLERS = {
     "startup_checks": h_startup_checks, "valorant_probe": h_valorant, "gaming_probe": h_gaming,
     "flush_dns": h_flush_dns, "speedtest": h_speedtest, "streamcheck": h_streamcheck, "ipinfo": h_ipinfo,
     "rescan": h_rescan, "open_configs": h_open_configs, "import": h_import, "import_url": h_import_url,
+    "free_scan": h_free_scan, "free_import": h_free_import,
     "config_get": h_config_get, "config_validate": h_config_validate, "config_save": h_config_save,
     "config_delete": h_config_delete, "endpoint_check": h_endpoint_check, "panic_reset": h_panic,
     "net_repair": h_net_repair, "net_changes": h_net_changes,

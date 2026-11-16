@@ -92,3 +92,12 @@ aside .nx-row{padding:11px 6px!important}
 
 /* Where to watch mode line: tag and text on one line, link below */
 .si-mode{display:grid;grid-template-columns:auto 1fr;gap:4px 8px;align-items:center}.si-mode .linkish{grid-column:1/-1;justify-self:start}
+
+/* Free servers: configs found in Downloads, one click to add */
+.nx-found{margin-top:10px;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--surface-2,rgba(255,255,255,.03));display:flex;flex-direction:column;gap:6px}
+.nx-found-h{display:flex;justify-content:space-between;align-items:baseline}
+.nx-fitem{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:6px 2px;border-top:1px solid var(--line);cursor:pointer}
+.nx-fitem:first-of-type{border-top:0}.nx-fitem small{display:block;color:var(--mu);font-size:11px;word-break:break-all}
+.nx-fitem em{font-style:normal;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--good,#3bd69b)}
+.nx-fitem.off{opacity:.55;cursor:default}.nx-fitem.off em{color:var(--mu)}
+.nx-steps .sm{margin-left:6px;vertical-align:middle}
