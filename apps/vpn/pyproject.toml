@@ -1,0 +1,35 @@
+# NOBAD VPN project metadata. Builds and CI install from the hash-pinned requirements-lock.txt
+# (packaging/build.ps1); keep the dependency list below in step with requirements.txt.
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nobad-vpn"
+dynamic = ["version"]
+description = "NOBAD VPN: a WireGuard client for Windows with a kill switch, DNS leak block, Network Intelligence and an Evil Twin check."
+readme = "README.md"
+license = "MIT"
+authors = [{ name = "Aryan Gupta and NOBAD contributors" }]
+requires-python = ">=3.11,<3.12"
+classifiers = ["Operating System :: Microsoft :: Windows", "Programming Language :: Python :: 3.11", "Private :: Do Not Upload"]
+dependencies = ["pywebview>=5.0", "pystray>=0.19", "Pillow>=10.0"]
+
+[project.optional-dependencies]
+dev = ["pytest", "pyflakes"]
+
+[project.urls]
+Homepage = "https://nobad-platform.aassworld99.workers.dev/products/vpn/"
+Source = "https://github.com/AryanGupta-234/Nobad"
+
+[tool.setuptools.dynamic]
+version = { attr = "nobadvpn.const.APP_VER" }
+
+[tool.setuptools.packages.find]
+include = ["nobadvpn*"]
+
+[tool.setuptools.package-data]
+nobadvpn = ["ui/**/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
