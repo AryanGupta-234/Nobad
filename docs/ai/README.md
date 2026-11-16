@@ -12,6 +12,7 @@ One set of instructions for every assistant, so any tool or session picks up the
 | [`.claude/skills/`](../../.claude/skills/), [`.claude/agents/`](../../.claude/agents/) | Claude Code | Thin shortcuts that run the playbooks |
 | [`GEMINI.md`](../../GEMINI.md) | Gemini CLI | Points to AGENTS.md |
 | [`.github/copilot-instructions.md`](../../.github/copilot-instructions.md) | GitHub Copilot | Points to AGENTS.md |
+| [`.github/workflows/claude.yml`](../../.github/workflows/claude.yml), [`claude-review.yml`](../../.github/workflows/claude-review.yml) | Claude on GitHub | `@claude` in issues and PRs (owner/collaborators only), plus an automatic review comment on PRs from this repo. Can't approve or merge. Needs a key: `/install-github-app` in Claude Code |
 
 Rules for keeping it useful:
 - Edit the **source** files (AGENTS.md, memory.md, playbooks); the tool files only point at them.
