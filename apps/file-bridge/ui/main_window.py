@@ -33,6 +33,7 @@ from transfers.transfer_manager import TransferManager
 from transfers.remote_transfer import RemoteEndpoint, RemoteTransferService
 from transfers.transfer_job import TransferJob, TransferStatus
 from ui.async_worker import AsyncRuntime, AsyncWorker
+from ui.qt_bridge import QtTransferSignals
 from ui.command_palette import CommandPalette
 from ui.connections_panel import ConnectionsPanel
 from ui.credentials_panel import CredentialsPanel
@@ -283,9 +284,11 @@ class MainWindow(QMainWindow):
         self.deployment_panel.connection_released.connect(self._release_deployment_connection)
         self.deployment_panel.execution_started.connect(lambda: self._show_activity("Transfers", navigate=True))
         self.deployment_panel.execution_finished.connect(self._after_deployment_execution)
-        self.transfer_manager.job_updated.connect(self._on_transfer_job_updated)
-        self.transfer_manager.log_event.connect(self._on_transfer_log_event)
-        self.transfer_manager.batch_finished.connect(lambda _batch_id: self._after_transfer_batch())
+        # The manager is Qt-free; its events fire on the asyncio thread and are queued to the GUI thread here.
+        self.transfer_signals = QtTransferSignals(self.transfer_manager, self)
+        self.transfer_signals.job_updated.connect(self._on_transfer_job_updated)
+        self.transfer_signals.log_event.connect(self._on_transfer_log_event)
+        self.transfer_signals.batch_finished.connect(self._on_transfer_batch_finished)
         self.transfer_panel.cancel_requested.connect(self._cancel_transfer)
         self.transfer_panel.retry_requested.connect(self._retry_transfer)
         self.transfer_panel.retry_failed_requested.connect(self._retry_failed_transfers)
@@ -1232,6 +1235,9 @@ class MainWindow(QMainWindow):
         self._persist_log("transfer", event.level, event.message, event.technical_details)
         if event.level in {"error", "warning"}:
             self._show_activity("Logs", navigate=True)
+
+    def _on_transfer_batch_finished(self, _batch_id: str) -> None:
+        self._after_transfer_batch()
 
     def _after_transfer_batch(self) -> None:
         self.remote_panel.refresh()

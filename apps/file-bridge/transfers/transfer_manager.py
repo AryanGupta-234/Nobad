@@ -7,8 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from uuid import uuid4
 
-from PySide6.QtCore import QObject, Signal
-
+from core.events import Event
 from core.result import OperationResult
 from file_ops.base import FileItem
 from file_ops.conflict_policy import ConflictDecision, ConflictPolicy
@@ -34,10 +33,9 @@ class TransferPlan:
     conflict_decision: ConflictDecision
 
 
-class TransferManager(QObject):
-    job_updated = Signal(object)
-    log_event = Signal(object)
-    batch_finished = Signal(str)
+class TransferManager:
+    """Queues and runs transfers on the asyncio runtime. Qt-free: listeners subscribe to plain events, which fire
+    on the runtime thread (the Qt UI re-emits them through ``ui.qt_bridge.QtTransferSignals``)."""
 
     def __init__(
         self,
@@ -45,7 +43,9 @@ class TransferManager(QObject):
         max_concurrent: int = DEFAULT_CONCURRENT_TRANSFERS,
         progress_emit_interval: float = DEFAULT_PROGRESS_EMIT_INTERVAL_SECONDS,
     ) -> None:
-        super().__init__()
+        self.job_updated: Event[TransferJob] = Event("transfer.job_updated")
+        self.log_event: Event[TransferLogEvent] = Event("transfer.log_event")
+        self.batch_finished: Event[str] = Event("transfer.batch_finished")
         self.queue = TransferQueue()
         self.max_concurrent = clamp_concurrent_transfers(max_concurrent)
         self.progress_emit_interval = max(0.01, float(progress_emit_interval))
