@@ -1,0 +1,53 @@
+/* NOBAD File Bridge design tokens.
+   The NOBAD VPN system (surfaces, text tiers, radii, pill buttons, gradient hairlines, motion), with File Bridge's
+   own blue accent. Contrast: white on --acc-solid is 4.75:1; --acc-tx is 8.3:1 on dark --bg and 5.8:1 on white. */
+:root{
+  color-scheme:dark;
+  --bg:#08090d;--surface:#111319;--surface-2:#171a22;--surface-3:#1d2029;
+  --tx:#f4f4f6;--mu:#a0a1aa;--faint:#71737d;
+  --line:rgba(255,255,255,.105);--edge:rgba(255,255,255,.075);--edge-hi:rgba(255,255,255,.16);
+  --glass:rgba(255,255,255,.045);--glass-2:rgba(255,255,255,.085);
+
+  --acc:#3b82f6;--acc-solid:#1f6bf0;--acc-deep:#1652c9;--acc-tx:#6ea8ff;
+  --acc-soft:rgba(59,130,246,.12);--acc-line:rgba(59,130,246,.38);
+  --glow:color-mix(in srgb,var(--acc) 42%,transparent);
+  --pri:linear-gradient(135deg,#4b8dff,#1f6bf0 45%,#1652c9);
+  --nobad:#f65000;
+
+  /* status: synced/ok, transferring, conflict, error */
+  --ok:#3bd69b;--busy:#38bdf8;--warn:#f5b544;--bad:#ff5268;
+  --ok-soft:rgba(59,214,155,.12);--busy-soft:rgba(56,189,248,.12);--warn-soft:rgba(245,181,68,.13);--bad-soft:rgba(255,82,104,.12);
+
+  /* remote surfaces carry a faint accent tint so they never look like local ones */
+  --remote-tint:color-mix(in srgb,var(--acc) 5%,var(--surface));
+
+  --hair:linear-gradient(150deg,rgba(91,150,255,.45),rgba(255,255,255,.07) 34%,rgba(255,255,255,.04) 62%,rgba(246,80,0,.10));
+  --card-bg:linear-gradient(165deg,color-mix(in srgb,var(--surface) 92%,#fff 4%),color-mix(in srgb,var(--surface) 96%,transparent));
+  --shadow-card:0 18px 44px rgba(0,0,0,.22),inset 0 1px 0 var(--edge-hi);
+  --shadow-pop:0 24px 70px rgba(0,0,0,.45),0 2px 8px rgba(0,0,0,.25);
+
+  --r-xl:24px;--r-lg:18px;--r-md:14px;--r-sm:11px;--r-xs:8px;
+  --sp-1:4px;--sp-2:8px;--sp-3:12px;--sp-4:16px;--sp-5:24px;--sp-6:32px;
+  --ease:cubic-bezier(.2,.75,.25,1);
+
+  --font-ui:"Segoe UI Variable Text","Segoe UI Variable","Segoe UI",system-ui,-apple-system,"SF Pro Text",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --font-disp:"Segoe UI Variable Display","Segoe UI Variable","Segoe UI",system-ui,-apple-system,"SF Pro Display",Roboto,sans-serif;
+  --font-mono:"Cascadia Mono","Cascadia Code",Consolas,"SF Mono",ui-monospace,"JetBrains Mono",monospace;
+
+  --header-h:52px;--rail-w:212px;--rail-w-collapsed:64px;--dock-bar-h:38px;
+}
+:root[data-theme="light"]{
+  color-scheme:light;
+  --bg:#e6e9ef;--surface:#fff;--surface-2:#f3f5f8;--surface-3:#e9edf2;
+  --tx:#121620;--mu:#4e5665;--faint:#6b7280;
+  --line:rgba(18,26,44,.13);--edge:rgba(18,26,44,.11);--edge-hi:rgba(255,255,255,.9);
+  --glass:rgba(18,26,44,.035);--glass-2:rgba(18,26,44,.07);
+  --acc:#2563eb;--acc-solid:#1f63e0;--acc-deep:#174bb0;--acc-tx:#1f5fd1;
+  --acc-soft:rgba(37,99,235,.1);--acc-line:rgba(37,99,235,.35);
+  --ok:#13865d;--busy:#0b7fae;--warn:#a8650a;--bad:#cc2942;
+  --ok-soft:rgba(19,134,93,.1);--busy-soft:rgba(11,127,174,.1);--warn-soft:rgba(168,101,10,.11);--bad-soft:rgba(204,41,66,.09);
+  --hair:linear-gradient(150deg,rgba(37,99,235,.32),rgba(18,26,44,.07) 34%,rgba(18,26,44,.05) 62%,rgba(214,80,10,.10));
+  --card-bg:linear-gradient(165deg,#fff,color-mix(in srgb,#fff 88%,var(--bg)));
+  --shadow-card:0 1px 2px rgba(16,24,40,.06),0 8px 24px rgba(16,24,40,.07),inset 0 1px 0 #fff;
+  --shadow-pop:0 24px 60px rgba(16,24,40,.18),0 2px 6px rgba(16,24,40,.1);
+}
