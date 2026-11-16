@@ -5,6 +5,7 @@ Add to it when the maintainer decides something; delete lines that stop being tr
 (this repository is public): no keys, configs, personal data or private review notes.
 
 ## Standing decisions
+- 2026-11-16 The remote file manager app is named NOBAD File Bridge (`apps/file-bridge/`), a plain name non-technical users understand. On-disk/keyring ids stay `remote-file-manager` so existing data keeps working.
 - 2026-11-16 No built-in servers. The free-server path is the default onboarding: highlight it in the app (empty Servers tab), README, user manual and the VPN page (#free-servers).
 - 2026-11-16 Release "everywhere" every time: version, changelog, docs, site, `main`, CI release (playbook `release.md`).
 - 2026-11-16 Releases come only from CI (tag → `vpn-release.yml`, attested, immutable). Never create one by hand.
@@ -19,10 +20,10 @@ Add to it when the maintainer decides something; delete lines that stop being tr
   replace their files. Users should verify with the strict `gh attestation verify ... --signer-workflow ...
   --source-ref ...` command (docs/RELEASE-PROCESS.md). Optional hardening: a protected `release` environment with
   the owner as required reviewer on the publish job.
-- NOBAD Files (`apps/files/`, by @harshRaj1601, write access) was merged by the maintainer on 2026-11-16 (PR #27).
+- NOBAD File Bridge (`apps/file-bridge/`, formerly NOBAD Files in `apps/files/`, by @harshRaj1601, write access) was merged by the maintainer on 2026-11-16 (PR #27).
   Fixes still owed from its review: remote file names can write outside the download folder (sftp_ops/transfer_manager),
   Monaco editor loaded from a CDN without integrity pinning, world-readable app database on Linux, sudo password
-  auto-typed on a server-controlled prompt, failing tests. Track them as issues; don't release NOBAD Files before they're fixed.
+  auto-typed on a server-controlled prompt, failing tests. Track them as issues; don't release NOBAD File Bridge before they're fixed.
 - Code signing isn't set up yet (SmartScreen warns; the in-app updater only accepts signed builds). SignPath for
   open source is the planned route (see `apps/vpn/docs/CODE-SIGNING.md`).
 
