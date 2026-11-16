@@ -12,6 +12,8 @@ only point here. Keep this file short; details live in the files it links.
   `nobadvpn/ui/*.js|css` shown in pywebview, tests `apps/vpn/tests/`, docs `apps/vpn/docs/`.
 - `apps/file-bridge/`: NOBAD File Bridge, a remote file manager (Python 3.12 + PySide6), code owner @harshRaj1601. It has its own
   [`apps/file-bridge/AGENTS.md`](apps/file-bridge/AGENTS.md) with the fixes it owes before its first release.
+- `apps/find/`: NOBAD Find, private offline search for your own files (Python 3.11 + pywebview, runs as the normal
+  user, in development). Its own [`apps/find/AGENTS.md`](apps/find/AGENTS.md) lists what's in and out of scope.
 - `site-pages/` + `releases/vpn/releases.json` → `npm run build` → `public/` (generated, untracked). Hosted on a
   Cloudflare worker (`wrangler.jsonc`), deployed from `main`.
 - `apps/Sentinal/`: separate, uncommitted work. Don't touch or commit it.

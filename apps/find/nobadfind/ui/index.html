@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'">
+<title>NOBAD Find</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div class="app">
+  <aside class="rail">
+    <img class="mark" src="brand/nobad-mark.png" alt="NOBAD">
+    <button class="tab on" data-tab="search" title="Search (Ctrl+1)"><span>⌕</span>Search</button>
+    <button class="tab" data-tab="index" title="Index (Ctrl+2)"><span>◎</span>Index</button>
+    <button class="tab" data-tab="settings" title="Settings (Ctrl+3)"><span>⚙</span>Settings</button>
+    <div class="rail-foot" id="railState">starting…</div>
+  </aside>
+
+  <main>
+    <section class="view on" id="v-search">
+      <div class="bar">
+        <input id="q" type="search" autocomplete="off" spellcheck="false"
+               placeholder="Describe it: “rent pdf from last week”, “beach photos in march”, “budget.xlsx”">
+        <div class="understood" id="understood"></div>
+      </div>
+      <div class="meta" id="meta"></div>
+      <ol class="results" id="results"></ol>
+      <div class="empty" id="empty">
+        <h1>Find anything on this PC.</h1>
+        <p>Search by name, by the words inside a file, or by what it was about. Add a kind (“pdf”, “photos”, “code”)
+          or a time (“yesterday”, “in March”, “3 weeks ago”).</p>
+        <p class="keys"><kbd>↑</kbd><kbd>↓</kbd> move · <kbd>Enter</kbd> open · <kbd>Ctrl</kbd>+<kbd>Enter</kbd> show in folder
+          · <kbd>Ctrl</kbd>+<kbd>C</kbd> copy path · <kbd>Esc</kbd> hide</p>
+      </div>
+    </section>
+
+    <section class="view" id="v-index">
+      <h2>Index</h2>
+      <div class="cards" id="cards"></div>
+      <div class="row-actions"><button class="btn" id="rescan">Rescan now</button></div>
+      <h3>Folders being searched</h3>
+      <ul class="plain" id="roots"></ul>
+      <p class="note" id="encNote"></p>
+    </section>
+
+    <section class="view" id="v-settings">
+      <h2>Settings</h2>
+      <div id="settings"></div>
+    </section>
+  </main>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<script src="app.js"></script>
+</body>
+</html>
