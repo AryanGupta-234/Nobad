@@ -1,8 +1,20 @@
 {
   "schemaVersion": 1,
   "product": "nobad-vpn",
-  "latest": "1.5.0",
+  "latest": "1.5.1",
   "releases": [
+    {
+      "version": "1.5.1",
+      "releaseDate": "2026-11-16",
+      "channel": "stable",
+      "platform": "Windows 10 (1809+) / 11",
+      "architecture": "x64 (ARM64 via emulation)",
+      "summary": "Security update: safer import folder and first-start checks, no code injection through the environment, links only on your own desktop. Built and attested by GitHub Actions.",
+      "downloadUrl": "https://github.com/AryanGupta-234/Nobad/releases/download/vpn-v1.5.1/NobadVPN-Setup-1.5.1.exe",
+      "notesUrl": "https://github.com/AryanGupta-234/Nobad/releases/tag/vpn-v1.5.1",
+      "sha256": "daaea6c0d6814ab9693dd85b3eed9ac02e223e17f5cfdd761e92707d3ba571a8",
+      "size": "24.6 MB"
+    },
     {
       "version": "1.5.0",
       "releaseDate": "2026-11-16",
