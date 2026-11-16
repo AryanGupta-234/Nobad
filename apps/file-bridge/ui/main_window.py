@@ -154,6 +154,8 @@ class MainWindow(QMainWindow):
         self._load_saved_profiles()
         self._load_sync_jobs()
         self._load_deployment_jobs()
+        if self.app_data.storage_warning:
+            self.logs_panel.append_log(self.app_data.storage_warning, "warning")
         self.setStatusBar(QStatusBar())
         self.statusBar().hide()
 

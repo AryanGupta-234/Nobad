@@ -4,8 +4,9 @@ from datetime import datetime, UTC
 import faulthandler
 from pathlib import Path
 import sys
-import tempfile
 import traceback
+
+from core.private_paths import app_data_dir, ensure_private_dir, ensure_private_file, private_temp_dir
 
 try:
     from PySide6.QtCore import QtMsgType, qInstallMessageHandler
@@ -19,21 +20,18 @@ _diagnostic_path: Path | None = None
 
 
 def diagnostics_dir() -> Path:
-    folder = Path.home() / ".remote-file-manager" / "diagnostics"
+    """``~/.remote-file-manager/diagnostics`` (0700); a fresh private temp folder if that can't be used (#31)."""
     try:
-        folder.mkdir(parents=True, exist_ok=True)
-        return folder
+        return ensure_private_dir(app_data_dir() / "diagnostics")
     except Exception:
-        fallback = Path(tempfile.gettempdir()) / "remote-file-manager" / "diagnostics"
-        fallback.mkdir(parents=True, exist_ok=True)
-        return fallback
+        return private_temp_dir("diagnostics")
 
 
 def install_diagnostics() -> Path:
     global _diagnostic_handle, _diagnostic_path
     try:
         folder = diagnostics_dir()
-        _diagnostic_path = folder / "latest.log"
+        _diagnostic_path = ensure_private_file(folder / "latest.log")
         _diagnostic_handle = _diagnostic_path.open("a", encoding="utf-8", buffering=1)
         log_diagnostic("diagnostics", "Diagnostics initialized.")
         try:

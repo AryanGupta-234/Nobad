@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-import tempfile
 
 from sqlalchemy.orm import Session, sessionmaker
 
+from core.private_paths import private_temp_dir
 from security.credential_store import CredentialStore
-from storage.database import init_database
+from storage.database import DATABASE_FILE_NAME, init_database
 from storage.repositories import (
     AppSettingsRepository,
     ConnectionProfileRepository,
@@ -32,17 +32,26 @@ from storage.repositories import (
 class AppDataService:
     session_factory: sessionmaker[Session]
     credential_store: CredentialStore
+    # Set when the real data folder couldn't be used and this session runs on a temporary database (#31).
+    storage_warning: str | None = None
 
     @classmethod
     def create(cls, db_path: str | Path | None = None) -> "AppDataService":
+        warning = None
         try:
             session_factory = init_database(db_path)
-        except Exception:
-            fallback = Path(tempfile.gettempdir()) / "remote-file-manager" / "app.sqlite3"
+        except Exception as exc:
+            # Never a shared /tmp path another local user could create first: a fresh private folder instead.
+            fallback = private_temp_dir("data") / DATABASE_FILE_NAME
             session_factory = init_database(fallback)
+            warning = (
+                f"Could not open the data folder ({exc}). This session uses a temporary database, "
+                "so saved connections and settings won't be kept after you close the app."
+            )
         return cls(
             session_factory=session_factory,
             credential_store=CredentialStore(),
+            storage_warning=warning,
         )
 
     def connection_profiles(self, session: Session) -> ConnectionProfileRepository:

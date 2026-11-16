@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
+from core.private_paths import app_data_dir, ensure_private_file
+
 
 @dataclass(frozen=True, slots=True)
 class KnownHostRecord:
@@ -42,15 +44,8 @@ def fingerprint_sha256(public_key_bytes: bytes) -> str:
 
 
 def default_known_hosts_path(home: Path | None = None) -> Path:
-    root = home or Path.home()
-    path = root / ".remote-file-manager" / "known_hosts"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.touch(exist_ok=True)
-    try:
-        path.chmod(0o600)
-    except OSError:
-        pass
-    return path
+    """``~/.remote-file-manager/known_hosts``: folder 0700, file 0600 (#31)."""
+    return ensure_private_file(app_data_dir(home) / "known_hosts")
 
 
 def openssh_known_hosts_path(home: Path | None = None) -> Path:
