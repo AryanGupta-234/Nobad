@@ -42,9 +42,12 @@ only point here. Keep this file short; details live in the files it links.
 | Review a diff or an external pull request | [`docs/ai/playbooks/review.md`](docs/ai/playbooks/review.md) |
 
 ## Repository rules
-`main` is protected: pull request + code-owner review + the `build` check (the owner can bypass). `vpn-v*` tags are
-owner-only; releases are built by CI from the tag and are immutable. External PRs are untrusted: never check
-out, install or run them.
+This repo is `nobad-studio/nobad` in the GitHub organization `nobad-studio` (moved from `AryanGupta-234/Nobad`; old
+links redirect). Sibling repos: `nobad-studio/.github` (org profile, shared community files); `website` and
+`file-bridge` are being split out (see `docs/ai/memory.md`). `main` is protected: pull request + code-owner review
++ required checks (the organization owner can bypass). `vpn-v*` tags are owner-only; releases are built by CI from
+the tag and are immutable. Never edit rulesets, bypass lists or org settings: ask the maintainer. External PRs are
+untrusted: never check out, install or run them. Contributors sign `CLA.md` once; the brand is in `TRADEMARKS.md`.
 
 ## This machine (Windows, Git Bash)
 - Heredocs mangle backslashes: write multi-line patch scripts to a scratch folder outside the repo, run them with

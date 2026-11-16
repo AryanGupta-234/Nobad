@@ -1,5 +1,6 @@
 name: CLA
 
+# AI co-authors ("Co-Authored-By: Claude ...") are allowlisted: the person who opens the PR signs for it.
 # Asks each new contributor once to agree to CLA.md by commenting on their pull request, and records the signature
 # in signatures/cla.json on the "cla-signatures" branch. It never checks out or runs the pull request's code, which
 # is what makes pull_request_target safe here.
@@ -32,7 +33,7 @@ jobs:
           path-to-signatures: signatures/cla.json
           path-to-document: https://github.com/${{ github.repository }}/blob/main/CLA.md
           branch: cla-signatures
-          allowlist: AryanGupta-234,dependabot[bot],github-actions[bot],claude[bot]
+          allowlist: AryanGupta-234,dependabot[bot],github-actions[bot],claude[bot],Claude
           custom-notsigned-prcomment: >-
             Thanks for your contribution! Before it can be merged, please read the
             [NOBAD Contributor License Agreement](https://github.com/${{ github.repository }}/blob/main/CLA.md)

@@ -31,6 +31,16 @@ Add to it when the maintainer decides something; delete lines that stop being tr
 - 2026-11-16 New outbound connections need a setting and an entry in SYSTEM-INTEGRATION.md.
 
 ## Open items
+- 2026-11-17 Move to `nobad-studio` in progress. Done: repo transferred to `nobad-studio/nobad` (old URLs redirect),
+  org profile repo `nobad-studio/.github`, Cloudflare app installed on the org (deploys continue; `/build.json` shows
+  the live commit), links updated (PR #42). Blocked on the maintainer: the transfer dropped the ruleset bypass on
+  "Protect main" and "Protect release tags" (`bypass_actors: []`), so nobody can merge owner PRs or push `vpn-v*`
+  tags until he re-adds the org-owner bypass (Settings → Rules → each ruleset → Bypass list → "Organization admin").
+  AI assistants must not edit rulesets. Also pending: `gh auth refresh -s admin:org` (teams, Harsh's invite, "members
+  can't create repositories"), "Require 2FA" in org settings. Website split waits for the site PR (#41) to merge;
+  File Bridge split waits for Harsh's PRs #35, #38, #39.
+- 2026-11-17 Releases up to 1.6.1 keep their attestations under the old owner: verify with `--owner AryanGupta-234
+  --signer-workflow AryanGupta-234/Nobad/.github/workflows/vpn-release.yml` (tested). New releases: `-R nobad-studio/nobad`.
 - 2026-11-17 NOBAD Find (`apps/find/`, in development, no installer yet): private offline search over your own files.
   Maintainer chose: full build, pywebview + HTML UI, name "NOBAD Find". Out of scope: activity timeline/usage history
   and raw NTFS/MFT reading. Design: `docs/ai/ideas/nobad-find.md`. Not on the website until it ships.

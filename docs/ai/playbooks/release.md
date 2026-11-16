@@ -3,6 +3,13 @@
 The human-facing process is [`docs/RELEASE-PROCESS.md`](../../RELEASE-PROCESS.md); this is the full checklist an
 assistant runs. Stop and report on the first failure. Work from the repo root unless noted.
 
+**Repositories (organization `nobad-studio`).** The app, its tags and its releases live in `nobad-studio/nobad`.
+The website (the page edit in step 3, and steps 8 to 10) lives in `site-pages/` of this repo until it moves to
+`nobad-studio/website`; once `site-pages/` is gone from this repo, do those steps in a clone of
+`nobad-studio/website`. Pushes to `main` and `vpn-v*` tags rely on the organization owner's ruleset bypass: if a
+push is rejected (GH013, "must be made through a pull request"), stop and tell the maintainer. Never edit
+rulesets or bypass lists yourself.
+
 1. **Version.** New feature → minor (1.5.x → 1.6.0); fixes only → patch. Set `APP_VER` in `apps/vpn/nobadvpn/const.py`.
 2. **Changelog.** New top section `## X.Y.Z · YYYY-MM-DD` in `apps/vpn/CHANGELOG.md` with `### Added / Fixed /
    Changed / Security`, in plain user language. CI refuses the tag unless it matches `APP_VER`.
@@ -24,8 +31,8 @@ assistant runs. Stop and report on the first failure. Work from the repo root un
    version in `.github/ISSUE_TEMPLATE/bug_report.yml`.
 9. **Site.** `npm run build`; `public/index.html` and `public/products/vpn/index.html` must show the new version.
    Commit `site: publish NOBAD VPN X.Y.Z`, push `main`.
-10. **Live check.** Poll `https://nobad-platform.aassworld99.workers.dev/releases/vpn/releases.json` until `latest`
-    is the new version. If Cloudflare's build never starts for the commit (no "Workers Builds" check after about 5
+10. **Live check.** Poll `https://nobad-platform.aassworld99.workers.dev/build.json` until `commit` is the commit you
+    pushed, then check `/releases/vpn/releases.json` shows the new `latest`. If Cloudflare's build never starts for the commit (no "Workers Builds" check after about 5
     minutes), push an empty commit to retrigger it.
 
 Report: the version, the release URL, CI and attestation results, and that the site is live. Until code signing is
