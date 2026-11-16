@@ -1,0 +1,15 @@
+{
+  "name": "nobad-file-bridge-editor",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "vite build"
+  },
+  "dependencies": {
+    "monaco-editor": "0.56.0"
+  },
+  "devDependencies": {
+    "vite": "^7.0.0"
+  }
+}
