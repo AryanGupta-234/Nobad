@@ -79,7 +79,13 @@ Filename: "{app}\{#MyAppExe}"; Description: "Launch {#MyAppName}"; Flags: nowait
 ; Silent installs come from the in-app updater, which has already quit: start the new version again.
 Filename: "{app}\{#MyAppExe}"; Parameters: "--background"; Flags: nowait; Check: WizardSilent
 
+[UninstallDelete]
+; Anything NOBAD created inside its program folder at run time (the folder itself goes too).
+Type: filesandordirs; Name: "{app}"
+
 [UninstallRun]
+; Every running NOBAD process (app, tray, crash watchdog) is stopped first, in CurUninstallStepChanged below:
+; before, they kept running after an uninstall and the watchdog could even restart the app.
 ; Never leave someone offline: remove firewall rules / tunnels, then NOBAD's scheduled tasks.
 ; WireGuard itself is left installed (other apps or the user may rely on it); remove it in Settings > Apps if wanted.
 Filename: "{app}\{#MyAppExe}"; Parameters: "--panic"; Flags: runhidden; RunOnceId: "NobadPanic"
@@ -107,6 +113,55 @@ begin
     Result := 'wireguard-arm64.msi'
   else
     Result := 'wireguard-amd64.msi';
+end;
+
+// ---------------------------------------------------------------- stop NOBAD (uninstall and upgrade)
+// All NobadVPN.exe processes at once (/T: with their children) so the crash watchdog can't restart the app in
+// between; first a normal close request, then forced. Run twice to catch a copy started meanwhile.
+procedure StopNobad;
+var
+  rc: Integer;
+  tk: String;
+begin
+  tk := ExpandConstant('{sys}\taskkill.exe');
+  Exec(tk, '/IM {#MyAppExe} /T', '', SW_HIDE, ewWaitUntilTerminated, rc);
+  Sleep(1500);
+  Exec(tk, '/F /IM {#MyAppExe} /T', '', SW_HIDE, ewWaitUntilTerminated, rc);
+  Sleep(700);
+  Exec(tk, '/F /IM {#MyAppExe} /T', '', SW_HIDE, ewWaitUntilTerminated, rc);
+end;
+
+// Upgrade: stop the old copy and restore internet with it (its kill switch would otherwise stay armed while
+// files are replaced), so files in use never block the update.
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  rc: Integer;
+  old: String;
+begin
+  Result := '';
+  old := ExpandConstant('{app}\{#MyAppExe}');
+  if FileExists(old) then
+  begin
+    StopNobad;
+    Exec(old, '--panic', '', SW_HIDE, ewWaitUntilTerminated, rc);
+    StopNobad;
+  end;
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+begin
+  if CurUninstallStep = usUninstall then
+    StopNobad;                       // before [UninstallRun] restores internet and removes the tasks
+  if CurUninstallStep = usPostUninstall then
+  begin
+    StopNobad;                       // anything --panic or a scheduled task started in the meantime
+    if (not UninstallSilent) and (MsgBox('Also delete your NOBAD VPN settings, server configs and logs?' + #13#10 + #13#10 +
+        'Your server configs contain private keys. Choose No to keep them for a later reinstall.',
+        mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES) then
+      DelTree(ExpandConstant('{commonappdata}\NobadVPN'), True, True, True);
+    // The import folder holds files you dropped there yourself: removed only when it is empty.
+    RemoveDir(ExpandConstant('{commonappdata}\NobadVPN-import'));
+  end;
 end;
 
 procedure CheckWireGuard;

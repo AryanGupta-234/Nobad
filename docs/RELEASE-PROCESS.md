@@ -29,10 +29,11 @@ git push origin vpn-v<version>
 * **publish** (the only job that can write): creates a signed build-provenance attestation for the files and
   publishes the GitHub Release with the notes from `CHANGELOG.md`.
 
-Anyone can check a download came from this repository's workflow:
+Anyone can check that a download was built by **the release workflow, from that version's tag** (not just by
+some workflow in this repository, which anyone with write access could add on a branch):
 
 ```
-gh attestation verify NobadVPN-Setup-<version>.exe -R AryanGupta-234/Nobad
+gh attestation verify NobadVPN-Setup-<version>.exe -R AryanGupta-234/Nobad --signer-workflow AryanGupta-234/Nobad/.github/workflows/vpn-release.yml --source-ref refs/tags/vpn-v<version> --deny-self-hosted-runners
 ```
 
 ## 3. Put it on the website

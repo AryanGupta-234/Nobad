@@ -16,7 +16,8 @@ Fixes are released as a new version, and reporters are credited unless they pref
 
 | Version | Supported |
 |---|---|
-| 1.3.x | yes |
+| 1.5.x (latest) | yes |
+| 1.4.x | security fixes only until 2026-12-31 |
 | older | no (please update) |
 
 ## Scope

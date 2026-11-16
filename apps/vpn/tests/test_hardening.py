@@ -515,3 +515,40 @@ def test_free_servers_found_in_downloads_and_imported_read_only(win, monkeypatch
     r = configstore.downloads_import(["wg-JP-FREE-27.conf", "../secret.conf", "linked.conf"])
     assert r["imported"] == ["JP-FREE-27"] and len(r["errors"]) == 2
     assert sorted(os.listdir(dl)) == ["big.conf", "linked.conf", "notes.conf", "old.conf", "wg-JP-FREE-27.conf"]
+
+
+def test_import_folder_is_outside_the_recursively_locked_data_folder():
+    from nobadvpn import const
+    data = os.path.normcase(os.path.abspath(const.DATA_DIR))
+    inbox = os.path.normcase(os.path.abspath(const.INBOX_DIR))
+    assert not inbox.startswith(data + os.sep) and inbox != data
+
+
+def test_planted_settings_file_no_longer_skips_the_quarantine(monkeypatch, tmp_path):
+    d = tmp_path / "NobadVPN"
+    (d / "configs").mkdir(parents=True)
+    (d / "settings.json").write_text('{"auto_connect": true}')
+    (d / "configs" / "evil.conf").write_text("[Interface]")
+    monkeypatch.setattr(app, "DATA_DIR", str(d))
+    monkeypatch.setattr(app.os, "name", "nt")
+    monkeypatch.setattr(syscmd, "_is_reparse", lambda p: False)
+    monkeypatch.setattr(syscmd, "owned_by_admins", lambda p: not str(p).endswith("evil.conf"))   # one planted file
+    assert app.quarantine_untrusted_data_dir() and not d.exists()
+
+
+def test_environment_cannot_load_a_dotnet_profiler_into_admin_powershell(monkeypatch):
+    monkeypatch.setattr(syscmd.os, "name", "nt")
+    for k in ("COR_ENABLE_PROFILING", "COR_PROFILER_PATH", "COMPLUS_X", "CORECLR_PROFILER", "DOTNET_X",
+              "PSExecutionPolicyPreference"):
+        monkeypatch.setenv(k, "1")
+    syscmd.harden_environment()
+    assert not [k for k in os.environ if k.upper().startswith(("COR_", "COMPLUS_", "CORECLR_", "DOTNET_"))]
+    assert "PSExecutionPolicyPreference" not in os.environ
+
+
+def test_links_open_only_in_this_session_and_cant_expand_variables(monkeypatch):
+    scripts = _capture_links(monkeypatch)
+    assert syscmd.open_url_as_user("https://x.org/a?q=%USERNAME%&ok=%41") is True
+    ps = scripts[-1]
+    assert "SessionId=$sid" in ps and "ExecutablePath -ieq $exp" in ps
+    assert "q=%25USERNAME%25&ok=%41'" in ps

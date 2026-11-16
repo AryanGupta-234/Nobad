@@ -101,3 +101,14 @@ aside .nx-row{padding:11px 6px!important}
 .nx-fitem em{font-style:normal;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--good,#3bd69b)}
 .nx-fitem.off{opacity:.55;cursor:default}.nx-fitem.off em{color:var(--mu)}
 .nx-steps .sm{margin-left:6px;vertical-align:middle}
+
+/* Quick start (empty Servers tab): three steps with direct buttons */
+.qs-card{display:flex;flex-direction:column;gap:10px;margin-top:12px;padding:16px;border-radius:14px;border:1px solid color-mix(in srgb,var(--acc,#f65000) 40%,var(--line));background:color-mix(in srgb,var(--acc,#f65000) 7%,transparent)}
+.qs-h{display:flex;align-items:center;justify-content:space-between;gap:8px}.qs-h b{font-size:15px}
+.qs-card .note{margin:0}
+.qs-steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.qs-steps li{display:grid;grid-template-columns:24px 1fr auto;gap:10px;align-items:center;font-size:12.5px;line-height:1.4}
+.qs-steps i{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font:800 12px/1 var(--font-disp,inherit);font-style:normal;color:#fff;background:var(--acc,#f65000)}
+.qs-steps em{font-style:normal;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--good,#3bd69b)}
+.qs-steps .sm{white-space:nowrap}
+.qs-more{display:flex;gap:14px;flex-wrap:wrap}

@@ -83,9 +83,9 @@ def quarantine_untrusted_data_dir():
     for the elevated app to adopt. Such a folder is moved aside (never read) unless an administrator owns it and it
     is not a link. Returns the new name, or None."""
     from .syscmd import _is_reparse, owned_by_admins
-    if os.name != "nt" or not os.path.lexists(DATA_DIR) or os.path.exists(SETTINGS_PATH):
+    if os.name != "nt" or not os.path.lexists(DATA_DIR):
         return None
-    if not _is_reparse(DATA_DIR) and owned_by_admins(DATA_DIR) and not any(_is_reparse(os.path.join(DATA_DIR, n)) for n in os.listdir(DATA_DIR)):
+    if not _is_reparse(DATA_DIR) and _all_trusted(DATA_DIR, _is_reparse, owned_by_admins):
         return None
     import time as _t
     dest = f"{DATA_DIR}.untrusted-{int(_t.time())}"
@@ -97,6 +97,22 @@ def quarantine_untrusted_data_dir():
         return dest
     except OSError:
         return None
+
+
+def _all_trusted(root, is_link, trusted, cap=20000):
+    """Every entry under `root` is owned by Administrators/SYSTEM and none is a link. After NOBAD's first start this is
+    always true (lock_dir takes ownership of everything), so only a folder someone else prepared fails. A planted
+    settings.json used to skip the check entirely."""
+    if not trusted(root):
+        return False
+    n = 0
+    for dirpath, dirs, files in os.walk(root, followlinks=False):
+        for name in dirs + files:
+            p = os.path.join(dirpath, name)
+            n += 1
+            if n > cap or is_link(p) or not trusted(p):
+                return False
+    return True
 
 
 def migrate_legacy_data():
@@ -207,6 +223,9 @@ def install_tasks(autostart_mode=None):
         return 2
     from .settings import Settings
     os.makedirs(DATA_DIR, exist_ok=True)
+    if os.name == "nt":
+        from .engine import ensure_dirs
+        ensure_dirs()            # lock the folder before writing anything into it (was: settings first, lock later)
     ok = True
     if autostart.installed_location():
         ok = autostart.ensure_launcher_task() and ok

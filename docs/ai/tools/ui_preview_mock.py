@@ -1,5 +1,5 @@
 """Preview-only fake backend for the NOBAD VPN UI: no tunnel, no admin, nothing changes on the PC.
-Usage: python -I mock.py <ui_dir> <port> [connected]     then open http://127.0.0.1:<port>/?tab=t5"""
+Usage (repo root): python -I docs/ai/tools/ui_preview_mock.py apps/vpn/nobadvpn/ui 8791 [connected]   then open http://127.0.0.1:8791/?tab=t5"""
 import json
 import os
 import sys

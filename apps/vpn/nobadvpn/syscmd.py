@@ -105,6 +105,25 @@ def lock_dir(path, allow_user=False):
     return True
 
 
+def lock_folder_only(path, allow_user=False):
+    """ACL of ONE folder (no /T, no reset of anything inside): for a folder the user may write to. Recursive changes
+    there could be steered by a link the user plants while they run, so contents are never touched."""
+    if os.name != "nt":
+        return True
+    if _is_reparse(path) or os.path.normcase(os.path.realpath(path)) != os.path.normcase(os.path.abspath(path)):
+        log(f"refused to set permissions on {path}: it is a junction or symbolic link", "bad")
+        return False
+    grants = [f"{SYSTEM_SID}:(OI)(CI)F", f"{ADMINS_SID}:(OI)(CI)F"]
+    user = os.environ.get("USERNAME")
+    if allow_user and user:
+        grants.append(f"{user}:(OI)(CI)M")
+    run(["icacls", path, "/setowner", ADMINS_SID, "/C", "/Q"], timeout=15)
+    cmd = ["icacls", path, "/inheritance:r"]
+    for g in grants:
+        cmd += ["/grant:r", g]
+    return run(cmd, timeout=15).returncode == 0
+
+
 def _shell_safe_url(url):
     """The URL as explorer.exe must receive it, or None. explorer.exe parses its own command line: a ',' or ';'
     splits it into switches, and an argument it doesn't recognise makes it open the Documents folder instead of the
@@ -120,6 +139,7 @@ def _shell_safe_url(url):
         return None
     if u.scheme.lower() not in ("http", "https") or not u.netloc or u.username or u.password:
         return None
+    url = re.sub(r"%(?![0-9A-Fa-f]{2})", "%25", url)       # keep %xx escapes, encode lone '%' (no %VAR% expansion)
     return urllib.parse.quote(url, safe=":/?&=#%@+!$*()~'-._[]")
 
 
@@ -134,8 +154,9 @@ def _unelevated_task_ps(url, win):
     u = url.replace("'", "''")
     exe = os.path.join(win, "System32", "rundll32.exe").replace("'", "''")
     return ("$ErrorActionPreference='Stop';"
-            "$o=Get-CimInstance Win32_Process -Filter \"Name='explorer.exe'\" | Select-Object -First 1 | "
-            "Invoke-CimMethod -MethodName GetOwner;"
+            "$sid=(Get-Process -Id $PID).SessionId;$exp=Join-Path $env:windir 'explorer.exe';"
+            "$o=Get-CimInstance Win32_Process -Filter \"Name='explorer.exe' AND SessionId=$sid\" | "
+            "Where-Object { $_.ExecutablePath -ieq $exp } | Select-Object -First 1 | Invoke-CimMethod -MethodName GetOwner;"
             "$who=if($o -and $o.User){$o.Domain+'\\'+$o.User}else{[Security.Principal.WindowsIdentity]::GetCurrent().Name};"
             "$n='NobadVPN open link '+[guid]::NewGuid().ToString('N');"
             f"$a=New-ScheduledTaskAction -Execute '{exe}' -Argument ('url.dll,FileProtocolHandler '+'{u}');"
@@ -221,7 +242,10 @@ def harden_environment():
     port) and PSModulePath (fake DnsClient / NetTCPIP modules loaded into admin PowerShell)."""
     if os.name != "nt":
         return
-    for k in [k for k in os.environ if k.upper().startswith("WEBVIEW2_")]:
+    # WEBVIEW2_*: another browser engine or a debugging port. COR_*/COMPLUS_*/CORECLR_*/DOTNET_*: a .NET profiler DLL
+    # that every elevated powershell.exe would load. PowerShell policy overrides as well.
+    bad = ("WEBVIEW2_", "COR_", "COMPLUS_", "CORECLR_", "DOTNET_")
+    for k in [k for k in os.environ if k.upper().startswith(bad) or k.upper() in ("PSEXECUTIONPOLICYPREFERENCE", "__PSLOCKDOWNPOLICY")]:
         os.environ.pop(k, None)
     sysdir = os.path.join(known_folder("Windows") or r"C:\Windows", "System32")
     os.environ["PSModulePath"] = os.path.join(sysdir, "WindowsPowerShell", "v1.0", "Modules")

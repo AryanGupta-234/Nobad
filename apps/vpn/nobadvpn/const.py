@@ -7,7 +7,7 @@ APP_TITLE = "NOBAD VPN"
 # Windows AppUserModelID: taskbar grouping, jump list and the sender name on notifications. The installer registers it
 # on the Start-menu shortcut, which is what lets Windows show "NOBAD VPN" (not PowerShell/Python) on toasts.
 APP_ID = "NOBAD.VPN"
-APP_VER = "1.5.0"  # semantic version; bump on every release (build.ps1 reads it)
+APP_VER = "1.6.0"  # semantic version; bump on every release (build.ps1 reads it)
 WINDOW_TITLE = f"{APP_TITLE}  ·  v{APP_VER}"
 
 FROZEN = bool(getattr(sys, "frozen", False))
@@ -62,7 +62,9 @@ LEGACY_DATA_DIR = None if _ENV_DATA_DIR else os.path.join(PROGRAMDATA, "NomadTun
 CONFIG_DIR = os.path.join(DATA_DIR, "configs")         # holds private keys: local only, never synced
 # The only folder the signed-in user may write to. NOBAD only READS it (on Rescan, through the import checks) and
 # never writes, wipes or deletes there: an elevated write into a user-writable folder can be redirected by a link.
-INBOX_DIR = os.path.join(DATA_DIR, "import")
+# Deliberately NOT inside DATA_DIR: DATA_DIR is locked recursively (owner + ACL reset with /T) at every start, and a
+# user-writable folder inside it would let a racing junction steer that recursive change at any folder.
+INBOX_DIR = DATA_DIR.rstrip("\\/") + "-import"
 LEGACY_CONFIG_DIR = os.path.join(BASE_DIR, "configs")  # very old location (may be inside OneDrive)
 RUNTIME_DIR = os.path.join(DATA_DIR, "runtime")        # temp tuned copies (admin/SYSTEM only)
 LOG_DIR = os.path.join(DATA_DIR, "logs")

@@ -5,7 +5,7 @@ name: NOBAD VPN release
 # Free for public repositories.
 #   Release:  git tag vpn-v1.2.1 && git push origin vpn-v1.2.1
 #   Dry run:  Actions tab -> "NOBAD VPN release" -> Run workflow (builds and uploads an artifact, no release)
-#   Verify a download:  gh attestation verify NobadVPN-Setup-<version>.exe -R AryanGupta-234/Nobad
+#   Verify a download:  gh attestation verify NobadVPN-Setup-<version>.exe -R AryanGupta-234/Nobad --signer-workflow AryanGupta-234/Nobad/.github/workflows/vpn-release.yml --source-ref refs/tags/vpn-v<version> --deny-self-hosted-runners
 on:
   push:
     tags: ["vpn-v*"]
@@ -45,8 +45,10 @@ jobs:
 
       - name: Check the tag matches the app version and the changelog
         if: startsWith(github.ref, 'refs/tags/vpn-v')
+        env:
+          TAG: ${{ github.ref_name }}
         run: |
-          if ("vpn-v$env:APP_VER" -ne "${{ github.ref_name }}") { throw "Tag ${{ github.ref_name }} does not match APP_VER $env:APP_VER" }
+          if ("vpn-v$env:APP_VER" -ne $env:TAG) { throw "Tag $env:TAG does not match APP_VER $env:APP_VER" }
           $top = (Select-String -Path CHANGELOG.md -Pattern '^## (\d+\.\d+\.\d+)').Matches[0].Groups[1].Value
           if ($top -ne $env:APP_VER) { throw "CHANGELOG.md's newest entry is $top, not $env:APP_VER" }
 
@@ -97,10 +99,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           VER: ${{ needs.build.outputs.version }}
+          TAG: ${{ github.ref_name }}
         run: |
           notes=dist/release-notes.md
           files=$(ls dist/* | grep -v release-notes.md)
-          gh release create "${{ github.ref_name }}" $files -R "${{ github.repository }}" \
+          gh release create "$TAG" $files -R "${{ github.repository }}" \
             --title "NOBAD VPN $VER" --notes-file "$notes" --verify-tag
 
       - name: Site entry for releases/vpn/releases.json

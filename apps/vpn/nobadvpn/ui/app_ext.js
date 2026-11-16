@@ -803,6 +803,37 @@ function init() {
   a11yInit(); smoothTheme(); serversTools(); usageInit(); skeletonHooks(); patchProt(); buildSettings();
   window.addEventListener("resize", () => { drawUsage(); });
 }
+/* Quick start: the empty Servers tab links straight to the free-server steps, and while there are no servers NOBAD
+   checks the Downloads folder every few seconds (only then, and only while the window is visible) so a config the
+   user just downloaded can be added with one click, without reopening any guide. */
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-qs]"); if (!b) return;
+  const k = b.dataset.qs;
+  if (k === "guide") freeServers();
+  else if (k === "import") $("#file").click();
+  else api("open_url", { key: k }).then(r => toast(r.ok ? t("Opening in your browser…") : r.error, !!r.ok));
+});
+const QSW = { sig: "", busy: false };
+setInterval(() => {
+  if (document.hidden || QSW.busy || (S.regions && S.regions.length)) { if (S.regions && S.regions.length) clearBar("freefound"); return; }
+  QSW.busy = true;
+  api("free_scan", {}).then(r => {
+    QSW.busy = false;
+    const fresh = ((r && r.files) || []).filter(f => !f.already);
+    const sig = fresh.map(f => f.file).join("|");
+    if (!fresh.length) { clearBar("freefound"); QSW.sig = ""; return; }
+    if (sig === QSW.sig) return;
+    QSW.sig = sig;
+    const names = fresh.map(f => f.country || f.name).slice(0, 4).join(", ");
+    setBar("freefound", { kind: "good", title: t("Found {n} free server(s) in Downloads", { n: fresh.length }), detail: names,
+      actions: [{ label: t("Add now"), cls: "pri", fn: () => api("free_import", { files: fresh.map(f => f.file) }).then(x => {
+        clearBar("freefound");
+        if (x && x.imported && x.imported.length) toast(t("Added {n} server(s): {names}", { n: x.imported.length, names: x.imported.join(", ") }), true);
+        else toast((x && x.errors && x.errors[0]) || t("Couldn't add them"));
+      }) }], close: true });
+  }, () => { QSW.busy = false; });
+}, 6000);
+
 window.NX = { renderSettings() { updateSettings(); }, onState, handle, t, openEditor, importFiles, wizardOpen, netRepair, repairBusy: () => !!NETS.busy, modal, groups: GROUPS, panic };
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
 })();
