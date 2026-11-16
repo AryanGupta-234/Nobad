@@ -50,6 +50,24 @@ On Windows the window is frameless and the header is the title bar, exactly as i
 * Setting **NOBAD title bar** (`web_ui.custom_titlebar`, on by default) turns it off: the system title bar
   (dark caption) is used from the next start. Linux and macOS always use the system title bar.
 
+## Motion
+
+Ported from NOBAD VPN (`index.html`, `design.css`, `app_ext.css`, `app.js`), in `ui/motion.css` and `ui/motion.js`:
+
+| Effect | VPN original |
+|---|---|
+| Hover glow that follows the pointer on buttons (`--bx/--by`), spotlight on cards (`--mx/--my`) | `ptrFrame` + radial gradients |
+| Ripple from the press point | `.rip` / `@keyframes rip` |
+| Screens rise in, children staggered 40 ms | `nxTab`, `nxRise`, `nth-child` delays |
+| A lens that slides between the active rail item and between dock tabs | `#dockLens` / `lens()` |
+| Banners slide in, a row flashes when the palette jumps to it, running pulse | `nxBarIn`, `nxFlash`, `nb-pulse` |
+| Connected status pill: blinking dot and a shimmer | `.pill.on` `blink` + `shimmer` |
+| A light drifting along the dock's top edge | `#deck:before` `deckline` |
+| **Visual effects** setting (off by default): ambient glow and frosted header, dock and dialogs | `body.fx` + `drift1/2` |
+
+Rules: animate transform and opacity only; one pointer update per frame; nothing ambient unless Visual effects is
+on; every animation stops under `prefers-reduced-motion`. VPN's map, comet and connect-button effects stay VPN's.
+
 ## Page structure (`app_web/ui/`)
 
 | File | What |
@@ -61,6 +79,7 @@ On Windows the window is frameless and the header is the title bar, exactly as i
 | `core.js` | `NB.$`, `NB.esc`, `NB.api`, `NB.on/emit`, `NB.task`, `NB.toast`, `NB.modal`, theme, `NB.uiState` |
 | `shell.js` | screen list (`NB.SCREENS`), rail, routing (`#/screen`), dock, keyboard, start-up |
 | `palette.js` | Ctrl+K: screens, actions, settings |
+| `motion.css`, `motion.js` | hover glow, ripple, screen entrance, sliding lens, flash, status motion, Visual effects |
 | `titlebar.js` | NOBAD title bar: window buttons, drag, double-click, resize edges, fade |
 | `screens/*.js` | one file per screen: `NB.screens.<id> = {ready: true, render(el, screen, opts), leave?()}` |
 

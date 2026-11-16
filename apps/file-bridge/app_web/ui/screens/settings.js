@@ -149,6 +149,7 @@
           var target = $('[data-row="' + opts.field + '"]', el);
           if (target) {
             target.scrollIntoView({ block: "center" });
+            if (NB.flash) { NB.flash(target); }
             var c = $("input,select,[role=radio][tabindex='0']", target);
             if (c) { c.focus({ preventScroll: true }); }
           }

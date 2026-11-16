@@ -134,3 +134,8 @@ def test_title_bar_setting_is_on_by_default_and_only_accepts_booleans() -> None:
     for bad in ("yes", 1, None):
         with pytest.raises(SettingError):
             coerce(spec, bad)
+
+
+def test_visual_effects_are_off_by_default_like_nobad_vpn() -> None:
+    spec = FIELDS_BY_ID["web_ui.visual_effects"]
+    assert spec.default is False and spec.kind == "bool"

@@ -1,0 +1,110 @@
+/* Motion, ported from NOBAD VPN (index.html, design.css, app_ext.css, polish.css), with File Bridge's blue accent.
+   Transform and opacity only where things move; everything stops under prefers-reduced-motion (bottom). */
+
+/* ---------- buttons: pointer-following glow (VPN: radial 90px at --bx/--by) and press ripple (VPN: .rip) ---------- */
+button{position:relative;isolation:isolate}
+button:not(.pri):not(.sw):not(.rail-item):not(.dock-tab):hover:not(:disabled){
+  background:radial-gradient(90px circle at var(--bx,50%) var(--by,50%),color-mix(in srgb,var(--acc) 22%,transparent),transparent 72%),var(--surface-3);
+  border-color:color-mix(in srgb,var(--acc) 50%,var(--line));box-shadow:0 6px 18px -8px var(--acc);transform:translateY(-1px)}
+button.ghost:hover:not(:disabled){border-color:transparent;box-shadow:none;transform:none;
+  background:radial-gradient(70px circle at var(--bx,50%) var(--by,50%),color-mix(in srgb,var(--acc) 18%,transparent),transparent 72%),var(--glass-2)}
+.seg button:hover:not(:disabled),.winctl button:hover:not(:disabled){transform:none;box-shadow:none}
+.seg button:hover:not(:disabled){background:var(--glass-2)}
+.rip-wrap{position:absolute;inset:0;border-radius:inherit;overflow:hidden;pointer-events:none;z-index:-1}
+.rip{position:absolute;border-radius:50%;background:rgba(255,255,255,.28);transform:scale(0);animation:nbRip .6s ease-out forwards}
+:root[data-theme="light"] .rip{background:color-mix(in srgb,var(--acc) 22%,transparent)}
+button.pri .rip{background:rgba(255,255,255,.35)}
+@keyframes nbRip{to{transform:scale(1);opacity:0}}
+
+/* ---------- cards: soft spotlight under the pointer (VPN: .card:before at --mx/--my) ---------- */
+.card{position:relative}
+.card::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:0;transition:opacity .3s;
+  background:radial-gradient(220px circle at var(--mx,50%) var(--my,50%),color-mix(in srgb,var(--acc) 7%,transparent),transparent 65%)}
+.card:hover::before{opacity:1}
+.card{transition:box-shadow .35s var(--ease),transform .35s var(--ease)}
+.card:not(.flat):hover{box-shadow:var(--shadow-card),0 0 0 1px color-mix(in srgb,var(--acc) 10%,transparent)}
+.plan-list .card:hover,.set-group:hover{transform:translateY(-1px)}
+
+/* ---------- screens: rise in, children staggered 40 ms (VPN: nxTab + nxRise + nth-child delays) ---------- */
+.screen{animation:nbTab .34s var(--ease)}
+.screen>*{animation:nbRise .42s var(--ease) both}
+.screen>*:nth-child(2){animation-delay:.04s}
+.screen>*:nth-child(3){animation-delay:.08s}
+.screen>*:nth-child(4){animation-delay:.12s}
+.screen>*:nth-child(n+5){animation-delay:.16s}
+.plan-list>.card,.settings-groups>.card{animation:nbRise .42s var(--ease) both}
+.plan-list>.card:nth-child(2),.settings-groups>.card:nth-child(2){animation-delay:.06s}
+.plan-list>.card:nth-child(3),.settings-groups>.card:nth-child(3){animation-delay:.1s}
+.plan-list>.card:nth-child(n+4),.settings-groups>.card:nth-child(n+4){animation-delay:.14s}
+@keyframes nbTab{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes nbRise{from{opacity:0;transform:translateY(8px) scale(.995)}to{opacity:1;transform:none}}
+
+/* ---------- sliding lens behind the active rail item and dock tab (VPN: #dockLens) ---------- */
+nav.rail,.dock-bar{position:relative}
+.lens{position:absolute;left:0;top:0;z-index:0;pointer-events:none;opacity:0;
+  transition:transform .38s var(--ease),width .38s var(--ease),height .38s var(--ease),opacity .2s}
+.rail-lens{border-radius:12px;background:var(--acc-soft);border:1px solid var(--acc-line);
+  box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 10%,transparent),0 6px 16px -8px var(--acc)}
+.rail-lens::before{content:"";position:absolute;left:-11px;top:8px;bottom:8px;width:3px;border-radius:0 3px 3px 0;background:var(--acc)}
+.dock-lens{border-radius:999px;background:var(--glass-2);border:1px solid var(--line)}
+.rail-item,.dock-tab{z-index:1}
+/* the lens draws the active state; the items themselves stay transparent so it can slide */
+nav.rail .rail-item[aria-current=page]{background:transparent;border-color:transparent}
+nav.rail .rail-item[aria-current=page]::before{display:none}
+.dock-bar .dock-tab[aria-selected=true]{background:transparent}
+:root[data-theme="light"] .rail-lens{box-shadow:0 1px 2px rgba(16,24,40,.06)}
+
+/* ---------- banners slide in, settings flash, running pulse (VPN: nxBarIn, nxFlash, nb-pulse) ---------- */
+.banner{animation:nbBarIn .22s ease-out}
+@keyframes nbBarIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+.nb-flash{animation:nbFlash 1.6s ease-out}
+@keyframes nbFlash{0%,30%{background:color-mix(in srgb,var(--acc) 16%,transparent)}100%{background:transparent}}
+.set-row.nb-flash{border-radius:12px;margin:0 -10px;padding-left:10px;padding-right:10px}
+.dot.running{background:var(--acc);animation:nbPulse 1.1s ease-in-out infinite}
+@keyframes nbPulse{50%{opacity:.35}}
+
+/* ---------- live connection status (VPN: .pill.on blink + shimmer) ---------- */
+.status-pill{position:relative;overflow:hidden}
+.status-pill.on{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 35%,var(--line));background:var(--ok-soft)}
+.status-pill.on .dot{background:var(--ok);box-shadow:0 0 10px var(--ok);animation:nbBlink 2s ease-in-out infinite}
+.status-pill.on::after{content:"";position:absolute;inset:0;pointer-events:none;transform:translateX(-120%);
+  background:linear-gradient(100deg,transparent 30%,color-mix(in srgb,var(--ok) 25%,transparent) 50%,transparent 70%);
+  animation:nbShimmer 4.2s ease-in-out infinite}
+.status-pill.wait .dot{background:var(--busy);animation:nbPulse 1.1s ease-in-out infinite}
+@keyframes nbBlink{50%{box-shadow:0 0 2px var(--ok);opacity:.7}}
+@keyframes nbShimmer{0%,55%{transform:translateX(-130%)}100%{transform:translateX(130%)}}
+
+/* ---------- dock: a light that drifts along its top edge (VPN: #deck:before deckline) ---------- */
+section.dock{position:relative}
+section.dock::before{content:"";position:absolute;left:0;right:0;top:-1px;height:1px;pointer-events:none;opacity:.7;
+  background:linear-gradient(90deg,transparent,var(--acc),transparent);animation:nbDeckline 5s ease-in-out infinite alternate}
+@keyframes nbDeckline{from{transform:translateX(-32%)}to{transform:translateX(32%)}}
+
+/* ---------- Visual effects on (body.fx): ambient glow + frosted surfaces (VPN: body:before/after drift) ---------- */
+body.fx::before,body.fx::after{content:"";position:fixed;z-index:0;width:52vmax;height:52vmax;border-radius:50%;filter:blur(80px);
+  opacity:.14;pointer-events:none;will-change:transform}
+body.fx::before{left:-14vmax;top:-22vmax;background:var(--acc);animation:nbDrift1 24s ease-in-out infinite alternate}
+body.fx::after{right:-18vmax;bottom:-26vmax;background:var(--nobad);opacity:.07;animation:nbDrift2 30s ease-in-out infinite alternate}
+:root[data-theme="light"] body.fx::before{opacity:.10}
+:root[data-theme="light"] body.fx::after{opacity:.05}
+body.fx #app{position:relative;z-index:1;background:transparent}
+body.fx header.top,body.fx section.dock{-webkit-backdrop-filter:blur(18px) saturate(1.2);backdrop-filter:blur(18px) saturate(1.2)}
+body.fx header.top{background:color-mix(in srgb,var(--surface) 70%,transparent)}
+body.fx .modal{background:color-mix(in srgb,var(--surface) 84%,transparent) padding-box,var(--hair) border-box;
+  -webkit-backdrop-filter:blur(22px);backdrop-filter:blur(22px)}
+:root[data-theme="light"] body.fx .modal{background:rgba(255,255,255,.86) padding-box,var(--hair) border-box}
+@keyframes nbDrift1{to{transform:translate(14vmax,10vmax) scale(1.15)}}
+@keyframes nbDrift2{to{transform:translate(-12vmax,-8vmax) scale(1.2)}}
+/* without visual effects: no ambient animation at all (VPN keeps the light default) */
+body:not(.fx) section.dock::before{animation:none;opacity:.35}
+body:not(.fx) .status-pill.on::after{display:none}
+
+/* ---------- reduced motion: everything stops, layout stays ---------- */
+@media (prefers-reduced-motion:reduce){
+  .screen,.screen>*,.plan-list>.card,.settings-groups>.card,.banner,.nb-flash,.rip,
+  .status-pill.on .dot,.status-pill.on::after,.status-pill.wait .dot,.dot.running,
+  section.dock::before,body.fx::before,body.fx::after{animation:none!important}
+  .lens,.card,button{transition:none!important}
+  button:hover:not(:disabled){transform:none!important}
+}
+@media (forced-colors:active){.lens{border:1px solid Highlight}.card::before,.rip-wrap{display:none}}

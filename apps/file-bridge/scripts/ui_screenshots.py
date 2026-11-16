@@ -3,7 +3,7 @@
 Runs the real web UI server on a temporary database (your real data is never touched), then captures each screen
 in dark and light at the normal and the minimum window size.
 
-    python -I scripts/ui_screenshots.py <output folder> [screen ...]
+    python -I scripts/ui_screenshots.py <output folder> [screen ...] [--fx]   (--fx: Visual effects on)
 """
 from __future__ import annotations
 
@@ -52,7 +52,7 @@ def main(argv: list[str]) -> int:
         return 2
     out = Path(argv[0]).resolve()
     out.mkdir(parents=True, exist_ok=True)
-    screens = argv[1:] or DEFAULT_SCREENS
+    screens = [a for a in argv[1:] if not a.startswith("--")] or DEFAULT_SCREENS
     browser = find_browser()
     work = Path(tempfile.mkdtemp(prefix="nbfb-shots-"))
     ctx = AppContext.create(work / "app.sqlite3")
@@ -62,11 +62,13 @@ def main(argv: list[str]) -> int:
     bus.log("NOBAD File Bridge 0.4.0 started.", "ok")
     bus.log("Preview data: a temporary database, nothing real.", "info")
     try:
+        fx = "--fx" in argv
+        ctx.settings.set("web_ui.visual_effects", fx)
         for theme in ("dark", "light"):
             ctx.settings.set("web_ui.theme", theme)
             for screen in screens:
                 for size_name, (width, height) in SIZES.items():
-                    target = out / f"{screen}-{theme}-{size_name}.png"
+                    target = out / f"{screen}-{theme}-{size_name}{'-fx' if fx else ''}.png"
                     profile = work / f"profile-{theme}-{screen}-{size_name}"
                     subprocess.run(
                         [browser, "--headless=new", "--disable-gpu", "--hide-scrollbars", "--no-first-run",

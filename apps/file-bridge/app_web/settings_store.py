@@ -53,6 +53,11 @@ FIELDS: tuple[SettingField, ...] = (
         keywords=("window", "title bar", "frame", "buttons"),
     ),
     SettingField(
+        "web_ui.visual_effects", "web_ui", ("visual_effects",), "bool", False, "appearance", "Visual effects",
+        "A soft moving glow behind the window and frosted glass. Off keeps File Bridge light on CPU, GPU and battery.",
+        keywords=("animation", "blur", "glass", "performance", "battery"),
+    ),
+    SettingField(
         "transfer.max_concurrent", "transfer.max_concurrent", (), "int", 3, "transfers", "Transfers at the same time",
         "How many files upload or download at once. More can be faster on good connections.",
         minimum=1, maximum=16, keywords=("parallel", "concurrency", "speed"),
