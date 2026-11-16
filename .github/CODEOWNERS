@@ -1,8 +1,8 @@
 # Every change needs a review from a code owner (see the "Protect main" ruleset).
 * @AryanGupta-234
 
-# NOBAD Files: its author can review changes to it; the maintainer still approves releases and CI changes.
-/apps/files/ @harshRaj1601 @AryanGupta-234
+# NOBAD File Bridge: its author can review changes to it; the maintainer still approves releases and CI changes.
+/apps/file-bridge/ @harshRaj1601 @AryanGupta-234
 
 # Workflows, repository rules and the AI instructions stay with the maintainer.
 /.github/ @AryanGupta-234

@@ -10,12 +10,12 @@ Each product has its own folder and its own test suite. Run the tests from that 
 | Product | Folder | Tests |
 |---|---|---|
 | NOBAD VPN | [`apps/vpn/`](apps/vpn/) | `python -m pytest -q` |
-| NOBAD Files | [`apps/files/`](apps/files/) | `python -m pytest -q tests` |
+| NOBAD File Bridge | [`apps/file-bridge/`](apps/file-bridge/) | `python -m pytest -q tests` |
 
-Changes to `apps/files/` are reviewed by its code owner (@harshRaj1601) and the maintainer.
+Changes to `apps/file-bridge/` are reviewed by its code owner (@harshRaj1601) and the maintainer.
 
-AI coding assistants: read [AGENTS.md](AGENTS.md) first (and [apps/files/AGENTS.md](apps/files/AGENTS.md) for
-NOBAD Files).
+AI coding assistants: read [AGENTS.md](AGENTS.md) first (and [apps/file-bridge/AGENTS.md](apps/file-bridge/AGENTS.md) for
+NOBAD File Bridge).
 
 ## Ways to help
 
@@ -39,9 +39,9 @@ python nobad_vpn.py                                              # run from sour
 powershell -ExecutionPolicy Bypass -File packaging\build.ps1     # full installer (tests, app, WireGuard, Inno)
 ```
 
-## Building NOBAD Files
+## Building NOBAD File Bridge
 
-Requirements: Python 3.12. From `apps/files`:
+Requirements: Python 3.12. From `apps/file-bridge`:
 
 ```bash
 pip install -e ".[dev]"
@@ -49,7 +49,7 @@ python -m pytest -q tests        # Qt offscreen: QT_QPA_PLATFORM=offscreen
 python -m app.main               # run from source
 ```
 
-See [apps/files/README.md](apps/files/README.md) for details.
+See [apps/file-bridge/README.md](apps/file-bridge/README.md) for details.
 
 ## Website
 

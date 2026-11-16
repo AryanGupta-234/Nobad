@@ -10,8 +10,8 @@ only point here. Keep this file short; details live in the files it links.
 ## Layout
 - `apps/vpn/`: NOBAD VPN for Windows (Python 3.11, runs **elevated**). Backend `nobadvpn/`, web UI
   `nobadvpn/ui/*.js|css` shown in pywebview, tests `apps/vpn/tests/`, docs `apps/vpn/docs/`.
-- `apps/files/`: NOBAD Files, a remote file manager (Python 3.12 + PySide6), code owner @harshRaj1601. It has its own
-  [`apps/files/AGENTS.md`](apps/files/AGENTS.md) with the fixes it owes before its first release.
+- `apps/file-bridge/`: NOBAD File Bridge, a remote file manager (Python 3.12 + PySide6), code owner @harshRaj1601. It has its own
+  [`apps/file-bridge/AGENTS.md`](apps/file-bridge/AGENTS.md) with the fixes it owes before its first release.
 - `site-pages/` + `releases/vpn/releases.json` → `npm run build` → `public/` (generated, untracked). Hosted on a
   Cloudflare worker (`wrangler.jsonc`), deployed from `main`.
 - `apps/Sentinal/`: separate, uncommitted work. Don't touch or commit it.

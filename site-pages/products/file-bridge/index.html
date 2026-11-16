@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en" class="js">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#ff4d00">
+<meta name="description" content="NOBAD File Bridge: a desktop file manager for remote servers, for Linux and Windows. SSH/SFTP and FTP/FTPS, a dual local/remote pane, queued transfers, two-way sync, remote editing and an encrypted credential vault. In development. NOBAD: Software with a point of view.">
+<meta property="og:title" content="NOBAD File Bridge · NOBAD — Software with a point of view.">
+<meta property="og:description" content="NOBAD File Bridge: a desktop file manager for remote servers, for Linux and Windows. SSH/SFTP and FTP/FTPS, a dual local/remote pane, queued transfers, two-way sync, remote editing and an encrypted credential vault. In development. NOBAD: Software with a point of view.">
+<meta property="og:type" content="product">
+<meta property="og:url" content="https://nobad-platform.aassworld99.workers.dev/products/file-bridge/">
+<meta property="og:image" content="https://nobad-platform.aassworld99.workers.dev/assets/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="canonical" href="https://nobad-platform.aassworld99.workers.dev/products/file-bridge/">
+<link rel="icon" href="/favicon.ico" sizes="any"><link rel="icon" type="image/png" href="/assets/favicon-32.png">
+<title>NOBAD File Bridge · NOBAD — Software with a point of view.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--o:#ff4d00;--k:#000;--w:#fff;--m:rgba(255,255,255,.66);--line:rgba(255,255,255,.22);--mono:"Space Mono",monospace;--display:"Archivo Black",Impact,sans-serif;--body:Inter,Arial,sans-serif;--g:clamp(20px,4vw,64px);--max:1440px}
+*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:100px}body{margin:0;background:var(--k);color:var(--w);font-family:var(--body);overflow-x:hidden}a{color:inherit;text-decoration:none}button{font:inherit}::selection{background:var(--o);color:var(--k)}:focus-visible{outline:3px solid var(--o);outline-offset:4px}.mono,.eyebrow,.meta{font-family:var(--mono);letter-spacing:-.02em;text-transform:uppercase}.display{font-family:var(--display);font-weight:400;text-transform:uppercase;letter-spacing:-.055em;line-height:.86}.wrap{width:min(100%,var(--max));margin:auto;padding-inline:var(--g)}.pad{padding-block:clamp(76px,10vw,150px)}
+.nav{position:fixed;z-index:10;top:16px;left:0;right:0;padding-inline:var(--g);display:grid;grid-template-columns:1fr auto 1fr;align-items:center;color:var(--k);pointer-events:none}.brand,.pill,.back{pointer-events:auto}.brand{font:700 16px var(--mono);color:var(--k);background:var(--o);padding:10px 14px}.pill{display:flex;gap:4px;padding:6px;background:var(--o);color:var(--k);border-radius:99px;box-shadow:0 8px 24px #0005}.pill a{padding:10px 15px;border-radius:99px;font:11px var(--mono);text-transform:uppercase}.pill a:hover{background:var(--k);color:var(--o)}.back{justify-self:end;color:var(--k);background:var(--o);padding:10px 14px;font:11px var(--mono);text-transform:uppercase}
+.hero{min-height:90svh;padding:150px var(--g) 40px;background:var(--o);color:var(--k);display:flex;flex-direction:column;justify-content:space-between;position:relative}.top{display:flex;justify-content:space-between;gap:20px;font:700 11px var(--mono);text-transform:uppercase}.hero h1{font-size:clamp(76px,15vw,220px);margin:9vh 0 5vh;white-space:nowrap}.hero h1 span{display:block}.hero-bottom{display:grid;grid-template-columns:1fr 1fr;gap:30px;border-top:2px solid var(--k);padding-top:20px;font:700 11px/1.7 var(--mono);text-transform:uppercase}.hero-bottom p{margin:0}.hero-bottom p:last-child{text-align:right}.ticker{overflow:hidden;background:var(--o);color:var(--k);border-block:2px solid var(--k);padding:13px 0}.ticker-track{display:flex;width:max-content;animation:marquee 26s linear infinite}.ticker span{font:clamp(32px,5vw,72px)/.95 var(--display);padding-right:32px;white-space:nowrap}@keyframes marquee{to{transform:translateX(-50%)}}
+.section-head{display:flex;justify-content:space-between;align-items:end;gap:25px;margin:25px 0 55px}.section-head h2{font-size:clamp(46px,8vw,110px);margin:0}.section-head p{max-width:330px;color:var(--m);font:11px/1.7 var(--mono);text-transform:uppercase}.eyebrow{font-size:11px;color:var(--o)}.feature-grid{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line);border-left:1px solid var(--line)}.feature{min-height:220px;padding:25px;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}.feature b{display:block;color:var(--o);font:700 12px var(--mono);margin-bottom:45px}.feature h3{font:clamp(22px,3vw,36px)/.95 var(--display);text-transform:uppercase;margin:0 0 15px}.feature p{color:var(--m);font-size:14px;line-height:1.65;margin:0}.notice{background:var(--o);color:var(--k);padding:clamp(24px,4vw,48px);display:grid;grid-template-columns:1fr auto;gap:20px;align-items:center}.notice h2{font:clamp(32px,5vw,64px)/.9 var(--display);text-transform:uppercase;margin:0}.notice p{font:11px/1.7 var(--mono);max-width:600px}.status{border:2px solid var(--k);padding:14px 18px;font:700 11px var(--mono);text-transform:uppercase;white-space:nowrap}
+.release{border-top:2px solid var(--w);border-bottom:2px solid var(--w);padding:24px 0;display:grid;grid-template-columns:1fr auto;gap:20px;align-items:center}.release h3{font:clamp(24px,4vw,42px) var(--display);text-transform:uppercase;margin:0 0 8px}.release p{color:var(--m);font:11px/1.7 var(--mono);margin:0}.release-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}.btn{display:inline-flex;align-items:center;justify-content:center;border:2px solid var(--o);background:var(--o);color:var(--k);padding:14px 18px;border-radius:99px;font:700 11px var(--mono);text-transform:uppercase;transition:transform .2s,background .2s,color .2s}.btn:hover{transform:scale(1.05);background:var(--w);border-color:var(--w)}.btn.secondary{background:transparent;color:var(--o)}.btn.secondary:hover{color:var(--k)}.release-list{margin-top:24px}.release-item{display:grid;grid-template-columns:130px 1fr auto;gap:20px;padding:18px 0;border-bottom:1px solid var(--line);font:11px var(--mono)}.release-item .version{color:var(--o)}.muted{color:var(--m)}.spec-list{border-top:1px solid var(--line)}.spec{display:grid;grid-template-columns:220px 1fr;gap:25px;padding:18px 0;border-bottom:1px solid var(--line)}.spec dt{font:11px var(--mono);color:var(--o);text-transform:uppercase}.spec dd{margin:0;color:var(--m);font-size:14px;line-height:1.6}.integrity{background:#101010;border:1px solid var(--line);padding:22px;margin-top:25px}.integrity h3{font:20px var(--display);text-transform:uppercase;margin:0 0 10px}.integrity p{font:12px/1.7 var(--mono);color:var(--m);margin:0}.footer{border-top:2px solid var(--w);padding:24px var(--g);display:flex;justify-content:space-between;gap:20px;font:10px var(--mono);text-transform:uppercase;color:var(--m)}
+@media(max-width:760px){.nav{grid-template-columns:1fr auto}.pill{display:none}.hero{min-height:760px}.hero h1{font-size:clamp(70px,17vw,130px);white-space:normal}.hero-bottom{grid-template-columns:1fr}.hero-bottom p:last-child{text-align:left}.section-head{display:block}.section-head p{margin-top:22px}.feature-grid{grid-template-columns:1fr}.feature{min-height:170px}.feature b{margin-bottom:28px}.notice{grid-template-columns:1fr}.status{justify-self:start}.release{grid-template-columns:1fr}.release-actions{justify-content:flex-start}.release-item{grid-template-columns:90px 1fr}.release-item span:last-child{grid-column:2}.spec{grid-template-columns:1fr;gap:8px}.footer{display:block}.footer span{display:block;margin:8px 0}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+
+/* ---- launch chip, features, intel showcase, fail-safe steps, how it's built ---- */
+.hero h1 span span{display:inline}  /* the white full stop belongs on the VPN line */
+.launch{display:inline-flex;align-items:center;gap:10px;align-self:flex-start;margin-top:22px;border:2px solid var(--k);border-radius:99px;padding:8px 14px;font:700 11px var(--mono);text-transform:uppercase}
+.launch i{width:9px;height:9px;border-radius:50%;background:var(--k);animation:blink 1.6s ease-in-out infinite}@keyframes blink{50%{opacity:.25}}
+.feature{position:relative;overflow:hidden;isolation:isolate;transition:color .35s}
+.feature::before{content:"";position:absolute;inset:0;background:var(--o);transform:translateY(101%);transition:transform .45s cubic-bezier(.2,.7,.2,1);z-index:-1}
+.feature:hover::before{transform:none}.feature:hover{color:var(--k)}.feature:hover b,.feature:hover p{color:var(--k)}
+.feature .tag{display:inline-block;margin-top:18px;font:700 10px var(--mono);text-transform:uppercase;border:1px solid currentColor;border-radius:99px;padding:4px 9px;opacity:.7}
+.intel{display:grid;grid-template-columns:1fr 1.15fr;gap:clamp(24px,4vw,60px);align-items:start}
+.intel ul{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+.intel li{padding:14px 0;border-bottom:1px solid var(--line);color:var(--m);font-size:14px;line-height:1.6}.intel li b{color:var(--w);font-weight:600}
+.console{background:#0b0b0b;border:1px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:0 30px 80px #0008}
+.console-top{display:flex;gap:7px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);font:10px var(--mono);color:var(--m);text-transform:uppercase}
+.console-top i{width:10px;height:10px;border-radius:50%;background:#333}.console-top i:first-child{background:var(--o)}.console-top span{margin-left:auto}
+.console-body{padding:18px 20px 22px;font:12px/1.75 var(--mono);min-height:330px;overflow-wrap:anywhere}
+.console-body .ln{opacity:0;transform:translateY(6px);transition:opacity .35s,transform .35s}.console-body .ln.on{opacity:1;transform:none}
+.c-dim{color:var(--m)}.c-o{color:var(--o)}.c-g{color:#3bd69b}.c-r{color:#ff5268}
+.verdict{margin-top:14px;border:1px solid var(--o);border-radius:12px;padding:12px 14px}.verdict b{display:block;font:14px var(--display);text-transform:uppercase;color:var(--w);margin-bottom:4px}
+.meter{height:6px;background:#222;border-radius:9px;margin:10px 0 6px;overflow:hidden}.meter i{display:block;height:100%;width:0;background:var(--o);transition:width 1.2s cubic-bezier(.2,.7,.2,1)}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);border-top:2px solid var(--k)}
+.step{padding:26px 24px 30px;border-right:2px solid var(--k)}.step:last-child{border-right:0}
+.step b{font:700 11px var(--mono);text-transform:uppercase}.step h3{font:clamp(26px,3.4vw,44px)/.9 var(--display);text-transform:uppercase;margin:26px 0 14px}.step p{margin:0;font-size:14px;line-height:1.6;color:rgba(0,0,0,.75)}
+.where{display:flex;flex-wrap:wrap;gap:10px;margin-top:34px}.where span{border:2px solid var(--k);border-radius:99px;padding:9px 14px;font:700 11px var(--mono);text-transform:uppercase}
+.built{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line);border-left:1px solid var(--line)}
+.built article{padding:25px;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+.built b{display:block;color:var(--o);font:700 12px var(--mono);margin-bottom:30px}.built h3{font:clamp(22px,2.6vw,32px)/.95 var(--display);text-transform:uppercase;margin:0 0 12px}.built p{color:var(--m);font-size:14px;line-height:1.65;margin:0}
+.ai-mark{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:99px;padding:3px 9px;font:700 9px var(--mono);letter-spacing:.08em;background:linear-gradient(90deg,rgba(255,255,255,.06),rgba(255,77,0,.22))}
+.js .rv{opacity:0;transform:translateY(22px);transition:opacity .7s cubic-bezier(.2,.7,.2,1),transform .7s cubic-bezier(.2,.7,.2,1)}.js .rv.in{opacity:1;transform:none}
+@media(max-width:760px){.intel,.built{grid-template-columns:1fr}.steps{grid-template-columns:1fr}.step{border-right:0;border-bottom:2px solid var(--k)}.step:last-child{border-bottom:0}.console-body{min-height:0}}
+@media(prefers-reduced-motion:reduce){.js .rv{opacity:1;transform:none}.console-body .ln{opacity:1;transform:none}.feature::before{transition:none}.launch i{animation:none}}
+
+/* VPN header follows the main NOBAD floating navigation system. */
+.nav {
+  top: 18px;
+  color: var(--w);
+}
+.nav .brand {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  width: fit-content;
+  max-width: 100%;
+  /* the company logo in a black pill, the same as on the home page */
+  padding: 10px 16px;
+  background: var(--k);
+  color: var(--w);
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.18);
+  transition: transform .2s;
+}
+.nav .brand:hover { transform: translateY(-1px); }
+.nav .brand-logo {
+  display: block;
+  flex: 0 0 104px;
+  width: 104px;
+  height: auto;
+  max-height: 43px;
+  object-fit: contain;
+}
+
+/* Curved black centre capsule, matching the homepage nav-pill. */
+.pill {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px;
+  background: var(--k);
+  color: var(--w);
+  border: 1px solid rgba(255,255,255,.24);
+  border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.18);
+}
+.pill a {
+  border-radius: 999px;
+  padding: 11px 17px;
+  color: var(--w);
+  background: transparent;
+  font: 400 11px var(--mono);
+  text-transform: uppercase;
+  transition: background .2s, color .2s, transform .2s;
+}
+.pill a:hover,
+.pill a[aria-current="location"] {
+  color: var(--k);
+  background: var(--w);
+  transform: translateY(-1px);
+}
+
+/* Keep the VPN-specific Main Site action as a rounded outline control. */
+.back {
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 15px;
+  color: var(--w);
+  background: transparent;
+  border: 1px solid rgba(255,255,255,.65);
+  border-radius: 999px;
+  font: 400 11px var(--mono);
+  text-transform: uppercase;
+  transition: background .2s, color .2s, border-color .2s;
+}
+.back:hover {
+  color: var(--k);
+  background: var(--w);
+  border-color: var(--w);
+}
+
+/* Verify instructions */
+.verify{margin-top:22px;padding-top:18px;border-top:1px solid rgba(255,255,255,.18)}
+.verify h3{margin:18px 0 6px}.verify p{margin:6px 0}
+.verify pre{margin:8px 0;padding:12px 14px;background:#000;border:1px solid rgba(255,255,255,.2);overflow-x:auto}
+.verify code{font-family:var(--mono,ui-monospace,monospace);font-size:.92em;overflow-wrap:anywhere}
+.verify a,.spec a{color:var(--o);text-decoration:underline}
+#integrityText{overflow-wrap:anywhere}
+/* Phones: the section menu becomes a floating bar at the bottom */
+@media(max-width:760px){.pill{display:flex;position:fixed;left:50%;bottom:14px;transform:translateX(-50%);max-width:calc(100vw - 24px);overflow-x:auto;pointer-events:auto;scrollbar-width:none}.pill a{padding:10px 12px;white-space:nowrap}}
+.shot{margin:0 0 70px}.shot img{display:block;width:100%;height:auto;border-radius:14px;border:1px solid var(--line);background:#0b0c10;box-shadow:0 30px 80px rgba(0,0,0,.45)}.shot-pair{display:grid;grid-template-columns:1fr 1fr;gap:18px}.shot-mini .shot-pair{max-width:760px}.shot figcaption{max-width:860px;margin-top:22px;color:var(--m);font-size:15px;line-height:1.7}.shot figcaption b{color:var(--w)}.shot-list{margin:12px 0 0;padding-left:20px}.shot-list li{margin:6px 0}.shot-note{display:block;margin-top:14px;font:11px/1.7 var(--mono);text-transform:uppercase;color:var(--m)}@media(max-width:760px){.shot-pair{grid-template-columns:1fr}}
+
+/* ==== futuristic pass: hero radar, platforms, plain words, how to start ==== */
+.hero{overflow:hidden}
+.hero>*{position:relative;z-index:1}
+.hero-art{position:absolute!important;z-index:0!important;right:calc(var(--g) - 20px);top:52%;width:min(40vw,540px);transform:translateY(-50%);color:var(--k);pointer-events:none}
+.hero-art svg{width:100%;height:auto;overflow:visible}
+.hero-art .sweep{transform-origin:0 0;animation:sweep 5s linear infinite}
+@keyframes sweep{to{transform:rotate(360deg)}}
+.hero-art .ring{stroke:rgba(0,0,0,.28)}
+.hero-art .blip{animation:blip 5s linear infinite;opacity:0}
+@keyframes blip{0%,8%{opacity:0}12%{opacity:1}60%{opacity:.15}100%{opacity:0}}
+.hero-art .shield-glow{filter:drop-shadow(0 0 18px rgba(255,255,255,.6))}
+.platform-strip{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:16px}
+.platform-strip>b{font:700 11px var(--mono);text-transform:uppercase;margin-right:4px}
+.pchip{display:inline-flex;align-items:center;gap:7px;padding:7px 12px;border-radius:99px;font:700 10px var(--mono);text-transform:uppercase;border:2px solid var(--k)}
+.pchip svg{width:14px;height:14px}
+.pchip.on{background:var(--k);color:var(--o)}
+.pchip.off{border-style:dashed;opacity:.62}
+.plain-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-top:clamp(40px,5vw,70px)}
+.start{position:relative;overflow:hidden;isolation:isolate;padding:26px;border-radius:22px;background:#111;border:1px solid var(--line)}
+.start::before{content:"";position:absolute;z-index:-1;width:220px;height:220px;right:-70px;top:-80px;border-radius:50%;background:radial-gradient(circle,rgba(255,77,0,.45),transparent 65%)}
+.start .n{display:grid;place-items:center;width:44px;height:44px;border-radius:50%;background:var(--o);color:var(--k);font:400 20px var(--display);margin-bottom:28px;box-shadow:0 0 0 6px rgba(255,77,0,.15),0 0 24px rgba(255,77,0,.6)}
+.start h3{font:clamp(22px,2.4vw,30px)/.95 var(--display);text-transform:uppercase;margin:0 0 10px}
+.start p{margin:0;color:var(--m);font-size:15px;line-height:1.6}
+.start a{color:var(--o);text-decoration:underline}
+.flow{display:grid;grid-template-columns:auto minmax(0,1.4fr) auto minmax(0,1fr) auto;align-items:center}
+.node{position:relative;width:clamp(150px,15vw,200px);padding:22px 18px;border-radius:24px;background:#111;border:1px solid var(--line);text-align:center;box-shadow:0 24px 50px rgba(0,0,0,.5)}
+.node svg{width:54px;height:54px;color:var(--o);margin-bottom:12px}
+.node strong{display:block;font:20px/1 var(--display);text-transform:uppercase;letter-spacing:-.03em}
+.node small{display:block;margin-top:7px;color:var(--m);font:10px/1.4 var(--mono);text-transform:uppercase}
+.node.you{border-color:var(--o)}
+.node.you::after{content:"";position:absolute;inset:-8px;border-radius:30px;border:2px solid var(--o);animation:node-ring 2.4s ease-out infinite}
+@keyframes node-ring{from{transform:scale(.96);opacity:.7}to{transform:scale(1.12);opacity:0}}
+.link{position:relative;padding:0 12px;text-align:center}
+.link-label,.link-note{display:block;font:700 10px/1.45 var(--mono);text-transform:uppercase;color:var(--m)}
+.link-label{margin-bottom:12px;color:var(--w)}.link-note{margin-top:12px}
+.pipe{position:relative;display:block;height:18px;border-radius:99px;background:#1b1b1b;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(255,77,0,.6),0 0 30px rgba(255,77,0,.25)}
+.pipe::before{content:"";position:absolute;inset:6px 10px;border-radius:99px;background:repeating-linear-gradient(90deg,rgba(255,77,0,.55) 0 8px,transparent 8px 18px);animation:pipe-run 1s linear infinite}
+@keyframes pipe-run{to{background-position:18px 0}}
+.pipe i{position:absolute;top:3px;left:0;width:12px;height:12px;border-radius:50%;background:var(--o);box-shadow:0 0 14px 4px rgba(255,77,0,.9);animation:packet 2.4s linear infinite}
+.pipe i:nth-child(2){animation-delay:-.8s}.pipe i:nth-child(3){animation-delay:-1.6s}
+@keyframes packet{from{left:-12px}to{left:100%}}
+.link.open .pipe{background:transparent;box-shadow:none}
+.link.open .pipe::before{inset:7px 0;background:repeating-linear-gradient(90deg,rgba(255,255,255,.5) 0 10px,transparent 10px 20px)}
+.link.open .pipe i{background:var(--w);box-shadow:none;width:10px;height:10px;top:4px}
+.scramble{display:inline-block;margin-top:6px;padding:3px 8px;border-radius:6px;background:var(--o);color:var(--k);letter-spacing:.1em}
+@media(max-width:1000px){.hero-art{opacity:.35;right:-60px;width:min(70vw,460px)}}
+@media(max-width:900px){
+.plain-grid{grid-template-columns:1fr}
+.flow{grid-template-columns:1fr;justify-items:center}.node{width:min(100%,300px)}.link{width:100%;max-width:340px;padding:16px 0}
+.pipe{width:18px;height:90px;margin:0 auto}.pipe::before{inset:10px 6px;background:repeating-linear-gradient(180deg,rgba(255,77,0,.55) 0 8px,transparent 8px 18px)}
+.link.open .pipe{width:18px;height:90px}.link.open .pipe::before{inset:0 7px;background:repeating-linear-gradient(180deg,rgba(255,255,255,.5) 0 10px,transparent 10px 20px)}
+.pipe i{left:3px;top:0;animation-name:packet-v}.link.open .pipe i{left:4px}
+@keyframes packet-v{from{top:-12px}to{top:100%}}}
+@media(max-width:620px){.hero-art{display:none}}
+@media(prefers-reduced-motion:reduce){.hero-art .sweep,.hero-art .blip,.node.you::after,.pipe::before,.pipe i{animation:none!important}.hero-art .blip{opacity:.8}.pipe i{display:none}}
+
+/* ==== glass everywhere, matching the home page ==== */
+:root{--glass-dark:linear-gradient(150deg,rgba(28,28,28,.58),rgba(8,8,8,.46));--glass-light:linear-gradient(150deg,rgba(255,255,255,.3),rgba(255,255,255,.08));--glass-edge:rgba(255,255,255,.16);--glass-blur:blur(14px) saturate(1.5);--glass-shine:inset 0 1px 0 rgba(255,255,255,.14),inset 0 -1px 0 rgba(0,0,0,.2)}
+.nav .brand,.pill,.back{background:var(--glass-dark);border:1px solid var(--glass-edge);-webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);box-shadow:var(--glass-shine),0 10px 30px rgba(0,0,0,.2)}
+.pill a:hover,.pill a[aria-current="location"]{background:rgba(255,255,255,.92)}
+.back:hover{background:rgba(255,255,255,.92);border-color:transparent}
+.nav.scrolled .brand,.nav.scrolled .pill,.nav.scrolled .back{background:linear-gradient(150deg,rgba(20,20,20,.74),rgba(6,6,6,.64))}
+.launch,.pchip{background:var(--glass-light);border:1px solid rgba(255,255,255,.5);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.pchip.on{background:linear-gradient(150deg,rgba(20,20,20,.9),rgba(0,0,0,.8));border-color:rgba(0,0,0,.9)}
+.pchip.off{border:1px dashed rgba(0,0,0,.55)}
+/* black sections get soft light behind them so the glass reads */
+#features,#specs{background:radial-gradient(40% 40% at 95% 5%,rgba(255,77,0,.16),transparent 70%),radial-gradient(35% 35% at 0% 100%,rgba(255,77,0,.1),transparent 70%)}
+#inside,#plain{background:radial-gradient(45% 40% at 100% 20%,rgba(255,77,0,.14),transparent 70%)}
+.feature-grid,.built{border:0;gap:12px}
+.feature,.built article{border:1px solid var(--glass-edge);border-radius:20px;background:var(--glass-dark);-webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);box-shadow:var(--glass-shine)}
+.feature::before{border-radius:inherit}
+.start,.node,.console,.integrity,.shot img{background:var(--glass-dark);border:1px solid var(--glass-edge);-webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);box-shadow:var(--glass-shine),0 30px 60px -24px rgba(0,0,0,.6)}
+.integrity{border-radius:20px}
+.notice{border-radius:22px;background:linear-gradient(150deg,rgba(255,128,70,.95),rgba(255,77,0,.9));border:1px solid rgba(255,255,255,.4);box-shadow:inset 0 1px 0 rgba(255,255,255,.45)}
+.status{border-radius:999px;background:rgba(255,255,255,.16);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.release{border-radius:20px;border:1px solid var(--glass-edge);padding:24px;background:var(--glass-dark);-webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur)}
+.btn.secondary{background:rgba(255,255,255,.04);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.steps{border-top:0;gap:12px}
+.step{border:1px solid rgba(255,255,255,.5);border-radius:20px;background:var(--glass-light);-webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);box-shadow:inset 0 1px 0 rgba(255,255,255,.5)}
+.step:last-child{border-right:1px solid rgba(255,255,255,.5)}
+.where span{background:var(--glass-light);border:1px solid rgba(255,255,255,.55);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.spec-list{border-radius:20px;border:1px solid var(--glass-edge);padding:4px 22px;background:var(--glass-dark);-webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur)}
+.spec:last-child{border-bottom:0}
+.footer{background:radial-gradient(50% 140% at 100% 0%,rgba(255,77,0,.14),transparent 70%)}
+@media(max-width:760px){.step{border-bottom:1px solid rgba(255,255,255,.5)}.spec-list{padding:4px 16px}}
+
+/* ==== shared scale (matches the home page and /assets/site.css) ==== */
+.pad{padding-block:var(--nb-pad)}
+.hero{min-height:680px;padding-top:140px}
+.hero h1{margin:6vh 0 3vh}
+.section-head{margin:24px 0 36px}
+.section-head h2{font-size:var(--nb-h2)}
+.section-head p{font-size:11px}
+.eyebrow{display:flex;align-items:center;gap:14px;font-weight:700}
+.eyebrow::before{content:"";width:34px;height:2px;background:currentColor;flex:none}
+.feature{min-height:0}.feature b{margin-bottom:28px}.feature h3{font-size:clamp(20px,2.2vw,28px)}
+.built h3{font-size:clamp(20px,2.2vw,28px)}
+.step h3{font-size:clamp(22px,2.6vw,34px);margin:18px 0 10px}
+.notice h2{font-size:clamp(28px,3.6vw,48px)}
+.release h3{font-size:clamp(22px,2.8vw,34px)}
+.start h3{font-size:clamp(20px,2.2vw,28px)}
+.node strong{font-size:17px}
+.ticker span{font-size:clamp(28px,4vw,56px)}
+.jump{margin-top:14px}
+.btn{padding:14px 22px;font-size:12px;letter-spacing:.06em}
+@media(max-width:760px){.hero h1{white-space:normal}}
+/* ==== NOBAD File Bridge additions ==== */
+.hero-art .pane{stroke:#000;stroke-width:4}
+.hero-art .row{fill:rgba(0,0,0,.18)}
+.hero-art .row.hi{fill:#000}
+.hero-art .flow-dot{animation:hop 3.2s cubic-bezier(.45,0,.55,1) infinite}
+.hero-art .flow-dot.b{animation-delay:-1.6s}
+@keyframes hop{0%{transform:translateX(0);opacity:0}12%{opacity:1}88%{opacity:1}100%{transform:translateX(96px);opacity:0}}
+.status-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:28px}
+.status-grid article{padding:22px;border-radius:20px;border:1px solid var(--glass-edge);background:var(--glass-dark)}
+.status-grid b{display:block;color:var(--o);font:700 11px var(--mono);text-transform:uppercase;margin-bottom:18px}
+.status-grid h3{font:clamp(20px,2.2vw,28px)/.95 var(--display);text-transform:uppercase;margin:0 0 10px}
+.status-grid p{margin:0;color:var(--m);font-size:14px;line-height:1.6}
+.status-grid a{color:var(--o);text-decoration:underline}
+@media(max-width:760px){.status-grid{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){.hero-art .flow-dot{animation:none!important}}
+</style><script src="/assets/smooth.js" defer></script>
+<link rel="stylesheet" href="/assets/site.css">
+<script src="/assets/site.js" defer></script>
+</head>
+<body>
+<nav class="site-nav" aria-label="Main navigation">
+    <a class="brand" href="/" aria-label="NOBAD home"><img class="brand-logo" src="/assets/nobad-logo-light.png" alt="nobad." width="1086" height="362"></a>
+    <button class="menu-toggle" id="menuToggle" type="button" aria-expanded="false" aria-controls="navPill">MENU +</button>
+    <div class="nav-pill" id="navPill"><a href="/#products">Products</a><a href="/products/vpn/">VPN</a><a href="/products/file-bridge/" aria-current="page">File Bridge</a><a href="/#downloads">Downloads</a><a href="/support/">Support</a><a href="/#about">About</a></div>
+    <div class="nav-social" aria-label="Social links">
+      <a class="icon-link" href="https://github.com/AryanGupta-234/Nobad" target="_blank" rel="noopener noreferrer" aria-label="NOBAD on GitHub"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .9a11.1 11.1 0 0 0-3.51 21.63c.56.1.76-.24.76-.54v-2.08c-3.1.67-3.76-1.32-3.76-1.32-.5-1.28-1.24-1.62-1.24-1.62-1.01-.69.08-.68.08-.68 1.12.08 1.71 1.15 1.71 1.15.99 1.7 2.59 1.21 3.22.93.1-.72.39-1.21.7-1.49-2.47-.28-5.07-1.24-5.07-5.52 0-1.22.44-2.22 1.15-3-.12-.28-.5-1.42.11-2.96 0 0 .94-.3 3.06 1.15a10.6 10.6 0 0 1 5.57 0c2.12-1.45 3.06-1.15 3.06-1.15.61 1.54.23 2.68.11 2.96.72.78 1.15 1.78 1.15 3 0 4.29-2.6 5.23-5.08 5.51.4.35.75 1.03.75 2.08v3.09c0 .3.2.65.77.54A11.1 11.1 0 0 0 12 .9Z"/></svg></a>
+      <a class="icon-link" href="mailto:ludmj99@gmail.com" aria-label="Email NOBAD"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="1"/><path d="m3 7 9 7 9-7"/></svg></a>
+    </div>
+  </nav>
+<header class="hero" id="overview"><div class="top"><span>NOBAD / PRODUCT 002</span><span>REMOTE FILES / DESKTOP</span></div><h1 class="display page-title"><span>NOBAD</span><span>FILES<span style="color:#fff">.</span></span></h1><div class="hero-art" aria-hidden="true"><svg viewBox="0 0 520 380" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect class="pane" x="10" y="20" width="500" height="320" rx="22" fill="rgba(255,255,255,.16)"/><path class="pane" d="M10 66h500"/><circle cx="38" cy="43" r="7" fill="#000"/><circle cx="60" cy="43" r="7" fill="#000" fill-opacity=".35"/><circle cx="82" cy="43" r="7" fill="#000" fill-opacity=".35"/><rect class="pane" x="34" y="88" width="196" height="226" rx="12" fill="rgba(255,255,255,.35)"/><rect class="pane" x="290" y="88" width="196" height="226" rx="12" fill="#fff"/><g><rect class="row hi" x="50" y="106" width="150" height="16" rx="4"/><rect class="row" x="50" y="136" width="120" height="16" rx="4"/><rect class="row" x="50" y="166" width="164" height="16" rx="4"/><rect class="row" x="50" y="196" width="104" height="16" rx="4"/><rect class="row" x="50" y="226" width="138" height="16" rx="4"/></g><g><rect class="row" x="306" y="106" width="132" height="16" rx="4"/><rect class="row hi" x="306" y="136" width="150" height="16" rx="4"/><rect class="row" x="306" y="166" width="112" height="16" rx="4"/><rect class="row" x="306" y="196" width="160" height="16" rx="4"/></g><path d="M232 190h56" stroke="#000" stroke-width="4" stroke-dasharray="4 8"/><circle class="flow-dot" cx="214" cy="190" r="7" fill="#000"/><circle class="flow-dot b" cx="214" cy="190" r="7" fill="#000"/><path d="M50 284h164" stroke="#000" stroke-opacity=".25" stroke-width="8"/><path d="M50 284h108" stroke="#000" stroke-width="8"/><path d="M306 284h164" stroke="#000" stroke-opacity=".25" stroke-width="8"/><path d="M306 284h60" stroke="#000" stroke-width="8"/></svg></div><span class="launch"><i></i>In development · No download yet</span><div class="platform-strip" aria-label="Planned platforms"><b>Built for</b><span class="pchip off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="14" rx="1.5"/><path d="m7 9 3 2.5L7 14M12 14h5"/></svg>Linux · in development</span><span class="pchip off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M8 20h8M12 16v4"/></svg>Windows · in development</span></div><nav class="jump" aria-label="On this page"><b>Jump to</b><a href="#plain">What it does</a><a href="#features">Features</a><a href="#security">Security</a><a href="#status">Status</a><a href="#specs">Details</a></nav><div class="hero-bottom"><p>A DESKTOP FILE MANAGER FOR REMOTE SERVERS<br>SSH/SFTP / FTP/FTPS / LINUX AND WINDOWS</p><p>BEING HARDENED BEFORE ITS FIRST RELEASE.<br>NO DOWNLOAD YET.</p></div></header>
+<div class="ticker" aria-label="Product principles"><div class="ticker-track" aria-hidden="true"><span>LOCAL AND REMOTE SIDE BY SIDE / QUEUED TRANSFERS / TWO-WAY SYNC / HOST KEYS VERIFIED / </span><span>LOCAL AND REMOTE SIDE BY SIDE / QUEUED TRANSFERS / TWO-WAY SYNC / HOST KEYS VERIFIED / </span></div></div>
+<main id="main">
+<section class="pad wrap" id="plain"><div class="eyebrow">00 / In plain words</div><div class="section-head"><h2 class="display">WHAT IT<br>DOES.</h2><p>NOBAD File Bridge is a desktop file manager for the servers you work on. Your own files on one side, the server's on the other.</p></div>
+<div class="plain-grid">
+<article class="start rv"><span class="n">1</span><h3>Connect</h3><p>Open a server over SSH/SFTP or FTP/FTPS. SSH host keys are checked: an unknown host asks you first, and a changed key is refused by default.</p></article>
+<article class="start rv"><span class="n">2</span><h3>Browse and move</h3><p>A dual local/remote pane shows both sides at once. Transfers go into a queue with progress, retry and cancel.</p></article>
+<article class="start rv"><span class="n">3</span><h3>Sync, edit, deploy</h3><p>Sync folders both ways, edit remote files with conflict detection, open a terminal, or run a deployment with backups, health checks and rollback.</p></article>
+</div></section>
+<section class="pad wrap" id="features" style="padding-top:0"><div class="eyebrow">01 / Features</div><div class="section-head"><h2 class="display">YOUR<br>SERVERS.</h2><p>What NOBAD File Bridge is being built to do. It's still in development, so treat this as the plan for its first release, not a finished product.</p></div><div class="feature-grid"><article class="feature rv"><b>01 / BROWSE</b><h3>Dual pane</h3><p>Local and remote files side by side, over SSH/SFTP or FTP/FTPS.</p><span class="tag">SFTP · FTPS</span></article><article class="feature rv"><b>02 / TRANSFER</b><h3>Transfer queue</h3><p>Uploads and downloads wait in a queue with progress, retry and cancel. Files are written as .part until they're complete, so a cut-off transfer never looks finished.</p><span class="tag">.part safety</span></article><article class="feature rv"><b>03 / RELAY</b><h3>Server to server</h3><p>Copy files from one server to another with the transfer manager's cross-server relay.</p><span class="tag">Cross-server</span></article><article class="feature rv"><b>04 / SYNC</b><h3>Two-way sync</h3><p>Baseline-aware sync knows what changed on each side since last time. When both sides changed a file, you decide what happens to it, file by file.</p><span class="tag">Per-file decisions</span></article><article class="feature rv"><b>05 / EDIT</b><h3>Remote editing</h3><p>Edit a file on the server. If it changed there while you worked, NOBAD File Bridge notices and shows both versions side by side as a diff.</p><span class="tag">Conflict detection</span></article><article class="feature rv"><b>06 / TERMINAL</b><h3>Built-in terminals</h3><p>Embedded SSH and local terminals, next to the files they work on.</p><span class="tag">SSH · Local</span></article><article class="feature rv"><b>07 / VAULT</b><h3>Credential vault</h3><p>Saved logins are encrypted with your master password (Argon2id + AES-GCM). Saved secrets live in your operating system's keyring.</p><span class="tag">Master password</span></article><article class="feature rv"><b>08 / TRUST</b><h3>Host keys verified</h3><p>An unknown SSH host is shown to you before you connect. A host whose key has changed is refused by default.</p><span class="tag">On by default</span></article><article class="feature rv"><b>09 / DEPLOY</b><h3>Deployments</h3><p>Deployments to your servers come with backups, health checks and rollback.</p><span class="tag">Backups · Rollback</span></article></div></section>
+<section class="pad" style="background:var(--o);color:var(--k)" id="security"><div class="wrap"><div class="eyebrow" style="color:var(--k)">02 / Security</div><div class="section-head"><h2 class="display">KEYS<br>STAY LOCKED.</h2><p style="color:rgba(0,0,0,.72)">A file manager holds the keys to your servers. These are the protections it's being built around.</p></div>
+<div class="steps rv"><div class="step"><b>Host keys</b><h3>Verified, not assumed</h3><p>Unknown SSH host: you're asked before connecting. Changed key: refused by default.</p></div>
+<div class="step"><b>Vault</b><h3>Master password</h3><p>The credential vault is encrypted with a master password, using Argon2id and AES-GCM.</p></div>
+<div class="step"><b>Keyring</b><h3>OS keyring</h3><p>Saved secrets are kept in your operating system's keyring.</p></div></div></div></section>
+<section class="pad" style="background:#101010" id="status"><div class="wrap"><div class="eyebrow">03 / Status</div><div class="section-head"><h2 class="display">NOT OUT<br>YET.</h2><p>There's no installer yet. NOBAD File Bridge is being hardened before its first release, and the work is tracked in the open.</p></div><div class="notice"><div><h2>IN DEVELOPMENT.</h2><p>No download yet. When the first release is ready, it will be listed here and on the NOBAD download desk.</p></div><span class="status">● NO DOWNLOAD YET</span></div>
+<div class="status-grid"><article class="rv"><b>01 / Issues</b><h3>What's left</h3><p>The fixes it still needs before a release are open issues with the <a href="https://github.com/AryanGupta-234/Nobad/issues?q=label%3Anobad-files" rel="noopener">nobad-files label</a>.</p></article><article class="rv"><b>02 / Source</b><h3>Read the code</h3><p>The source is public in the NOBAD repository, under <a href="https://github.com/AryanGupta-234/Nobad/tree/main/apps/file-bridge" rel="noopener">apps/file-bridge</a>.</p></article><article class="rv"><b>03 / People</b><h3>Who builds it</h3><p>NOBAD File Bridge is built by Harsh Jaiswal (<a href="https://github.com/harshRaj1601" rel="noopener">@harshRaj1601</a>), its code owner.</p></article></div>
+<div class="release-actions" style="justify-content:flex-start;margin-top:28px"><a class="btn" href="https://github.com/AryanGupta-234/Nobad/issues?q=label%3Anobad-files" rel="noopener">Open issues ↗</a><a class="btn secondary" href="https://github.com/AryanGupta-234/Nobad/tree/main/apps/file-bridge" rel="noopener">Source on GitHub ↗</a></div></div></section>
+<section class="pad wrap" id="specs"><div class="eyebrow">04 / The details</div><div class="section-head"><h2 class="display">THE<br>DETAILS.</h2><p>Facts from the project as it stands. Anything that isn't settled yet is left out rather than guessed.</p></div><dl class="spec-list rv"><div class="spec"><dt>What it is</dt><dd>A desktop file manager for remote servers.</dd></div><div class="spec"><dt>Operating systems</dt><dd>Linux and Windows.</dd></div><div class="spec"><dt>Built with</dt><dd>Python 3.12 and PySide6.</dd></div><div class="spec"><dt>Protocols</dt><dd>SSH/SFTP and FTP/FTPS, with embedded SSH and local terminals.</dd></div><div class="spec"><dt>Credentials</dt><dd>A credential vault encrypted with a master password (Argon2id + AES-GCM). Saved secrets are kept in the OS keyring.</dd></div><div class="spec"><dt>SSH host keys</dt><dd>Verified. An unknown host is asked about; a changed key is refused by default.</dd></div><div class="spec"><dt>Status</dt><dd>In development. No download yet; it's being hardened before its first release. See the <a href="https://github.com/AryanGupta-234/Nobad/issues?q=label%3Anobad-files">open issues</a>.</dd></div><div class="spec"><dt>Code owner</dt><dd>Harsh Jaiswal (<a href="https://github.com/harshRaj1601">@harshRaj1601</a>).</dd></div><div class="spec"><dt>Source</dt><dd><a href="https://github.com/AryanGupta-234/Nobad/tree/main/apps/file-bridge">github.com/AryanGupta-234/Nobad/tree/main/apps/file-bridge</a></dd></div></dl></section>
+<section class="pad" style="background:var(--o);color:var(--k)"><div class="wrap"><div class="eyebrow" style="color:var(--k)">05 / Follow along</div><div class="section-head"><h2 class="display">COMING<br>WHEN READY.</h2><p style="color:rgba(0,0,0,.72)">NOBAD File Bridge ships when it's ready, not before. Until then, the issues and the source show exactly where it stands.</p></div><a class="btn" style="background:var(--k);color:var(--w);border-color:var(--k)" href="https://github.com/AryanGupta-234/Nobad/issues?q=label%3Anobad-files" rel="noopener">See the open issues ↗</a></div></section>
+</main><footer class="site-footer">
+    <div class="footer-top">
+      <div>
+        <a class="footer-brand" href="/">NOBAD.</a>
+        <p class="footer-note">Software with a point of view.<br>An independent software studio.</p>
+      </div>
+      <div class="footer-links"><a href="/#products">Products</a><a href="/products/vpn/">NOBAD VPN</a><a href="/products/file-bridge/" aria-current="page">NOBAD File Bridge</a><a href="/#services">What we do</a><a href="/#downloads">Downloads</a><a href="/#about">About</a><a href="/support/">Support</a><a href="mailto:ludmj99@gmail.com">Contact</a><a href="https://github.com/AryanGupta-234/Nobad">GitHub</a><a href="/code-signing-policy/">Code signing policy</a><a href="/privacy/">Privacy</a></div>
+    </div>
+    <div class="footer-bottom"><span>© <span id="year" data-year>2026</span> NOBAD. All rights reserved.</span><span>NOBAD VPN by <a href="https://github.com/AryanGupta-234">Aryan Gupta</a> · NOBAD File Bridge by <a href="https://github.com/harshRaj1601">Harsh Jaiswal</a> · MIT-licensed open source</span><span class="tm-note">WireGuard is a registered trademark of Jason A. Donenfeld. Other names are trademarks of their owners; NOBAD is not affiliated with them.</span><span class="ai-mark" title="Developed in collaboration with AI"><i aria-hidden="true">✦</i>Built with AI</span></div>
+  </footer>
+<script src="/assets/vpn-console.js"></script></body></html>

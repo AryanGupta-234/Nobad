@@ -17,7 +17,7 @@ software in the open, in collaboration with AI. Each product lives in its own fo
 | Product | What it is | Status | Where |
 |---|---|---|---|
 | **NOBAD VPN** | A WireGuard client for Windows with a kill switch, DNS leak block, Network Intelligence, an Evil Twin network check and Where to watch. | Available | [`apps/vpn/`](apps/vpn/) · [product page](https://nobad-platform.aassworld99.workers.dev/products/vpn/) |
-| **NOBAD Files** | A remote file manager for SSH/SFTP and FTP/FTPS: transfers, sync, remote editing, terminals, an encrypted vault and deployments. Linux and Windows. By [@harshRaj1601](https://github.com/harshRaj1601). | In development: being hardened before its first release (see [issues labelled `nobad-files`](https://github.com/AryanGupta-234/Nobad/issues?q=is%3Aissue+label%3Anobad-files)) | [`apps/files/`](apps/files/) · [product page](https://nobad-platform.aassworld99.workers.dev/products/files/) |
+| **NOBAD File Bridge** | Open, copy, edit and back up the files on your website or server from your PC: SFTP/FTP, two-way sync, a terminal, an encrypted password vault and deployments. Linux and Windows. By [@harshRaj1601](https://github.com/harshRaj1601). | In development: being hardened before its first release (see [issues labelled `nobad-files`](https://github.com/AryanGupta-234/Nobad/issues?q=is%3Aissue+label%3Anobad-files)) | [`apps/file-bridge/`](apps/file-bridge/) · [product page](https://nobad-platform.aassworld99.workers.dev/products/file-bridge/) |
 
 The website source is in [`site-pages/`](site-pages/).
 
@@ -26,7 +26,7 @@ AI coding assistants: read [AGENTS.md](AGENTS.md) first.
 ## Repository layout
 
 ```
-apps/files/          NOBAD Files (remote file manager, Python + PySide6)
+apps/file-bridge/          NOBAD File Bridge (remote file manager, Python + PySide6)
   tests/             pytest suite
   packaging/         Linux .deb script; PyInstaller spec is build.spec
 apps/vpn/            NOBAD VPN (Windows app)

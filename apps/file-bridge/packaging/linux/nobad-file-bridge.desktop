@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=NOBAD File Bridge
+Comment=SSH/SFTP and FTP/FTPS desktop workbench
+Exec=nobad-file-bridge
+Icon=nobad-file-bridge
+Terminal=false
+Categories=Network;FileTransfer;Development;
+StartupWMClass=NobadFileBridge

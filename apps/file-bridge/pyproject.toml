@@ -1,0 +1,56 @@
+[project]
+name = "nobad-file-bridge"
+version = "0.4.0"
+description = "PySide6 SSH/SFTP and FTP/FTPS remote file manager with sync and deployment workflows."
+readme = "README.md"
+requires-python = ">=3.12, <3.13"
+dependencies = [
+    "PySide6>=6.7",
+    "asyncssh>=2.14",
+    "keyring>=25.0",
+    "SQLAlchemy>=2.0",
+    "chardet>=5.2",
+    "aioftp>=0.27",
+    "Pillow>=10.0",
+    "argon2-cffi>=23.1",
+    "cryptography>=42.0",
+    "pywinpty>=2.0; sys_platform == 'win32'",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+]
+future = [
+    "paramiko>=3.4",
+]
+
+[project.scripts]
+nobad-file-bridge = "app.main:main"
+
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = [
+    "app",
+    "core",
+    "core.connections",
+    "credentials",
+    "deployment",
+    "editor",
+    "file_ops",
+    "security",
+    "storage",
+    "sync",
+    "terminal",
+    "transfers",
+    "ui"
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
