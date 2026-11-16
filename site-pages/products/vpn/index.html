@@ -109,8 +109,11 @@
 <section class="p-sec alt" id="features" aria-labelledby="featuresTitle">
   <div class="p-wrap">
     <p class="p-label">Features</p>
-    <div class="p-head"><h2 id="featuresTitle">Everything in the current build.</h2><p>Small, everyday tools around the tunnel. Every feature below exists in NOBAD VPN today.</p></div>
+    <div class="p-head"><h2 id="featuresTitle">Everything in the current build.</h2><p>Protection, diagnosis and everyday tools around the tunnel. Every feature below exists in NOBAD VPN today.</p></div>
     <div class="p-grid">
+      <article class="p-feat"><span class="k">Protection</span><h3>Kill switch</h3><p>Blocks every connection that doesn't go through the tunnel, and stays armed through drops, sleep and Wi-Fi changes.</p></article>
+      <article class="p-feat"><span class="k">Privacy</span><h3>DNS leak block</h3><p>On by default: while you're connected, DNS can only leave through the tunnel, so the local network doesn't see your lookups.</p></article>
+      <article class="p-feat"><span class="k">Wi-Fi safety</span><h3>Evil Twin check</h3><p>Every network you join is checked for copycat Wi-Fi, a faked router and HTTPS interception, then graded A to F.</p></article>
       <article class="p-feat"><span class="k">Fail-safe</span><h3>Fix my internet</h3><p>A boot guard, a change journal and one-click repair put Windows back exactly as it was, even if NOBAD was killed.</p></article>
       <article class="p-feat"><span class="k">Speed</span><h3>Fastest and Smart pick</h3><p>Ranks servers by real latency and learns which one is fastest at each time of day. Fails over if a link degrades.</p></article>
       <article class="p-feat"><span class="k">Trust</span><h3>Trusted networks, verified</h3><p>Turn the VPN off at home and on everywhere else. A copycat Wi-Fi keeps you protected.</p></article>
@@ -119,6 +122,7 @@
       <article class="p-feat"><span class="k">Map</span><h3>Live day / night map</h3><p>Your servers on a world map, coloured by measured ping, with the night side drawn from the real sun position.</p></article>
       <article class="p-feat"><span class="k">Self-healing</span><h3>WireGuard included</h3><p>Setup bundles WireGuard. If it ever goes missing, NOBAD reinstalls a signature-checked copy at start-up.</p></article>
       <article class="p-feat"><span class="k">Private</span><h3>Stays on your PC</h3><p>Configs and keys live in a folder only administrators can read. Logs and history never leave this PC.</p></article>
+      <article class="p-feat"><span class="k">Updates</span><h3>Verified updates</h3><p>The updater checks the SHA-256 and requires a valid code signature. Releases aren't signed yet, so for now you update by installing the new version yourself.</p></article>
     </div>
   </div>
 </section>
@@ -133,6 +137,51 @@
       <figcaption><b>Where to watch</b><span>Best match ranks the countries where a title is listed and where you have a server, with a Connect button for each. Works without setup; a listing doesn't guarantee playback, as services may detect VPNs.</span></figcaption></figure>
     <figure class="p-shot mini"><div class="p-pair"><img src="/assets/nobad-vpn-quick-view-dark.webp" width="680" height="610" loading="lazy" decoding="async" alt="Tray quick view, dark: protected, server list, Disconnect, Fastest, Open NOBAD and the kill switch"><img src="/assets/nobad-vpn-quick-view-light.webp" width="680" height="610" loading="lazy" decoding="async" alt="Tray quick view, light theme"></div>
       <figcaption><b>Tray quick view</b><span>A small window that stays on top: status, server list, Connect or Disconnect, Fastest and the kill switch.</span></figcaption></figure>
+  </div>
+</section>
+
+<section class="p-sec alt" id="intel" aria-labelledby="intelTitle">
+  <div class="p-wrap">
+    <p class="p-label">Network Intelligence</p>
+    <div class="p-head"><h2 id="intelTitle">Know why.</h2><p>"The site doesn't open" turns into evidence: which layer failed, who is likely responsible and what will actually fix it. Everything is measured live on your PC.</p></div>
+    <div class="p-intel">
+      <ul class="p-list">
+        <li><b>DNS intelligence.</b> Compares your network's resolver with independent and encrypted resolvers across A, AAAA, CNAME, MX, TXT, NS and SOA records.</li>
+        <li><b>Filtering and sinkholes.</b> Spots RPZ-style redirects, invented answers and DNS interception without a hardcoded list of ISPs.</li>
+        <li><b>Layer by layer.</b> Tests DNS, TCP, TLS, HTTP, IPv4 and IPv6 separately, so a DNS block is never mistaken for a site-name block.</li>
+        <li><b>VPN integrity.</b> Checks that IPv4, IPv6 and DNS really go through the tunnel while you're connected.</li>
+        <li><b>Learns your networks.</b> Local baselines notice when a network changes. History never leaves this PC.</li>
+        <li><b>Smart fix agent.</b> Off until you switch it on. It saves your DNS settings first, verifies the fix and undoes it if anything breaks.</li>
+        <li><b>Evil Twin check.</b> Every network you join gets about 10 seconds of checks: redirected DNS, a faked router (ARP spoofing), look-alike or open Wi-Fi, HTTPS interception and proxies. It grades the network A to F and turns the VPN on by itself below the grade you choose.</li>
+      </ul>
+      <div class="p-panel" role="img" aria-label="Example Evil Twin check with illustrative values: DNS, the router and HTTPS look normal, but a look-alike open network is nearby, so the network gets grade C and NOBAD VPN connects by itself.">
+        <div class="p-scan" aria-hidden="true"></div>
+        <div class="p-panel-top" aria-hidden="true"><i></i><i></i><i></i>nobad vpn · evil twin<span>new network</span></div>
+        <div class="p-panel-body" aria-hidden="true">
+          <div class="ln"><span class="c-dim">&gt; joined</span><span>Cafe-Guest</span></div>
+          <div class="ln"><span>dns answers</span><span class="c-ok">match independent resolvers</span></div>
+          <div class="ln"><span>router (arp)</span><span class="c-ok">one gateway, consistent</span></div>
+          <div class="ln"><span>https</span><span class="c-ok">no interception</span></div>
+          <div class="ln"><span>look-alike wi-fi</span><span class="c-bad">Cafe-Guest_ · open</span></div>
+          <div class="ln"><span class="c-dim">your setting</span><span class="c-dim">connect below grade B</span></div>
+          <div class="p-verdict"><b>Grade C: a copycat network is nearby</b><span class="c-dim">NOBAD VPN connected by itself.</span><div class="p-meter"><i style="width:55%"></i></div><span class="c-dim">checks took about 10 s <span class="p-cursor"></span></span></div>
+        </div>
+        <div class="p-panel-note" aria-hidden="true">Example check · illustrative values</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="p-sec" id="failsafe" aria-labelledby="failsafeTitle">
+  <div class="p-wrap">
+    <p class="p-label">Fail-safe</p>
+    <div class="p-head"><h2 id="failsafeTitle">Never offline.</h2><p>If NOBAD is killed, crashes or is uninstalled in the middle of a change, Windows still gets its network settings back exactly as they were. You never need a terminal.</p></div>
+    <ol class="p-steps" style="--n:3">
+      <li class="p-step"><span class="n">01</span><h3>Restore</h3><p>Removes NOBAD's firewall rules, tunnels and recorded DNS changes. Nothing else is touched.</p></li>
+      <li class="p-step"><span class="n">02</span><h3>Quick repair</h3><p>Also flushes DNS, clears the ARP cache and renews your IP address. Takes seconds.</p></li>
+      <li class="p-step"><span class="n">03</span><h3>Full reset</h3><p>Also resets Winsock, TCP/IP and proxy settings, like Windows' own network reset. Needs a restart.</p></li>
+    </ol>
+    <div class="p-chips" aria-label="Where to find it"><span>Intel tab · Fix my internet</span><span>Tray menu</span><span>Start menu shortcuts</span><span>Boot guard at start-up</span><span>Runs on uninstall</span></div>
   </div>
 </section>
 
@@ -186,7 +235,24 @@
   </div>
 </section>
 
-<section class="p-sec alt" id="faq" aria-labelledby="faqTitle">
+<section class="p-sec alt" id="details" aria-labelledby="detailsTitle">
+  <div class="p-wrap">
+    <p class="p-label">Compatibility &amp; disclosure</p>
+    <div class="p-head"><h2 id="detailsTitle">The details.</h2><p>Facts taken from the current build and its source. Anything that isn't verified is left out rather than guessed.</p></div>
+    <dl class="p-specs">
+      <div><dt>Supported systems</dt><dd>Windows 10 version 1809 or later and Windows 11, 64-bit. ARM64 PCs run the app through Windows' x64 emulation and use the native ARM64 WireGuard.</dd></div>
+      <div><dt>VPN protocol</dt><dd>WireGuard, through the official WireGuard for Windows tunnel service. Setup installs it if it's missing, and NOBAD only runs WireGuard installers signed by WireGuard LLC.</dd></div>
+      <div><dt>Encryption &amp; keys</dt><dd>WireGuard's own cryptography (Curve25519, ChaCha20-Poly1305, BLAKE2s). Configs and keys stay on this PC, in a folder only administrators and SYSTEM can read. Optional Windows DPAPI encryption protects copies and backups.</dd></div>
+      <div><dt>Servers &amp; logging</dt><dd>NOBAD VPN is a client. It connects to the WireGuard servers in the configs you import, so the server-side logging policy is your provider's. The app keeps its logs, usage and diagnostic history on this PC. Crash reports are off unless you opt in.</dd></div>
+      <div><dt>Permissions</dt><dd>Needs administrator rights. After that, setup's launcher task means no UAC prompt. The kill switch and DNS leak block use Windows Firewall rules. Adapter settings are only changed by the smart fix agent, after you switch it on, and every change is recorded so it can be undone.</dd></div>
+      <div><dt>Outbound connections</dt><dd>Your VPN servers. At every launch, a connectivity check (a ping to 1.1.1.1 and one test DNS lookup) and, unless you switch it off, IP-location lookups via ipinfo.io for your exit address and the server map. Everything else runs only when you start it or opt in: the speed test and service checks, Network Intelligence probes, the WireGuard download fallback and the update check.</dd></div>
+      <div><dt>Support</dt><dd>Bugs and questions: <a href="https://github.com/AryanGupta-234/Nobad/issues">GitHub Issues</a>. Security problems: report them privately via <a href="https://github.com/AryanGupta-234/Nobad/security/advisories/new">private vulnerability reporting</a>. Anything else: <a href="mailto:ludmj99@gmail.com">ludmj99@gmail.com</a>.</dd></div>
+      <div><dt>Responsible use</dt><dd>NOBAD VPN doesn't run VPN servers, sell access or keep logs; you bring configs from a provider you choose. VPN use, and streaming services' own terms, vary by country and by service, so check them for where you are. Provided "as is" under the MIT License, without warranty.</dd></div>
+    </dl>
+  </div>
+</section>
+
+<section class="p-sec" id="faq" aria-labelledby="faqTitle">
   <div class="p-wrap">
     <p class="p-label">FAQ</p>
     <div class="p-head"><h2 id="faqTitle">Questions, answered.</h2><p>Still stuck? <a class="p-link" href="/support/">Support</a> has the rest.</p></div>
@@ -213,4 +279,5 @@
     <div class="footer-bottom"><span>© <span id="year" data-year>2026</span> NOBAD. All rights reserved.</span><span>MIT-licensed open source · <a href="/#collaborate">Built in the open</a></span><span class="tm-note">WireGuard is a registered trademark of Jason A. Donenfeld. Other names are trademarks of their owners; NOBAD is not affiliated with them.</span><span class="ai-mark" title="Developed in collaboration with AI"><i aria-hidden="true">✦</i>Built with AI</span></div>
   </footer>
 <script src="/assets/vpn-page.js"></script>
+<script src="/assets/product.js"></script>
 </body></html>

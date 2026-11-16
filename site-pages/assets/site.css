@@ -83,3 +83,23 @@ html { scroll-padding-top: 100px; }
 .jump a:hover { background: var(--nb-k); color: var(--nb-o); }
 
 @media (prefers-reduced-motion: reduce) { .site-nav *, .jump a { transition: none !important; } }
+
+/* ---------- page transitions: the old page lifts away, the new one rises in; the nav stays put ---------- */
+@view-transition { navigation: auto; }
+.site-nav { view-transition-name: nb-nav; }
+::view-transition-old(root) { animation: nb-page-out .32s cubic-bezier(.4, 0, 1, 1) both; }
+::view-transition-new(root) { animation: nb-page-in .62s cubic-bezier(.16, .8, .2, 1) both; }
+::view-transition-group(nb-nav) { animation-duration: .45s; }
+@keyframes nb-page-out { to { opacity: 0; transform: translateY(-14px) scale(.985); filter: blur(6px); } }
+@keyframes nb-page-in { from { opacity: 0; transform: translateY(22px); filter: blur(8px); } }
+/* an orange line sweeps across the top while the next page loads */
+.nb-progress { position: fixed; z-index: 3000; top: 0; left: 0; height: 2px; width: 100%; background: var(--nb-o); box-shadow: 0 0 14px var(--nb-o); transform: scaleX(0); transform-origin: left; pointer-events: none; }
+.nb-progress.run { animation: nb-progress 1.2s cubic-bezier(.2, .7, .2, 1) forwards; }
+@keyframes nb-progress { 0% { transform: scaleX(0); } 100% { transform: scaleX(.85); } }
+/* browsers without cross-page view transitions get a simple fade */
+html.nb-fade body > :not(.site-nav):not(.nb-progress) { animation: nb-page-in .55s cubic-bezier(.16, .8, .2, 1) both; }
+html.nb-fade.nb-leaving body > :not(.site-nav):not(.nb-progress) { opacity: 0; transform: translateY(-10px); transition: opacity .22s, transform .22s; }
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root), ::view-transition-new(root), ::view-transition-group(nb-nav) { animation: none !important; }
+  html.nb-fade body > *, .nb-progress.run { animation: none !important; }
+}
