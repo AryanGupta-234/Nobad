@@ -71,6 +71,23 @@ Some live-tunnel behaviour still needs verification on more real PCs and network
 * Hidden Wi-Fi names (Windows 11 24H2+) are never trusted.
 * A manual disconnect is respected until the network changes.
 
+## Evil Twin: network trust check (Network tab)
+
+* Runs by itself whenever you join a network (and once at start-up); **Check now** runs it on demand. Takes about
+  10 seconds; the checks run side by side and change nothing on the PC.
+* Checks: DNS interception (queries to addresses where no server can exist), DNS redirection (names with fixed public
+  addresses such as `one.one.one.one`), invented answers for made-up names, ARP spoofing (the router's hardware
+  address also claimed by another device), a different router than last time, open or WEP Wi-Fi, an evil twin (the
+  same Wi-Fi name broadcast with different security), a new access point, a captive portal, HTTPS interception
+  (well-known sites presenting someone else's certificate) and proxy settings.
+* Grade A to F from a 100-point score. Active attacks (ARP spoofing, HTTPS interception, an evil twin) cap the grade
+  at F whatever else passes.
+* **Turn the VPN on below grade** (default C): connects automatically when a network grades worse. Never after you
+  disconnected by hand on that network. A grade of D or F always shows a notification.
+* While NOBAD VPN is connected, the DNS and HTTPS checks are skipped (that traffic goes through the tunnel).
+* What each network looked like (router and access points) is remembered on this PC only, and never learned while
+  the network looks attacked. The Wi-Fi checks need Location permission for desktop apps, like trusted networks.
+
 ## Streaming and gaming tools
 
 * Speed test (Cloudflare, up to 8 MB / about 5 s) with SD / HD / 4K markers and history.

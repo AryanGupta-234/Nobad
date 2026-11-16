@@ -710,6 +710,8 @@ class Tunnel(ProtectionMixin, FailsafeMixin):
             log("disconnected", "warn")
             if manual and ctx.netwatch:
                 ctx.netwatch.note_manual_disconnect()
+            if manual and ctx.eviltwin:
+                ctx.eviltwin.note_manual_disconnect()   # never reconnect behind the user's back on this network
             self.push()
             if not self.home:
                 spawn(self.fetch_home)

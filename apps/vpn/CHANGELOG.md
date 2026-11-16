@@ -2,6 +2,19 @@
 
 All notable changes to NOBAD VPN. Versions follow [semantic versioning](https://semver.org/).
 
+## 1.4.0 · 2026-11-16
+
+### Added
+- **Evil Twin: a trust check for every network you join.** About 10 seconds of checks the moment the network
+  changes: is DNS intercepted or redirected, does a resolver invent answers, is someone posing as the router (ARP
+  spoofing), is this a different router than last time, is the Wi-Fi open or WEP, is the same Wi-Fi name broadcast
+  with different security (an evil twin), is HTTPS intercepted, is a proxy set. The network gets a grade from A to F
+  on a new card at the top of the Network tab, with the evidence for every finding.
+- **The VPN turns on by itself below a grade you choose** (Settings → Network safety; default C). A manual
+  disconnect is respected, and D or F always warns you with a notification.
+- It builds on trusted networks: a trusted network's fingerprint is the baseline for "a different router", and what
+  each network looked like is remembered locally (never while it looks attacked).
+
 ## 1.3.4 · 2026-11-16
 
 ### Security

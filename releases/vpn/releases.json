@@ -1,8 +1,20 @@
 {
   "schemaVersion": 1,
   "product": "nobad-vpn",
-  "latest": "1.3.4",
+  "latest": "1.4.0",
   "releases": [
+    {
+      "version": "1.4.0",
+      "releaseDate": "2026-11-16",
+      "channel": "stable",
+      "platform": "Windows 10 (1809+) / 11",
+      "architecture": "x64 (ARM64 via emulation)",
+      "summary": "Evil Twin: every network you join gets a 10-second trust check (redirected DNS, fake router, look-alike or open Wi-Fi, HTTPS interception) and a grade from A to F; the VPN turns on by itself below the grade you choose.",
+      "downloadUrl": "https://github.com/AryanGupta-234/Nobad/releases/download/vpn-v1.4.0/NobadVPN-Setup-1.4.0.exe",
+      "notesUrl": "https://github.com/AryanGupta-234/Nobad/releases/tag/vpn-v1.4.0",
+      "sha256": "1f35d429a21ecf92bc9e9449612d843a37705c70ca922eec89ed2a23d2902744",
+      "size": "24.0 MB"
+    },
     {
       "version": "1.3.4",
       "releaseDate": "2026-11-16",

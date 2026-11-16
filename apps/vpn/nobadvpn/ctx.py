@@ -14,6 +14,7 @@ class _Ctx:
     smart = None
     tray = None
     netwatch = None
+    eviltwin = None   # trust check of the joined network (eviltwin.EvilTwin)
     niagent = None    # Network Intelligence fix agent (netintel.agent.FixAgent)
     windows = None
     updater = None

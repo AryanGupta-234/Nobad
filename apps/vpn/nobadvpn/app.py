@@ -67,6 +67,9 @@ def init(headless_test=False):
     from .netintel import system as _nisys
     ctx.netwatch.listeners.append(_nisys.invalidate)     # first: later listeners must see the new network
     ctx.netwatch.listeners.append(ctx.niagent.on_network_change)
+    from .eviltwin import EvilTwin
+    ctx.eviltwin = EvilTwin(ctx.settings, ctx.tunnel, notify=notify)
+    ctx.netwatch.listeners.append(ctx.eviltwin.on_network_change)
     from . import reach
     ctx.netwatch.listeners.append(lambda *a, **k: reach.forget())   # new network: re-learn which routes work
     if extra_hook not in ctx.state_hooks:
@@ -181,6 +184,8 @@ def _background_start(tunnel):
             log("boot guard is in place (restores internet if NOBAD ever dies with the kill switch on)", "info")
         if ctx.niagent:
             ctx.niagent.start()    # sleeps 30 min between scans; a scan does nothing unless the agent is switched on
+        if ctx.eviltwin and ctx.settings.get("et_enabled"):
+            spawn(ctx.eviltwin.run, "startup")   # grade the network NOBAD started on (later: on every change)
         if s.get("watchdog") and not ctx.quit_event.wait(3):
             watchdog.spawn_watchdog()
         from . import crash

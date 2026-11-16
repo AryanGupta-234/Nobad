@@ -413,6 +413,8 @@ const GROUPS = [
     { k: "watchdog_failopen", n: "Release the kill switch if NOBAD can't restart", d: "Off keeps you blocked (safest). On restores internet after three failed restarts.", kw: "fail open" },
     { act: "panic", n: "Restore internet now", d: "Panic reset: removes every NOBAD firewall rule and stops NOBAD tunnels.", label: "Panic reset", kw: "panic emergency reset" } ] },
   { id: "safety", title: "Network safety", rows: [
+    { k: "et_enabled", n: "Evil Twin check on every network", d: "When you join a network, NOBAD spends about 10 seconds checking for redirected DNS, a faked router (ARP spoofing), look-alike Wi-Fi, open Wi-Fi, HTTPS interception and proxies, then grades it A to F. Uses well-known public sites as references; nothing about you is sent.", kw: "evil twin public wifi hotspot arp spoof mitm grade trust" },
+    { k: "et_vpn_below", n: "Turn the VPN on below grade", d: "Connects automatically when a network grades worse than this (not after you disconnected by hand).", type: "select", opts: [["off", "Never"], ["A", "A (anything less than perfect)"], ["B", "B"], ["C", "C (recommended)"], ["D", "D (only clear attacks)"]], kw: "evil twin auto connect grade" },
     { custom: "netsafety" },
     { act: "nr_quick", n: "Quick network repair", d: "Undoes every NOBAD change, then flushes DNS, clears the ARP cache and renews DHCP. Takes seconds; Wi-Fi may blink once.", label: "Repair", kw: "fix internet dns broken reset network offline" },
     { act: "nr_full", n: "Full network reset", d: "Quick repair plus a Winsock, TCP/IP (IPv4 and IPv6) and WinHTTP proxy reset. Needs a restart, and manually set IP addresses must be entered again.", label: "Reset…", kw: "winsock tcp ip reset broken offline" } ] },

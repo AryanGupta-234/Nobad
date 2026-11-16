@@ -7,7 +7,7 @@ APP_TITLE = "NOBAD VPN"
 # Windows AppUserModelID: taskbar grouping, jump list and the sender name on notifications. The installer registers it
 # on the Start-menu shortcut, which is what lets Windows show "NOBAD VPN" (not PowerShell/Python) on toasts.
 APP_ID = "NOBAD.VPN"
-APP_VER = "1.3.4"  # semantic version; bump on every release (build.ps1 reads it)
+APP_VER = "1.4.0"  # semantic version; bump on every release (build.ps1 reads it)
 WINDOW_TITLE = f"{APP_TITLE}  ·  v{APP_VER}"
 
 FROZEN = bool(getattr(sys, "frozen", False))
@@ -132,6 +132,9 @@ DEFAULTS = {
     "trusted_fingerprints": {},    # name -> Wi-Fi security + confirmed access points, or router MAC (#15); not UI-settable
     "autoconnect_untrusted": True,
     "autodisconnect_trusted": True,
+    # Evil Twin: trust check of every network you join (about 10 s of local measurements, nothing is sent anywhere)
+    "et_enabled": True,
+    "et_vpn_below": "C",           # connect the VPN by itself when a network grades below this ("off" = never)
     # privacy / security
     "ip_lookup": False,            # privacy first: opt-in (setup checklist or Settings > Privacy); sends your IP to ipinfo.io
     "startup_checks": False,       # speed test + service checks at launch: opt-in (slow, contacts 3rd parties)

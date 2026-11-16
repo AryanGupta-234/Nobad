@@ -40,7 +40,8 @@ def extra_state():
             "crash_pending": len(crash.pending()),
             "network": {"name": nw.current if nw else None, "events": bool(nw and nw.events_ok),
                         "pending": nw.pending if nw else None},
-            "frozen": getattr(sys, "frozen", False)}
+            "frozen": getattr(sys, "frozen", False),
+            "eviltwin": ctx.eviltwin.last if ctx.eviltwin else None}
 
 
 def apply_setting(key, val):
@@ -560,6 +561,13 @@ HANDLERS = {
 }
 
 
+def h_et_run(b):
+    if not ctx.eviltwin:
+        return {"ok": False, "error": "unavailable"}
+    return {"ok": True} if run_once("et_run", ctx.eviltwin.run, "manual") else _busy("A network check is already running.")
+
+
+HANDLERS.update({"et_run": h_et_run})
 from .netintel.api_handlers import HANDLERS as _NI_HANDLERS   # Network Intelligence (independent feature)
 HANDLERS.update(_NI_HANDLERS)
 from .streamintel.api_handlers import HANDLERS as _SI_HANDLERS   # Streaming Region Intelligence (independent feature)

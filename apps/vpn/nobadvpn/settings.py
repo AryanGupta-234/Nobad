@@ -104,6 +104,9 @@ def coerce(key, value):
         return (True, v) if ok else (False, v or "enter at least two independent resolvers so answers can be cross-checked")
     if key in ("update_url", "crash_report_url"):
         return _https_url(value)
+    if key == "et_vpn_below":
+        ok = value in ("off", "A", "B", "C", "D")
+        return ok, (value if ok else "choose off, A, B, C or D")
     if key == "trusted_networks":
         out = _name_list(value, 100)
         return (False, "expected a list") if out is None else (True, out)

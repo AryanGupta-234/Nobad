@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#ff4d00">
-<meta name="description" content="NOBAD VPN for Windows: a WireGuard client with a kill switch, DNS leak block, a Network Intelligence engine that explains why a site fails, and one-click Fix my internet. Free and open source.">
+<meta name="description" content="NOBAD VPN for Windows: a WireGuard client with a kill switch, DNS leak block, a Network Intelligence engine that explains why a site fails, an Evil Twin check that grades every network you join, and one-click Fix my internet. Free and open source.">
 <meta property="og:title" content="NOBAD VPN — Privacy, with the details up front">
 <meta property="og:description" content="Product information, release notes and verified downloads from NOBAD.">
 <meta property="og:type" content="product">
@@ -302,7 +302,8 @@
 <li><b>Layer by layer.</b> Tests DNS, TCP, TLS, HTTP, IPv4 and IPv6 separately, so a DNS block is never mistaken for a site-name block.</li>
 <li><b>VPN integrity.</b> Checks that IPv4, IPv6 and DNS really go through the tunnel while you're connected.</li>
 <li><b>Learns your networks.</b> Local baselines notice when a network changes. History never leaves this PC.</li>
-<li><b>Smart fix agent.</b> Off until you switch it on. It saves your DNS settings first, verifies the fix and undoes it if anything breaks.</li></ul>
+<li><b>Smart fix agent.</b> Off until you switch it on. It saves your DNS settings first, verifies the fix and undoes it if anything breaks.</li>
+<li><b>Evil Twin check.</b> Every network you join gets about 10 seconds of checks: redirected DNS, a faked router (ARP spoofing), look-alike or open Wi-Fi, HTTPS interception and proxies. It grades the network A to F and turns the VPN on by itself below the grade you choose.</li></ul>
 <div class="console rv" id="niConsole" aria-label="Example investigation"><div class="console-top"><i></i><i></i><i></i><span>Example investigation (illustrative values)</span></div><div class="console-body">
 <div class="ln c-dim">&gt; investigate news.example</div>
 <div class="ln">network dns <span class="c-o">192.168.1.1</span> → CNAME <span class="c-r">blocked.rpz.isp-filter.example</span></div>
