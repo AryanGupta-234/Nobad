@@ -2,6 +2,25 @@
 
 All notable changes to NOBAD VPN. Versions follow [semantic versioning](https://semver.org/).
 
+## 1.4.1 · 2026-11-16
+
+### Fixed
+- **Links open in your browser, not File Explorer.** On current Windows 11, handing a link to `explorer.exe` from
+  the (administrator) app opened a File Explorer window. NOBAD now opens links as you, without admin rights, in your
+  default browser (a one-shot task that removes itself). Affects Where to watch, Report a problem and sign-in pages.
+
+### Added
+- **Where to watch works without setup.** Search and title pages come from Wikidata (no key, no account): which
+  platforms carry a title (Netflix, Disney+, Prime Video, Apple TV, Max, Hulu, Crunchyroll) with direct links, plus
+  the documented bans from Wikipedia. A free TMDB key stays available as an upgrade for country-by-country
+  availability and server matching.
+
+### Changed
+- **Lighter in the background.** Hidden in the tray or minimized, NOBAD samples traffic every 30 s instead of every
+  2 s (it used to start `wg.exe` every 2 s whenever the page was loaded), and the latency chart's pings stop.
+- **Side panel:** the speed test is a compact card (gauge beside the reading), Session shows one line while you're
+  disconnected instead of seven dashes, Settings rows use the full width, and every card has the same padding.
+
 ## 1.4.0 · 2026-11-16
 
 ### Added

@@ -123,23 +123,64 @@ def _shell_safe_url(url):
     return urllib.parse.quote(url, safe=":/?&=#%@+!$*()~'-._[]")
 
 
+OPEN_ASYNC = True       # tests set False to run the hand-over inline
+
+
+def _unelevated_task_ps(url, win):
+    """PowerShell that opens `url` as the signed-in user WITHOUT admin rights: a one-shot scheduled task with an
+    interactive, limited principal (the owner of the desktop's explorer.exe) runs rundll32's URL handler, which
+    starts the default browser, then the task is deleted. `url` has already passed _shell_safe_url (no quotes,
+    spaces or control characters); single quotes are doubled for the PowerShell literal."""
+    u = url.replace("'", "''")
+    exe = os.path.join(win, "System32", "rundll32.exe").replace("'", "''")
+    return ("$ErrorActionPreference='Stop';"
+            "$o=Get-CimInstance Win32_Process -Filter \"Name='explorer.exe'\" | Select-Object -First 1 | "
+            "Invoke-CimMethod -MethodName GetOwner;"
+            "$who=if($o -and $o.User){$o.Domain+'\\'+$o.User}else{[Security.Principal.WindowsIdentity]::GetCurrent().Name};"
+            "$n='NobadVPN open link '+[guid]::NewGuid().ToString('N');"
+            f"$a=New-ScheduledTaskAction -Execute '{exe}' -Argument ('url.dll,FileProtocolHandler '+'{u}');"
+            "$p=New-ScheduledTaskPrincipal -UserId $who -LogonType Interactive -RunLevel Limited;"
+            "$s=New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 1);"
+            "Register-ScheduledTask -TaskName $n -Action $a -Principal $p -Settings $s -Force | Out-Null;"
+            "try{Start-ScheduledTask -TaskName $n;Start-Sleep -Seconds 2}finally{Unregister-ScheduledTask -TaskName $n -Confirm:$false}")
+
+
+def _open_link(url):
+    from .const import known_folder
+    win = known_folder("Windows") or r"C:\Windows"
+    if not is_admin():                         # already at normal rights (source runs): open directly
+        try:
+            os.startfile(url)
+            return True
+        except OSError:
+            pass
+    r = run(["powershell", "-NoProfile", "-NonInteractive", "-Command", _unelevated_task_ps(url, win)], timeout=30)
+    if r.returncode == 0:
+        return True
+    log(f"couldn't open the link as the signed-in user ({(r.stderr or '').strip()[:120]}); using Explorer", "warn")
+    try:      # last resort; on some Windows 11 builds this opens File Explorer instead of the browser
+        subprocess.Popen([os.path.join(win, "explorer.exe"), url], creationflags=_NOWIN)
+        return True
+    except OSError:
+        return False
+
+
 def open_url_as_user(url):
     """Open an http(s) link in the user's normal browser, NOT as administrator. NOBAD runs elevated and anything it
-    starts directly inherits that (a captive-portal page from a café Wi-Fi would run in an admin browser). explorer.exe
-    hands the link to the user's own desktop shell, which opens it at normal rights. Returns True if handed over."""
+    starts directly inherits that (a captive-portal page from a café Wi-Fi would run in an admin browser).
+    It used to hand the link to explorer.exe, which on current Windows 11 often opens File Explorer instead; now a
+    one-shot task runs the user's default browser at normal rights. Returns True when the link was accepted
+    (the hand-over itself takes a second or two and runs in the background)."""
     url = _shell_safe_url(url)
     if not url:
         return False
     if os.name != "nt":
         import webbrowser
         return bool(webbrowser.open(url))
-    from .const import known_folder
-    win = known_folder("Windows") or r"C:\Windows"
-    try:
-        subprocess.Popen([os.path.join(win, "explorer.exe"), url], creationflags=_NOWIN)
+    if OPEN_ASYNC:
+        threading.Thread(target=_open_link, args=(url,), daemon=True, name="open-link").start()
         return True
-    except OSError:
-        return False
+    return _open_link(url)
 
 
 def owner_sid(path):

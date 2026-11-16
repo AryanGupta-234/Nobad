@@ -46,16 +46,12 @@
     const box = $("#siRes"); if (!box) return;
     $("#siAttr").innerHTML = attribution();
     const st = SI.status;
-    if (st && !st.configured) {
-      box.innerHTML = `<div class="si-setup-cta"><b>${E(tr("One-time setup: add a free TMDB key"))}</b>
-        <p>${E(tr("NOBAD reads titles and streaming catalogues from TMDB (availability data by JustWatch). TMDB's licence is personal, so each user adds their own free key. It takes about two minutes:"))}</p>
-        ${keyGuide()}
-        <button class="pri" data-si="setup">${E(tr("Add key"))}</button></div>`;
-      return;
-    }
+    const basic = st && !st.configured;
+    const mode = basic ? `<div class="si-mode"><span class="ni-tag">${E(tr("Works without setup"))}</span><span>${E(tr("Platforms and restrictions from Wikidata and Wikipedia."))}</span>
+        <button class="linkish" data-si="setup">${E(tr("Add a free TMDB key for country-by-country availability"))}</button></div>` : "";
     // Results open in a large window instead of this narrow panel, where they used to land below the fold.
-    box.innerHTML = SI.recent.length ? `<div class="si-recent"><span class="note">${E(tr("Recent"))}:</span>${SI.recent.map(q =>
-      `<button class="si-chip" data-si="recent" data-q="${E(q)}">${E(q)}</button>`).join("")}</div>` : "";
+    box.innerHTML = mode + (SI.recent.length ? `<div class="si-recent"><span class="note">${E(tr("Recent"))}:</span>${SI.recent.map(q =>
+      `<button class="si-chip" data-si="recent" data-q="${E(q)}">${E(q)}</button>`).join("")}</div>` : "");
   }
   function gridHtml() {
     if (SI.busy) return `<div class="ni-busy" role="status"><i></i>${E(tr("Searching…"))}</div>`;
@@ -90,7 +86,6 @@
   function search() { runSearch(($("#siQ") || {}).value || ""); }
   function runSearch(q) {
     q = (q || "").trim();
-    if (SI.status && !SI.status.configured) { setup(); return; }
     if (q.length < 2) { toast(tr("Type at least two characters.")); return; }
     SI.q = q; SI.err = null; SI.busy = true;
     ensureModal(); showView("browse"); $("#siQ2").value = q; renderGrid();
@@ -115,8 +110,29 @@
     api("si_title", { key, force: !!force }).then(r => { if (!r.ok) $("#siM").innerHTML = `<div class="net-issue warn"><b>${E(r.error)}</b></div>`; });
   }
   const PANES = [["match", "Best match"], ["countries", "Countries"], ["platforms", "Platforms"], ["restrictions", "Restrictions"], ["sources", "Sources"]];
+  function renderBasic() {
+    const R = SI.rep, t = R.title, d = SI.restr;
+    const meta = [tr(t.type.label), t.year, t.runtime ? `${t.runtime} min` : ""].filter(Boolean);
+    const links = [t.ids.imdb ? ["IMDb", `https://www.imdb.com/title/${t.ids.imdb}/`] : null, t.tmdb_url ? ["TMDB", t.tmdb_url] : null,
+      ["Wikidata", `https://www.wikidata.org/wiki/${t.ids.wikidata}`]].filter(Boolean);
+    const plats = R.platforms || [];
+    $("#siM").innerHTML = `${SI.results.length ? `<button class="sm si-back" data-si="back">← ${E(tr("Results"))}</button>` : ""}
+      <div class="si-top"><div class="si-top-t"><div class="si-chips">${meta.map(m => `<span class="ni-tag">${E(m)}</span>`).join("")}</div>
+        <p class="si-ov">${E(t.overview || "")}</p>
+        <div class="si-links">${links.map(([n, u]) => `<button class="sm" data-si="link" data-url="${E(u)}">${E(n)}</button>`).join("")}</div></div></div>
+      ${restrSummary(false) || (d ? "" : `<div class="note si-wait"><span class="si-dot si-dot-wait"></span>${E(tr("Checking documented restrictions…"))}</div>`)}
+      <div class="ni-sub">${E(tr("Streams on"))}</div>
+      ${plats.length ? `<div class="si-plats">${plats.map(p => `<button class="si-plat" data-si="link" data-url="${E(p.url)}"><span class="si-logo si-logo-x">${E(p.name[0])}</span><span><b>${E(p.name)}</b><small>${E(tr("Open on"))} ${E(p.name)} ↗</small></span></button>`).join("")}</div>
+        <div class="note">${E(tr("Platforms list titles per country, so it may not be in the catalogue where you are. Connect to a server in the platform's main country (often the US) if it isn't."))}</div>`
+      : `<div class="empty-state">${E(tr("No streaming platform is recorded for this title on Wikidata yet."))}</div>`}
+      <div class="si-actions"><button class="sm" data-si="link" data-url="${E(R.justwatch_url)}">${E(tr("See countries on JustWatch"))} ↗</button>
+        <button class="sm" data-si="setup">${E(tr("Per-country view in NOBAD (free TMDB key)"))}</button></div>
+      <div class="ni-sub">${E(tr("Restrictions"))}</div><div id="siPane"></div>`;
+    const p = $("#siPane"); if (p) p.innerHTML = paneRestrictions();
+  }
   function renderModal() {
     const R = SI.rep; if (!R || !SI.modal) return;
+    if (R.mode === "basic") { SI.modal.box.querySelector("h2").textContent = R.title.title + (R.title.year ? ` (${R.title.year})` : ""); renderBasic(); return; }
     const t = R.title;
     SI.modal.box.querySelector("h2").textContent = t.title + (t.year ? ` (${t.year})` : "");
     const meta = [tr(t.type.label) + (t.type.inferred ? "*" : ""), t.genres.slice(0, 3).join(", "),
@@ -137,6 +153,7 @@
   }
   function renderPane(keepFocus) {
     const p = $("#siPane"); if (!p) return;
+    if (SI.rep && SI.rep.mode === "basic") { p.innerHTML = paneRestrictions(); return; }
     const fn = { match: paneMatch, countries: paneCountries, platforms: panePlatforms, restrictions: paneRestrictions, sources: paneSources }[SI.pane];
     const focus = keepFocus && document.activeElement && document.activeElement.id;
     p.innerHTML = fn();
@@ -313,8 +330,8 @@
     if (!url) { toast(tr("This item has no link")); return; }
     const fail = r => toast((r && r.error) || tr("Couldn't open that link"));
     api("si_open", { url }).then(r => {
-      if (r && r.ok) { toast(tr("Opened in your browser"), true); return; }
-      if (r && r.error === "confirm") { if (confirm(tr("Open this link in your browser?") + "\n" + r.host)) api("si_open", { url, confirm: true }).then(x => x && x.ok ? toast(tr("Opened in your browser"), true) : fail(x), fail); }
+      if (r && r.ok) { toast(tr("Opening in your browser…"), true); return; }
+      if (r && r.error === "confirm") { if (confirm(tr("Open this link in your browser?") + "\n" + r.host)) api("si_open", { url, confirm: true }).then(x => x && x.ok ? toast(tr("Opening in your browser…"), true) : fail(x), fail); }
       else fail(r);
     }, fail);
   }

@@ -31,6 +31,7 @@ engine's state and connects through the existing `/api/connect`. The tunnel engi
 
 | Need | Source | Access | Notes |
 |---|---|---|---|
+| **Default, no setup:** titles and which platforms carry them, with direct links | **Wikidata** (`wbsearchentities`, `wbgetentities`; platform IDs such as Netflix ID P1874, Disney+ P7595/P7596, Prime Video P14440/P8055, Apple TV P9586/P9751, Max P8298, Hulu P6466/P6467, Crunchyroll P11330, linked with each property's own formatter URL) | no key, CC0 | Works out of the box. It says *which* platforms list a title, not *in which countries*; the TMDB key below adds that. |
 | Titles, alternative titles, ids, posters, age ratings | **TMDB** API v3 | the **user's own free key** (v3 API key or v4 Read Access Token) | TMDB's licence is non-transferable, so a shared key can't ship inside an open-source app. |
 | Country-by-country streaming availability | **JustWatch data via TMDB** (`/watch/providers`) | same TMDB key | Covers subscription (`flatrate`), `free`, `ads`, `rent` and `buy` per country. Attribution to JustWatch is required and shown. |
 | Countries the availability source covers | TMDB `/watch/providers/regions` | same key | Makes it possible to tell *not listed* apart from *unknown*. |

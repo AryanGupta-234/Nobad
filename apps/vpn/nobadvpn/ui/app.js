@@ -117,6 +117,7 @@ function sessHTML(){const a=(S.sessions||[]).slice().reverse();if(!a.length)retu
  return a.map(x=>`<div class="ses"><div class="a1"><div>${esc(x.name)}</div><div>${esc(when(x.start))}</div></div><div class="a2"><b>${dur(x.secs)}</b>↓ ${fmtB(x.rx)} · ↑ ${fmtB(x.tx)}</div></div>`).join("")}
 function renderDet(){if(!$("#t4").classList.contains("a"))return;
  const r=S.regions.find(x=>x.name===S.active),d=S.det,e=S.exit&&!S.exit.error?S.exit:null,st=S.settings;
+ if(!S.connected&&!S.connecting){$("#det").innerHTML='<div class="kvr"><span>Status</span><b>Not connected</b></div><div class="note det-off">Endpoint, handshake, traffic and uptime appear here while you are connected.</div>'}else
  $("#det").innerHTML=kv([["Status",S.connected?"Protected":S.connecting?"Connecting…":"Not connected"],["Server",S.active],["Endpoint",(d&&d.endpoint)||(r?r.host+":"+r.port:null)],["Last handshake",d&&d.hs_age!=null?d.hs_age+" s ago":null],["Downloaded",d?fmtB(d.rx_total):null],["Uploaded",d?fmtB(d.tx_total):null],["Uptime",$("#mUp").textContent]]);
  $("#det2").innerHTML=kv([["Exit IP",e&&e.ip],["Location",e&&[e.city,e.region,e.country].filter(Boolean).join(", ")],["Provider",e&&e.org],["Kill switch",S.ks?"Armed":st.kill_switch?"On (arms when connected)":"Off"],["Auto-repair",st.auto_repair?"On":"Off"],["Streaming tune",st.stream_tuned?"MTU 1380 · keepalive 25":"Off"]]);$("#prot").innerHTML=protHTML();$("#sess").innerHTML=sessHTML()}
 setInterval(renderDet,1000);

@@ -13,6 +13,7 @@ from .service import NoKey, StreamIntel
 _lock = threading.Lock()
 _si = None
 _KEY = re.compile(r"(movie|tv):(\d{1,10})")
+_WD = re.compile(r"wd:(Q\d{1,12})")
 
 
 def get():
@@ -23,7 +24,11 @@ def get():
         return _si
 
 
-def _err(e):
+def _err(e, src="TMDB"):
+    if src != "TMDB" and isinstance(e, net.SourceError):
+        msg = {"rate": "Wikidata is busy. Try again in a minute.", "unavailable": "Couldn't reach Wikidata.",
+               "notfound": str(e) or "Wikidata doesn't know this title."}.get(e.kind, f"Wikidata error: {e}")
+        return {"ok": False, "error": msg, "code": e.kind}
     if isinstance(e, NoKey):
         return {"ok": False, "error": "Add your free TMDB API key first.", "code": "no-key"}
     if isinstance(e, net.SourceError):
@@ -51,13 +56,22 @@ def h_key_clear(b):
 
 
 def h_search(b):
+    si, lang = get(), ctx.settings.get("si_language") or "en-US"
     try:
-        return get().search(str(b.get("q") or ""), ctx.settings.get("si_language") or "en-US")
+        if not si.cred.get():          # no key: the key-free Wikidata mode, so search works out of the box
+            try:
+                return si.basic_search(str(b.get("q") or ""), lang)
+            except Exception as e:
+                return _err(e, "Wikidata")
+        return si.search(str(b.get("q") or ""), lang)
     except Exception as e:
         return _err(e)
 
 
 def h_title(b):
+    w = _WD.fullmatch(str(b.get("key") or ""))
+    if w:
+        return _basic_title(w.group(1), bool(b.get("force")))
     m = _KEY.fullmatch(str(b.get("key") or ""))
     if not m:
         return {"ok": False, "error": "bad title"}
@@ -82,6 +96,25 @@ def h_title(b):
     # one lock per title: opening another title while one loads used to fail with "Already loading a title" and
     # leave the new window on its spinner
     return {"ok": True} if run_once(f"si_title:{kind}:{tid}", work) else {"ok": True, "pending": True}
+
+
+def _basic_title(qid, force):
+    si = get()
+
+    def work():
+        try:
+            rep = si.basic_report(qid, ctx.tunnel, ctx.smart, ctx.settings, force=force)
+        except Exception as e:
+            broadcast("si_title", dict(_err(e, "Wikidata"), key=f"wd:{qid}"))
+            return
+        broadcast("si_title", rep)
+        try:
+            doc, _rec = si.with_restrictions(rep, ctx.tunnel, ctx.smart, ctx.settings)
+        except Exception as e:
+            log(f"streaming intelligence: restriction lookup failed: {e}", "warn")
+            doc = {"status": "unavailable", "records": [], "error": str(e)}
+        broadcast("si_restrictions", {"key": rep["key"], "restrictions": doc, "recommendation": None})
+    return {"ok": True} if run_once(f"si_title:wd:{qid}", work) else {"ok": True, "pending": True}
 
 
 def h_providers(b):
@@ -135,8 +168,10 @@ def _verify_into(res, t, want, sids):
     res["services"] = [x for x in (tools.check_one_service(s) for s in sids) if x]
 
 
+from .wikidata import PLATFORM_HOSTS
+
 TRUSTED_HOSTS = {"www.themoviedb.org", "themoviedb.org", "www.imdb.com", "imdb.com", "en.wikipedia.org",
-                 "www.wikidata.org", "www.justwatch.com"}
+                 "www.wikidata.org", "www.justwatch.com"} | PLATFORM_HOSTS
 
 
 def h_open(b):

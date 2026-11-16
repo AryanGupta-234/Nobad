@@ -1,8 +1,20 @@
 {
   "schemaVersion": 1,
   "product": "nobad-vpn",
-  "latest": "1.4.0",
+  "latest": "1.4.1",
   "releases": [
+    {
+      "version": "1.4.1",
+      "releaseDate": "2026-11-16",
+      "channel": "stable",
+      "platform": "Windows 10 (1809+) / 11",
+      "architecture": "x64 (ARM64 via emulation)",
+      "summary": "Links open in your browser instead of File Explorer, Where to watch works without any setup (platforms and bans from Wikidata and Wikipedia), lighter in the background, tidier side panel. Built and attested by GitHub Actions.",
+      "downloadUrl": "https://github.com/AryanGupta-234/Nobad/releases/download/vpn-v1.4.1/NobadVPN-Setup-1.4.1.exe",
+      "notesUrl": "https://github.com/AryanGupta-234/Nobad/releases/tag/vpn-v1.4.1",
+      "sha256": "631ffa9766f1cd461276a0d493b444ccda95f51df96ce0170ea1824d2ac3ed69",
+      "size": "24.5 MB"
+    },
     {
       "version": "1.4.0",
       "releaseDate": "2026-11-16",

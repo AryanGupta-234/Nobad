@@ -108,3 +108,7 @@
 .si-ban .note{margin:0}.si-ban .linkish{align-self:flex-start}
 .si-cc-ban{color:var(--rd,#ff5268)!important;border-color:color-mix(in srgb,var(--rd,#ff5268) 45%,var(--line))!important}
 .si-bantag{margin-left:6px;font-size:10px;padding:1px 7px;border-radius:99px;color:var(--rd,#ff5268);background:color-mix(in srgb,var(--rd,#ff5268) 14%,transparent);font-weight:650;text-transform:uppercase;letter-spacing:.04em}
+
+/* Key-free mode line under the search box */
+.si-mode{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:4px 0 8px;font-size:12px;color:var(--mu)}
+.si-mode .linkish{font-size:12px}
