@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#08090d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#e6e9ef" media="(prefers-color-scheme: light)">
+<title>NOBAD File Bridge</title>
+<link rel="icon" href="/favicon.ico">
+<link rel="stylesheet" href="/static/tokens.css">
+<link rel="stylesheet" href="/static/components.css">
+<link rel="stylesheet" href="/static/shell.css">
+<link rel="stylesheet" href="/static/motion.css">
+<script src="/static/theme.js"></script>
+</head>
+<body>
+<a class="sr-only" href="#main">Skip to content</a>
+<div id="app">
+  <header class="top">
+    <a class="brand" translate="no" href="#/files" aria-label="NOBAD File Bridge, go to Files">
+      <img class="on-dark" src="/static/brand/nobad-logo-light.png" alt="NOBAD" width="90" height="30" draggable="false">
+      <img class="on-light" src="/static/brand/nobad-logo.png" alt="NOBAD" width="90" height="30" draggable="false">
+      <span class="brand-tag" translate="no">File Bridge</span>
+    </a>
+    <div class="spacer"></div>
+    <button class="search-btn" id="openPalette" type="button" aria-keyshortcuts="Control+K">
+      <span>Search or jump to…</span><kbd>Ctrl</kbd><kbd>K</kbd>
+    </button>
+    <div class="spacer"></div>
+    <button class="icon ghost" id="themeBtn" type="button" aria-label="Switch theme"></button>
+    <span class="status-pill" id="connPill" role="status"><span class="dot"></span><span>Not connected</span></span>
+  </header>
+
+  <nav class="rail" id="rail" aria-label="Screens"></nav>
+
+  <main id="main" tabindex="-1">
+    <div id="banners" aria-live="polite"></div>
+    <div id="screen"></div>
+  </main>
+
+  <section class="dock collapsed" id="dock" aria-label="Transfers and activity">
+    <div class="dock-bar" role="tablist" aria-label="Dock">
+      <button class="dock-tab" role="tab" id="dockTabTransfers" data-tab="transfers" aria-selected="true" aria-controls="dockBody">
+        Transfers <span class="count" id="transferCount">0</span>
+      </button>
+      <button class="dock-tab" role="tab" id="dockTabActivity" data-tab="activity" aria-selected="false" aria-controls="dockBody">
+        Activity <span class="count" id="logCount">0</span>
+      </button>
+      <div class="spacer"></div>
+      <span class="dock-meta" id="dockMeta">__VER__ · ✦ made with AI</span>
+      <button class="icon ghost sm" id="dockToggle" type="button" aria-expanded="false" aria-controls="dockBody" aria-keyshortcuts="Control+J"
+              aria-label="Show dock"></button>
+    </div>
+    <div class="dock-body" id="dockBody" role="tabpanel"></div>
+  </section>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script src="/static/icons.js"></script>
+<script src="/static/core.js"></script>
+<script src="/static/palette.js"></script>
+<script src="/static/screens/settings.js"></script>
+<script src="/static/screens/upcoming.js"></script>
+<script src="/static/titlebar.js"></script>
+<script src="/static/motion.js"></script>
+<script src="/static/shell.js"></script>
+</body>
+</html>

@@ -62,6 +62,19 @@ pip install -e ".[dev]"
 
 On systems where `QtWebEngine` is unavailable, the editor panel falls back to a plain Qt text editor so the app can still run.
 
+## New web UI (in development)
+
+A redesigned interface in the NOBAD VPN style, with a blue accent, is being built screen by screen next to the
+classic window. So far it has the app shell, the command palette (Ctrl+K), dark and light themes and Settings;
+the other screens say what's coming and point to the classic window.
+
+```bash
+python -m app.web             # app window
+python -m app.web --browser   # same UI in your web browser
+```
+
+How it's built and the rules for new screens: [docs/WEB-UI.md](docs/WEB-UI.md).
+
 ## Run
 
 ```bash
