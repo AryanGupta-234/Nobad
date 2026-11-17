@@ -31,7 +31,7 @@ rulesets or bypass lists yourself.
    version in `.github/ISSUE_TEMPLATE/bug_report.yml`.
 9. **Site.** `npm run build`; `public/index.html` and `public/products/vpn/index.html` must show the new version.
    Commit `site: publish NOBAD VPN X.Y.Z`, push `main`.
-10. **Live check.** Poll `https://nobad-platform.aassworld99.workers.dev/build.json` until `commit` is the commit you
+10. **Live check.** Poll `https://nobad-platform.nobad-studio.workers.dev/build.json` until `commit` is the commit you
     pushed, then check `/releases/vpn/releases.json` shows the new `latest`. If Cloudflare's build never starts for the commit (no "Workers Builds" check after about 5
     minutes), push an empty commit to retrigger it.
 
