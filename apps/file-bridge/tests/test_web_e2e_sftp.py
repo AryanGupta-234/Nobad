@@ -33,6 +33,15 @@ class _Server(asyncssh.SSHServer):
         return username == USER and password == PASSWORD
 
 
+def _close_on_loop(server) -> None:  # type: ignore[no-untyped-def]
+    """Close the test server on the runtime's own loop (asyncio objects aren't thread-safe)."""
+    async def close() -> None:
+        server.close()
+        await server.wait_closed()
+
+    AsyncRuntime.instance().run(close())
+
+
 @pytest.fixture
 def sftp_server(tmp_path: Path):
     root = tmp_path / "server-root"
@@ -49,7 +58,7 @@ def sftp_server(tmp_path: Path):
 
     server, port = AsyncRuntime.instance().run(start())
     yield root, port
-    server.close()
+    _close_on_loop(server)
 
 
 @pytest.fixture
