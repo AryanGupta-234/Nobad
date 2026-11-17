@@ -22,6 +22,10 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
+# The page went away before its reply was written (reload, close, a request it no longer waits for). Nothing to
+# answer and nothing wrong with the app, so these are dropped quietly instead of printing a traceback.
+CLIENT_GONE = (BrokenPipeError, ConnectionResetError, ConnectionAbortedError)
+
 from app_web import bus
 from app_web.api import api_post
 from app_web.handlers import register_all
@@ -126,8 +130,11 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Security-Policy", CSP)
         elif ctype.startswith("image/svg"):
             self.send_header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; sandbox")
-        self.end_headers()
-        self.wfile.write(body)
+        try:
+            self.end_headers()
+            self.wfile.write(body)
+        except CLIENT_GONE:
+            self.close_connection = True
 
     def _page(self, qs: dict[str, list[str]]) -> None:
         code = qs.get("k", [""])[0]
@@ -229,14 +236,23 @@ class Handler(BaseHTTPRequestHandler):
         if not url.path.startswith("/api/"):
             return self._send(404, {"ok": False})
         try:
-            return self._send(200, api_post(url.path[len("/api/"):], body if isinstance(body, dict) else {}, self.server.ctx))
+            reply = api_post(url.path[len("/api/"):], body if isinstance(body, dict) else {}, self.server.ctx)
         except Exception as exc:
             bus.log(f"Internal error in {url.path}: {exc}", "bad", "server")
             return self._send(500, {"ok": False, "error": bus.scrub(exc)})
+        return self._send(200, reply)          # a failed send is the client leaving, not an internal error
 
 
 class BridgeServer(ThreadingHTTPServer):
     daemon_threads = True
+
+    def handle_error(self, request: Any, client_address: Any) -> None:
+        """Stay quiet when the page simply went away; anything else is still printed (the default)."""
+        import sys
+
+        if isinstance(sys.exc_info()[1], CLIENT_GONE):
+            return
+        super().handle_error(request, client_address)
 
     def __init__(self, ctx: Any) -> None:
         register_all()

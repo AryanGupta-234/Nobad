@@ -185,3 +185,32 @@ def test_ui_index_holds_only_servable_files(tmp_path) -> None:
     (tmp_path / "sub" / "style.css").write_text("x")
 
     assert set(index_ui_files(tmp_path)) == {"index.html", "app.js", "sub/style.css"}
+
+
+def test_a_page_that_leaves_before_its_reply_is_not_an_error(server, capfd) -> None:
+    """Reloading or closing the window drops requests in flight: no traceback, no "Internal error" in the log."""
+    import socket
+    import struct
+    import time as _time
+
+    from app_web import bus
+    from app_web.api import handler
+
+    @handler("test.slow_reply")
+    def _slow(_body, _ctx):  # type: ignore[no-untyped-def]
+        _time.sleep(0.4)
+        return {"ok": True, "data": "x" * 200_000}
+
+    cookie = sign_in(server)
+    port = server.server_address[1]
+    body = b"{}"
+    request = (f"POST /api/test.slow_reply HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nOrigin: http://127.0.0.1:{port}\r\n"
+               f"Cookie: {COOKIE}={cookie}\r\nContent-Type: application/json\r\nContent-Length: {len(body)}\r\n\r\n").encode() + body
+    sock = socket.create_connection(("127.0.0.1", port))
+    sock.sendall(request)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0))   # reset, like a closed tab
+    sock.close()
+    _time.sleep(1.2)
+    err = capfd.readouterr().err
+    assert "Traceback" not in err and "ConnectionAbortedError" not in err and "ConnectionResetError" not in err
+    assert not any("Internal error" in str(e) for e in bus.recent_log())
