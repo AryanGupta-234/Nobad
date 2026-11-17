@@ -3,6 +3,31 @@
       downloads: {}   // e.g. files: "https://...". Add a URL only once a real, published build exists
     };
 
+    // Products and their maintainers, shown in "Built in the open". Adding a product or a maintainer is one line here.
+    const NOBAD_PRODUCTS = [
+      { product: "NOBAD VPN", page: "/products/vpn/", maintainer: "@AryanGupta-234", status: "Available" },
+      { product: "NOBAD File Bridge", page: "/products/file-bridge/", maintainer: "@harshRaj1601", status: "In development" },
+    ];
+    (() => {
+      const body = document.getElementById("roster");
+      if (!body) return;
+      const cell = (row, child) => { const td = document.createElement("td"); td.append(child); row.append(td); };
+      const link = (text, href) => { const a = document.createElement("a"); a.textContent = text; a.href = href; return a; };
+      const rows = NOBAD_PRODUCTS.filter(p => /^@[A-Za-z0-9-]{1,39}$/.test(p.maintainer) && /^\/products\/[a-z0-9-]+\/$/.test(p.page)).map(p => {
+        const tr = document.createElement("tr");
+        cell(tr, link(p.product, p.page));
+        const m = link(p.maintainer, "https://github.com/" + p.maintainer.slice(1));
+        m.rel = "noopener";
+        cell(tr, m);
+        const st = document.createElement("span");
+        st.className = "st " + (/^available$/i.test(p.status) ? "ok" : "dev");
+        st.textContent = p.status;
+        cell(tr, st);
+        return tr;
+      });
+      if (rows.length) body.replaceChildren(...rows);
+    })();
+
     // Current year is dynamic.
     document.getElementById("year").textContent = new Date().getFullYear();
 

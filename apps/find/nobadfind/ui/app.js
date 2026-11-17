@@ -1,0 +1,226 @@
+// NOBAD Find UI. Every value from the index (file names, folders, snippets) is untrusted: it goes through esc()
+// before it reaches innerHTML. Snippet match markers (\x02 \x03) become <mark> only after escaping.
+"use strict";
+const $ = s => document.querySelector(s);
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const marks = v => esc(v).replace(/\x02/g, "<mark>").replace(/\x03/g, "</mark>");
+const api = async (name, ...args) => {
+  if (!window.pywebview || !pywebview.api || !pywebview.api[name]) return null;
+  try { return await pywebview.api[name](...args); } catch (e) { console.warn(name, e); return null; }
+};
+
+const KIND = { pdf: "PDF", document: "DOC", spreadsheet: "XLS", slides: "PPT", text: "TXT", code: "</>", email: "MAIL",
+  image: "IMG", video: "VID", audio: "AUD", archive: "ZIP", app: "APP", ebook: "BOOK", folder: "DIR", other: "FILE" };
+const size = n => !n ? "" : n < 1024 ? n + " B" : n < 1 << 20 ? (n / 1024).toFixed(0) + " KB" :
+  n < 1 << 30 ? (n / 1048576).toFixed(1) + " MB" : (n / 1073741824).toFixed(2) + " GB";
+
+let results = [], sel = 0, seq = 0, timer = 0;
+
+// ---------- toast ----------
+let toastT = 0;
+function toast(msg) {
+  const t = $("#toast");
+  t.textContent = msg;
+  t.classList.add("on");
+  clearTimeout(toastT);
+  toastT = setTimeout(() => t.classList.remove("on"), 3200);
+}
+window.nfNotice = toast;
+window.nfFocus = () => { tab("search"); const q = $("#q"); q.focus(); q.select(); };
+
+// ---------- tabs ----------
+function tab(name) {
+  document.querySelectorAll(".tab").forEach(b => b.classList.toggle("on", b.dataset.tab === name));
+  document.querySelectorAll(".view").forEach(v => v.classList.toggle("on", v.id === "v-" + name));
+  if (name === "index") refreshStatus(true);
+  if (name === "settings") renderSettings();
+}
+document.querySelectorAll(".tab").forEach(b => b.addEventListener("click", () => tab(b.dataset.tab)));
+
+// ---------- search ----------
+async function run() {
+  const text = $("#q").value;
+  const my = ++seq;
+  if (!text.trim()) { results = []; render({ results: [], understood: [] }); return; }
+  const r = await api("search", text);
+  if (my !== seq || !r) return;               // a newer search is already running
+  results = r.results || [];
+  sel = 0;
+  render(r);
+}
+
+function render(r) {
+  $("#understood").innerHTML = (r.understood || []).map(u => `<span class="chip">${esc(u)}</span>`).join("");
+  $("#empty").style.display = $("#q").value.trim() ? "none" : "";
+  const q = $("#q").value.trim();
+  $("#meta").textContent = !q ? "" : r.error ? r.error :
+    results.length ? `${results.length}${results.length >= 60 ? "+" : ""} results · ${r.ms} ms` : "Nothing found. Try fewer or other words.";
+  $("#results").innerHTML = results.map((x, i) => `
+    <li class="res${i === sel ? " sel" : ""}" data-i="${i}">
+      <span class="ico">${esc(KIND[x.kind] || "FILE")}</span>
+      <div><div class="name">${esc(x.name)}</div><div class="dir">${esc(x.dir)}</div>
+        ${x.snippet ? `<div class="snip">${marks(x.snippet)}</div>` : ""}
+        <div class="why">${(x.why || []).map(w => `<span>${esc(w)}</span>`).join("")}</div></div>
+      <div class="side">${esc(x.ago)}<br>${esc(size(x.size))}</div>
+    </li>`).join("");
+}
+
+function select(i) {
+  if (!results.length) return;
+  sel = Math.max(0, Math.min(results.length - 1, i));
+  document.querySelectorAll(".res").forEach((el, k) => el.classList.toggle("sel", k === sel));
+  const el = document.querySelector(`.res[data-i="${sel}"]`);
+  if (el) el.scrollIntoView({ block: "nearest" });
+}
+
+async function act(kind, i = sel) {
+  const x = results[i];
+  if (!x) return;
+  if (kind === "open") { const r = await api("open", x.id); if (r && !r.ok) toast(r.error); else api("hide"); }
+  if (kind === "reveal") { const r = await api("reveal", x.id); if (r && !r.ok) toast("Couldn't show it in its folder."); }
+  if (kind === "copy") { const r = await api("path_of", x.id); if (r && r.path) { await navigator.clipboard.writeText(r.path); toast("Path copied."); } }
+  if (kind === "forget") {
+    if (!confirm(`Forget "${x.name}" and keep it out of the index from now on?`)) return;
+    const r = await api("forget", x.id);
+    if (r && r.ok) { toast("Forgotten. Undo it in Settings → Never search."); run(); }
+  }
+}
+
+$("#q").addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(run, 110); });
+$("#results").addEventListener("click", e => { const li = e.target.closest(".res"); if (li) { select(+li.dataset.i); act(e.ctrlKey ? "reveal" : "open"); } });
+$("#results").addEventListener("contextmenu", e => { const li = e.target.closest(".res"); if (li) { e.preventDefault(); select(+li.dataset.i); act("reveal"); } });
+document.addEventListener("keydown", e => {
+  if (e.ctrlKey && ["1", "2", "3"].includes(e.key)) { e.preventDefault(); tab(["search", "index", "settings"][+e.key - 1]); return; }
+  if (!$("#v-search").classList.contains("on")) { if (e.key === "Escape") api("hide"); return; }
+  if (e.key === "ArrowDown") { e.preventDefault(); select(sel + 1); }
+  else if (e.key === "ArrowUp") { e.preventDefault(); select(sel - 1); }
+  else if (e.key === "Enter") { e.preventDefault(); act(e.ctrlKey ? "reveal" : "open"); }
+  else if (e.key === "Escape") { if ($("#q").value) { $("#q").value = ""; run(); } else api("hide"); }
+  else if (e.key === "c" && e.ctrlKey && !window.getSelection().toString()) { e.preventDefault(); act("copy"); }
+  else if (e.key === "Delete" && e.shiftKey) { e.preventDefault(); act("forget"); }
+});
+
+// ---------- index status ----------
+const PHASE = { starting: "Starting", names: "Finding files", text: "Reading text", meaning: "Learning meaning", watching: "Up to date", error: "Stopped" };
+async function refreshStatus(full) {
+  const s = await api("status");
+  if (!s) { $("#railState").textContent = "preview"; return; }
+  const phase = s.paused ? "Paused · " + s.paused : (PHASE[s.phase] || s.phase);
+  $("#railState").textContent = phase;
+  if (!full && !$("#v-index").classList.contains("on")) return;
+  const card = (v, l, live) => `<div class="card${live ? " live" : ""}"><b>${esc(v)}</b><span>${esc(l)}</span></div>`;
+  $("#cards").innerHTML = [
+    card(phase, "Status", s.phase !== "watching"),
+    card(Number(s.files).toLocaleString(), "Files and folders"),
+    card(Number(s.with_text).toLocaleString(), "Files with readable text"),
+    card(Number(s.vectors).toLocaleString(), "Meaning vectors"),
+    card(s.rate ? Number(s.rate).toLocaleString() + "/s" : "–", "Scan speed"),
+    card((s.db_bytes / 1048576).toFixed(0) + " MB", "Index size"),
+    card(s.plan && s.plan.cpu ? `${s.plan.text_workers} of ${s.plan.cpu}` : "–", "Text workers / CPU threads"),
+    card(s.plan && "ssd" in s.plan ? (s.plan.ssd ? "SSD" : "Hard disk") : "–", "Drive type"),
+  ].join("");
+  $("#roots").innerHTML = (s.roots || []).map(r => `<li>${esc(r)}</li>`).join("");
+  const n = $("#encNote");
+  n.className = "note" + (s.encrypted ? "" : " warn");
+  n.textContent = s.encrypted
+    ? "The index is encrypted on disk (SQLCipher). Its key is protected by your Windows sign-in, and nothing leaves this PC."
+    : "The index is NOT encrypted: SQLCipher isn't installed in this build. It stays in your own profile folder.";
+}
+$("#rescan").addEventListener("click", async () => { await api("rescan"); toast("Rescan started."); });
+setInterval(() => refreshStatus(false), 2500);
+
+// ---------- settings ----------
+const GROUPS = [
+  ["What to search", [
+    ["content", "switch", "Read the text inside files", "Documents, PDFs, code, notes and e-mail files. Off: names only."],
+    ["content_max_mb", "num", "Largest file to read (MB)", "Bigger files are still found by name."],
+    ["src_mail", "switch", "E-mail files", ".eml and .mbox files found on your drives."],
+    ["roots", "folders", "Folders to search", "Empty: your profile folder and every fixed drive (never other people's profiles or Windows itself)."],
+    ["exclude", "folders", "Never search", "These folders and files are skipped and removed from the index."],
+  ]],
+  ["Meaning search", [
+    ["allow_model_download", "switch", "Allow the one-time model download",
+      "23 MB from Hugging Face (all-MiniLM-L6-v2, pinned and checked by SHA-256). This is NOBAD Find's only internet connection."],
+    ["semantic", "switch", "Search by meaning", "Finds “lease agreement” when you type “rent”. Runs on this PC only."],
+    ["_model", "model", "Model", ""],
+  ]],
+  ["Staying out of your way", [
+    ["pause_on_battery", "switch", "Pause on battery", ""],
+    ["pause_fullscreen", "switch", "Pause during games and presentations", ""],
+    ["workers", "num", "Text reading workers", "0 = choose from your CPU (leaves two threads free for you)."],
+  ]],
+  ["Launch", [
+    ["hotkey", "txt", "Hotkey", "For example win+shift+space or ctrl+alt+f. Takes effect at the next start."],
+    ["autostart", "switch", "Start with Windows", "Starts hidden; the hotkey opens it."],
+  ]],
+  ["Windows Search", [["_wsearch", "wsearch", "Windows Search indexing", ""]]],
+  ["Your data", [["_wipe", "wipe", "Delete the whole index", "Removes everything NOBAD Find has stored. It starts again from scratch."]]],
+];
+
+async function renderSettings() {
+  const s = await api("get_settings");
+  if (!s) { $("#settings").innerHTML = "<p class='note'>Settings are available in the app.</p>"; return; }
+  const st = await api("status");
+  const ws = await api("wsearch_state");
+  $("#settings").innerHTML = GROUPS.map(([title, rows]) => `<div class="group"><h3>${esc(title)}</h3>${rows.map(([k, type, label, help]) => {
+    let ctl = "";
+    if (type === "switch") ctl = `<input class="switch" type="checkbox" data-k="${k}" ${s[k] ? "checked" : ""}>`;
+    if (type === "num") ctl = `<input class="num" type="number" min="0" data-k="${k}" value="${esc(s[k])}">`;
+    if (type === "txt") ctl = `<input class="txt" type="text" data-k="${k}" value="${esc(s[k])}">`;
+    if (type === "folders") ctl = `<button class="btn ghost" data-add="${k}">Add folder</button>
+      <div class="list">${(s[k] || []).map((p, i) => `<div><span>${esc(p)}</span><button data-del="${k}" data-i="${i}" title="Remove">✕</button></div>`).join("")}</div>`;
+    if (type === "model") {
+      const m = st && st.model || {};
+      help = m.state === "ready" ? "Downloaded and verified." : m.state === "downloading"
+        ? `Downloading… ${m.size ? Math.round(100 * m.got / m.size) : 0}%` : (m.error ? "Last try failed: " + m.error : "Not downloaded.");
+      ctl = m.state === "ready" ? "" : `<button class="btn" id="getModel">Download</button>`;
+    }
+    if (type === "wsearch") {
+      if (!ws || ws.missing) help = "Windows Search isn't installed on this PC.";
+      else {
+        const off = ws.start === "disabled";
+        help = (off ? "Off. " : `On (${esc(ws.start)}${ws.running ? ", running" : ""}). `) +
+          "<span class='warn'>Turning it off frees CPU and disk, but the Start menu, Explorer and Outlook stop finding files by content. " +
+          "Windows asks for permission; turning it back on restores the setting it had before.</span>";
+        ctl = `<button class="btn ${off ? "" : "ghost"}" id="wsToggle" data-off="${off ? 0 : 1}">${off ? "Turn back on" : "Turn off"}</button>`;
+      }
+    }
+    if (type === "wipe") ctl = `<button class="btn danger" id="wipe">Delete index</button>`;
+    return `<div class="set"><label><b>${esc(label)}</b>${help ? `<small>${type === "wsearch" ? help : esc(help)}</small>` : ""}</label>${ctl}</div>`;
+  }).join("")}</div>`).join("");
+}
+
+const settingsEl = $("#settings");
+settingsEl.addEventListener("change", async e => {
+  const k = e.target.dataset.k;
+  if (!k) return;
+  const v = e.target.type === "checkbox" ? e.target.checked : e.target.type === "number" ? Number(e.target.value) : e.target.value;
+  const r = await api("set_settings", { [k]: v });
+  if (r && !r.changed.length) toast("That value wasn't accepted.");
+  renderSettings();
+});
+settingsEl.addEventListener("click", async e => {
+  const t = e.target;
+  const s = await api("get_settings");
+  if (!s) return;
+  if (t.dataset.add) {
+    const r = await api("pick_folder");
+    if (r && r.path) { await api("set_settings", { [t.dataset.add]: [...s[t.dataset.add], r.path] }); renderSettings(); }
+  } else if (t.dataset.del) {
+    const list = s[t.dataset.del].filter((_, i) => i !== +t.dataset.i);
+    await api("set_settings", { [t.dataset.del]: list }); renderSettings();
+  } else if (t.id === "getModel") {
+    const r = await api("download_model"); if (r && !r.ok) toast(r.error); else toast("Downloading the model…");
+    const poll = setInterval(async () => { await renderSettings(); const st = await api("status"); if (!st || st.model.state !== "downloading") clearInterval(poll); }, 1000);
+  } else if (t.id === "wsToggle") {
+    t.disabled = true; t.textContent = "Waiting for Windows…";
+    const r = await api("wsearch_set", t.dataset.off === "1");
+    toast(r && r.ok ? "Done." : (r && r.error) || "No change.");
+    renderSettings();
+  } else if (t.id === "wipe") {
+    if (prompt('This deletes the whole index. Type DELETE to confirm.') === "DELETE") { await api("wipe", "DELETE"); toast("Index deleted. Rebuilding."); }
+  }
+});
+
+window.addEventListener("pywebviewready", () => { refreshStatus(false); $("#q").focus(); });
+$("#q").focus();

@@ -82,16 +82,32 @@ html { scroll-padding-top: 100px; }
 .jump a { padding: 7px 12px; border-radius: 999px; border: 1px solid rgba(0,0,0,.45); background: var(--nb-glass-light); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); color: var(--nb-k); font: 700 10px var(--nb-mono); text-transform: uppercase; text-decoration: none; transition: background .2s, color .2s; }
 .jump a:hover { background: var(--nb-k); color: var(--nb-o); }
 
-@media (prefers-reduced-motion: reduce) { .site-nav *, .jump a { transition: none !important; } }
+/* keyboard focus: one clear ring on every nav and footer control */
+.site-nav a:focus-visible, .site-nav button:focus-visible, .site-footer a:focus-visible { outline: 2px solid var(--nb-o); outline-offset: 3px; }
+.site-nav .nav-pill a:focus-visible { outline-offset: 1px; }
 
-/* VPN page: "Free servers in 2 minutes" band: dark text and dark buttons on the orange band, 4 steps in one row */
-#free-servers, #free-servers .section-head p, #free-servers .eyebrow { color: var(--nb-k, #050505); }
-#free-servers .plain-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
-#free-servers .start { background: rgba(0,0,0,.08); border-color: rgba(0,0,0,.22); box-shadow: none; color: var(--nb-k, #050505); }
-#free-servers .start p { color: rgba(5,5,5,.82); }
-#free-servers .start .n { background: var(--nb-k, #050505); color: var(--nb-o, #ff4d00); }
-#free-servers .btn { display: inline-flex; margin-top: 4px; background: var(--nb-k, #050505); color: #fff; border-color: var(--nb-k, #050505); }
-#free-servers .btn:hover { background: #fff; color: var(--nb-k, #050505); }
-#free-servers .free-why { max-width: 820px; margin: 28px 0 0; font: 600 13px/1.6 var(--nb-mono, monospace); color: rgba(5,5,5,.85); }
-@media (max-width: 1000px) { #free-servers .plain-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 560px) { #free-servers .plain-grid { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) { .site-nav, .site-nav *, .jump a { transition: none !important; } }
+
+/* ---------- page transitions: the old page fades up and away, the new one settles in; the brand mark and the
+   nav glide between pages as their own layers. Browsers without cross-document view transitions get site.js's fade. */
+@view-transition { navigation: auto; }
+.site-nav { view-transition-name: nb-nav; }
+.site-nav .brand { view-transition-name: nb-brand; }
+::view-transition-old(root) { animation: nb-page-out .22s cubic-bezier(.4, 0, 1, 1) both; }
+::view-transition-new(root) { animation: nb-page-in .42s cubic-bezier(.22, .8, .24, 1) .06s both; }
+::view-transition-group(nb-nav), ::view-transition-group(nb-brand) { animation-duration: .4s; animation-timing-function: cubic-bezier(.22, .8, .24, 1); }
+::view-transition-old(nb-nav), ::view-transition-new(nb-nav), ::view-transition-old(nb-brand), ::view-transition-new(nb-brand) { animation-duration: .3s; }
+@keyframes nb-page-out { to { opacity: 0; transform: translate3d(0, -10px, 0); } }
+@keyframes nb-page-in { from { opacity: 0; transform: translate3d(0, 14px, 0); } }
+/* an orange line sweeps across the top while the next page loads */
+.nb-progress { position: fixed; z-index: 3000; top: 0; left: 0; height: 2px; width: 100%; background: var(--nb-o); box-shadow: 0 0 14px var(--nb-o); transform: scaleX(0); transform-origin: left; pointer-events: none; }
+.nb-progress.run { animation: nb-progress 1.2s cubic-bezier(.2, .7, .2, 1) forwards; }
+@keyframes nb-progress { 0% { transform: scaleX(0); } 100% { transform: scaleX(.85); } }
+/* browsers without cross-page view transitions get a simple fade */
+html.nb-fade body > :not(.site-nav):not(.nb-progress) { animation: nb-page-in .4s cubic-bezier(.22, .8, .24, 1) both; }
+html.nb-fade.nb-leaving body > :not(.site-nav):not(.nb-progress) { opacity: 0; transform: translate3d(0, -8px, 0); transition: opacity .2s cubic-bezier(.4, 0, 1, 1), transform .2s cubic-bezier(.4, 0, 1, 1); }
+@media (prefers-reduced-motion: reduce) {
+  @view-transition { navigation: none; }
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+  html.nb-fade body > *, .nb-progress.run { animation: none !important; }
+}

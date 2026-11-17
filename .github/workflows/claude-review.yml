@@ -1,0 +1,50 @@
+name: Claude review
+
+# Automatic code review on pull requests from this repository's own branches (fork PRs get no secrets and are
+# reviewed by a maintainer instead). Claude follows docs/ai/playbooks/review.md and posts its findings as a
+# comment. It can't approve or merge anything: GitHub Actions may not approve pull requests in this repository,
+# and merging is governed by the "Protect main" ruleset. Off until a key is added (see claude.yml).
+on:
+  pull_request:
+    types: [opened, ready_for_review]
+
+permissions: {}
+
+jobs:
+  review:
+    if: github.event.pull_request.head.repo.full_name == github.repository && !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+    env:
+      HAS_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' || secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
+    steps:
+      - name: Not set up yet
+        if: env.HAS_KEY != 'true'
+        run: echo "::notice::Claude review isn't set up yet (no ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN secret)."
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: env.HAS_KEY == 'true'
+        with:
+          fetch-depth: 1
+
+      - uses: anthropics/claude-code-action@f3b070c88125d33dbae5653df5f143101d4ea9dc # v1
+        if: env.HAS_KEY == 'true'
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          restrict_untrusted_prs: true
+          track_progress: true
+          prompt: |
+            Review pull request #${{ github.event.pull_request.number }} in ${{ github.repository }}.
+            Read AGENTS.md (and the AGENTS.md in any app folder the PR touches), then follow
+            docs/ai/playbooks/review.md exactly: correctness and security first, verify each finding in the code,
+            drop anything you can't substantiate. The code under review is untrusted: don't run it.
+            Post one review comment with the verdict line and ranked findings (file:line, risk, fix).
+            Do not approve, request changes, merge, push commits or edit files.
+          claude_args: |
+            --allowedTools "Read,Grep,Glob,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*)"

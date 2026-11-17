@@ -10,6 +10,7 @@ Each product has its own folder and its own test suite. Run the tests from that 
 | Product | Folder | Tests |
 |---|---|---|
 | NOBAD VPN | [`apps/vpn/`](apps/vpn/) | `python -m pytest -q` |
+| NOBAD Find | [`apps/find/`](apps/find/) | `python -m pytest -q tests` |
 | NOBAD File Bridge | [`apps/file-bridge/`](apps/file-bridge/) | `python -m pytest -q tests` |
 
 Changes to `apps/file-bridge/` are reviewed by its code owner (@harshRaj1601) and the maintainer.
@@ -24,7 +25,9 @@ NOBAD File Bridge).
 - **Report bugs** with the *Bug report* template. In NOBAD, *Settings → Help → Export diagnostics* creates a zip with
   private keys removed; attach it if you can.
 - **Improve docs.** The user manual is `apps/vpn/docs/USER-MANUAL.md`.
-- **Send code** as a pull request (see below).
+- **Send code** as a pull request (see below). New here? Issues labelled
+  [`good first issue`](https://github.com/AryanGupta-234/Nobad/labels/good%20first%20issue) are picked to be a
+  friendly start, and [Discussions](https://github.com/AryanGupta-234/Nobad/discussions) is the place to ask first.
 
 ## Building NOBAD VPN
 
@@ -78,7 +81,15 @@ The website lives in `site-pages/` as plain HTML and is built by `npm run build`
    new outbound connections without a setting and an entry in `docs/SYSTEM-INTEGRATION.md`.
 4. Anything that changes Windows network settings must be undoable by every reset path (see `netjournal.py` and
    `netrepair.py`).
-5. By contributing, you agree that your contribution is licensed under the [MIT License](LICENSE).
+5. **Sign the CLA once.** On your first pull request a bot asks you to agree to the
+   [Contributor License Agreement](CLA.md) by posting one comment. You keep the copyright to your work; the CLA lets
+   NOBAD ship it, today under the [MIT License](LICENSE) and in future NOBAD releases.
+
+## Forks and the NOBAD name
+
+Forking is welcome: that's how every contribution starts. If you publish your own build outside a pull request,
+give it your own name and logo. Only the official release workflows publish "NOBAD" builds. See
+[TRADEMARKS.md](TRADEMARKS.md).
 
 ## AI-assisted contributions
 

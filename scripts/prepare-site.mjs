@@ -84,4 +84,15 @@ for await (const file of walk(output)) {
   console.log(`Built ${file.slice(output.length + 1).replaceAll("\\", "/")} (${Buffer.byteLength(html).toLocaleString()} bytes)`);
 }
 
+// 5. /build.json: which commit this deploy was built from, so a deploy can be checked from outside
+let commit = process.env.WORKERS_CI_COMMIT_SHA || process.env.GITHUB_SHA || "";
+if (!commit) {
+  try {
+    const { execFileSync } = await import("node:child_process");
+    commit = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+  } catch { commit = "unknown"; }
+}
+if (!/^[0-9a-f]{7,40}$|^unknown$/.test(commit)) commit = "unknown";
+await writeFile(resolve(output, "build.json"), JSON.stringify({ commit, built: new Date().toISOString() }) + "\n");
+
 console.log(`NOBAD static site build complete (NOBAD VPN ${values.VPN_VERSION}).`);

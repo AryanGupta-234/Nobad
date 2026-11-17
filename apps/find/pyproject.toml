@@ -1,0 +1,44 @@
+# NOBAD Find project metadata. CI installs from the hash-pinned requirements-lock.txt; keep the dependency list
+# below in step with requirements.txt.
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nobad-find"
+dynamic = ["version"]
+description = "NOBAD Find: private, offline search over your own files, by name, by the text inside and by meaning."
+readme = "README.md"
+license = "MIT"
+authors = [{ name = "Aryan Gupta and NOBAD contributors" }]
+requires-python = ">=3.11,<3.12"
+classifiers = ["Operating System :: Microsoft :: Windows", "Programming Language :: Python :: 3.11", "Private :: Do Not Upload"]
+dependencies = [
+  "pywebview==6.2.1",
+  "sqlcipher3-wheels==0.5.7",
+  "pypdf==6.18.0",
+  "numpy==2.4.6",
+  "onnxruntime==1.27.0",
+  "tokenizers==0.23.2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest==9.1.1", "pyflakes==4.1.0"]
+
+[project.scripts]
+nobad-find = "nobadfind.app:main"
+
+[project.urls]
+Source = "https://github.com/AryanGupta-234/Nobad"
+
+[tool.setuptools.dynamic]
+version = { attr = "nobadfind.const.APP_VER" }
+
+[tool.setuptools.packages.find]
+include = ["nobadfind*"]
+
+[tool.setuptools.package-data]
+nobadfind = ["ui/**/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

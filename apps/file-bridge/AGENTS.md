@@ -35,6 +35,8 @@ Close an issue in the PR that fixes it (`Fixes #29`), with a test that would hav
 - Every change comes with tests; `python -m pytest -q tests` must pass.
 
 ## How changes land
-Branch → pull request against `main`. A code owner must approve (you can review others' changes to `apps/file-bridge/`;
-your own PRs need the maintainer). CI must pass. Releases of NOBAD File Bridge will get their own tag pattern and workflow
-when it's ready. Ask the maintainer first; don't add release automation on your own.
+Branch → pull request against `main`. A PR that changes **only** `apps/file-bridge/` needs no approval: it merges
+once the required checks pass (`file-bridge-tests` runs this suite, plus `site-build`). Turn on auto-merge on the PR
+and it merges by itself when they're green. A PR that also touches anything else (VPN, website, workflows, rules,
+AGENTS.md) needs the maintainer's approval. Copilot reviews every PR automatically; treat its comments as advice.
+Releases of NOBAD File Bridge will get their own tag pattern and workflow when it's ready: ask the maintainer first.

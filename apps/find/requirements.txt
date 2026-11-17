@@ -1,0 +1,7 @@
+# NOBAD Find runtime dependencies. requirements-lock.txt pins these (and everything they pull in) by hash.
+pywebview==6.2.1           # the window (Edge WebView2)
+sqlcipher3-wheels==0.5.7   # the encrypted index (SQLCipher with FTS5)
+pypdf==6.18.0              # text inside PDFs
+numpy==2.4.6               # meaning-search vectors
+onnxruntime==1.27.0        # runs the local meaning-search model
+tokenizers==0.23.2         # splits text for the model
