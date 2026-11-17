@@ -12,7 +12,9 @@ they're about, and tells you why each result matched.
 - **Names, instantly.** Any part of a file or folder name, across your profile and every fixed drive.
 - **The text inside.** Documents (Word, ODF, RTF), spreadsheets, slides, PDFs, EPUBs, code, notes and e-mail
   files (.eml, .mbox). Word forms match ("landlords" finds "landlord").
-- **Meaning, optionally.** A small model on your PC lets "rent" find "lease agreement".
+- **Meaning, optionally.** A small model on your PC lets "rent" find "lease agreement", and reads file and
+  folder names for meaning too: "seaside pictures" finds `IMG_goa_beach_sunset.jpg`, "power bill" finds
+  `electricity-bill-march.pdf`.
 - **Words in photos and scans.** Screenshots, photos of documents and scanned PDFs are read with the OCR built
   into Windows. Offline; it runs after everything else because it's slower.
 - **Plain-language filters.** Kinds ("pdf", "photos", "spreadsheet", "code"), times ("yesterday",

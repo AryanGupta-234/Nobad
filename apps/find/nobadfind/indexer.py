@@ -22,6 +22,10 @@ DEBOUNCE = 2.0
 JOB_TIMEOUT = 300                # seconds one file may take before its reader is stopped
 REMOVABLE_RESCAN = 1800          # USB drives aren't watched (that would block "safely remove"): re-walk them
 PAUSE_CHECK_EVERY = 5.0
+# Names worth a meaning vector: things people make and keep (not code, programs or unknown files)
+NAME_KINDS = {"pdf", "document", "spreadsheet", "slides", "text", "email", "image", "video", "audio", "archive",
+              "ebook", "folder"}
+SKIP_NAME_DIRS = ("\\program files", "\\windows\\", "\\appdata\\", "\\$recycle.bin")
 IDLE_AFTER = 120                 # seconds without keyboard or mouse input: you're away, work at full speed
 
 
@@ -160,6 +164,7 @@ class Indexer:
                 self._make_vectors()
                 self.status["phase"] = "watching"
                 self.status.update(self.store.stats())
+                self._tidy_vectors()
                 self.known_drives()
                 self.wake.wait(30)
                 self.wake.clear()
@@ -302,6 +307,10 @@ class Indexer:
         if self.settings.get("semantic") and embed.model_ready():
             try:
                 self.embedder = embed.Embedder()
+                if self.store.meta("vec_version") != embed.VEC_VERSION:
+                    log("meaning vectors are made a better way now; computing them again")
+                    self.store.drop_vectors()
+                    self.store.set_meta("vec_version", embed.VEC_VERSION)
                 if self.vindex is not None:
                     self.vindex.load(self.store)
                 log(f"meaning search on ({self.embedder.device})")
@@ -310,22 +319,56 @@ class Indexer:
                 self.embedder = None
 
     def _make_vectors(self):
+        """Meaning vectors: first for names (short, fast, and the only clue for photos, music or bills),
+        then for the text inside files, each piece with its file's name in front."""
         if not self.embedder:
             return
+        self._name_vectors()
         while not self.stop_ev.is_set():
             if not self._wait_while_paused():
                 return
-            rows = self.store.chunks_without_vectors(64)
+            rows = self.store.chunks_without_vectors(128)
             if not rows:
                 return
             self.status["phase"] = "meaning"
-            vecs = self.embedder.encode([r[1] for r in rows])
+            titles = self.store.chunk_titles([r[0] for r in rows])
+            vecs = self.embedder.encode([embed.chunk_text(titles.get(r[0], ""), r[1]) for r in rows])
             self.store.add_vectors([(r[0], embed.to_blob(v)) for r, v in zip(rows, vecs)])
             if self.vindex is not None:
                 self.vindex.add([r[0] for r in rows], vecs)
             self.status["vectors"] += len(rows)
-            if not self._away():
-                self.stop_ev.wait(0.25)             # leave the CPU (or GPU) to you between batches
+            self._breathe()
+
+    def _name_vectors(self):
+        while not self.stop_ev.is_set():
+            if not self._wait_while_paused():
+                return
+            rows = self.store.names_without_vectors(NAME_KINDS, 512)
+            if not rows:
+                return
+            self.status["phase"] = "meaning"
+            texts = {fid: ("" if any(s in d.lower() for s in SKIP_NAME_DIRS) else embed.name_text(n, d))
+                     for fid, n, d in rows}
+            todo = [fid for fid, t in texts.items() if t]
+            vecs = self.embedder.encode([texts[f] for f in todo]) if todo else []
+            blobs = dict(zip(todo, (embed.to_blob(v) for v in vecs)))
+            self.store.add_name_vectors([(fid, blobs.get(fid, b"")) for fid in texts])
+            if self.vindex is not None and todo:
+                self.vindex.add([embed.name_key(f) for f in todo], vecs)
+            self.status["vectors"] += len(todo)
+            self._breathe()
+
+    def _tidy_vectors(self):
+        """Vectors of text that changed or files that went stay in memory until the index is reloaded."""
+        if self.vindex is None or not self.embedder:
+            return
+        live = self.status.get("vectors", 0) + self.status.get("name_vectors", 0)
+        if self.vindex.n > 1.3 * live + 1000:
+            self.vindex.load(self.store)
+
+    def _breathe(self):
+        if not self._away():
+            self.stop_ev.wait(0.25)                 # leave the CPU (or GPU) to you between batches
 
     # ---------- live changes ----------
     def _start_watcher(self, restart=False):

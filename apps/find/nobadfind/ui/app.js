@@ -113,7 +113,7 @@ async function refreshStatus(full) {
     card(phase, "Status", s.phase !== "watching"),
     card(Number(s.files).toLocaleString(), "Files and folders"),
     card(Number(s.with_text).toLocaleString(), "Files with readable text"),
-    card(Number(s.vectors).toLocaleString(), "Meaning vectors"),
+    card(Number((s.vectors || 0) + (s.name_vectors || 0)).toLocaleString(), "Meaning vectors (text + names)"),
     card(s.rate ? Number(s.rate).toLocaleString() + "/s" : "–", "Scan speed"),
     card((s.db_bytes / 1048576).toFixed(0) + " MB", "Index size"),
     card(s.plan && s.plan.cpu ? `${s.plan.text_workers}–${s.plan.text_workers_idle} of ${s.plan.cpu}` : "–", "Text workers / CPU threads"),
@@ -148,7 +148,7 @@ const GROUPS = [
   ["Meaning search", [
     ["allow_model_download", "switch", "Allow the one-time model download",
       "23 MB from Hugging Face (all-MiniLM-L6-v2, pinned and checked by SHA-256). This is NOBAD Find's only internet connection."],
-    ["semantic", "switch", "Search by meaning", "Finds “lease agreement” when you type “rent”. Runs on this PC only."],
+    ["semantic", "switch", "Search by meaning", "Finds “lease agreement” when you type “rent”, and photos or bills by what their names mean. Runs on this PC only."],
     ["_model", "model", "Model", ""],
   ]],
   ["Staying out of your way", [

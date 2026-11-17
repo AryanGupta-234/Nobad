@@ -10,7 +10,11 @@ from .store import fts_quote
 
 RRF_K = 60
 W_NAME, W_TEXT, W_MEANING = 1.3, 1.0, 0.8
-MIN_MEANING = 0.35             # below this cosine similarity a "meaning" match isn't worth showing
+# Meaning matches (cosine similarity, all-MiniLM-L6-v2). Measured on a test set: right answers score 0.32-0.65,
+# unrelated text mostly stays under 0.22. A match must clear the floor AND be near the best one for this question
+# (names and titles are short, so their scores run lower than full sentences).
+MIN_MEANING = 0.24
+MEANING_SPREAD = 0.13
 
 
 UNC = "\\\\"                    # \\server\share paths (folders added by hand)
@@ -102,23 +106,44 @@ def _text_hits(store, q, limit):
 def _meaning_hits(store, q, embedder, vindex, limit):
     if not embedder or not vindex or not q.text.strip():
         return [], {}
+    from .embed import is_name
     qv = embedder.encode([q.text])[0]
-    hits = [(cid, s) for cid, s in vindex.search(qv, k=limit * 4) if s >= MIN_MEANING]
+    hits = vindex.search(qv, k=limit * 4)
     if not hits:
         return [], {}
-    marks = ",".join("?" * len(hits))
+    floor = max(MIN_MEANING, hits[0][1] - MEANING_SPREAD)
+    hits = [(key, s) for key, s in hits if s >= floor]
+    chunk_ids = [k for k, _s in hits if not is_name(k)]
+    file_ids = [-k for k, _s in hits if is_name(k)]
     where, args = _filters(q)
-    rows = store.q(f"SELECT c.id, c.file_id, substr(c.body, 1, 240) FROM chunks c JOIN files f ON f.id = c.file_id "
-                   f"WHERE c.id IN ({marks}){where}", (*[h[0] for h in hits], *args))
-    by_chunk = {r[0]: (r[1], r[2]) for r in rows}
-    best, order = {}, []
-    for cid, s in hits:
-        if cid in by_chunk:
-            fid, body = by_chunk[cid]
-            if fid not in best:
-                best[fid] = (s, body)
-                order.append(fid)
+    by_chunk, by_name = {}, set()
+    if chunk_ids:
+        marks = ",".join("?" * len(chunk_ids))
+        rows = store.q(f"SELECT c.id, c.file_id, substr(c.body, 1, 240) FROM chunks c JOIN files f ON f.id = c.file_id "
+                       f"WHERE c.id IN ({marks}){where}", (*chunk_ids, *args))
+        by_chunk = {r[0]: (r[1], r[2]) for r in rows}
+    if file_ids:
+        marks = ",".join("?" * len(file_ids))
+        by_name = {r[0] for r in store.q(f"SELECT f.id FROM files f WHERE f.id IN ({marks}){where}", (*file_ids, *args))}
+    best, order = {}, []                     # file id -> (score, snippet, "text" | "name")
+    for key, s in hits:
+        if is_name(key):
+            fid, body, how = -key, "", "name"
+            if fid not in by_name:
+                continue
+        elif key in by_chunk:
+            (fid, body), how = by_chunk[key], "text"
+        else:
+            continue                         # a vector for text that has since changed or gone
+        if fid not in best:
+            best[fid] = (s, body, how)
+            order.append(fid)
     return order[:limit], best
+
+
+def _closeness(score):
+    """Plain words for a similarity score (it isn't a percentage of anything, so none is shown)."""
+    return "close" if score >= 0.5 else "related" if score >= 0.38 else "loosely related"
 
 
 def _ago(ts, now):
@@ -180,7 +205,8 @@ def search(store, text, embedder=None, vindex=None, limit=60, now=None, drives=N
         if fid in text_set:
             why.append("text inside matches")
         if fid in best:
-            why.append(f"similar meaning ({best[fid][0]:.0%})")
+            s, _body, how = best[fid]
+            why.append(f"{'name' if how == 'name' else 'text'} has a {_closeness(s)} meaning")
         if q.t0 is not None:
             why.append(f"changed {_ago(r[6], now)}" if r[6] else "date matches")
         if q.place:
