@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+* New interface: Terminal tabs for the connected server and for this computer, next to your files. They keep
+  running when you switch screens, keep what they showed if the window reloads, and close with the server's
+  connection. "Open terminal here" from the Files context menu. Copy and paste with Ctrl+Shift+C / Ctrl+Shift+V.
 * New interface (`python -m app.web`): Connections and Files. Save servers, connect with a password, SSH key or
   agent (paste an `ssh` command to fill the form), and check an unknown server's fingerprint before trusting it.
   Files shows this computer and the server side by side, stays quick in folders with thousands of files, and

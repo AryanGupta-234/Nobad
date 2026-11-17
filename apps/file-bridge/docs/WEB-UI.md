@@ -89,6 +89,20 @@ on; every animation stops under `prefers-reduced-motion`. VPN's map, comet and c
   host-key prompt and trust, connect, browse, mkdir/rename/delete, upload, conflict "keep both", folder
   download, disconnect, wrong password, declined key, reload during a prompt.
 
+## Terminal (stage 4a)
+
+* `app_web/terminals.py` (`TerminalService`): tabs for the connected server (`SSHTerminalSession`) and this
+  computer (`LocalPtyTerminalSession`: ConPTY on Windows, PTY elsewhere), up to 12. Output callbacks can fire on any
+  thread; `OutputBuffer` appends chunks and sends one `term.out` per terminal every 16 ms (capped at 2 MB pending).
+  Each terminal keeps its last 256 KB so a reloaded window redraws it (`term.history`). The server's tabs close
+  with its connection (`SessionService.on_closed`). Output is never logged.
+* `screens/terminal.js`: xterm.js (vendored in `ui/vendor/xterm/`) with the theme taken from the tokens; keys go
+  to the terminal while it has focus (app shortcuts like Ctrl+K are skipped there); keystrokes are sent in order,
+  one request at a time; Ctrl+Shift+C / Ctrl+Shift+V copy and paste; tabs survive switching screens.
+  "Open terminal here" in the Files context menu opens one in that folder.
+* Tests: `tests/test_web_terminal.py` (a real SSH shell on an AsyncSSH server: echo, resize seen by the server,
+  history, tabs closing on disconnect; a real local shell; input limits; output ordering and cap).
+
 ## Page structure (`app_web/ui/`)
 
 | File | What |

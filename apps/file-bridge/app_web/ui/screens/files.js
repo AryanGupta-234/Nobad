@@ -491,6 +491,7 @@
       entries.push(["rename", "Rename", "F2"], ["delete", "Delete", "Del"], ["-"]);
     }
     entries.push(["mkdir", "New folder", "F7"], ["refresh", "Refresh", "Ctrl R"]);
+    if (pane.path && (pane.side === "local" || NB.conn.status === "connected")) { entries.push(["-"], ["term", "Open terminal here"]); }
     NB.contextMenu(x, y, entries, function (a) {
       if (a === "open") { pane.open(pane.focus); }
       else if (a === "copy") { self.copyTo(pane, other); }
@@ -498,6 +499,7 @@
       else if (a === "delete") { self.remove(pane); }
       else if (a === "mkdir") { self.mkdir(pane); }
       else if (a === "refresh") { pane.load(null, true); }
+      else if (a === "term") { NB.openTerminal(pane.side, pane.path); }
     });
   };
 

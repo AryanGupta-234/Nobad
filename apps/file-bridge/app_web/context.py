@@ -33,14 +33,18 @@ class AppContext:
 
     session: Any = field(init=False)
     transfers: Any = field(init=False)
+    terminals: Any = field(init=False)
 
     def __post_init__(self) -> None:
         from app_web.session import SessionService
+        from app_web.terminals import TerminalService
         from app_web.transfers import TransferService
 
         self.settings = SettingsStore(self.app_data)
         self.session = SessionService(self.app_data)
         self.transfers = TransferService(max_concurrent=int(self.settings.get("transfer.max_concurrent")))
+        self.terminals = TerminalService()
+        self.session.on_closed.append(self.terminals.close_for_profile)
 
     @classmethod
     def create(cls, db_path: str | Path | None = None) -> "AppContext":

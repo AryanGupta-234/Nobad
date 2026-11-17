@@ -194,6 +194,7 @@
     document.addEventListener("keydown", function (e) {
       var mod = e.ctrlKey || e.metaKey;
       if (!mod || e.altKey) { return; }
+      if (e.target && e.target.closest && e.target.closest(".xterm")) { return; }   // the terminal gets every key (Ctrl+K, Ctrl+B…)
       var k = e.key.toLowerCase();
       if (k === "k") { e.preventDefault(); NB.palette.open(); return; }
       if (k === "j") { e.preventDefault(); setDock(!dockOpen()); return; }

@@ -53,6 +53,7 @@ def main(argv: list[str] | None = None) -> int:
     except KeyboardInterrupt:
         pass
     finally:
+        ctx.terminals.close_all()
         server.stop()
     return 0
 

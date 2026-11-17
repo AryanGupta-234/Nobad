@@ -137,6 +137,7 @@ class SessionService:
         self.current: Any = None            # BaseConnection
         self._pending: dict[str, PendingHostKey] = {}
         self._connecting: str | None = None
+        self.on_closed: list[Any] = []      # callbacks(profile_id) when a connection is closed or replaced
 
     # ---------------------------------------------------------------- state
     def state(self) -> dict[str, Any]:
@@ -216,6 +217,7 @@ class SessionService:
         previous = self.current
         self.current = result.data
         if previous is not None and previous is not self.current:
+            self._closed(previous.profile.id)
             tasks.run_task("conn.close_previous", lambda: self.manager.disconnect(previous.profile.id))
         bus.log(result.message, "ok", "connection")
         for warning in result.warnings:
@@ -285,6 +287,13 @@ class SessionService:
             return None, None, "password"
         return password, passphrase, None
 
+    def _closed(self, profile_id: str) -> None:
+        for callback in list(self.on_closed):
+            try:
+                callback(profile_id)
+            except Exception as exc:
+                bus.log(f"Cleanup after disconnect failed: {exc}", "warn", "connection")
+
     # ---------------------------------------------------------------- disconnect / profiles
     def disconnect(self) -> bool:
         connection = self.current
@@ -292,6 +301,7 @@ class SessionService:
             return False
         self.current = None
         name = connection.profile.name
+        self._closed(connection.profile.id)
 
         async def work() -> OperationResult:
             return await self.manager.disconnect(connection.profile.id)

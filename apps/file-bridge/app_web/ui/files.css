@@ -153,3 +153,27 @@ button.danger:hover:not(:disabled){background:var(--bad-soft)!important;border-c
 .pane-loading{display:flex;flex-direction:column;gap:10px;width:min(320px,80%)}
 .pane-loading .skel{height:12px}
 .pane-loading p{margin:6px 0 0;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ---------- terminal ---------- */
+.screen.screen-term{max-width:none;height:100%;padding:12px 16px;display:flex;flex-direction:column}
+main#main:has(.screen-term){overflow:hidden;display:flex;flex-direction:column}
+main#main:has(.screen-term) #screen{flex:1;min-height:0}
+.term-shell{flex:1;min-height:0;display:flex;flex-direction:column;padding:0;overflow:hidden;border-radius:var(--r-lg)}
+.term-tabs{display:flex;align-items:center;gap:4px;padding:8px 8px 0;border-bottom:1px solid var(--edge);overflow-x:auto;scrollbar-width:none}
+.term-tab{display:flex;align-items:center;border-radius:10px 10px 0 0;border:1px solid transparent;border-bottom:0;margin-bottom:-1px;flex:none}
+.term-tab.on{background:var(--surface);border-color:var(--edge)}
+.term-tab-btn{min-height:34px;border:0;background:transparent;border-radius:10px 10px 0 0;padding:0 6px 0 12px;font-weight:550;color:var(--mu);max-width:220px}
+.term-tab-btn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.term-tab-btn .ico{width:15px;height:15px}
+.term-tab.on .term-tab-btn{color:var(--tx)}
+.term-tab.on .term-tab-btn .ico{color:var(--acc-tx)}
+.term-tab.dead .term-tab-btn{color:var(--faint);text-decoration:line-through}
+.term-tab-btn:hover:not(:disabled){background:transparent!important;box-shadow:none!important;transform:none!important;color:var(--tx)}
+.term-x{width:26px;min-width:26px;min-height:26px;margin-right:4px}
+.term-x .ico{width:12px;height:12px}
+.term-new{display:flex;gap:6px;margin-left:auto;padding:0 2px 6px}
+.term-body{flex:1;min-height:0;position:relative;background:var(--surface)}
+.term-view{position:absolute;inset:0;padding:8px 4px 4px 10px}
+.term-view .xterm{height:100%}
+.term-view .xterm-viewport{background:transparent!important;scrollbar-width:thin}
+.term-empty{flex:1;display:flex;align-items:center;justify-content:center;padding:24px}
