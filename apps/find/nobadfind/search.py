@@ -3,6 +3,7 @@
 Each result says why it matched, in plain words, and only claims what was actually measured.
 Snippets mark matches with \\x02 ... \\x03; the UI escapes the text first and only then turns those into <mark>.
 """
+import os
 import time
 
 from .query import parse
@@ -15,6 +16,10 @@ W_NAME, W_TEXT, W_MEANING = 1.3, 1.0, 0.8
 # (names and titles are short, so their scores run lower than full sentences).
 MIN_MEANING = 0.24
 MEANING_SPREAD = 0.13
+# A name is only a few words ("car", "garden"), so its score says less: a name match must be close to the best
+# match for this question, or strong on its own.
+NAME_SPREAD = 0.08
+NAME_STRONG = 0.32
 
 
 UNC = "\\\\"                    # \\server\share paths (folders added by hand)
@@ -54,6 +59,23 @@ def _filters(q, alias="f"):
     if q.kinds:
         sql.append(f"{alias}.kind IN ({','.join('?' * len(q.kinds))})")
         args += sorted(q.kinds)
+    if q.folder:
+        from .winapi import known_folder
+        path = known_folder(q.folder)
+        if path:
+            sql.append(f"{alias}.path LIKE ? ESCAPE '\\'")
+            args.append(like_prefix(path))
+        else:
+            sql.append("0")
+    if q.path:                                      # a typed path, "here", or the Folder filter
+        sql.append(f"{alias}.path LIKE ? ESCAPE '\\'")
+        args.append(like_prefix(q.path))
+    if q.min_size is not None:
+        sql.append(f"{alias}.size >= ?")
+        args.append(q.min_size)
+    if q.max_size is not None:
+        sql.append(f"{alias}.size <= ?")
+        args.append(q.max_size)
     exts = q.all_exts()
     if exts:
         sql.append(f"{alias}.ext IN ({','.join('?' * len(exts))})")
@@ -111,8 +133,10 @@ def _meaning_hits(store, q, embedder, vindex, limit):
     hits = vindex.search(qv, k=limit * 4)
     if not hits:
         return [], {}
-    floor = max(MIN_MEANING, hits[0][1] - MEANING_SPREAD)
-    hits = [(key, s) for key, s in hits if s >= floor]
+    best_score = hits[0][1]
+    floor = max(MIN_MEANING, best_score - MEANING_SPREAD)
+    name_floor = min(NAME_STRONG, max(MIN_MEANING, best_score - NAME_SPREAD))
+    hits = [(key, s) for key, s in hits if s >= (name_floor if is_name(key) else floor)]
     chunk_ids = [k for k, _s in hits if not is_name(k)]
     file_ids = [-k for k, _s in hits if is_name(k)]
     where, args = _filters(q)
@@ -158,13 +182,79 @@ def _ago(ts, now):
     return "just now"
 
 
-def search(store, text, embedder=None, vindex=None, limit=60, now=None, drives=None):
-    """drives: every drive the index knows, [{'root', 'type', 'label', 'present'}] (indexer.known_drives)."""
+FILTER_KINDS = {"pdf", "document", "spreadsheet", "slides", "text", "code", "email", "image", "video", "audio",
+                "archive", "ebook", "app", "folder"}
+FILTER_DAYS = {"today": 1, "week": 7, "month": 30, "year": 365}
+FILTER_SIZES = {"small": (None, 1 << 20, "under 1 MB"), "medium": (1 << 20, 100 << 20, "1 to 100 MB"),
+                "large": (100 << 20, None, "over 100 MB")}
+SORTS = {"", "newest", "oldest", "largest", "name"}
+LIST_LIMIT = 500                # "list all ..." shows up to this many files
+SORT_POOL = 100                 # "newest budget": the best 100 matches, newest first
+SORT_SQL = {"": "f.mtime DESC", "newest": "f.mtime DESC", "oldest": "f.mtime ASC", "largest": "f.size DESC",
+            "name": "f.name COLLATE NOCASE ASC"}
+
+
+def apply_filters(q, filters, now):
+    """The filter bar's choices on top of what the question says. Every value is checked; unknown ones are
+    ignored (the page is untrusted like everything else)."""
+    if not isinstance(filters, dict):
+        return
+    filters = {k: v for k, v in filters.items() if isinstance(k, str) and isinstance(v, str)}
+    kind = filters.get("kind")
+    if kind in FILTER_KINDS:
+        q.kinds = {kind}
+    days = FILTER_DAYS.get(filters.get("modified"))
+    if days and q.t0 is None:
+        q.t0, q.t1 = now - days * 86400, now + 60
+        q.when = {1: "today", 7: "last 7 days", 30: "last 30 days", 365: "last 12 months"}[days]
+    size = FILTER_SIZES.get(filters.get("size"))
+    if size:
+        q.min_size, q.max_size, q.size_label = size
+    folder = filters.get("folder")
+    if isinstance(folder, str) and 2 < len(folder) < 1024 and "\x00" not in folder and os.path.isabs(folder):
+        q.path = os.path.normpath(folder)
+    if filters.get("sort") in SORTS and filters.get("sort"):
+        q.sort = filters["sort"]
+
+
+def folder_checker(store, drives=(), roots=()):
+    """is_dir for typed paths, without ever reaching out over the network.
+
+    A network path (\\\\server\\share) is only accepted when it's a folder already in the index or in the
+    folders to search: looking it up on disk would make Windows contact that server, and a server you don't
+    know could collect your sign-in hash that way. Paths on this PC's own drives are checked on disk."""
+    local = {d["root"].upper() for d in drives if d.get("type") in ("fixed", "removable", "cd", "ram")}
+    known_roots = {os.path.normcase(r.rstrip("\\/")) for r in roots}
+
+    def is_dir(p):
+        p = p.replace("/", "\\")
+        if p.startswith("\\\\"):
+            if os.path.normcase(p.rstrip("\\")) in known_roots:
+                return True
+            return bool(store.one("SELECT 1 FROM files WHERE path = ? AND kind = 'folder'", (p.rstrip("\\"),)))
+        if p[:3].upper() in local or (not drives and len(p) >= 3 and p[1] == ":"):
+            return os.path.isdir(p)
+        return bool(store.one("SELECT 1 FROM files WHERE path = ? AND kind = 'folder'", (p.rstrip("\\"),)))
+    return is_dir
+
+
+def search(store, text, embedder=None, vindex=None, limit=60, now=None, drives=None, here="", filters=None,
+           is_dir=None, roots=()):
+    """drives: every drive the index knows, [{'root', 'type', 'label', 'present'}] (indexer.known_drives).
+    here: the File Explorer folder NOBAD Find was opened from ("" if none). filters: the filter bar."""
     t_start = time.perf_counter()
     drives = drives or []
-    q = parse(text, labels=[d.get("label") or "" for d in drives])
-    q.drives = drives
     now = now or time.time()
+    is_dir = is_dir or folder_checker(store, drives, roots)
+    q = parse(text, labels=[d.get("label") or "" for d in drives], is_dir=is_dir)
+    q.drives = drives
+    if q.here and not q.path:
+        if here:
+            q.path = os.path.normpath(here)
+        else:
+            q.notes.append("“Here” is the folder you're looking at in File Explorer when you press the hotkey. "
+                           "Open NOBAD Find that way to search a folder.")
+    apply_filters(q, filters, now)
     lists = []
     names = _name_hits(store, q, 300)
     lists.append((W_NAME, names))
@@ -178,19 +268,32 @@ def search(store, text, embedder=None, vindex=None, limit=60, now=None, drives=N
         for rank, fid in enumerate(ids):
             score[fid] = score.get(fid, 0.0) + w / (RRF_K + rank + 1)
 
-    if not score and not q.terms and not q.phrases and (q.kinds or q.exts or q.t0 is not None):
+    listing = False
+    if not score and not q.terms and not q.phrases and q.has_filters():
+        # only filters ("list all pdf here"): every matching file, in the chosen order
+        listing, limit = True, LIST_LIMIT
         where, args = _filters(q)
-        ids = [r[0] for r in store.q(f"SELECT f.id FROM files f WHERE 1=1{where} ORDER BY f.mtime DESC LIMIT ?",
-                                     (*args, limit))]
+        ids = [r[0] for r in store.q(f"SELECT f.id FROM files f WHERE 1=1{where} ORDER BY {SORT_SQL[q.sort]} "
+                                     "LIMIT ?", (*args, limit + 1))]
         score = {fid: 1.0 / (i + 1) for i, fid in enumerate(ids)}
 
-    top = sorted(score, key=score.get, reverse=True)[:limit]
-    if not top:
-        return {"results": [], "understood": q.understood(), "terms": q.terms + q.phrases,
+    ranked = sorted(score, key=score.get, reverse=True)
+    if not ranked:
+        return {"results": [], "understood": q.understood(), "terms": q.terms + q.phrases, "notes": q.notes,
                 "ms": round((time.perf_counter() - t_start) * 1000)}
-    marks = ",".join("?" * len(top))
-    info = {r[0]: r for r in store.q(f"SELECT id, path, name, dir, kind, size, mtime, ctime FROM files "
-                                     f"WHERE id IN ({marks})", top)}
+    # with an order asked for, the best matches are put in that order (weak matches don't jump ahead)
+    pool = ranked[:max(limit + 1, SORT_POOL)] if (q.sort and not listing) else ranked[:limit + 1]
+    info = {}
+    for i in range(0, len(pool), 900):                  # SQLite takes at most 999 parameters at once
+        part = pool[i:i + 900]
+        info.update({r[0]: r for r in store.q(f"SELECT id, path, name, dir, kind, size, mtime, ctime FROM files "
+                                              f"WHERE id IN ({','.join('?' * len(part))})", part)})
+    if q.sort and not listing:                          # matches first, then the order asked for
+        key = {"newest": lambda f: -(info[f][6] or 0), "oldest": lambda f: info[f][6] or 0,
+               "largest": lambda f: -(info[f][5] or 0), "name": lambda f: info[f][2].lower()}[q.sort]
+        pool = sorted((f for f in pool if f in info), key=key)
+    more = len(pool) > limit
+    top = pool[:limit]
     name_set, text_set = set(names), set(texts)
     offline = {d["root"].upper(): (d.get("label") or d["root"].rstrip("\\")) for d in drives
                if d.get("present") is False}
@@ -217,5 +320,5 @@ def search(store, text, embedder=None, vindex=None, limit=60, now=None, drives=N
         snippet = snippets.get(fid) or (best[fid][1] if fid in best else "")
         out.append({"id": fid, "path": r[1], "name": r[2], "dir": r[3], "kind": r[4], "size": r[5], "mtime": r[6],
                     "ago": _ago(r[6], now) if r[6] else "", "why": why, "snippet": snippet})
-    return {"results": out, "understood": q.understood(), "terms": q.terms + q.phrases,
-            "ms": round((time.perf_counter() - t_start) * 1000)}
+    return {"results": out, "understood": q.understood(), "terms": q.terms + q.phrases, "notes": q.notes,
+            "more": more, "ms": round((time.perf_counter() - t_start) * 1000)}

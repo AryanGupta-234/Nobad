@@ -3,6 +3,7 @@ import argparse
 import ctypes
 import os
 import sys
+import threading
 
 from . import embed, winapi
 from .const import APP_NAME, APP_VER, DATA_DIR, DB_PATH, KEY_PATH, LOG_PATH, SETTINGS_PATH
@@ -92,6 +93,22 @@ def main(argv=None):
     holder["w"] = win
 
     def bring_up():
+        front = winapi.foreground_window()          # before our window takes the front: where you were
+        if not front or winapi.window_pid(front) == os.getpid():
+            win.show()                              # already in front: keep the folder it was opened from
+            win.restore()
+            win.evaluate_js("window.nfFocus && window.nfFocus()")
+            return
+        api.here = ""
+        bring_up.n = getattr(bring_up, "n", 0) + 1
+        mine = bring_up.n
+
+        def find_here():
+            folder = winapi.foreground_folder(front) if front else ""
+            if mine == bring_up.n:                  # a newer hotkey press wins
+                api.here = folder
+                win.evaluate_js("window.nfHere && window.nfHere()")
+        threading.Thread(target=find_here, daemon=True, name="here").start()
         win.show()
         win.restore()
         win.evaluate_js("window.nfFocus && window.nfFocus()")

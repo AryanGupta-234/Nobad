@@ -21,6 +21,32 @@
       <div class="bar">
         <input id="q" type="search" autocomplete="off" spellcheck="false"
                placeholder="Describe it: “rent pdf from last week”, “beach photos in march”, “budget.xlsx”">
+        <div class="filters" id="filters" aria-label="Filters">
+          <select id="fKind" title="Kind">
+            <option value="">Any kind</option><option value="pdf">PDFs</option><option value="document">Documents</option>
+            <option value="spreadsheet">Spreadsheets</option><option value="slides">Slides</option>
+            <option value="text">Text and notes</option><option value="code">Code</option><option value="email">E-mail</option>
+            <option value="image">Images</option><option value="video">Videos</option><option value="audio">Audio</option>
+            <option value="archive">Archives</option><option value="ebook">E-books</option><option value="app">Programs</option>
+            <option value="folder">Folders</option>
+          </select>
+          <select id="fModified" title="Changed">
+            <option value="">Any time</option><option value="today">Today</option><option value="week">Last 7 days</option>
+            <option value="month">Last 30 days</option><option value="year">Last 12 months</option>
+          </select>
+          <select id="fSize" title="Size">
+            <option value="">Any size</option><option value="small">Under 1 MB</option>
+            <option value="medium">1 to 100 MB</option><option value="large">Over 100 MB</option>
+          </select>
+          <button class="fbtn" id="fFolder" title="Only inside one folder">Any folder</button>
+          <button class="fbtn here" id="fHere" hidden title="The folder you opened NOBAD Find from"></button>
+          <select id="fSort" title="Order">
+            <option value="">Best match</option><option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option><option value="largest">Largest first</option>
+            <option value="name">By name</option>
+          </select>
+          <button class="fbtn clear" id="fClear" hidden>Clear filters</button>
+        </div>
         <div class="understood" id="understood"></div>
       </div>
       <div class="meta" id="meta"></div>
@@ -28,8 +54,9 @@
       <div class="empty" id="empty">
         <h1>Find anything on this PC.</h1>
         <p>Search by name, by the words inside a file, or by what it was about. Add a kind (“pdf”, “photos”, “code”)
-          or a time (“yesterday”, “in March”, “3 weeks ago”), an app (“photoshop files”) or a place
-          (“on my usb stick”, “on d:”, “on the network drive”).</p>
+          or a time (“yesterday”, “in March”, “3 weeks ago”), a folder (“in my downloads”, “here”, or type a path like
+          C:\Work\Taxes), a size (“bigger than 100 mb”) or an order (“newest”). Or just pick filters above:
+          “list all pdf here” works with an empty box too.</p>
         <p class="keys"><kbd>↑</kbd><kbd>↓</kbd> move · <kbd>Enter</kbd> open · <kbd>Ctrl</kbd>+<kbd>Enter</kbd> show in folder
           · <kbd>Ctrl</kbd>+<kbd>C</kbd> copy path · <kbd>Esc</kbd> hide</p>
       </div>

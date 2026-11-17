@@ -141,6 +141,109 @@ def background_mode():
 
 
 # ---------- drives ----------
+KNOWN_FOLDERS = {   # Windows' own ids for the user's folders (they follow OneDrive and "move this folder")
+    "downloads": "{374DE290-123F-4565-9164-39C4925E467B}", "desktop": "{B4BFCC3A-DB2C-424C-B029-7FE99A87C641}",
+    "documents": "{FDD39AD0-238F-46AF-ADB4-6C85480369C7}", "pictures": "{33E28130-4E1E-4676-835A-98395C3BC3BB}",
+    "videos": "{18989B1D-99B5-455B-841C-AB7C74E4DDFC}", "music": "{4BD8D571-6D19-48D3-BE97-422220080E43}",
+}
+_known_cache = {}
+
+
+def known_folder(name):
+    """The real path of one of the user's folders ('downloads', 'desktop', ...), or '' if Windows has none."""
+    if name in _known_cache:
+        return _known_cache[name]
+    path = ""
+    if WIN and name in KNOWN_FOLDERS:
+        import uuid
+
+        class GUID(ctypes.Structure):
+            _fields_ = [("b", ctypes.c_byte * 16)]
+        g = GUID()
+        ctypes.memmove(g.b, uuid.UUID(KNOWN_FOLDERS[name]).bytes_le, 16)
+        out = ctypes.c_wchar_p()
+        ole32 = ctypes.WinDLL("ole32")
+        if shell32.SHGetKnownFolderPath(ctypes.byref(g), 0, None, ctypes.byref(out)) == 0:
+            path = out.value or ""
+        ole32.CoTaskMemFree(out)
+    elif name in KNOWN_FOLDERS:
+        path = os.path.join(os.path.expanduser("~"), name.capitalize())
+    _known_cache[name] = path
+    return path
+
+
+def _window_class(hwnd):
+    buf = ctypes.create_unicode_buffer(256)
+    user32.GetClassNameW(wintypes.HWND(hwnd), buf, 256)
+    return buf.value
+
+
+def _window_title(hwnd):
+    buf = ctypes.create_unicode_buffer(512)
+    user32.GetWindowTextW(wintypes.HWND(hwnd), buf, 512)
+    return buf.value
+
+
+def foreground_window():
+    if not WIN:
+        return 0
+    user32.GetForegroundWindow.restype = wintypes.HWND
+    return user32.GetForegroundWindow() or 0
+
+
+def window_pid(hwnd):
+    pid = wintypes.DWORD()
+    user32.GetWindowThreadProcessId(wintypes.HWND(hwnd), ctypes.byref(pid))
+    return pid.value
+
+
+def foreground_folder(hwnd=None):
+    """The folder the user is looking at right now: the active File Explorer window's folder, or the Desktop
+    folder when the desktop is in front. '' for anything else (a browser, a game, ...).
+
+    Asks Windows' Shell which folder each Explorer window shows (the same list the taskbar uses). Read only."""
+    if not WIN:
+        return ""
+    user32.GetForegroundWindow.restype = wintypes.HWND
+    hwnd = hwnd or user32.GetForegroundWindow()
+    if not hwnd:
+        return ""
+    cls = _window_class(hwnd)
+    if cls in ("Progman", "WorkerW"):
+        return known_folder("desktop")
+    if cls not in ("CabinetWClass", "ExploreWClass"):
+        return ""
+    title = _window_title(hwnd)
+    try:
+        import importlib
+        importlib.import_module("clr")              # pythonnet, already loaded by the window library
+        from System import Activator, Int32, Type
+        from System.Reflection import BindingFlags
+
+        def get(obj, name):
+            return obj.GetType().InvokeMember(name, BindingFlags.GetProperty, None, obj, None)
+        shell = Activator.CreateInstance(Type.GetTypeFromProgID("Shell.Application"))
+        wins = shell.GetType().InvokeMember("Windows", BindingFlags.InvokeMethod, None, shell, None)
+        tabs = []
+        for i in range(int(get(wins, "Count"))):
+            w = wins.GetType().InvokeMember("Item", BindingFlags.InvokeMethod, None, wins, [Int32(i)])
+            if w is None or int(get(w, "HWND")) != int(hwnd):
+                continue
+            path = str(get(get(get(get(w, "Document"), "Folder"), "Self"), "Path") or "")
+            name = str(get(w, "LocationName") or "")
+            if os.path.isabs(path):
+                tabs.append((name, path))
+        # Windows 11 has tabs: every tab is listed with the same window; the window title is the active tab's
+        for name, path in tabs:
+            if name and (title == name or title.startswith(name + " - ")):
+                return path
+        return tabs[0][1] if tabs else ""
+    except Exception as e:                       # no folder then; the log keeps the reason
+        from .log import log
+        log(f"couldn't read the File Explorer folder: {type(e).__name__}", "warn")
+        return ""
+
+
 def fixed_drives():
     """Fixed local drives, e.g. ['C:\\', 'D:\\']."""
     if not WIN:

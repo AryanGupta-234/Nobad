@@ -258,3 +258,33 @@ def test_ocr_then_meaning_search_in_one_process():
     r = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=120,
                        cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     assert r.stdout.strip().endswith("ok"), r.stderr[-500:]
+
+
+# ---------- the user's own folders ----------
+@pytest.mark.parametrize("text,folder,kinds,terms", [
+    ("list all download folder pdf", "downloads", {"pdf"}, []),
+    ("pdfs in my downloads", "downloads", {"pdf"}, []),
+    ("photos on the desktop", "desktop", {"image"}, []),
+    ("everything in documents folder", "documents", set(), []),
+    ("invoices from last week in my downloads", "downloads", set(), ["invoices"]),
+    ("notes about desktop computers", "", {"text"}, ["desktop", "computers"]),
+    ("download speed test results", "", set(), ["download", "speed", "test", "results"]),
+])
+def test_parse_folders(text, folder, kinds, terms):
+    q = parse(text)
+    assert q.folder == folder and q.kinds == kinds and q.terms == terms
+
+
+def test_list_everything_in_a_folder(tmp_path, monkeypatch):
+    dl = "C:\\Users\\me\\Downloads"
+    monkeypatch.setattr(winapi, "known_folder", lambda name: dl if name == "downloads" else "")
+    s = Store(str(tmp_path / "i.db"), encrypt=False)
+    s.upsert_files([(dl + "\\a.pdf", "a.pdf", dl, ".pdf", "pdf", 1, 2.0, 2.0, 1),
+                    (dl + "\\sub\\b.pdf", "b.pdf", dl + "\\sub", ".pdf", "pdf", 1, 3.0, 3.0, 1),
+                    (dl + "\\c.txt", "c.txt", dl, ".txt", "text", 1, 4.0, 4.0, 1),
+                    ("C:\\Users\\me\\Downloads2\\d.pdf", "d.pdf", "C:\\Users\\me\\Downloads2", ".pdf", "pdf", 1, 5.0, 5.0, 1),
+                    ("C:\\Users\\me\\Documents\\e.pdf", "e.pdf", "C:\\Users\\me\\Documents", ".pdf", "pdf", 1, 6.0, 6.0, 1)])
+    r = search.search(s, "list all download folder pdf")
+    assert [x["name"] for x in r["results"]] == ["b.pdf", "a.pdf"] and "in Downloads" in r["understood"]
+    assert search.search(s, "pdfs in my desktop")["results"] == []      # no such folder: nothing, not everything
+    s.close()

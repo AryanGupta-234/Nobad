@@ -27,6 +27,7 @@ function toast(msg) {
 }
 window.nfNotice = toast;
 window.nfFocus = () => { tab("search"); const q = $("#q"); q.focus(); q.select(); };
+// (nfHere is set with the filters below)
 
 // ---------- tabs ----------
 function tab(name) {
@@ -38,11 +39,39 @@ function tab(name) {
 document.querySelectorAll(".tab").forEach(b => b.addEventListener("click", () => tab(b.dataset.tab)));
 
 // ---------- search ----------
+// ---------- filters (combined with whatever the question says) ----------
+const filters = { kind: "", modified: "", size: "", folder: "", sort: "" };
+const SELECTS = { kind: "#fKind", modified: "#fModified", size: "#fSize", sort: "#fSort" };
+const anyFilter = () => !!(filters.kind || filters.modified || filters.size || filters.folder);
+const baseName = p => String(p || "").replace(/[\\/]+$/, "").split(/[\\/]/).pop() || p;
+let hereFolder = "";
+function paintFilters() {
+  for (const [k, sel] of Object.entries(SELECTS)) { $(sel).value = filters[k]; $(sel).classList.toggle("on", !!filters[k]); }
+  const f = $("#fFolder");
+  f.textContent = filters.folder ? "In " + baseName(filters.folder) + "  ✕" : "Any folder";
+  f.title = filters.folder ? filters.folder + " (click to search everywhere again)" : "Only inside one folder";
+  f.classList.toggle("on", !!filters.folder);
+  const h = $("#fHere");
+  h.hidden = !hereFolder || filters.folder === hereFolder;
+  h.textContent = "Here: " + baseName(hereFolder);
+  h.title = hereFolder;
+  $("#fClear").hidden = !(anyFilter() || filters.sort);
+}
+for (const [k, sel] of Object.entries(SELECTS)) $(sel).addEventListener("change", e => { filters[k] = e.target.value; paintFilters(); run(); });
+$("#fFolder").addEventListener("click", async () => {
+  if (filters.folder) filters.folder = "";
+  else { const r = await api("pick_folder"); if (!r || !r.path) return; filters.folder = r.path; }
+  paintFilters(); run();
+});
+$("#fHere").addEventListener("click", () => { filters.folder = hereFolder; paintFilters(); run(); });
+$("#fClear").addEventListener("click", () => { Object.keys(filters).forEach(k => filters[k] = ""); paintFilters(); run(); $("#q").focus(); });
+window.nfHere = async () => { const r = await api("here_folder"); hereFolder = (r && r.path) || ""; paintFilters(); if ($("#q").value.trim()) run(); };
+
 async function run() {
   const text = $("#q").value;
   const my = ++seq;
-  if (!text.trim()) { results = []; render({ results: [], understood: [] }); return; }
-  const r = await api("search", text);
+  if (!text.trim() && !anyFilter()) { results = []; render({ results: [], understood: [] }); return; }
+  const r = await api("search", text, filters);
   if (my !== seq || !r) return;               // a newer search is already running
   results = r.results || [];
   sel = 0;
@@ -51,10 +80,11 @@ async function run() {
 
 function render(r) {
   $("#understood").innerHTML = (r.understood || []).map(u => `<span class="chip">${esc(u)}</span>`).join("");
-  $("#empty").style.display = $("#q").value.trim() ? "none" : "";
-  const q = $("#q").value.trim();
-  $("#meta").textContent = !q ? "" : r.error ? r.error :
-    results.length ? `${results.length}${results.length >= 60 ? "+" : ""} results · ${r.ms} ms` : "Nothing found. Try fewer or other words.";
+  const q = $("#q").value.trim() || anyFilter();
+  $("#empty").style.display = q ? "none" : "";
+  const count = results.length ? `${results.length}${r.more ? "+" : ""} results · ${r.ms} ms` : "Nothing found. Try fewer or other words, or fewer filters.";
+  $("#meta").innerHTML = !q ? "" : r.error ? esc(r.error) :
+    esc(count) + (r.notes || []).map(n => ` · <span class="note">${esc(n)}</span>`).join("");
   $("#results").innerHTML = results.map((x, i) => `
     <li class="res${i === sel ? " sel" : ""}" data-i="${i}">
       <span class="ico">${esc(KIND[x.kind] || "FILE")}</span>

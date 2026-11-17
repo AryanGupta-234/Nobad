@@ -19,7 +19,11 @@ they're about, and tells you why each result matched.
   into Windows. Offline; it runs after everything else because it's slower.
 - **Plain-language filters.** Kinds ("pdf", "photos", "spreadsheet", "code"), times ("yesterday",
   "last week", "in March", "3 weeks ago", "2024"), apps ("photoshop files", "blender") and places
-  ("on my usb stick", "on d:", "on the network drive") are understood and shown as chips.
+  ("on my usb stick", "on d:", "on the network drive") and your folders ("in my downloads", "on the desktop")
+  are understood and shown as chips.
+- **Filters and folders.** A filter bar (kind, date, size, folder, order) next to the search box. Type a path
+  ("pdf in D:\Work\Taxes") or say "here" for the File Explorer folder you opened NOBAD Find from:
+  "list all pdf here".
 - **USB, external and network drives** (optional). Indexed while plugged in; when you unplug one, its files
   stay findable and are marked "not connected".
 - **Always current.** Folder-change notifications put new, changed and deleted files in the index within seconds.

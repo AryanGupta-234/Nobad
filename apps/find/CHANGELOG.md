@@ -1,5 +1,23 @@
 # NOBAD Find changelog
 
+## 0.4.0 (in development)
+- Filter bar: kind, date, size, folder (with a folder picker), order, clear. Filters work with an empty search
+  box, so "every PDF in this folder, newest first" is two clicks.
+- "here" and "this folder": the folder you were looking at in File Explorer (or the desktop) when you pressed the
+  hotkey. "list all pdf here" lists them; a "Here:" button puts that folder in the filter bar.
+- Folder paths typed in the question: `pdf in D:\Work\Tax 2024`, `invoices "C:\My Files"`. Spaces are fine;
+  something that only looks like a path is left out with a note. Network paths are only used when NOBAD Find
+  already knows them, so typing one never makes Windows contact a server.
+- Size and order words: "bigger than 100 mb", "under 2 mb", "big videos", "newest", "oldest", "largest".
+- Lists of matching files show up to 500 and say when there are more.
+
+## 0.3.1 (in development)
+- Your folders in the question: "list all download folder pdf", "photos on the desktop", "invoices in my
+  documents". The real folders come from Windows, so Desktop and Documents moved to OneDrive work too.
+- Fewer weak meaning matches: a file whose name alone is "car" or "garden" no longer shows up for "rent".
+- "list", "all", "every", "give me" are understood as asking, not as words to look for; a question with only
+  filters lists the newest matching files.
+
 ## 0.3.0 (in development)
 - Better meaning search: file and folder names have meaning too, so "seaside pictures" finds
   IMG_goa_beach_sunset.jpg and "power bill" finds electricity-bill-march.pdf; text is read together with its

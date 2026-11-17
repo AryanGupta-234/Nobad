@@ -22,17 +22,21 @@ class Api:
         self._indexer = indexer
         self._vindex = vindex
         self._win = window_ref            # callable returning the pywebview window (or None)
+        self.here = ""                    # the Explorer folder the hotkey was pressed in (see app.bring_up)
         self._model = {"state": "ready" if embed.model_ready() else "missing", "got": 0, "size": 0, "error": ""}
 
     # ---------- search ----------
-    def search(self, text):
+    def search(self, text, filters=None):
+        empty = {"results": [], "understood": [], "terms": [], "notes": [], "ms": 0}
         if not isinstance(text, str):
-            return {"results": [], "understood": [], "terms": [], "ms": 0}
+            return empty
         text = text.strip()[:MAX_QUERY]
-        if not text:
-            return {"results": [], "understood": [], "terms": [], "ms": 0}
+        filters = filters if isinstance(filters, dict) else {}
+        if not text and not any(filters.get(k) for k in ("kind", "modified", "size", "folder")):
+            return empty
         try:
-            return search(self._store, text, self._indexer.embedder, self._vindex, drives=self._indexer.drive_list)
+            return search(self._store, text, self._indexer.embedder, self._vindex, drives=self._indexer.drive_list,
+                          here=self.here, filters=filters, roots=self._indexer.roots(self._indexer.drive_list))
         except Exception as e:
             log(f"search failed: {type(e).__name__}", "warn")
             return {"results": [], "understood": [], "terms": [], "ms": 0, "error": "Search failed. Try other words."}
@@ -58,6 +62,10 @@ class Api:
         if not p:
             return {"ok": False, "error": "That file isn't there any more."}
         return {"ok": reveal_in_explorer(p)}
+
+    def here_folder(self):
+        """For the filter bar: the folder "here" means right now ('' if NOBAD Find wasn't opened from one)."""
+        return {"path": self.here}
 
     def path_of(self, file_id):
         p = self._path(file_id)

@@ -1,5 +1,6 @@
 /* NOBAD Find: the NOBAD look (black, NOBAD orange, mono labels), system fonts only so it works offline. */
 :root {
+  color-scheme: dark;            /* dark scrollbars and dropdown lists */
   --o: #ff4d00; --o-rgb: 255, 77, 0;
   --bg: #07080a; --bg2: #0c0e11; --bg3: #12151a;
   --tx: #f3f4f6; --mut: rgba(232, 236, 241, .68); --dim: rgba(232, 236, 241, .45);
@@ -37,6 +38,13 @@ main { overflow: hidden; }
 .understood { display: flex; flex-wrap: wrap; gap: 6px; min-height: 0; margin-top: 8px; }
 .chip { padding: 4px 10px; border: 1px solid rgba(var(--o-rgb), .5); border-radius: 999px; color: var(--o); background: rgba(var(--o-rgb), .07); font: 700 10.5px/1.4 var(--mono); letter-spacing: .06em; text-transform: uppercase; }
 .meta { color: var(--dim); font: 11px var(--mono); margin: 2px 2px 8px; }
+.meta .note { color: #ffb38a; font-family: var(--body); }
+.filters { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.filters select, .fbtn { max-width: 260px; padding: 6px 10px; border: 1px solid var(--line2); border-radius: 9px; background: var(--bg2); color: var(--mut); font: 11px var(--mono); cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: border-color .2s, color .2s; }
+.filters select:hover, .fbtn:hover { border-color: rgba(var(--o-rgb), .6); color: var(--tx); }
+.filters select.on, .fbtn.on { border-color: rgba(var(--o-rgb), .7); color: var(--o); background: rgba(var(--o-rgb), .07); }
+.filters option { background: var(--bg2); color: var(--tx); }
+.fbtn.clear { border-style: dashed; }
 
 /* results */
 .results { list-style: none; margin: 0; padding: 0 0 24px; overflow-y: auto; flex: 1; }

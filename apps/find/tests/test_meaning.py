@@ -107,3 +107,18 @@ def test_weak_meaning_is_not_shown(tmp_path):
     vi.add([embed.name_key(1)], _unit([[0.1, 0.0, 1.0] + [0] * 381]))     # barely beach-like
     assert search.search(s, "seaside", embedder=_Fake(), vindex=vi)["results"] == []
     s.close()
+
+
+def test_thin_name_matches_need_to_be_close(tmp_path):
+    s = Store(str(tmp_path / "i.db"), encrypt=False)
+    _files(s)
+    vi = embed.VectorIndex()
+    q = _Fake().encode(["lease"])[0]
+
+    def at(score):                       # a unit vector with this cosine to q
+        other = np.zeros(384, np.float32); other[5] = 1
+        return score * q + (1 - score ** 2) ** 0.5 * other
+    vi.add([embed.name_key(2), embed.name_key(1)], np.array([at(0.37), at(0.26)]))
+    names = [x["name"] for x in search.search(s, "lease", embedder=_Fake(), vindex=vi)["results"]]
+    assert names == ["tenancy-agreement.pdf"]          # 0.26 is within the text spread but too far for a name
+    s.close()
