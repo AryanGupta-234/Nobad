@@ -37,6 +37,7 @@ GROUPS: tuple[tuple[str, str], ...] = (
     ("files", "Files"),
     ("terminal", "Terminal"),
     ("tools", "Tools"),
+    ("vault", "Credential vault"),
 )
 
 FIELDS: tuple[SettingField, ...] = (
@@ -97,6 +98,11 @@ FIELDS: tuple[SettingField, ...] = (
     SettingField(
         "tools.rclone_path", "tools", ("rclone_path",), "text", "rclone", "tools", "rclone program",
         "Path to rclone, for cloud storage remotes.", placeholder="rclone",
+    ),
+    SettingField(
+        "vault.auto_lock_minutes", "web_ui", ("vault_auto_lock_minutes",), "int", 10, "vault", "Lock after",
+        "Minutes without using the vault before it locks itself. 0 keeps it open until you lock it or close the app.",
+        minimum=0, maximum=240, keywords=("auto lock", "timeout", "password", "security"),
     ),
 )
 FIELDS_BY_ID = {f.id: f for f in FIELDS}

@@ -101,9 +101,9 @@ select{appearance:none;padding-right:34px;cursor:pointer;
 
 /* empty states: left-aligned, one clear next step */
 .empty{display:flex;flex-direction:column;align-items:flex-start;gap:6px;max-width:520px}
-.empty .empty-ico{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;color:var(--acc-tx);
+.empty .empty-ico,.vault-card .empty-ico{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;color:var(--acc-tx);
   background:var(--acc-soft);border:1px solid var(--acc-line);margin-bottom:6px}
-.empty .empty-ico .ico{width:20px;height:20px}
+.empty .empty-ico .ico,.vault-card .empty-ico .ico{width:20px;height:20px}
 .empty h2{font:680 17px/1.3 var(--font-disp);letter-spacing:-.015em;margin:0;text-wrap:balance}
 .empty p{margin:0;color:var(--mu);max-width:60ch}
 .empty .actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}

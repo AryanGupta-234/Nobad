@@ -119,6 +119,20 @@ on; every animation stops under `prefers-reduced-motion`. VPN's map, comet and c
   server, tabs surviving a disconnect, local atomic save and conflict, binary refusal, no CDN in any editor page,
   every Monaco worker file present, CSP).
 
+## Credential vault (stage 5a)
+
+* `app_web/vault.py` (`VaultFacade`) on `CredentialVaultService` (Argon2id, AES-256-GCM per value, audit log).
+  Lists and details carry metadata only; a value reaches the page only for an explicit Reveal or Copy
+  (`vault.reveal`), and the service records each one in the audit log. Editing keeps the stored secret, notes and
+  custom fields unless new ones are typed.
+* Auto-lock after `vault.auto_lock_minutes` (Settings, default 10, 0 = off; the key only lives in memory). After 3
+  wrong master passwords each try waits 2, 4, 8 … s (max 5 min). Master password: at least 12 characters.
+  `vault.generate` makes strong passwords with `secrets`. Nothing logs a value or a master password.
+* `screens/vault.js`: create/unlock card (strength meter, "no recovery" warning), projects / credentials / details
+  columns, Reveal hides again after 30 s, Copy clears the clipboard after 30 s if the secret is still on it, edit
+  form with a generator. The page re-locks when the app locks the vault.
+* Tests: `tests/test_web_vault.py`.
+
 ## Page structure (`app_web/ui/`)
 
 | File | What |

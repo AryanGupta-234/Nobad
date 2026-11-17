@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+* New interface: the Credential vault. Secrets stay hidden until you reveal or copy one; revealed values hide again
+  after 30 seconds and a copied secret is cleared from the clipboard after 30 seconds. The vault locks itself after
+  10 minutes without use (change it in Settings), slows down repeated wrong master passwords, and includes a
+  strong password generator. The classic window reads the same vault.
 * Security: the code editor no longer loads Monaco from cdnjs or unpkg. It ships with the app, in the classic window
   and in the new interface, so editing works offline and no outside code runs next to the app (#30).
 * New interface: an Editor for server and local files. Saving checks that nobody changed the file since you opened
