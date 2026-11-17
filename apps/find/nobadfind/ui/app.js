@@ -101,7 +101,7 @@ document.addEventListener("keydown", e => {
 });
 
 // ---------- index status ----------
-const PHASE = { starting: "Starting", names: "Finding files", text: "Reading text", meaning: "Learning meaning", watching: "Up to date", error: "Stopped" };
+const PHASE = { starting: "Starting", names: "Finding files", text: "Reading text", images: "Reading photos and scans", meaning: "Learning meaning", watching: "Up to date", error: "Stopped" };
 async function refreshStatus(full) {
   const s = await api("status");
   if (!s) { $("#railState").textContent = "preview"; return; }
@@ -116,10 +116,14 @@ async function refreshStatus(full) {
     card(Number(s.vectors).toLocaleString(), "Meaning vectors"),
     card(s.rate ? Number(s.rate).toLocaleString() + "/s" : "–", "Scan speed"),
     card((s.db_bytes / 1048576).toFixed(0) + " MB", "Index size"),
-    card(s.plan && s.plan.cpu ? `${s.plan.text_workers} of ${s.plan.cpu}` : "–", "Text workers / CPU threads"),
+    card(s.plan && s.plan.cpu ? `${s.plan.text_workers}–${s.plan.text_workers_idle} of ${s.plan.cpu}` : "–", "Text workers / CPU threads"),
+    card(s.speed ? s.speed.split(" (")[0] : "–", s.speed ? "Speed: " + s.speed.split(" (")[1].replace(")", "") : "Speed"),
+    card(s.ocr === true ? "On" : "Off", s.ocr === true ? "OCR (Windows, offline)" : "OCR: " + (s.ocr || "not available")),
     card(s.plan && "ssd" in s.plan ? (s.plan.ssd ? "SSD" : "Hard disk") : "–", "Drive type"),
   ].join("");
   $("#roots").innerHTML = (s.roots || []).map(r => `<li>${esc(r)}</li>`).join("");
+  const DT = { fixed: "this PC", removable: "USB / external", network: "network", cd: "disc", ram: "RAM disk" };
+  $("#drives").innerHTML = (s.drives || []).map(d => `<li>${esc(d.root)} ${esc(d.label)} <span class="dim">· ${esc(DT[d.type] || d.type)}${d.present ? "" : " · not connected"}</span></li>`).join("");
   const n = $("#encNote");
   n.className = "note" + (s.encrypted ? "" : " warn");
   n.textContent = s.encrypted
@@ -135,6 +139,9 @@ const GROUPS = [
     ["content", "switch", "Read the text inside files", "Documents, PDFs, code, notes and e-mail files. Off: names only."],
     ["content_max_mb", "num", "Largest file to read (MB)", "Bigger files are still found by name."],
     ["src_mail", "switch", "E-mail files", ".eml and .mbox files found on your drives."],
+    ["ocr", "switch", "Words in photos and scans", "Screenshots, photos of documents and scanned PDFs, read with the OCR built into Windows (offline). Slower, so it runs after everything else."],
+    ["index_removable", "switch", "USB and external drives", "Indexed while plugged in. Their files stay findable (marked “not connected”) when you unplug them. Turning this off removes their files from the index."],
+    ["index_network", "switch", "Network drives", "Mapped network drives (Z: and so on). Big shares take a while and use your home or office network."],
     ["roots", "folders", "Folders to search", "Empty: your profile folder and every fixed drive (never other people's profiles or Windows itself)."],
     ["exclude", "folders", "Never search", "These folders and files are skipped and removed from the index."],
   ]],
@@ -147,7 +154,8 @@ const GROUPS = [
   ["Staying out of your way", [
     ["pause_on_battery", "switch", "Pause on battery", ""],
     ["pause_fullscreen", "switch", "Pause during games and presentations", ""],
-    ["workers", "num", "Text reading workers", "0 = choose from your CPU (leaves two threads free for you)."],
+    ["pause_on_call", "switch", "Pause during calls", "While an app uses the microphone or camera."],
+    ["workers", "num", "Text reading workers", "0 = choose from your CPU: two threads stay free while you use the PC, one when you're away."],
   ]],
   ["Launch", [
     ["hotkey", "txt", "Hotkey", "For example win+shift+space or ctrl+alt+f. Takes effect at the next start."],

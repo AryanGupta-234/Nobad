@@ -13,6 +13,11 @@ The repository rules in the root [`AGENTS.md`](../../AGENTS.md) apply. Specific 
   except by the user's explicit Open (by result id, never a path from the page).
 - Secret folders and key files in `const.ALWAYS_EXCLUDE_*` are never indexed. Keep the walk and `Walker.excluded`
   in step.
+- OCR (`ocr.py`) uses only the Windows built-in `Windows.Media.Ocr` through the pinned `winrt-*` 3.2.1 packages
+  (keep every winrt package on one version), inside the text worker processes. No OCR model downloads.
+- Call detection (`winapi.in_call`) reads the user's own CapabilityAccessManager records; stale records from
+  crashed apps must not pause indexing forever (age limit + process check).
+- `--uninstall` (run by the installer's uninstaller) only undoes what the app changed outside its data folder.
 - The index is SQLCipher with a DPAPI-protected key. The only outbound connection is the optional model download
   (`embed.download_model`): pinned revision, sizes and SHA-256 in `const.MODEL_FILES`, gated by
   `allow_model_download`.

@@ -13,14 +13,47 @@ W_NAME, W_TEXT, W_MEANING = 1.3, 1.0, 0.8
 MIN_MEANING = 0.35             # below this cosine similarity a "meaning" match isn't worth showing
 
 
+UNC = "\\\\"                    # \\server\share paths (folders added by hand)
+
+
+def like_prefix(root):
+    """A LIKE pattern (ESCAPE '\\') for everything inside root."""
+    if root == UNC:
+        return "\\\\\\\\%"
+    return root.rstrip("\\/").replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "\\\\%"
+
+
+def place_roots(place, drives):
+    """Drive roots a place means. drives: [{'root': 'E:\\', 'type': 'removable', 'label': ...}, ...]."""
+    if not place:
+        return None
+    if place.startswith("label:"):
+        name = place[6:]
+        return [d["root"] for d in drives if (d.get("label") or "").strip().lower() == name]
+    if len(place) == 2 and place[1] == ":":
+        return [place + "\\"]
+    roots = [d["root"] for d in drives if d.get("type") == place]
+    if place == "network":
+        roots.append(UNC)
+    return roots
+
+
 def _filters(q, alias="f"):
     sql, args = [], []
+    roots = place_roots(q.place, q.drives)
+    if roots is not None:
+        if not roots:
+            sql.append("0")                         # a drive this PC has never seen: nothing can match
+        else:
+            sql.append("(" + " OR ".join(f"{alias}.path LIKE ? ESCAPE '\\'" for _ in roots) + ")")
+            args += [like_prefix(r) for r in roots]
     if q.kinds:
         sql.append(f"{alias}.kind IN ({','.join('?' * len(q.kinds))})")
         args += sorted(q.kinds)
-    if q.exts:
-        sql.append(f"{alias}.ext IN ({','.join('?' * len(q.exts))})")
-        args += sorted(q.exts)
+    exts = q.all_exts()
+    if exts:
+        sql.append(f"{alias}.ext IN ({','.join('?' * len(exts))})")
+        args += sorted(exts)
     if q.t0 is not None:
         sql.append(f"(({alias}.mtime BETWEEN ? AND ?) OR ({alias}.ctime BETWEEN ? AND ?))")
         args += [q.t0, q.t1, q.t0, q.t1]
@@ -100,9 +133,12 @@ def _ago(ts, now):
     return "just now"
 
 
-def search(store, text, embedder=None, vindex=None, limit=60, now=None):
+def search(store, text, embedder=None, vindex=None, limit=60, now=None, drives=None):
+    """drives: every drive the index knows, [{'root', 'type', 'label', 'present'}] (indexer.known_drives)."""
     t_start = time.perf_counter()
-    q = parse(text)
+    drives = drives or []
+    q = parse(text, labels=[d.get("label") or "" for d in drives])
+    q.drives = drives
     now = now or time.time()
     lists = []
     names = _name_hits(store, q, 300)
@@ -131,6 +167,8 @@ def search(store, text, embedder=None, vindex=None, limit=60, now=None):
     info = {r[0]: r for r in store.q(f"SELECT id, path, name, dir, kind, size, mtime, ctime FROM files "
                                      f"WHERE id IN ({marks})", top)}
     name_set, text_set = set(names), set(texts)
+    offline = {d["root"].upper(): (d.get("label") or d["root"].rstrip("\\")) for d in drives
+               if d.get("present") is False}
     out = []
     for fid in top:
         r = info.get(fid)
@@ -145,6 +183,11 @@ def search(store, text, embedder=None, vindex=None, limit=60, now=None):
             why.append(f"similar meaning ({best[fid][0]:.0%})")
         if q.t0 is not None:
             why.append(f"changed {_ago(r[6], now)}" if r[6] else "date matches")
+        if q.place:
+            why.append(q.place_label())
+        drive = offline.get(r[1][:3].upper())
+        if drive:
+            why.append(f"on {drive}, not connected now")
         snippet = snippets.get(fid) or (best[fid][1] if fid in best else "")
         out.append({"id": fid, "path": r[1], "name": r[2], "dir": r[3], "kind": r[4], "size": r[5], "mtime": r[6],
                     "ago": _ago(r[6], now) if r[6] else "", "why": why, "snippet": snippet})

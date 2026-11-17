@@ -100,3 +100,4 @@ h3 { margin: 26px 0 10px; color: var(--o); font: 700 11px var(--mono); letter-sp
 .toast.on { transform: translate(-50%, 0); }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+.dim { color: var(--mut); }

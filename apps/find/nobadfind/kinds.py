@@ -44,6 +44,28 @@ WORDS = {
     "ebook": "ebook", "book": "ebook", "epub": "ebook",
 }
 
+# Apps people name when they mean "the files I made with it": "photoshop files", "my blender projects".
+# (Word, Excel and PowerPoint are kinds above.) Names that are also ordinary words (AMBIGUOUS_APPS) only count
+# when a word like "files" or "project" follows: "outlook files" yes, "economic outlook report" no.
+APPS = {
+    "photoshop": {".psd", ".psb"}, "illustrator": {".ai", ".eps"}, "indesign": {".indd", ".idml"},
+    "premiere": {".prproj"}, "lightroom": {".lrcat"}, "gimp": {".xcf"}, "krita": {".kra"},
+    "inkscape": {".svg"}, "affinity": {".afphoto", ".afdesign", ".afpub"}, "figma": {".fig"},
+    "blender": {".blend"}, "autocad": {".dwg", ".dxf"}, "sketchup": {".skp"}, "solidworks": {".sldprt", ".sldasm"},
+    "fusion360": {".f3d"}, "kicad": {".kicad_pcb", ".kicad_sch", ".kicad_pro"}, "audacity": {".aup3", ".aup"},
+    "onenote": {".one"}, "msaccess": {".accdb", ".mdb"}, "visio": {".vsdx", ".vsd"}, "outlook": {".msg", ".pst"},
+    "acrobat": {".pdf"}, "godot": {".tscn", ".godot"},
+    "jupyter": {".ipynb"}, "obsidian": {".md"}, "ableton": {".als"}, "flstudio": {".flp"}, "garageband": {".band"},
+    "davinci": {".drp"}, "aftereffects": {".aep"}, "keynote": {".key"},
+}
+
+AMBIGUOUS_APPS = {"outlook", "keynote", "affinity", "premiere", "blender", "figma", "obsidian", "acrobat", "krita",
+                  "davinci", "godot", "jupyter", "ableton", "audacity", "gimp", "inkscape"}
+APP_CUES = {"file", "files", "project", "projects", "document", "documents", "doc", "docs", "design", "designs",
+            "drawing", "drawings", "model", "models", "scene", "scenes", "notebook", "notebooks", "vault",
+            "session", "sessions", "export", "exports", "work", "stuff", "mail", "mails", "emails", "message",
+            "messages", "presentation", "presentations", "deck", "decks", "catalog", "track", "tracks"}
+
 READABLE = {"pdf", "document", "spreadsheet", "slides", "text", "code", "email", "ebook"}
 READABLE_EXT = {".docx", ".odt", ".rtf", ".xlsx", ".xlsm", ".ods", ".csv", ".tsv", ".pptx", ".odp", ".pdf", ".eml",
                 ".mbox", ".epub"} | KINDS["text"] | KINDS["code"]

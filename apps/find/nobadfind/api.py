@@ -8,7 +8,7 @@ import subprocess
 import sys
 import threading
 
-from . import embed, wsearch, winapi
+from . import embed, ocr, wsearch, winapi
 from .log import log
 from .search import search
 
@@ -32,7 +32,7 @@ class Api:
         if not text:
             return {"results": [], "understood": [], "terms": [], "ms": 0}
         try:
-            return search(self._store, text, self._indexer.embedder, self._vindex)
+            return search(self._store, text, self._indexer.embedder, self._vindex, drives=self._indexer.drive_list)
         except Exception as e:
             log(f"search failed: {type(e).__name__}", "warn")
             return {"results": [], "understood": [], "terms": [], "ms": 0, "error": "Search failed. Try other words."}
@@ -81,6 +81,8 @@ class Api:
         st["model"] = dict(self._model)
         st["admin"] = winapi.is_admin()
         st["roots"] = self._indexer.roots()
+        st["ocr"] = ocr.available() or ocr.why_missing()
+        st["drives"] = self._indexer.drive_list
         return st
 
     def get_settings(self):
@@ -95,6 +97,16 @@ class Api:
             set_autostart(self._settings.get("autostart"))
         if set(changed) & {"roots", "exclude"}:
             self._indexer.rescan()
+        for key, kind in (("index_removable", "removable"), ("index_network", "network")):
+            if key in changed:
+                if not self._settings.get(key):          # turned off: those drives leave the index
+                    self._store.remove_paths([d["root"].rstrip("\\") for d in self._indexer.drive_list
+                                              if d.get("type") == kind])
+                self._indexer.wake.set()
+        if "ocr" in changed:
+            if not self._settings.get("ocr"):
+                self._store.set_meta("ocr_pass", "0")    # turned on again later: re-read the scans then
+            self._indexer.wake.set()
         if "semantic" in changed and self._settings.get("semantic"):
             threading.Thread(target=self._indexer._load_embedder, daemon=True).start()
             self._indexer.wake.set()

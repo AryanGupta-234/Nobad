@@ -13,7 +13,9 @@ import re
 import xml.etree.ElementTree as ET
 import zipfile
 
-MAX_CHARS = 2_000_000          # text kept per file
+from .ocr import OCR_EXT
+
+MAX_CHARS = 2_000_000         # text kept per file
 MAX_ZIP_MEMBER = 64 * 1024 * 1024
 MAX_ZIP_TOTAL = 256 * 1024 * 1024
 MAX_ZIP_RATIO = 200            # uncompressed / compressed
@@ -176,7 +178,7 @@ def _try_xml(data):
 
 
 # ---------- PDF ----------
-def pdf_text(path, max_pages=400):
+def pdf_text(path, max_pages=400, ocr=False):
     try:
         from pypdf import PdfReader
     except ImportError:
@@ -202,7 +204,12 @@ def pdf_text(path, max_pages=400):
                 out.append(page.extract_text() or "")
             except Exception:
                 continue
-        return "\n".join(out)
+        text = "\n".join(out)
+        pages = min(len(r.pages), max_pages)
+        if ocr and pages and len(text.strip()) < 40 * pages:     # little or no text layer: probably a scan
+            from . import ocr as _ocr
+            text += "\n" + _ocr.pdf_pages_text(r)
+        return text
     except SkipFile:
         raise
     except Exception as e:
@@ -271,8 +278,10 @@ def ipynb_text(path, limit):
 
 
 # ---------- entry point ----------
-def extract(path, ext, max_bytes):
-    """Return the text of one file (may be empty). Raises SkipFile for files that can't be read."""
+def extract(path, ext, max_bytes, ocr=False):
+    """Return the text of one file (may be empty). Raises SkipFile for files that can't be read.
+
+    ocr: also read the words in images and in scanned PDF pages (Windows' built-in OCR, see ocr.py)."""
     ext = ext.lower()
     try:
         size = os.path.getsize(path)
@@ -283,7 +292,14 @@ def extract(path, ext, max_bytes):
     if ext in (".docx", ".pptx", ".xlsx", ".xlsm", ".odt", ".ods", ".odp", ".epub"):
         text = office_text(path, ext)
     elif ext == ".pdf":
-        text = pdf_text(path)
+        text = pdf_text(path, ocr=ocr)
+    elif ext in OCR_EXT:
+        if not ocr:
+            raise SkipFile("image")
+        from . import ocr as _ocr
+        if not _ocr.available():
+            raise SkipFile(_ocr.why_missing())
+        text = _ocr.image_text(path, max_bytes)
     elif ext == ".eml":
         text = eml_text(path, max_bytes)
     elif ext == ".mbox":
@@ -329,10 +345,11 @@ def chunks(text, size=CHUNK, overlap=OVERLAP):
 
 
 def work(job):
-    """Worker-process entry: (file_id, path, ext, mtime, max_bytes) -> (file_id, mtime, chunks, error)."""
-    file_id, path, ext, mtime, max_bytes = job
+    """Worker-process entry: (file_id, path, ext, mtime, max_bytes[, ocr]) -> (file_id, mtime, chunks, error)."""
+    file_id, path, ext, mtime, max_bytes = job[:5]
+    ocr = bool(job[5]) if len(job) > 5 else False
     try:
-        return file_id, mtime, chunks(extract(path, ext, max_bytes)), None
+        return file_id, mtime, chunks(extract(path, ext, max_bytes, ocr)), None
     except SkipFile as e:
         return file_id, mtime, [], str(e)[:200]
     except MemoryError:

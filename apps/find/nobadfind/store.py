@@ -157,12 +157,12 @@ class Store:
                 self.db.execute("DELETE FROM files WHERE path = ? OR path LIKE ? ESCAPE '\\'", (p, like))
             self.db.commit()
 
-    def needs_text(self, kinds_ext, max_bytes, limit=500):
+    def needs_text(self, kinds_ext, max_bytes, limit=500, min_bytes=0):
         marks = ",".join("?" * len(kinds_ext))
         return self.q(
-            f"SELECT id, path, ext, size, mtime FROM files WHERE ext IN ({marks}) AND size <= ? "
+            f"SELECT id, path, ext, size, mtime FROM files WHERE ext IN ({marks}) AND size <= ? AND size >= ? "
             "AND (text_mtime IS NULL OR text_mtime <> mtime) ORDER BY mtime DESC LIMIT ?",
-            (*sorted(kinds_ext), max_bytes, limit))
+            (*sorted(kinds_ext), max_bytes, min_bytes, limit))
 
     def set_text(self, file_id, mtime, chunks, err=None):
         with self.wlock:
@@ -171,6 +171,16 @@ class Store:
                                 [(file_id, i, c) for i, c in enumerate(chunks)])
             self.db.execute("UPDATE files SET text_mtime=?, text_err=? WHERE id=?", (mtime, err, file_id))
             self.db.commit()
+
+    def reset_scanned_pdfs(self, min_chars=200):
+        """PDFs that gave (almost) no text are probably scans: read them again, now with OCR."""
+        with self.wlock:
+            n = self.db.execute(
+                "UPDATE files SET text_mtime=NULL WHERE ext='.pdf' AND text_mtime IS NOT NULL AND text_err IS NULL "
+                "AND COALESCE((SELECT sum(length(body)) FROM chunks WHERE file_id=files.id), 0) < ?",
+                (min_chars,)).rowcount
+            self.db.commit()
+        return n
 
     def chunks_without_vectors(self, limit=256):
         return self.q("SELECT c.id, c.body FROM chunks c LEFT JOIN vecs v ON v.chunk_id=c.id "

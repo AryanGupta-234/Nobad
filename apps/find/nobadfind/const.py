@@ -2,7 +2,7 @@
 import os
 
 APP_NAME = "NOBAD Find"
-APP_VER = "0.1.0"
+APP_VER = "0.2.0"
 
 # NOBAD Find runs as the normal user, so its data lives in the user's own profile (not readable by other users).
 DATA_DIR = os.environ.get("NOBAD_FIND_DATA_DIR") or os.path.join(
@@ -41,8 +41,12 @@ DEFAULTS = {
     "semantic": False,              # meaning search (needs the model download, below)
     "allow_model_download": False,  # the only outbound connection: Hugging Face, once, when you ask for it
     "src_mail": True,               # .eml / .mbox files found while indexing
+    "ocr": True,                    # words in photos, screenshots and scanned PDFs (Windows' own OCR)
+    "index_removable": False,       # USB sticks, SD cards and external drives while they're plugged in
+    "index_network": False,         # mapped network drives (your own network; slow on big shares)
     "pause_on_battery": True,
     "pause_fullscreen": True,
+    "pause_on_call": True,          # while the microphone or camera is in use
     "workers": 0,                   # 0 = pick from the CPU
     "hotkey": "win+shift+space",
     "autostart": False,

@@ -31,6 +31,8 @@ Add to it when the maintainer decides something; delete lines that stop being tr
 - 2026-11-16 New outbound connections need a setting and an entry in SYSTEM-INTEGRATION.md.
 
 ## Open items
+- 2026-11-17 NOBAD Find has its own packaging in `apps/find/packaging/` (maintainer: never reuse the VPN's).
+  Per-user Inno Setup installer, no admin; CI job `find-build` keeps it as an artifact only (no release yet).
 - 2026-11-17 NOBAD Find (`apps/find/`, in development, no installer yet): private offline search over your own files.
   Maintainer chose: full build, pywebview + HTML UI, name "NOBAD Find". Out of scope: activity timeline/usage history
   and raw NTFS/MFT reading. Design: `docs/ai/ideas/nobad-find.md`. Not on the website until it ships.

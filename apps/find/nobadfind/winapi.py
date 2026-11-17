@@ -155,6 +155,117 @@ def fixed_drives():
     return out
 
 
+DRIVE_TYPES = {2: "removable", 3: "fixed", 4: "network", 5: "cd", 6: "ram"}
+
+
+def drives():
+    """Every drive letter Windows shows this user: [{'root': 'E:\\', 'type': 'removable', 'label': 'SANDISK'}]."""
+    if not WIN:
+        return [{"root": "/", "type": "fixed", "label": ""}]
+    mask = k32.GetLogicalDrives()
+    out = []
+    old = k32.SetErrorMode(0x0001)          # SEM_FAILCRITICALERRORS: an empty card reader must not pop a dialog
+    try:
+        for i in range(26):
+            if not mask & (1 << i):
+                continue
+            root = f"{chr(65 + i)}:\\"
+            kind = DRIVE_TYPES.get(k32.GetDriveTypeW(root))
+            if not kind:
+                continue
+            label = ctypes.create_unicode_buffer(261)
+            # a network drive whose server is off can block for seconds here: its name isn't worth that
+            ok = kind != "network" and k32.GetVolumeInformationW(root, label, 261, None, None, None, None, 0)
+            if kind in ("removable", "cd") and not ok:
+                continue                          # no disc or card in it
+            out.append({"root": root, "type": kind, "label": label.value if ok else ""})
+    finally:
+        k32.SetErrorMode(old)
+    return out
+
+
+def running_exes():
+    """Lower-case full paths of the programs running right now (those this user may look at)."""
+    if not WIN:
+        return set()
+    psapi = ctypes.WinDLL("psapi")
+    ids = (wintypes.DWORD * 4096)()
+    got = wintypes.DWORD()
+    if not psapi.EnumProcesses(ids, ctypes.sizeof(ids), ctypes.byref(got)):
+        return set()
+    out = set()
+    k32.OpenProcess.restype = wintypes.HANDLE
+    k32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    k32.QueryFullProcessImageNameW.argtypes = [wintypes.HANDLE, wintypes.DWORD, wintypes.LPWSTR,
+                                               ctypes.POINTER(wintypes.DWORD)]
+    for pid in ids[:got.value // ctypes.sizeof(wintypes.DWORD)]:
+        h = k32.OpenProcess(0x1000, False, pid)            # PROCESS_QUERY_LIMITED_INFORMATION
+        if not h:
+            continue
+        try:
+            buf = ctypes.create_unicode_buffer(1024)
+            n = wintypes.DWORD(1024)
+            if k32.QueryFullProcessImageNameW(h, 0, buf, ctypes.byref(n)):
+                out.add(buf.value.lower())
+        finally:
+            k32.CloseHandle(h)
+    return out
+
+
+CALL_MAX_AGE = 4 * 3600          # older "still in use" records are left over from an app that crashed
+
+
+def in_call(now=None):
+    """True while an app is using the microphone or the camera (a call or a recording).
+
+    Reads the user's own privacy "last used" records, the same ones the Windows privacy page shows. No admin.
+    An app that crashes leaves its record "in use" forever, so a record only counts when it started in the last
+    few hours and, for desktop programs, when that program is still running."""
+    if not WIN:
+        return False
+    import time
+    import winreg
+    base = r"Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore"
+    now_ft = int(((now or time.time()) + 11644473600) * 10_000_000)       # unix seconds -> FILETIME
+    procs = []
+
+    def alive(path):
+        name = path.rsplit("\\", 1)[-1]
+        if "\\NonPackaged\\" not in path:
+            return True                                 # Store apps: the age check is all we have
+        if not procs:
+            procs.append(running_exes())
+        return name.replace("#", "\\").lower() in procs[0]
+
+    def busy(path, depth=0):
+        try:
+            k = winreg.OpenKey(winreg.HKEY_CURRENT_USER, path)
+        except OSError:
+            return False
+        with k:
+            try:
+                start = winreg.QueryValueEx(k, "LastUsedTimeStart")[0]
+                stop = winreg.QueryValueEx(k, "LastUsedTimeStop")[0]
+                if start and not stop and 0 <= now_ft - start < CALL_MAX_AGE * 10_000_000 and alive(path):
+                    return True
+            except (OSError, TypeError):
+                pass
+            if depth >= 2:
+                return False
+            i = 0
+            while i < 500:
+                try:
+                    sub = winreg.EnumKey(k, i)
+                except OSError:
+                    break
+                if busy(path + "\\" + sub, depth + 1):
+                    return True
+                i += 1
+        return False
+
+    return any(busy(f"{base}\\{dev}") for dev in ("microphone", "webcam"))
+
+
 def filesystem(root):
     if not WIN:
         return ""

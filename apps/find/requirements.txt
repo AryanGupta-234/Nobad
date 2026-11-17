@@ -5,3 +5,11 @@ pypdf==6.18.0              # text inside PDFs
 numpy==2.4.6               # meaning-search vectors
 onnxruntime==1.27.0        # runs the local meaning-search model
 tokenizers==0.23.2         # splits text for the model
+# Words in photos and scanned PDFs: the OCR built into Windows, through its WinRT API (no model, no download)
+winrt-runtime==3.2.1
+winrt-Windows.Media.Ocr==3.2.1
+winrt-Windows.Graphics.Imaging==3.2.1
+winrt-Windows.Storage.Streams==3.2.1
+winrt-Windows.Globalization==3.2.1
+winrt-Windows.Foundation==3.2.1
+winrt-Windows.Foundation.Collections==3.2.1

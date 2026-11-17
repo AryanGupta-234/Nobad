@@ -16,6 +16,7 @@ def parse_args(argv=None):
     p.add_argument("--background", action="store_true", help="start hidden; the hotkey opens the window")
     p.add_argument("--wsearch", choices=("auto", "delayed-auto", "demand", "disabled"), help=argparse.SUPPRESS)
     p.add_argument("--version", action="store_true")
+    p.add_argument("--uninstall", action="store_true", help=argparse.SUPPRESS)   # run by the uninstaller
     return p.parse_args(argv)
 
 
@@ -29,6 +30,27 @@ def single_instance():
     return ctypes.get_last_error() != 183          # ERROR_ALREADY_EXISTS
 
 
+def uninstall():
+    """Undo what NOBAD Find changed outside its own folder: Windows Search (if it turned it off) and the
+    "Start with Windows" entry. The index itself is deleted by the uninstaller if the user says so."""
+    from . import wsearch
+    from .api import set_autostart
+    from .settings import Settings
+    settings = Settings(SETTINGS_PATH)
+    try:
+        set_autostart(False)
+    except OSError:
+        pass
+    prev = settings.get("wsearch_prev")
+    if prev and wsearch.state().get("start") == "disabled":
+        if not wsearch.request(prev):            # Windows asks for permission; saying no leaves it off
+            print("Windows Search is still off. Turn it on in Services (WSearch) if you want it back.")
+            return 1
+    if prev:
+        settings.update({"wsearch_prev": ""})
+    return 0
+
+
 def main(argv=None):
     args = parse_args(argv)
     if args.version:
@@ -37,6 +59,8 @@ def main(argv=None):
     if args.wsearch:                                # the elevated one-shot helper: nothing else runs
         from .wsearch import helper_main
         return helper_main(args.wsearch)
+    if args.uninstall:
+        return uninstall()
     if winapi.is_admin():
         # Everything NOBAD Find needs works as the normal user; running it as admin would index as admin.
         print("NOBAD Find runs as your normal account. Start it without 'Run as administrator'.")

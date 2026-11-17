@@ -1,4 +1,4 @@
-"""Fast parallel folder walk (works without admin). The admin "turbo" path in mft.py reads the NTFS index instead.
+"""Fast parallel folder walk as the normal user (NOBAD Find never reads the raw NTFS index).
 
 Safety: links and junctions are never followed (no loops, no escaping into other folders), other users'
 profiles are never entered, and secret folders from const.ALWAYS_EXCLUDE_* are skipped.

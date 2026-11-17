@@ -9,7 +9,7 @@ import datetime as dt
 import re
 from dataclasses import dataclass, field
 
-from .kinds import WORDS
+from .kinds import AMBIGUOUS_APPS, APP_CUES, APPS, WORDS
 
 MONTHS = {m: i for i, m in enumerate(
     ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october",
@@ -40,20 +40,55 @@ class Query:
     t0: float = None                                # time range (unix seconds), on modified/created time
     t1: float = None
     when: str = ""                                  # how the time was understood, for the UI
+    apps: set = field(default_factory=set)          # "photoshop files" -> {"photoshop"}; their extensions below
+    app_exts: set = field(default_factory=set)
+    place: str = ""                                 # "removable" | "network" | "fixed" | "E:" | "label:<name>"
+    drives: list = field(default_factory=list)      # the drives the place is matched against
 
     @property
     def text(self):
         return " ".join(self.phrases + self.terms)
 
+    def all_exts(self):
+        return self.exts | self.app_exts
+
+    def place_label(self):
+        p = self.place
+        if p.startswith("label:"):
+            return "on " + p[6:].upper()
+        return {"removable": "on USB and external drives", "network": "on network drives",
+                "fixed": "on this PC's own drives"}.get(p, f"on {p}" if p else "")
+
     def understood(self):
         out = []
         if self.kinds:
             out.append(", ".join(sorted(self.kinds)))
+        if self.apps:
+            out.append(", ".join(f"{a} files" for a in sorted(self.apps)))
         if self.exts:
             out.append(", ".join(sorted(self.exts)))
         if self.when:
             out.append(self.when)
+        if self.place:
+            out.append(self.place_label())
         return out
+
+
+# Where a file is: "on my usb stick", "on the network drive", "on d:", "on drive e", "on SANDISK".
+_ON = r"\b(?:on|from|in|off) (?:my |the |a |an |this |that )?"
+# A place must end the phrase ("notes in my computer science class" is not about a drive).
+_END = r"(?=\s*$|\s+(?:from|in|on|at|last|this|that|with|about|and|or|before|after|since|during|yesterday|today|"
+_END += r"ago|recently|around|which|where|when)\b)"
+PLACES = [
+    (_ON + r"(?:usb(?: drive| stick| key| disk| flash drive)?|flash ?drive|pen ?drive|thumb ?drive|memory stick|"
+     r"sd card|memory card|(?:external|portable|backup) (?:drive|disk|hard ?drive|hdd|ssd))s?" + _END, "removable"),
+    (_ON + r"(?:network (?:drive|share|folder)|nas|shared drive|file server)s?" + _END, "network"),
+    (r"\b(?:on|from|in) (?:my|this) (?:pc|computer|laptop)" + _END, "fixed"),
+]
+_DRIVE = re.compile(_ON + r"(?:drive ([b-z])\b|([a-z]):(?:\\)?(?: drive)?(?=\s)|([b-z]) drive\b)")
+# Two-word app names, joined before the words are read
+APP_PHRASES = {"after effects": "aftereffects", "fusion 360": "fusion360", "fl studio": "flstudio",
+               "ms access": "msaccess", "microsoft access": "msaccess", "davinci resolve": "davinci"}
 
 
 def _day(d):
@@ -70,7 +105,8 @@ def _month_range(year, month):
     return start, end
 
 
-def parse(text, now=None):
+def parse(text, now=None, labels=()):
+    """labels: names of drives this PC knows ("SANDISK"), so "on sandisk" means that drive."""
     now = now or dt.datetime.now()
     q = Query(raw=text)
     s = text.strip()
@@ -132,9 +168,41 @@ def parse(text, now=None):
         (dt.datetime(int(m.group(1)), 1, 1), dt.datetime(int(m.group(1)) + 1, 1, 1)), f"in {m.group(1)}"))
     take(r"\b(\d{4})-(\d{2})-(\d{2})\b", lambda m: _date(int(m.group(1)), int(m.group(2)), int(m.group(3))))
 
-    # kinds and extensions
+    # where: a kind of drive, a drive letter or a drive's name
+    for pattern, place in PLACES:
+        m = re.search(pattern, low)
+        if m:
+            q.place = place
+            low = low[:m.start()] + " " + low[m.end():]
+            break
+    if not q.place:
+        m = _DRIVE.search(low)
+        if m:
+            q.place = (m.group(1) or m.group(2) or m.group(3)).upper() + ":"
+            low = low[:m.start()] + " " + low[m.end():]
+    if not q.place:
+        for label in sorted({x.strip().lower() for x in labels if x and len(x.strip()) >= 3}, key=len, reverse=True):
+            m = re.search(_ON + re.escape(label) + r"(?: drive| disk| stick| card)?(?=\s)", low)
+            if m:
+                q.place = "label:" + label
+                low = low[:m.start()] + " " + low[m.end():]
+                break
+
+    # apps, kinds and extensions
+    for phrase, joined in APP_PHRASES.items():
+        low = low.replace(" " + phrase + " ", " " + joined + " ")
     words = re.findall(r"[\w.\-+#]+", low)
+    cue_at = -1                                     # "projects" in "blender projects" is part of the app filter
     for i, w in enumerate(words):
+        if i == cue_at:
+            continue
+        cue = i + 1 < len(words) and words[i + 1] in APP_CUES
+        if w in APPS and (w not in AMBIGUOUS_APPS or cue):
+            q.apps.add(w)
+            q.app_exts |= APPS[w]
+            if cue:
+                cue_at = i + 1
+            continue
         if w in WORDS:
             k = WORDS[w]
             if k:
