@@ -35,8 +35,9 @@ Add to it when the maintainer decides something; delete lines that stop being tr
   redirect, but attestation `--signer-workflow` must name the exact repo), org profile `nobad-studio/.github`, website
   split into `nobad-studio/website` (full history), ruleset bypass "Organization admin" restored on "Protect main"
   and "Protect release tags", secret scanning + push protection on in all three repos (same merge settings: squash
-  only, delete branch on merge), Dependabot covers every app, 2FA required, Harsh is an org member. Still pending:
-  `gh auth refresh -s admin:org` (team `file-bridge`, "members can't create repositories"); the live site is stuck at
+  only, delete branch on merge), Dependabot covers every app, 2FA required, members can't create
+  repositories, org profile "NOBAD" with the motto, team `file-bridge` created (Harsh invited to the org and the team,
+  pending until he accepts). Still pending: the live site is stuck at
   `ffbb177` because Cloudflare Workers Builds stopped after the move: reconnect `nobad-platform` to
   `nobad-studio/website`, then remove `site-pages/`, `releases/` and the site build from this repo. Until then site
   edits go to `nobad-studio/website` first and are copied here unchanged. File Bridge split waits for Harsh's PRs
