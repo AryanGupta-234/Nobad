@@ -38,10 +38,10 @@ Add to it when the maintainer decides something; delete lines that stop being tr
   only, delete branch on merge), Dependabot covers every app, 2FA required, members can't create
   repositories, org profile "NOBAD" with the motto, team `file-bridge` created (Harsh invited to the org and the team,
   pending until he accepts). Website address is `https://nobad-platform.nobad-studio.workers.dev/` (Cloudflare
-  account subdomain changed from `aassworld99`; the old address no longer works). Still pending: the live site is stuck at
-  `ffbb177` because Cloudflare Workers Builds stopped after the move: reconnect `nobad-platform` to
-  `nobad-studio/website`, then remove `site-pages/`, `releases/` and the site build from this repo. Until then site
-  edits go to `nobad-studio/website` first and are copied here unchanged. File Bridge split waits for Harsh's PRs
+  account subdomain changed from `aassworld99`; the old address no longer works). Cloudflare Workers Builds
+  deploys `nobad-platform` from `nobad-studio/website` `main` (first build 5c466db, 2026-11-17). Still pending: remove
+  `site-pages/`, `releases/` and the site build from this repo (and point the release step at the website repo); until
+  then site edits go to `nobad-studio/website` first and are copied here unchanged. File Bridge split waits for Harsh's PRs
   #35, #38, #39. File Bridge issues use the label `area:file-bridge` (was `nobad-files`).
 - 2026-11-17 Releases up to 1.6.1 keep their attestations under the old owner: verify with `--owner AryanGupta-234
   --signer-workflow AryanGupta-234/Nobad/.github/workflows/vpn-release.yml` (tested). New releases: `-R nobad-studio/Nobad-VPN`.
