@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+* New interface: Deployments.
+  * Every deploy starts with a preview, with an optional build on your computer first.
+  * Deploying makes a backup, uploads, runs your commands and checks that the site works. If any step fails, the
+    site goes back to how it was by itself.
+  * A pipeline shows each step as it happens.
+  * History keeps every run with its steps and output.
+  * Earlier backups and releases can be restored.
+  * A lock left behind by a crashed run is only removed if you say so.
 * New interface: Sync folders. Every sync starts with a preview of what would be copied, replaced or deleted, and
   nothing changes until you press Sync now. Replacing or deleting files asks first. Two-way jobs remember the
   last sync, so changes and deletions on either side cross over. Files changed on both sides wait for your choice:

@@ -161,6 +161,31 @@ on; every animation stops under `prefers-reduced-motion`. VPN's map, comet and c
 * Not in the new interface yet: the rsync engine (jobs saved with it run through the transfer queue).
 * Tests: `tests/test_web_sync.py` (real AsyncSSH SFTP server).
 
+## Deployments (stage 5c)
+
+* `app_web/deploy.py` (`DeployService`) runs on the existing `DeploymentPlanner`, `DeploymentExecutor`,
+  `DeploymentHistoryService` and `ManualRollbackService`. Jobs are stored in the same table the classic window uses.
+* **Preview.**
+  * The optional local build runs first, and its output streams as `deploy.output`.
+  * The planner then lists what is added, replaced and (in mirror mode) deleted. Nothing on the server changes.
+  * The result is kept under a one-time token for 15 minutes, tied to the connection.
+* **Deploy.**
+  * `deploy.run` needs `confirmed` and saves the job first, because history and backups belong to a saved job.
+  * The executor locks the target and builds the preview again under the lock; if the plan changed, nothing runs.
+  * It then backs up, uploads (through the transfer queue), runs the job's commands and health checks, and rolls back
+    automatically when a step fails.
+  * Each stage is sent as `deploy.stage` and lights up the pipeline. A stale lock (older than 2 hours) is removed
+    only if the user confirms.
+* **History.** `deploy.history` and `deploy.stages` show every run and its stages with output excerpts.
+  `deploy.scan` imports backups and releases found on the server. `deploy.rollback` restores one under the lock,
+  after confirmation, and records the run.
+* Deployments need a connection that can run commands (SSH). FTP connections are refused with a plain message.
+* Tests are in `tests/test_web_deploy.py`.
+  * End to end, against a real AsyncSSH server whose commands run in a real POSIX shell: deploy with backup and
+    history, automatic rollback after a failed health check, manual rollback, and "changed after the preview". These
+    run on Linux.
+  * Validation and refusals run everywhere.
+
 ## Page structure (`app_web/ui/`)
 
 | File | What |

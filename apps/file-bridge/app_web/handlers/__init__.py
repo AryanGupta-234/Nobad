@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import importlib
 
-MODULES = ("app_info", "settings", "window", "connections", "files", "transfers", "terminals", "editor", "vault", "sync")
+MODULES = ("app_info", "settings", "window", "connections", "files", "transfers", "terminals", "editor", "vault", "sync", "deploy")
 
 
 def register_all() -> None:
