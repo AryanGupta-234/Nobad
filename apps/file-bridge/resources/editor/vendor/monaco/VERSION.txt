@@ -1,0 +1,4 @@
+monaco-editor 0.56.0 (MIT), from https://registry.npmjs.org/monaco-editor/-/monaco-editor-0.56.0.tgz
+npm integrity: sha512-sXboRm3BeBeLm938eaiyLMe0OxzfXIlZvbv4ir/jVgQy1zDhWjgmny0WoN45fuDKhCCQsYMbBJrv/A6jd8aCUg==
+Only min/vs is kept, without vs/nls/lang (translations; English needs none), *.d.ts and vs/language.
+Used by the web UI (served at /static/vendor/monaco/) and the classic window (resources/editor/*.html). No CDN.

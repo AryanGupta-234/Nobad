@@ -3,6 +3,7 @@ calls the web UI makes: host-key prompt and trust, connect, list, mkdir/rename/d
 download, disconnect. Nothing touches the developer's real home folder or known_hosts."""
 from __future__ import annotations
 
+import asyncio
 import json
 import queue
 import time
@@ -37,7 +38,10 @@ def _close_on_loop(server) -> None:  # type: ignore[no-untyped-def]
     """Close the test server on the runtime's own loop (asyncio objects aren't thread-safe)."""
     async def close() -> None:
         server.close()
-        await server.wait_closed()
+        try:                                  # wait_closed also waits for open client connections
+            await asyncio.wait_for(server.wait_closed(), 2)
+        except asyncio.TimeoutError:
+            pass
 
     AsyncRuntime.instance().run(close())
 

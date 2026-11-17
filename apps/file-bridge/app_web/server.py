@@ -6,7 +6,10 @@ Ported from NOBAD VPN (apps/vpn/nobadvpn/server.py), same security model:
   HttpOnly, SameSite=Strict cookie and redirects to ``/``. Any other local program gets a "locked" page.
 * Only ``127.0.0.1:<port>`` / ``localhost:<port>`` Host headers and same-origin requests are served, which blocks
   DNS rebinding and cross-site requests from a browser.
-* CSP ``script-src 'self'``: no inline scripts, so injected markup can't run code or drive the API."""
+* CSP ``script-src 'self'``: no inline scripts, so injected markup can't run code or drive the API. Fonts may also come
+  from ``data:`` (Monaco embeds its icon font that way; a font can't run code), and workers from ``blob:``
+  (Monaco starts its workers from a blob that loads the real, same-origin worker file; only script already allowed
+  on the page can create one)."""
 from __future__ import annotations
 
 import hmac
@@ -27,13 +30,17 @@ from app_web.api import api_post
 from app_web.handlers import register_all
 
 UI_DIR = Path(__file__).resolve().parent / "ui"
+# Monaco is shared with the classic window (resources/editor/*.html), so it lives once under resources/ and is
+# mounted here; no CDN (issue #30).
+MONACO_DIR = Path(__file__).resolve().parents[1] / "resources" / "editor" / "vendor" / "monaco"
+MOUNTS = {"vendor/monaco": MONACO_DIR}
 COOKIE = "nbfb_s"
 LAUNCH_TTL = 600            # seconds a launch code stays valid; each code works once
 MAX_BODY = 1_000_000
 DRAIN_LIMIT = 16_000_000   # bytes read (and dropped) from a refused request so the reply arrives
 CSP = (
     "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; "
-    "connect-src 'self'; font-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+    "connect-src 'self'; font-src 'self' data:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
 )
 CTYPES = {
     ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".json": "application/json",
@@ -245,6 +252,9 @@ class BridgeServer(ThreadingHTTPServer):
         self.session = Session()
         self.stopping = threading.Event()
         self.ui_files = index_ui_files(UI_DIR)
+        for prefix, root in MOUNTS.items():
+            if root.is_dir():
+                self.ui_files.update({f"{prefix}/{rel}": path for rel, path in index_ui_files(root).items() if rel != "index.html"})
 
     def read_ui(self, rel: str) -> bytes | None:
         path = self.ui_files.get(rel)

@@ -243,7 +243,7 @@
     var it = this.item(vi);
     if (!it) { return; }
     if (it[1] === "d" || it[1] === "l") { this.load(joinPath(this.side, this.path, it[0])); return; }   // a link to a file says so
-    NB.toast("Opening files in the editor arrives in a later update.");
+    NB.openEditor(this.side, joinPath(this.side, this.path, it[0]));
   };
   Pane.prototype.up = function () { if (this.parent) { this.load(this.parent); } };
 
@@ -487,6 +487,7 @@
     var entries = [];
     if (onItem) {
       entries.push(["open", "Open", "Enter"]);
+      if (pane.item(pane.focus) && pane.item(pane.focus)[1] === "f") { entries.push(["edit", "Edit in File Bridge"]); }
       if (other.path) { entries.push(["copy", toLabel, "F5"]); }
       entries.push(["rename", "Rename", "F2"], ["delete", "Delete", "Del"], ["-"]);
     }
@@ -500,6 +501,7 @@
       else if (a === "mkdir") { self.mkdir(pane); }
       else if (a === "refresh") { pane.load(null, true); }
       else if (a === "term") { NB.openTerminal(pane.side, pane.path); }
+      else if (a === "edit") { var it = pane.item(pane.focus); if (it) { NB.openEditor(pane.side, joinPath(pane.side, pane.path, it[0])); } }
     });
   };
 

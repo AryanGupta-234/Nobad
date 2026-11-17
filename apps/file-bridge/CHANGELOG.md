@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+* Security: the code editor no longer loads Monaco from cdnjs or unpkg. It ships with the app, in the classic window
+  and in the new interface, so editing works offline and no outside code runs next to the app (#30).
+* New interface: an Editor for server and local files. Saving checks that nobody changed the file since you opened
+  it; if they did, you can compare both versions side by side, overwrite with yours or take theirs. Unsaved
+  changes are marked, kept across screen changes, and survive a disconnect.
 * New interface: Terminal tabs for the connected server and for this computer, next to your files. They keep
   running when you switch screens, keep what they showed if the window reloads, and close with the server's
   connection. "Open terminal here" from the Files context menu. Copy and paste with Ctrl+Shift+C / Ctrl+Shift+V.

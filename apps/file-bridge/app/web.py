@@ -54,6 +54,7 @@ def main(argv: list[str] | None = None) -> int:
         pass
     finally:
         ctx.terminals.close_all()
+        ctx.editor.shutdown()
         server.stop()
     return 0
 

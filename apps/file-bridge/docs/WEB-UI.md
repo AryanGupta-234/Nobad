@@ -103,6 +103,22 @@ on; every animation stops under `prefers-reduced-motion`. VPN's map, comet and c
 * Tests: `tests/test_web_terminal.py` (a real SSH shell on an AsyncSSH server: echo, resize seen by the server,
   history, tabs closing on disconnect; a real local shell; input limits; output ordering and cap).
 
+## Editor (stage 4b)
+
+* `app_web/editor.py` (`EditorService`): tabs for server files (`RemoteEditManager`: private temp workspace,
+  backup before saving, and **saving is refused when the file changed on the server after it was opened**) and
+  local files (same 5 MB / binary limits, atomic write, same check with the file's modification time). Server tabs
+  stay open across a disconnect, so no edits are lost; saving needs that server again. Edited text is never logged.
+* `screens/editor.js`: Monaco, **bundled** (`resources/editor/vendor/monaco/`, shared with the classic window and
+  served at `/static/vendor/monaco/`; no CDN, issue #30), NOBAD dark/light themes, tabs with an unsaved-changes dot,
+  Ctrl+S, and on a conflict: Compare (side-by-side diff: current version left, yours right), Overwrite with mine,
+  or Reload theirs. Monaco loads only when a file is first opened. Enter or double-click on a file in Files opens it.
+* CSP: Monaco embeds its icon font as `data:` and starts its workers from a `blob:` that loads the same-origin worker
+  file, so the page allows `font-src 'self' data:` and `worker-src 'self' blob:`. `script-src` stays `'self'`.
+* Tests: `tests/test_web_editor.py` (server open/save/conflict/overwrite/compare/reload against a real SFTP
+  server, tabs surviving a disconnect, local atomic save and conflict, binary refusal, no CDN in any editor page,
+  every Monaco worker file present, CSP).
+
 ## Page structure (`app_web/ui/`)
 
 | File | What |

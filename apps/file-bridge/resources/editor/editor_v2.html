@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' qrc: https://unpkg.com data: blob:; script-src 'self' qrc: https://unpkg.com 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' https://unpkg.com 'unsafe-inline'; worker-src blob: data: https://unpkg.com; font-src 'self' data: https://unpkg.com; img-src 'self' data: blob:; connect-src 'self' https://unpkg.com;" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' file: qrc: data: blob:; script-src 'self' file: qrc: 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; worker-src blob: data:; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self';" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>NOBAD File Bridge Editor</title>
   <style>
@@ -11,14 +11,14 @@
     #offline { display:none; max-width:560px; padding:24px; line-height:1.5; text-align:center; }
   </style>
   <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
-  <script src="https://unpkg.com/monaco-editor@0.56.0/min/vs/loader.js" integrity="sha384-jwxunh5pHKFzi60XobDcwOM7qnk4lSGpdBU/hNn9pUGp+ZUpaHJqadNLRF2k+jPu" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="vendor/monaco/vs/loader.js"></script>
 </head>
 <body>
   <div id="editor"></div>
   <div id="loading"><div id="offline">Loading Monaco Editor…</div></div>
   <script>
     (() => {
-      const MONACO_BASE = 'https://unpkg.com/monaco-editor@0.56.0/min/';
+      const MONACO_BASE = 'vendor/monaco/';   // bundled with the app (issue #30); no CDN
       let bridge = null;
       let editor = null;
       let diffEditor = null;
@@ -31,11 +31,7 @@
       let minimapEnabled = true;
       let changeTimer = null;
 
-      function workerUrl() {
-        const source = `self.MonacoEnvironment={baseUrl:${JSON.stringify(MONACO_BASE)}};importScripts(${JSON.stringify(MONACO_BASE + 'vs/base/worker/workerMain.js')});`;
-        return `data:text/javascript;charset=utf-8,${encodeURIComponent(source)}`;
-      }
-      window.MonacoEnvironment = { getWorkerUrl: workerUrl };
+      // Monaco 0.56 sets up its own workers (self.MonacoEnvironment in editor.main), from the bundled files.
 
       function showLoading(text) {
         const loading = document.getElementById('loading');
@@ -226,10 +222,10 @@
       }
 
       if (!window.require) {
-        showLoading('Monaco could not be loaded. Build the bundled editor assets or check network access.');
+        showLoading('The bundled editor files are missing (resources/editor/vendor/monaco).');
         return;
       }
-      require.config({ paths: { vs: 'https://unpkg.com/monaco-editor@0.56.0/min/vs' } });
+      require.config({ paths: { vs: MONACO_BASE + 'vs' } });
       showLoading('Loading Monaco Editor…');
       require(['vs/editor/editor.main'], () => {
         defineTheme();

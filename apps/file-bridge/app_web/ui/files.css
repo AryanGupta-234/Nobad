@@ -177,3 +177,11 @@ main#main:has(.screen-term) #screen{flex:1;min-height:0}
 .term-view .xterm{height:100%}
 .term-view .xterm-viewport{background:transparent!important;scrollbar-width:thin}
 .term-empty{flex:1;display:flex;align-items:center;justify-content:center;padding:24px}
+
+/* ---------- editor ---------- */
+.ed-shell{position:relative}
+.ed-bar{display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid var(--edge);background:var(--surface)}
+.ed-bar .spacer{flex:1}
+.ed-path{color:var(--mu);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;max-width:46%;direction:rtl;text-align:left}
+.ed-main,.ed-diff{flex:1;min-height:0;background:var(--surface)}
+.ed-tab .dirty{width:7px;height:7px;border-radius:50%;background:var(--warn);margin-left:2px;flex:none}

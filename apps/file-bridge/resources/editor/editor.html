@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' qrc: https://unpkg.com https://cdnjs.cloudflare.com data: blob:; script-src 'self' qrc: https://unpkg.com https://cdnjs.cloudflare.com 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' https://unpkg.com https://cdnjs.cloudflare.com 'unsafe-inline'; worker-src blob: data: https://unpkg.com https://cdnjs.cloudflare.com; font-src 'self' data: https://unpkg.com https://cdnjs.cloudflare.com; img-src 'self' data: blob:; connect-src 'self' https://unpkg.com https://cdnjs.cloudflare.com;" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' file: qrc: data: blob:; script-src 'self' file: qrc: 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; worker-src blob: data:; font-src 'self' data:; img-src 'self' data: blob:; connect-src 'self';" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>NOBAD File Bridge - Monaco Code Editor Studio</title>
   <style>
@@ -84,7 +84,7 @@
     }
   </style>
   <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js" integrity="sha512-ZG31AN9z/CQD1YDDAK4RUAvogwbJHv6bHrumrnMLzdCrVu4HeAqrUX7Jsal/cbUwXGfaMUNmQU04tQ8XXl5Znw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="vendor/monaco/vs/loader.js"></script>
 </head>
 <body>
   <div id="editor-container"></div>
@@ -93,7 +93,7 @@
 
   <script>
     (() => {
-      const MONACO_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/';
+      const MONACO_BASE = 'vendor/monaco/';   // bundled with the app (issue #30); no CDN
       let bridge = null;
       let editor = null;
       let diffEditor = null;
