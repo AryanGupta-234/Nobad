@@ -166,10 +166,16 @@ def test_local_forward_carries_traffic_and_closes_with_the_connection(ssh_port, 
     assert api_post("tunnel.test", {"id": saved["data"]["id"]}, ctx)["data"]["ok"] is True
 
     api_post("conn.disconnect", {}, ctx)
-    deadline = time.monotonic() + 10
-    while time.monotonic() < deadline and not SSHTunnelManager.is_port_in_use("127.0.0.1", local) is False:
-        time.sleep(0.2)
-    assert SSHTunnelManager.is_port_in_use("127.0.0.1", local) is False          # the listener is gone
+    # The listener is gone: connecting is refused. (A bind test would see the port "in use" on Linux while our own
+    # finished connections sit in TIME_WAIT.)
+    deadline, refused = time.monotonic() + 10, False
+    while time.monotonic() < deadline and not refused:
+        try:
+            socket.create_connection(("127.0.0.1", local), timeout=1).close()
+            time.sleep(0.2)
+        except OSError:
+            refused = True
+    assert refused
     assert api_post("tunnel.list", {}, ctx)["data"]["tunnels"][0]["status"] == "inactive"
 
 
