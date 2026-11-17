@@ -2,7 +2,7 @@
 import os
 
 APP_NAME = "NOBAD Find"
-APP_VER = "0.4.0"
+APP_VER = "0.5.0"
 
 # NOBAD Find runs as the normal user, so its data lives in the user's own profile (not readable by other users).
 DATA_DIR = os.environ.get("NOBAD_FIND_DATA_DIR") or os.path.join(
@@ -39,6 +39,8 @@ DEFAULTS = {
     "content": True,                # read text inside documents
     "content_max_mb": 25,           # skip reading files bigger than this
     "semantic": False,              # meaning search (needs the model download, below)
+    "photo_meaning": False,         # find photos by what's in them (needs the photo model download)
+    "allow_photo_model_download": False,   # Hugging Face, once, about 211 MB, when you ask for it
     "allow_model_download": False,  # the only outbound connection: Hugging Face, once, when you ask for it
     "src_mail": True,               # .eml / .mbox files found while indexing
     "ocr": True,                    # words in photos, screenshots and scanned PDFs (Windows' own OCR)

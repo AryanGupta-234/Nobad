@@ -18,8 +18,13 @@ The repository rules in the root [`AGENTS.md`](../../AGENTS.md) apply. Specific 
 - Call detection (`winapi.in_call`) reads the user's own CapabilityAccessManager records; stale records from
   crashed apps must not pause indexing forever (age limit + process check).
 - `--uninstall` (run by the installer's uninstaller) only undoes what the app changed outside its data folder.
-- The index is SQLCipher with a DPAPI-protected key. The only outbound connection is the optional model download
-  (`embed.download_model`): pinned revision, sizes and SHA-256 in `const.MODEL_FILES`, gated by
-  `allow_model_download`.
+- The index is SQLCipher with a DPAPI-protected key. The only outbound connections are the two optional model
+  downloads, both through `embed._fetch_verified` (HTTPS, exact size, SHA-256): the text model
+  (`const.MODEL_FILES`, gated by `allow_model_download`) and the photo model (`photo.PHOTO_FILES`, SigLIP base,
+  Apache-2.0, gated by `allow_photo_model_download`). Keep model licences permissive for shipping (OpenAI CLIP's
+  model card rules out deployment, so it isn't used).
+- Photos for photo meaning are decoded only by Windows' decoders in the one photo worker process (`photo.py`).
+- Typed network paths (\\server\share) are never looked up on disk (`search.folder_checker`): only folders already
+  in the index or the folder list count, so typing one can't make Windows contact a server.
 - New setting: `const.DEFAULTS` + `settings.coerce` + a row in `ui/app.js` GROUPS.
 - Tests: `python -m pytest -q tests`. Lint: `python -m pyflakes nobadfind tests`. Both clean before a commit.

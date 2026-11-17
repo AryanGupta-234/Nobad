@@ -5,6 +5,7 @@ Tables
   chunks  pieces of text read from inside files                           + text   (FTS5 words, with stemming)
   vecs    meaning-search vectors for chunks (float16)
   nvecs   meaning-search vectors for file and folder names (so a photo or a bill is found by what its name means)
+  pvecs   photo-meaning vectors (what's in the picture), with the file time they were made for
 """
 import os
 import secrets
@@ -34,10 +35,12 @@ CREATE VIRTUAL TABLE IF NOT EXISTS names USING fts5(name, dir, content='files', 
 CREATE TRIGGER IF NOT EXISTS files_ai AFTER INSERT ON files BEGIN
   INSERT INTO names(rowid, name, dir) VALUES (new.id, new.name, new.dir); END;
 CREATE TABLE IF NOT EXISTS nvecs(file_id INTEGER PRIMARY KEY, v BLOB NOT NULL);
+CREATE TABLE IF NOT EXISTS pvecs(file_id INTEGER PRIMARY KEY, mtime REAL, v BLOB NOT NULL, err TEXT);
 CREATE TRIGGER IF NOT EXISTS files_ad AFTER DELETE ON files BEGIN
   INSERT INTO names(names, rowid, name, dir) VALUES ('delete', old.id, old.name, old.dir);
   DELETE FROM chunks WHERE file_id = old.id;
-  DELETE FROM nvecs WHERE file_id = old.id; END;
+  DELETE FROM nvecs WHERE file_id = old.id;
+  DELETE FROM pvecs WHERE file_id = old.id; END;
 CREATE TRIGGER IF NOT EXISTS files_au AFTER UPDATE OF name, dir ON files
   WHEN old.name IS NOT new.name OR old.dir IS NOT new.dir BEGIN
   INSERT INTO names(names, rowid, name, dir) VALUES ('delete', old.id, old.name, old.dir);
@@ -204,6 +207,20 @@ class Store:
             self.db.executemany("INSERT OR REPLACE INTO nvecs(file_id, v) VALUES(?,?)", rows)
             self.db.commit()
 
+    def photos_to_read(self, exts, min_bytes, max_bytes, limit=64):
+        """Photos without a vector, or changed since theirs was made."""
+        marks = ",".join("?" * len(exts))
+        return self.q(f"SELECT f.id, f.path, f.mtime FROM files f LEFT JOIN pvecs p ON p.file_id = f.id "
+                      f"WHERE f.ext IN ({marks}) AND f.size BETWEEN ? AND ? "
+                      f"AND (p.file_id IS NULL OR p.mtime IS NOT f.mtime) ORDER BY f.mtime DESC LIMIT ?",
+                      (*sorted(exts), min_bytes, max_bytes, limit))
+
+    def set_photo_vector(self, file_id, mtime, blob, err=None):
+        with self.wlock:
+            self.db.execute("INSERT OR REPLACE INTO pvecs(file_id, mtime, v, err) VALUES(?,?,?,?)",
+                            (file_id, mtime, blob, err))
+            self.db.commit()
+
     def drop_vectors(self):
         """Forget every meaning vector (the way they're made changed): they're computed again."""
         with self.wlock:
@@ -227,7 +244,7 @@ class Store:
 
     def wipe(self):
         with self.wlock:
-            for t in ("vecs", "nvecs", "chunks", "files", "meta"):
+            for t in ("vecs", "nvecs", "pvecs", "chunks", "files", "meta"):
                 self.db.execute(f"DELETE FROM {t}")
             self.db.execute("INSERT INTO names(names) VALUES('rebuild')")
             self.db.execute("INSERT INTO text(text) VALUES('rebuild')")
@@ -241,6 +258,7 @@ class Store:
             "chunks": self.one("SELECT count(*) FROM chunks") or 0,
             "vectors": self.one("SELECT count(*) FROM vecs") or 0,
             "name_vectors": self.one("SELECT count(*) FROM nvecs WHERE length(v) > 0") or 0,
+            "photo_vectors": self.one("SELECT count(*) FROM pvecs WHERE length(v) > 0") or 0,
             "encrypted": self.encrypted,
             "db_bytes": sum(os.path.getsize(p) for p in (self.db_path, self.db_path + "-wal") if os.path.exists(p)),
         }

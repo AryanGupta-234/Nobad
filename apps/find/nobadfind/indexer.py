@@ -12,13 +12,16 @@ import stat
 import threading
 import time
 
-from . import embed, extract, ocr, winapi
+import numpy as np
+
+from . import embed, extract, ocr, photo, winapi
 from .kinds import READABLE_EXT, kind_of
 from .log import log
 from .walker import Walker, default_roots
 
 RESCAN_EVERY = 6 * 3600
 DEBOUNCE = 2.0
+PHOTO_BATCH = 8                  # photos sent to the photo reader at a time
 JOB_TIMEOUT = 300                # seconds one file may take before its reader is stopped
 REMOVABLE_RESCAN = 1800          # USB drives aren't watched (that would block "safely remove"): re-walk them
 PAUSE_CHECK_EVERY = 5.0
@@ -68,7 +71,10 @@ class Indexer:
         self._pause = (0.0, "")          # (checked at, reason): the checks cost a registry walk
         self._watched = None             # roots the live watcher covers
         self._walked = {}                # removable root -> when it was last walked
-        self.drive_list = []             # known_drives(), refreshed by the indexer loop (searches read it)
+        self.drive_list = []
+        self._photo_one_by_one = False   # after a photo stopped the reader: find which one
+        self.photo_text = None           # the photo model's text half, for questions (when photo meaning is on)
+        self.pindex = embed.VectorIndex(photo.PHOTO_DIM, ("SELECT file_id, v FROM pvecs WHERE length(v) > 0",))             # known_drives(), refreshed by the indexer loop (searches read it)
 
     # ---------- control ----------
     def roots(self, drives=None):
@@ -149,6 +155,7 @@ class Indexer:
             self.status["plan"] = plan(self.settings, self.roots())
             log(f"indexer plan {self.status['plan']}")
             self._load_embedder()
+            self._load_photo()
             self.known_drives()
             if time.time() - float(self.store.meta("last_scan", 0) or 0) <= RESCAN_EVERY:
                 self._start_watcher()               # a recent index: just keep it fresh from now on
@@ -162,6 +169,7 @@ class Indexer:
                 self._read_texts()
                 self._read_texts(images=True)
                 self._make_vectors()
+                self._photo_vectors()
                 self.status["phase"] = "watching"
                 self.status.update(self.store.stats())
                 self._tidy_vectors()
@@ -358,6 +366,60 @@ class Indexer:
             self.status["vectors"] += len(todo)
             self._breathe()
 
+    # ---------- photo meaning ----------
+    def _load_photo(self):
+        if self.settings.get("photo_meaning") and photo.model_ready():
+            try:
+                self.photo_text = photo.TextEncoder()
+                self.pindex.load(self.store)
+                log(f"photo meaning on ({self.pindex.n} photos ready)")
+            except Exception as e:
+                log(f"photo meaning unavailable: {type(e).__name__}", "warn")
+                self.photo_text = None
+
+    def _photo_vectors(self):
+        """What's in each photo, made in one separate low-priority process (photos are decoded there)."""
+        if not self.photo_text or not self.settings.get("photo_meaning"):
+            return
+        pool = cf.ProcessPoolExecutor(max_workers=1, initializer=photo.init_worker)
+        try:
+            while not self.stop_ev.is_set():
+                if not self._wait_while_paused():
+                    return
+                rows = self.store.photos_to_read(photo.PHOTO_EXT, photo.MIN_PHOTO_BYTES, photo.MAX_PHOTO_BYTES,
+                                                 limit=PHOTO_BATCH if self._photo_one_by_one else 64)
+                if not rows:
+                    return
+                self.status["phase"] = "photos"
+                step = 1 if self._photo_one_by_one else PHOTO_BATCH
+                for i in range(0, len(rows), step):
+                    if self.stop_ev.is_set() or self._pause_reason():
+                        break
+                    batch = rows[i:i + step]
+                    away = self._away()
+                    fut = pool.submit(photo.embed_photos, [(f, p, m, photo.PHOTO_DIR) for f, p, m in batch], away)
+                    try:
+                        results = fut.result(timeout=JOB_TIMEOUT)
+                    except (cf.TimeoutError, cf.BrokenExecutor) as e:
+                        # one of these photos hangs or crashes the reader: read them one by one next time
+                        if len(batch) == 1:
+                            self.store.set_photo_vector(batch[0][0], batch[0][2], b"", "unreadable")
+                        else:
+                            self._photo_one_by_one = True
+                        log(f"photo reader stopped ({type(e).__name__})", "warn")
+                        _kill_pool(pool)
+                        return
+                    for fid, mtime, blob, err in results:
+                        self.store.set_photo_vector(fid, mtime, blob, err)
+                        if blob:
+                            self.pindex.add([fid], np.frombuffer(blob, np.float16)[None])
+                            self.status["photos"] = self.status.get("photos", 0) + 1
+                    if not away:
+                        self.stop_ev.wait(0.2)      # gently while you use the PC
+                self._photo_one_by_one = False      # the suspects were read one by one: back to batches
+        finally:
+            pool.shutdown(wait=True, cancel_futures=True)
+
     def _tidy_vectors(self):
         """Vectors of text that changed or files that went stay in memory until the index is reloaded."""
         if self.vindex is None or not self.embedder:
@@ -365,6 +427,8 @@ class Indexer:
         live = self.status.get("vectors", 0) + self.status.get("name_vectors", 0)
         if self.vindex.n > 1.3 * live + 1000:
             self.vindex.load(self.store)
+        if self.photo_text and self.pindex.n > 1.3 * self.status.get("photo_vectors", 0) + 200:
+            self.pindex.load(self.store)            # photos that changed were added again
 
     def _breathe(self):
         if not self._away():

@@ -74,33 +74,37 @@ def download_model(model_dir=MODEL_DIR, progress=None):
     """Fetch the pinned model files over HTTPS and verify each SHA-256. Raises on any mismatch."""
     os.makedirs(model_dir, exist_ok=True)
     for name, (path, size, sha) in MODEL_FILES.items():
-        dest = os.path.join(model_dir, name)
-        if os.path.isfile(dest) and os.path.getsize(dest) == size and _sha256(dest) == sha:
-            continue
-        url = MODEL_URL.format(rev=MODEL_REV, path=path)
-        tmp = dest + ".part"
-        h = hashlib.sha256()
-        got = 0
-        req = urllib.request.Request(url, headers={"User-Agent": "NOBAD-Find"})
-        with urllib.request.urlopen(req, timeout=60) as r, open(tmp, "wb") as f:
-            if not r.geturl().startswith("https://"):
-                raise IOError("model download left HTTPS")
-            while True:
-                b = r.read(1 << 16)
-                if not b:
-                    break
-                got += len(b)
-                if got > size:
-                    raise IOError(f"{name}: bigger than expected")
-                h.update(b)
-                f.write(b)
-                if progress:
-                    progress(name, got, size)
-        if got != size or h.hexdigest() != sha:
-            os.remove(tmp)
-            raise IOError(f"{name}: checksum mismatch, download rejected")
-        os.replace(tmp, dest)
-        log(f"model file {name} verified")
+        _fetch_verified(MODEL_URL.format(rev=MODEL_REV, path=path), os.path.join(model_dir, name), size, sha,
+                        name, progress)
+
+
+def _fetch_verified(url, dest, size, sha, name, progress=None):
+    """One pinned model file: HTTPS only, never bigger than expected, SHA-256 checked before it's used."""
+    if os.path.isfile(dest) and os.path.getsize(dest) == size and _sha256(dest) == sha:
+        return
+    tmp = dest + ".part"
+    h = hashlib.sha256()
+    got = 0
+    req = urllib.request.Request(url, headers={"User-Agent": "NOBAD-Find"})
+    with urllib.request.urlopen(req, timeout=60) as r, open(tmp, "wb") as f:
+        if not r.geturl().startswith("https://"):
+            raise IOError("model download left HTTPS")
+        while True:
+            b = r.read(1 << 16)
+            if not b:
+                break
+            got += len(b)
+            if got > size:
+                raise IOError(f"{name}: bigger than expected")
+            h.update(b)
+            f.write(b)
+            if progress:
+                progress(name, got, size)
+    if got != size or h.hexdigest() != sha:
+        os.remove(tmp)
+        raise IOError(f"{name}: checksum mismatch, download rejected")
+    os.replace(tmp, dest)
+    log(f"model file {name} verified")
 
 
 class Embedder:
@@ -158,9 +162,13 @@ class VectorIndex:
 
     BLOCK = 65536                 # rows scored at a time: memory stays flat however big the index gets
 
-    def __init__(self):
+    TEXT_QUERIES = ("SELECT chunk_id, v FROM vecs", "SELECT -file_id, v FROM nvecs WHERE length(v) > 0")
+
+    def __init__(self, dim=MODEL_DIM, queries=TEXT_QUERIES):
+        """dim: numbers per vector; queries: SQL that yields (key, float16 blob) rows to load."""
+        self.dim, self.queries = dim, queries
         self._ids = np.zeros(1024, np.int64)
-        self._mat = np.zeros((1024, MODEL_DIM), np.float16)
+        self._mat = np.zeros((1024, dim), np.float16)
         self.n = 0
         self._coarse = None               # n x PCA_DIMS float32 summary (big indexes only)
         self._proj = None
@@ -172,12 +180,12 @@ class VectorIndex:
         return self._ids[:self.n]
 
     def load(self, store):
-        rows = store.q("SELECT chunk_id, v FROM vecs") + store.q("SELECT -file_id, v FROM nvecs WHERE length(v) > 0")
+        rows = [r for sql in self.queries for r in store.q(sql)]
         with self._lock:
             self.n = 0
             self._coarse, self._proj, self._fitted_at = None, None, 0
             self._ids = np.zeros(len(rows) + 1024, np.int64)
-            self._mat = np.zeros((len(rows) + 1024, MODEL_DIM), np.float16)
+            self._mat = np.zeros((len(rows) + 1024, self.dim), np.float16)
             for i, (key, blob) in enumerate(rows):
                 self._ids[i] = key
                 self._mat[i] = np.frombuffer(blob, np.float16)
@@ -195,7 +203,7 @@ class VectorIndex:
         if need <= len(self._ids):
             return
         cap = max(need, len(self._ids) * 3 // 2)       # growing by half: adding stays cheap on average
-        ids, mat = np.zeros(cap, np.int64), np.zeros((cap, MODEL_DIM), np.float16)
+        ids, mat = np.zeros(cap, np.int64), np.zeros((cap, self.dim), np.float16)
         ids[:self.n], mat[:self.n] = self._ids[:self.n], self._mat[:self.n]
         self._ids, self._mat = ids, mat
         if self._coarse is not None:

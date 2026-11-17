@@ -15,6 +15,8 @@ they're about, and tells you why each result matched.
 - **Meaning, optionally.** A small model on your PC lets "rent" find "lease agreement", and reads file and
   folder names for meaning too: "seaside pictures" finds `IMG_goa_beach_sunset.jpg`, "power bill" finds
   `electricity-bill-march.pdf`.
+- **Photos by what's in them (optional).** "Dog on a beach" finds `IMG_0042.jpg` even with no words in it, with
+  a local image model you download once (about 211 MB) and only if you want it.
 - **Words in photos and scans.** Screenshots, photos of documents and scanned PDFs are read with the OCR built
   into Windows. Offline; it runs after everything else because it's slower.
 - **Plain-language filters.** Kinds ("pdf", "photos", "spreadsheet", "code"), times ("yesterday",
@@ -46,9 +48,9 @@ they're about, and tells you why each result matched.
 - **Files are untrusted.** Office files are checked for zip bombs, XML is parsed without external entities,
   files are size-limited and read in separate low-priority processes, images are decoded only by Windows' own
   decoders, and nothing is ever run.
-- **Its only connection:** the optional one-time download of the meaning-search model (23 MB,
-  all-MiniLM-L6-v2 from Hugging Face). It's off until you allow it in Settings, it's pinned to one revision, and
-  each file is checked against its SHA-256 before use. (Network drives, if you turn them on, are read over your
+- **Its only connections:** two optional one-time model downloads from Hugging Face, each off until you allow it
+  in Settings, pinned to one revision and checked against its SHA-256 before use: the meaning-search model
+  (23 MB, all-MiniLM-L6-v2) and the photo model (about 211 MB, SigLIP base by Google, Apache-2.0). (Network drives, if you turn them on, are read over your
   own network like any other program opening files there.)
 
 ## Windows Search switch

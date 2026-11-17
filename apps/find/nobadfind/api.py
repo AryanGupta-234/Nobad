@@ -8,7 +8,7 @@ import subprocess
 import sys
 import threading
 
-from . import embed, ocr, wsearch, winapi
+from . import embed, ocr, photo, wsearch, winapi
 from .log import log
 from .search import search
 
@@ -24,6 +24,7 @@ class Api:
         self._win = window_ref            # callable returning the pywebview window (or None)
         self.here = ""                    # the Explorer folder the hotkey was pressed in (see app.bring_up)
         self._model = {"state": "ready" if embed.model_ready() else "missing", "got": 0, "size": 0, "error": ""}
+        self._photo_model = {"state": "ready" if photo.model_ready() else "missing", "got": 0, "size": 0, "error": ""}
 
     # ---------- search ----------
     def search(self, text, filters=None):
@@ -36,7 +37,8 @@ class Api:
             return empty
         try:
             return search(self._store, text, self._indexer.embedder, self._vindex, drives=self._indexer.drive_list,
-                          here=self.here, filters=filters, roots=self._indexer.roots(self._indexer.drive_list))
+                          here=self.here, filters=filters, roots=self._indexer.roots(self._indexer.drive_list),
+                          photo_text=self._indexer.photo_text, pindex=self._indexer.pindex)
         except Exception as e:
             log(f"search failed: {type(e).__name__}", "warn")
             return {"results": [], "understood": [], "terms": [], "ms": 0, "error": "Search failed. Try other words."}
@@ -87,6 +89,7 @@ class Api:
         st = dict(self._indexer.status)
         st.update(self._store.stats())
         st["model"] = dict(self._model)
+        st["photo_model"] = dict(self._photo_model)
         st["admin"] = winapi.is_admin()
         st["roots"] = self._indexer.roots()
         st["ocr"] = ocr.available() or ocr.why_missing()
@@ -111,6 +114,12 @@ class Api:
                     self._store.remove_paths([d["root"].rstrip("\\") for d in self._indexer.drive_list
                                               if d.get("type") == kind])
                 self._indexer.wake.set()
+        if "photo_meaning" in changed:
+            if self._settings.get("photo_meaning"):
+                threading.Thread(target=self._indexer._load_photo, daemon=True).start()
+            else:
+                self._indexer.photo_text = None
+            self._indexer.wake.set()
         if "ocr" in changed:
             if not self._settings.get("ocr"):
                 self._store.set_meta("ocr_pass", "0")    # turned on again later: re-read the scans then
@@ -160,6 +169,33 @@ class Api:
         threading.Thread(target=run, daemon=True, name="model").start()
         return {"ok": True}
 
+    def download_photo_model(self):
+        """The photo model (about 211 MB): same pinned, hash-checked download as the text model."""
+        if not self._settings.get("allow_photo_model_download"):
+            return {"ok": False, "error": "Allow the photo model download in Settings first."}
+        if self._photo_model["state"] == "downloading":
+            return {"ok": True}
+        self._photo_model.update(state="downloading", got=0, error="")
+        done = {}
+
+        def progress(name, got, size):
+            done[name] = (got, size)
+            self._photo_model.update(got=sum(g for g, _s in done.values()),
+                                     size=sum(f[1] for f in photo.PHOTO_FILES.values()))
+
+        def run():
+            try:
+                photo.download_model(progress=progress)
+                self._photo_model["state"] = "ready"
+                self._settings.update({"photo_meaning": True})
+                self._indexer._load_photo()
+                self._indexer.wake.set()
+            except Exception as e:
+                self._photo_model.update(state="missing", error=str(e)[:200])
+                log(f"photo model download failed: {type(e).__name__}", "warn")
+        threading.Thread(target=run, daemon=True, name="photo-model").start()
+        return {"ok": True}
+
     # ---------- Windows Search ----------
     def wsearch_state(self):
         s = wsearch.state()
@@ -180,6 +216,18 @@ class Api:
                 self._settings.update({"wsearch_prev": ""})
         return {"ok": ok, "state": wsearch.state(),
                 "error": "" if ok else "Windows didn't make the change (the permission prompt may have been closed)."}
+
+    def use_instead_of_windows_search(self, on):
+        """One click: Windows Search indexing off (Windows asks permission) and NOBAD Find starts with Windows.
+        Off again: Windows Search back exactly as it was. NOBAD Find keeps starting with Windows unless changed."""
+        r = self.wsearch_set(bool(on))
+        if r.get("ok") and on and not self._settings.get("autostart"):
+            self._settings.update({"autostart": True})
+            try:
+                set_autostart(True)
+            except OSError:
+                pass
+        return r
 
     # ---------- window ----------
     def hide(self):

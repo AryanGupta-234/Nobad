@@ -165,6 +165,37 @@ def _meaning_hits(store, q, embedder, vindex, limit):
     return order[:limit], best
 
 
+# Photo matches (SigLIP cosine similarity: a much smaller scale than the text model's). Measured on real photos:
+# right answers 0.04-0.11, 95% of wrong ones under 0.012.
+PHOTO_MIN = 0.03
+PHOTO_SPREAD = 0.04
+W_PHOTO = 1.0
+
+
+def _photo_hits(store, q, photo_text, pindex, limit):
+    if not photo_text or pindex is None or not pindex.n or not q.text.strip():
+        return [], {}
+    if q.kinds and "image" not in q.kinds:
+        return [], {}                                 # "pdf ..." isn't asking about photos
+    hits = pindex.search(photo_text.encode(q.text), k=limit * 3)
+    if not hits:
+        return [], {}
+    floor = max(PHOTO_MIN, hits[0][1] - PHOTO_SPREAD)
+    hits = [(fid, s) for fid, s in hits if s >= floor]
+    if not hits:
+        return [], {}
+    where, args = _filters(q)
+    marks = ",".join("?" * len(hits))
+    ok = {r[0] for r in store.q(f"SELECT f.id FROM files f WHERE f.id IN ({marks}){where}",
+                                (*[h[0] for h in hits], *args))}
+    order, best = [], {}
+    for fid, s in hits:
+        if fid in ok and fid not in best:
+            best[fid] = s
+            order.append(fid)
+    return order[:limit], best
+
+
 def _closeness(score):
     """Plain words for a similarity score (it isn't a percentage of anything, so none is shown)."""
     return "close" if score >= 0.5 else "related" if score >= 0.38 else "loosely related"
@@ -239,7 +270,7 @@ def folder_checker(store, drives=(), roots=()):
 
 
 def search(store, text, embedder=None, vindex=None, limit=60, now=None, drives=None, here="", filters=None,
-           is_dir=None, roots=()):
+           is_dir=None, roots=(), photo_text=None, pindex=None):
     """drives: every drive the index knows, [{'root', 'type', 'label', 'present'}] (indexer.known_drives).
     here: the File Explorer folder NOBAD Find was opened from ("" if none). filters: the filter bar."""
     t_start = time.perf_counter()
@@ -262,6 +293,8 @@ def search(store, text, embedder=None, vindex=None, limit=60, now=None, drives=N
     lists.append((W_TEXT, texts))
     meaning, best = _meaning_hits(store, q, embedder, vindex, 150)
     lists.append((W_MEANING, meaning))
+    photos, pbest = _photo_hits(store, q, photo_text, pindex, 100)
+    lists.append((W_PHOTO, photos))
 
     score = {}
     for w, ids in lists:
@@ -310,6 +343,8 @@ def search(store, text, embedder=None, vindex=None, limit=60, now=None, drives=N
         if fid in best:
             s, _body, how = best[fid]
             why.append(f"{'name' if how == 'name' else 'text'} has a {_closeness(s)} meaning")
+        if fid in pbest:
+            why.append("the picture shows something like it" if pbest[fid] >= 0.06 else "the picture may show it")
         if q.t0 is not None:
             why.append(f"changed {_ago(r[6], now)}" if r[6] else "date matches")
         if q.place:

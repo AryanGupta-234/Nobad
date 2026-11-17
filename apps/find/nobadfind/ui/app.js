@@ -131,7 +131,7 @@ document.addEventListener("keydown", e => {
 });
 
 // ---------- index status ----------
-const PHASE = { starting: "Starting", names: "Finding files", text: "Reading text", images: "Reading photos and scans", meaning: "Learning meaning", watching: "Up to date", error: "Stopped" };
+const PHASE = { starting: "Starting", names: "Finding files", text: "Reading text", images: "Reading photos and scans", photos: "Understanding photos", meaning: "Learning meaning", watching: "Up to date", error: "Stopped" };
 async function refreshStatus(full) {
   const s = await api("status");
   if (!s) { $("#railState").textContent = "preview"; return; }
@@ -144,6 +144,7 @@ async function refreshStatus(full) {
     card(Number(s.files).toLocaleString(), "Files and folders"),
     card(Number(s.with_text).toLocaleString(), "Files with readable text"),
     card(Number((s.vectors || 0) + (s.name_vectors || 0)).toLocaleString(), "Meaning vectors (text + names)"),
+    card(Number(s.photo_vectors || 0).toLocaleString(), "Photos understood"),
     card(s.rate ? Number(s.rate).toLocaleString() + "/s" : "–", "Scan speed"),
     card((s.db_bytes / 1048576).toFixed(0) + " MB", "Index size"),
     card(s.plan && s.plan.cpu ? `${s.plan.text_workers}–${s.plan.text_workers_idle} of ${s.plan.cpu}` : "–", "Text workers / CPU threads"),
@@ -181,6 +182,12 @@ const GROUPS = [
     ["semantic", "switch", "Search by meaning", "Finds “lease agreement” when you type “rent”, and photos or bills by what their names mean. Runs on this PC only."],
     ["_model", "model", "Model", ""],
   ]],
+  ["Photo meaning", [
+    ["allow_photo_model_download", "switch", "Allow the one-time photo model download",
+      "About 211 MB from Hugging Face (SigLIP base by Google, Apache-2.0; pinned and checked by SHA-256). Only needed for this feature."],
+    ["photo_meaning", "switch", "Find photos by what's in them", "“Dog on a beach” finds IMG_0042.jpg even with no words in it. Runs on this PC only. The first pass is slow (a few photos per second), in the background."],
+    ["_photo_model", "pmodel", "Photo model", ""],
+  ]],
   ["Staying out of your way", [
     ["pause_on_battery", "switch", "Pause on battery", ""],
     ["pause_fullscreen", "switch", "Pause during games and presentations", ""],
@@ -191,7 +198,7 @@ const GROUPS = [
     ["hotkey", "txt", "Hotkey", "For example win+shift+space or ctrl+alt+f. Takes effect at the next start."],
     ["autostart", "switch", "Start with Windows", "Starts hidden; the hotkey opens it."],
   ]],
-  ["Windows Search", [["_wsearch", "wsearch", "Windows Search indexing", ""]]],
+  ["Windows Search", [["_wsearch", "wsearch", "Use NOBAD Find instead of Windows Search", ""]]],
   ["Your data", [["_wipe", "wipe", "Delete the whole index", "Removes everything NOBAD Find has stored. It starts again from scratch."]]],
 ];
 
@@ -213,14 +220,22 @@ async function renderSettings() {
         ? `Downloading… ${m.size ? Math.round(100 * m.got / m.size) : 0}%` : (m.error ? "Last try failed: " + m.error : "Not downloaded.");
       ctl = m.state === "ready" ? "" : `<button class="btn" id="getModel">Download</button>`;
     }
+    if (type === "pmodel") {
+      const m = st && st.photo_model || {};
+      help = m.state === "ready" ? `Downloaded and verified. ${Number(st.photo_vectors || 0).toLocaleString()} photos understood so far.`
+        : m.state === "downloading" ? `Downloading… ${m.size ? Math.round(100 * m.got / m.size) : 0}%`
+        : (m.error ? "Last try failed: " + m.error : "Not downloaded.");
+      ctl = m.state === "ready" ? "" : `<button class="btn" id="getPhotoModel">Download</button>`;
+    }
     if (type === "wsearch") {
       if (!ws || ws.missing) help = "Windows Search isn't installed on this PC.";
       else {
         const off = ws.start === "disabled";
-        help = (off ? "Off. " : `On (${esc(ws.start)}${ws.running ? ", running" : ""}). `) +
-          "<span class='warn'>Turning it off frees CPU and disk, but the Start menu, Explorer and Outlook stop finding files by content. " +
-          "Windows asks for permission; turning it back on restores the setting it had before.</span>";
-        ctl = `<button class="btn ${off ? "" : "ghost"}" id="wsToggle" data-off="${off ? 0 : 1}">${off ? "Turn back on" : "Turn off"}</button>`;
+        help = (off ? "Done: Windows Search indexing is off and NOBAD Find starts with Windows. "
+                    : `Windows Search indexing is on (${esc(ws.start)}${ws.running ? ", running" : ""}). One click turns it off and starts NOBAD Find with Windows. `) +
+          "<span class='warn'>With it off, the Start menu, Explorer and Outlook stop finding files by their content (NOBAD Find does that instead). " +
+          "Windows asks for permission once; going back restores exactly the setting it had before.</span>";
+        ctl = `<button class="btn ${off ? "ghost" : ""}" id="wsToggle" data-off="${off ? 0 : 1}">${off ? "Go back to Windows Search" : "Switch to NOBAD Find"}</button>`;
       }
     }
     if (type === "wipe") ctl = `<button class="btn danger" id="wipe">Delete index</button>`;
@@ -247,12 +262,15 @@ settingsEl.addEventListener("click", async e => {
   } else if (t.dataset.del) {
     const list = s[t.dataset.del].filter((_, i) => i !== +t.dataset.i);
     await api("set_settings", { [t.dataset.del]: list }); renderSettings();
+  } else if (t.id === "getPhotoModel") {
+    const r = await api("download_photo_model"); if (r && !r.ok) toast(r.error); else toast("Downloading the photo model…");
+    const poll = setInterval(async () => { await renderSettings(); const st = await api("status"); if (!st || st.photo_model.state !== "downloading") clearInterval(poll); }, 1000);
   } else if (t.id === "getModel") {
     const r = await api("download_model"); if (r && !r.ok) toast(r.error); else toast("Downloading the model…");
     const poll = setInterval(async () => { await renderSettings(); const st = await api("status"); if (!st || st.model.state !== "downloading") clearInterval(poll); }, 1000);
   } else if (t.id === "wsToggle") {
     t.disabled = true; t.textContent = "Waiting for Windows…";
-    const r = await api("wsearch_set", t.dataset.off === "1");
+    const r = await api("use_instead_of_windows_search", t.dataset.off === "1");
     toast(r && r.ok ? "Done." : (r && r.error) || "No change.");
     renderSettings();
   } else if (t.id === "wipe") {

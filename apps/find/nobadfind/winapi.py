@@ -131,11 +131,11 @@ def idle_seconds():
     return max(0, (k32.GetTickCount() - lii.dwTime) & 0xFFFFFFFF) / 1000.0
 
 
-def background_mode():
-    """Lower this process's CPU, disk and memory priority (Windows background mode)."""
+def background_mode(on=True):
+    """Lower this process's CPU, disk and memory priority (Windows background mode), or end it (on=False)."""
     if WIN:
         try:
-            k32.SetPriorityClass(k32.GetCurrentProcess(), 0x00100000)   # PROCESS_MODE_BACKGROUND_BEGIN
+            k32.SetPriorityClass(k32.GetCurrentProcess(), 0x00100000 if on else 0x00200000)  # _BEGIN / _END
         except Exception:
             pass
 

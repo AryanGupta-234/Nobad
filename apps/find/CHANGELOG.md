@@ -1,5 +1,15 @@
 # NOBAD Find changelog
 
+## 0.5.0 (in development)
+- Photo meaning (optional): "dog on a beach" finds IMG_0042.jpg even with no words in it. A local image-text
+  model (SigLIP base by Google, Apache-2.0, about 211 MB, pinned and SHA-256 checked) is downloaded only when you
+  allow it. Photos are decoded by Windows' own decoders in a separate low-priority process; about 4 photos a
+  second while you're away, gently while you use the PC.
+- One click to use NOBAD Find instead of Windows Search: Windows Search indexing off (Windows asks once) and
+  NOBAD Find starts with Windows; one click back restores Windows Search exactly as it was.
+- NOBAD Find has its own app icon (a magnifying glass holding the NOBAD "n"); the NOBAD brand mark stays inside
+  the app.
+
 ## 0.4.0 (in development)
 - Filter bar: kind, date, size, folder (with a folder picker), order, clear. Filters work with an empty search
   box, so "every PDF in this folder, newest first" is two clicks.

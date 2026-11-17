@@ -31,6 +31,11 @@ Add to it when the maintainer decides something; delete lines that stop being tr
 - 2026-11-16 New outbound connections need a setting and an entry in SYSTEM-INTEGRATION.md.
 
 ## Open items
+- 2026-11-17 NOBAD Find photo meaning: maintainer approved an optional image model download. Chosen: SigLIP base
+  (Apache-2.0, ~211 MB) instead of OpenAI CLIP (its model card rules out deployed use).
+- 2026-11-17 NOBAD Find admin indexing: maintainer asked for an optional elevated "turbo" index (NTFS change
+  journal/MFT) with reminders to enable it, reversing the 2026-11-17 "normal user only" decision. Not built yet;
+  the app still never runs elevated. Kernel drivers are out (signing, crash risk, no accuracy gain).
 - 2026-11-17 NOBAD Find has its own packaging in `apps/find/packaging/` (maintainer: never reuse the VPN's).
   Per-user Inno Setup installer, no admin; CI job `find-build` keeps it as an artifact only (no release yet).
 - 2026-11-17 NOBAD Find (`apps/find/`, in development, no installer yet): private offline search over your own files.
