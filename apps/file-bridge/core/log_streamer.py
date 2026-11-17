@@ -14,6 +14,7 @@ import time
 from typing import Any
 import uuid
 
+from core.remote_command import sudo_prefix
 from core.result import OperationResult, result_from_exception
 
 logger = logging.getLogger("remote_file_manager.log_streamer")
@@ -339,6 +340,28 @@ def parse_log_line(raw: str, source: str, line_no: int) -> LogEntry:
     )
 
 
+async def _exit_reason(process: Any) -> str | None:
+    """Why a tail/journalctl process ended by itself (no such file, permission denied, sudo wants a password)."""
+    try:
+        status = await asyncio.wait_for(process.wait(), timeout=1.0) if hasattr(process, "wait") else None
+    except Exception:
+        return None
+    code = getattr(status, "exit_status", None) if status is not None else getattr(process, "exit_status", None)
+    if not code:
+        return None
+    err = getattr(status, "stderr", None) or ""          # asyncssh's wait() collects what was left on stderr
+    stderr = getattr(process, "stderr", None)
+    if not err and stderr is not None and hasattr(stderr, "read"):
+        try:
+            err = await asyncio.wait_for(stderr.read(), timeout=1.0)
+        except Exception:
+            err = ""
+    text = " ".join(str(err).split())[:300]
+    if "a password is required" in text or "a terminal is required" in text:
+        return "sudo on this server asks for a password. Allow passwordless sudo for tail/journalctl, or read the log as a user who may."
+    return text or f"The log command ended with status {code}."
+
+
 class LogStreamManager:
     """
     Manages active remote log streaming processes over AsyncSSH sessions.
@@ -398,10 +421,10 @@ class LogStreamManager:
 
         # Build remote command string
         if config.source_type == LogSourceType.JOURNAL:
-            cmd = f"{'sudo ' if config.use_sudo else ''}journalctl -u {shlex.quote(config.unit_name)} -f -n {config.bootstrap_lines} -o short-iso"
+            cmd = f"{sudo_prefix(config.use_sudo)}journalctl -u {shlex.quote(config.unit_name)} -f -n {int(config.bootstrap_lines)} -o short-iso"
         else:
             follow_flag = "-F" if config.follow_rotations else "-f"
-            cmd = f"{'sudo ' if config.use_sudo else ''}tail {follow_flag} -n {config.bootstrap_lines} {shlex.quote(config.target_path)}"
+            cmd = f"{sudo_prefix(config.use_sudo)}tail {follow_flag} -n {int(config.bootstrap_lines)} {shlex.quote(config.target_path)}"
 
         try:
             # Create process via asyncssh
@@ -483,6 +506,8 @@ class LogStreamManager:
             session.error_message = err_str
         finally:
             if session.status != LogStreamStatus.STOPPED:
+                if not session.error_message:
+                    session.error_message = await _exit_reason(process)
                 session.status = LogStreamStatus.ERROR if session.error_message else LogStreamStatus.STOPPED
                 session.velocity = 0.0
 

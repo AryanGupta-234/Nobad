@@ -185,3 +185,29 @@ def test_ui_index_holds_only_servable_files(tmp_path) -> None:
     (tmp_path / "sub" / "style.css").write_text("x")
 
     assert set(index_ui_files(tmp_path)) == {"index.html", "app.js", "sub/style.css"}
+
+
+def test_a_burst_of_page_requests_is_never_refused(server) -> None:
+    """A page load opens a connection per file at once; none may be refused (the default listen backlog was 5)."""
+    import threading
+
+    cookie = sign_in(server)
+    statuses: list[int] = []
+    lock = threading.Lock()
+
+    def fetch() -> None:
+        try:
+            res, _ = request(server, "GET", "/static/core.js", cookie=cookie)
+            code = res.status
+        except OSError:
+            code = 0
+        with lock:
+            statuses.append(code)
+
+    threads = [threading.Thread(target=fetch) for _ in range(60)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(15)
+    assert BridgeServer.request_queue_size >= 64
+    assert statuses.count(200) == 60, statuses

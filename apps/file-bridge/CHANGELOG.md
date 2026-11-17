@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+* New interface: Tunnels and Live logs.
+  * Tunnels forward a database or internal site on the server to this computer (or the other way round, or as a
+    SOCKS proxy). They stay private to this computer unless you choose otherwise, and close when you disconnect.
+  * Live logs follow log files and services as they are written, with filters for errors and warnings and a search.
+    A log that stops says why, for example a missing file or sudo asking for a password.
+* Fixed: after reloading the new interface while it was busy, part of the page sometimes didn't load.
 * New interface: Server health and Services.
   * Server health shows CPU, memory, network, disks, the biggest folders and the busiest processes, with a small
     chart for the last minute. It reads the server only while you look at it.

@@ -40,12 +40,15 @@ class AppContext:
     deploy: Any = field(init=False)
     health: Any = field(init=False)
     services: Any = field(init=False)
+    tunnels: Any = field(init=False)
+    logs: Any = field(init=False)
 
     def __post_init__(self) -> None:
         from app_web.deploy import DeployService
         from app_web.editor import EditorService
         from app_web.server_tools import HealthService, ServicesService
         from app_web.session import SessionService
+        from app_web.tunnels_logs import LogsService, TunnelService
         from app_web.sync import SyncService
         from app_web.terminals import TerminalService
         from app_web.vault import VaultFacade
@@ -62,6 +65,8 @@ class AppContext:
         self.deploy = DeployService(self.app_data, self.session, self.transfers)
         self.health = HealthService(self.session)
         self.services = ServicesService(self.session)
+        self.tunnels = TunnelService(self.app_data, self.session)
+        self.logs = LogsService(self.session)
 
     @classmethod
     def create(cls, db_path: str | Path | None = None) -> "AppContext":

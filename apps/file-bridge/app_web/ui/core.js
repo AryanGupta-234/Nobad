@@ -219,6 +219,14 @@
   media.addEventListener("change", function () { if (NB.themePref === "system") { NB.applyTheme("system"); } });
 
   // ---- persisted UI state (layout only; never secrets)
+  // A persistent child of a screen to redraw into: the entrance animation (.screen>*) then plays once, not on
+  // every refresh.
+  NB.frame = function (host) {
+    var f = host.querySelector(":scope > .nb-frame");
+    if (!f) { host.innerHTML = '<div class="nb-frame"></div>'; f = host.firstChild; }
+    return f;
+  };
+
   NB.uiState = function (key, value) {
     var store = {};
     try { store = JSON.parse(localStorage.getItem("nbfb-ui") || "{}"); } catch (e) { store = {}; }

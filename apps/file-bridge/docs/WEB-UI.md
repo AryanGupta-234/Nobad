@@ -209,6 +209,30 @@ on; every animation stops under `prefers-reduced-motion`. VPN's map, comet and c
   systemctl's own reason, and use `sudo -n`, so sudo can't wait forever for a password on a channel nobody types into.
 * Tests: `tests/test_web_server_tools.py`.
 
+## Tunnels and Live logs (stage 6b)
+
+* `app_web/tunnels_logs.py` contains `TunnelService` and `LogsService`, built on `core.tunnel_manager` and
+  `core.log_streamer`.
+* **Tunnels.**
+  * Saved in one settings row, each with its server. They open on the current SSH connection and all close when it
+    closes.
+  * A local or SOCKS forward listens on loopback unless "Let other devices on my network use it" is ticked. (A SOCKS
+    proxy on 0.0.0.0 lets anyone on the network browse through your server.)
+  * A reverse forward listens on the server's loopback unless public access is ticked.
+  * Port collisions are refused with a suggested free port. Each tunnel shows the matching `ssh` command.
+* **Live logs.**
+  * Logs are followed with `tail -F` or `journalctl -f`, using `sudo -n` when asked.
+  * Lines are batched every 100 ms into `logs.lines`. A batch holds at most 500 lines; the rest are counted as skipped
+    and kept in the 10,000-line buffer for `logs.tail`.
+  * At most 8 logs at once. A log that ends by itself reports why (core fix: the process's stderr is read).
+* **Disconnect cleanup** runs on the asyncio loop itself (a new connection replacing the old one), so it hands the
+  work to the loop instead of waiting for it.
+* **Server fix.** `BridgeServer.request_queue_size = 128`. A page load opens a connection per file at once, and with
+  the default backlog of 5 a busy server (live logs) refused some on Windows: after a reload, a random script was
+  missing. The test `test_a_burst_of_page_requests_is_never_refused` covers it.
+* Tests: `tests/test_web_tunnels_logs.py`, against a real AsyncSSH server: traffic through a real forward, logs over
+  real exec channels.
+
 ## Page structure (`app_web/ui/`)
 
 | File | What |
