@@ -33,7 +33,7 @@ jobs:
           path-to-signatures: signatures/cla.json
           path-to-document: https://github.com/${{ github.repository }}/blob/main/CLA.md
           branch: cla-signatures
-          allowlist: AryanGupta-234,dependabot[bot],github-actions[bot],claude[bot],Claude
+          allowlist: AryanGupta-234,dependabot[bot],github-actions[bot],claude[bot],claude,Claude
           custom-notsigned-prcomment: >-
             Thanks for your contribution! Before it can be merged, please read the
             [NOBAD Contributor License Agreement](https://github.com/${{ github.repository }}/blob/main/CLA.md)
