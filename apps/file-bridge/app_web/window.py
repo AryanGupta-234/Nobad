@@ -137,6 +137,42 @@ def dark_system_titlebar() -> None:
 
 
 # ---------------------------------------------------------------- window controller
+LINUX_MISSING = (
+    "File Bridge needs a web view to draw its window. Install the GTK one with your package manager, for example "
+    "'sudo apt install python3-gi gir1.2-webkit2-4.1' (Debian, Ubuntu) or 'sudo dnf install python3-gobject "
+    "webkit2gtk4.1' (Fedora), then start it again. Or run it in your browser: python -m app.web --browser"
+)
+
+
+def linux_gui() -> str:
+    """GTK + WebKit2GTK when its system bindings are there, else Qt WebEngine through PySide6 (already a dependency).
+
+    pywebview's own fallback would try Qt through qtpy and PyQt; pinning QT_API keeps it on the PySide6 that ships
+    with the app, so there is no second Qt to install."""
+    try:
+        import gi
+
+        gi.require_version("Gtk", "3.0")
+        for version in ("4.1", "4.0"):
+            try:
+                gi.require_version("WebKit2", version)
+                return "gtk"
+            except ValueError:
+                continue
+    except (ImportError, ValueError):
+        pass
+    os.environ.setdefault("QT_API", "pyside6")
+    from importlib.util import find_spec
+
+    try:
+        qt_ok = find_spec("qtpy") is not None and find_spec("PySide6.QtWebEngineWidgets") is not None
+    except (ImportError, ValueError):
+        qt_ok = False
+    if qt_ok:
+        return "qt"
+    raise WindowUnavailable(LINUX_MISSING)
+
+
 class WindowController:
     """Owns the pywebview window. ``action()`` backs the page's title-bar buttons (API ``window.action``)."""
 
@@ -179,7 +215,7 @@ class WindowController:
             kwargs.pop("maximized", None)
             self.window = webview.create_window(WINDOW_TITLE, launch_url, **kwargs)
         self._wire(self.window)
-        gui = "edgechromium" if sys.platform == "win32" else None
+        gui = "edgechromium" if sys.platform == "win32" else linux_gui() if sys.platform.startswith("linux") else None
         started = None if self.frameless else dark_system_titlebar
         try:
             webview.start(started, gui=gui, debug=debug, private_mode=True)

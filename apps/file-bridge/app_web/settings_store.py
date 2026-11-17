@@ -6,6 +6,7 @@ a value the backend wouldn't accept. Only settings that really change something 
 more than the code does)."""
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -30,6 +31,8 @@ class SettingField:
     placeholder: str = ""
     keywords: tuple[str, ...] = field(default_factory=tuple)
 
+
+WINDOWS_ONLY = {"web_ui.custom_titlebar"}          # Linux and macOS keep the system's own title bar
 
 GROUPS: tuple[tuple[str, str], ...] = (
     ("appearance", "Appearance"),
@@ -200,5 +203,6 @@ def schema() -> dict[str, Any]:
                 "min": f.minimum, "max": f.maximum, "placeholder": f.placeholder, "keywords": list(f.keywords),
             }
             for f in FIELDS
+            if f.id not in WINDOWS_ONLY or os.name == "nt"
         ],
     }

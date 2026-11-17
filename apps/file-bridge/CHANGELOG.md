@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+* Fixed (new interface):
+  * Double-clicking a folder in Files opens it.
+  * Files can switch to other drives (D:, E:, USB disks, mounted disks on Linux) and common folders. Click the path
+    bar or press Ctrl+L to type any path.
+  * The terminal's scrollbar can be dragged.
+  * Scrollbars are thin and match the theme.
+* Linux: the new interface opens with GTK's WebKit2GTK, or with Qt WebEngine from the PySide6 the app already
+  installs. If neither is available it says which packages to install.
 * New interface: Playbooks.
   * Run ready-made maintenance scripts or your own snippets on the server, with live output and a history.
   * Scripts that use sudo ask once per run, either for the sudo password or to run without one.

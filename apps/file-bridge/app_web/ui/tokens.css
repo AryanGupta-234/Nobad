@@ -16,6 +16,7 @@
 
   /* status: synced/ok, transferring, conflict, error */
   --ok:#3bd69b;--busy:#38bdf8;--warn:#f5b544;--bad:#ff5268;
+  --sb:rgba(255,255,255,.16);--sb-hover:rgba(255,255,255,.3);
   --ok-soft:rgba(59,214,155,.12);--busy-soft:rgba(56,189,248,.12);--warn-soft:rgba(245,181,68,.13);--bad-soft:rgba(255,82,104,.12);
 
   /* remote surfaces carry a faint accent tint so they never look like local ones */
@@ -30,9 +31,9 @@
   --sp-1:4px;--sp-2:8px;--sp-3:12px;--sp-4:16px;--sp-5:24px;--sp-6:32px;
   --ease:cubic-bezier(.2,.75,.25,1);
 
-  --font-ui:"Segoe UI Variable Text","Segoe UI Variable","Segoe UI",system-ui,-apple-system,"SF Pro Text",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --font-ui:"Segoe UI Variable Text","Segoe UI Variable","Segoe UI",system-ui,-apple-system,"SF Pro Text",Ubuntu,Cantarell,"Noto Sans",Roboto,"Helvetica Neue",Arial,sans-serif;
   --font-disp:"Segoe UI Variable Display","Segoe UI Variable","Segoe UI",system-ui,-apple-system,"SF Pro Display",Roboto,sans-serif;
-  --font-mono:"Cascadia Mono","Cascadia Code",Consolas,"SF Mono",ui-monospace,"JetBrains Mono",monospace;
+  --font-mono:"Cascadia Mono","Cascadia Code",Consolas,"SF Mono",ui-monospace,"JetBrains Mono","DejaVu Sans Mono","Liberation Mono","Ubuntu Mono",monospace;
 
   --header-h:46px;--rail-w:212px;--rail-w-collapsed:64px;--dock-bar-h:38px;
 }
@@ -45,6 +46,7 @@
   --acc:#2563eb;--acc-solid:#1f63e0;--acc-deep:#174bb0;--acc-tx:#1f5fd1;
   --acc-soft:rgba(37,99,235,.1);--acc-line:rgba(37,99,235,.35);
   --ok:#13865d;--busy:#0b7fae;--warn:#a8650a;--bad:#cc2942;
+  --sb:rgba(16,24,40,.2);--sb-hover:rgba(16,24,40,.38);
   --ok-soft:rgba(19,134,93,.1);--busy-soft:rgba(11,127,174,.1);--warn-soft:rgba(168,101,10,.11);--bad-soft:rgba(204,41,66,.09);
   --hair:linear-gradient(150deg,rgba(37,99,235,.32),rgba(18,26,44,.07) 34%,rgba(18,26,44,.05) 62%,rgba(214,80,10,.10));
   --card-bg:linear-gradient(165deg,#fff,color-mix(in srgb,#fff 88%,var(--bg)));

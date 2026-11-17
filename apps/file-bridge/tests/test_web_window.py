@@ -139,3 +139,35 @@ def test_title_bar_setting_is_on_by_default_and_only_accepts_booleans() -> None:
 def test_visual_effects_are_off_by_default_like_nobad_vpn() -> None:
     spec = FIELDS_BY_ID["web_ui.visual_effects"]
     assert spec.default is False and spec.kind == "bool"
+
+
+def test_linux_window_prefers_gtk_then_pyside6(monkeypatch: pytest.MonkeyPatch) -> None:
+    import sys
+    import types
+
+    from app_web import window as win
+
+    fake_gi = types.ModuleType("gi")
+    fake_gi.require_version = lambda name, version: None
+    monkeypatch.setitem(sys.modules, "gi", fake_gi)
+    assert win.linux_gui() == "gtk"
+
+    def no_webkit(name, version):  # type: ignore[no-untyped-def]
+        if name == "WebKit2":
+            raise ValueError("Namespace WebKit2 not available")
+    fake_gi.require_version = no_webkit
+    monkeypatch.delenv("QT_API", raising=False)
+    monkeypatch.setattr("importlib.util.find_spec", lambda name: object())
+    assert win.linux_gui() == "qt" and __import__("os").environ["QT_API"] == "pyside6"
+
+    monkeypatch.setattr("importlib.util.find_spec", lambda name: None)
+    with pytest.raises(win.WindowUnavailable) as err:
+        win.linux_gui()
+    assert "apt install python3-gi" in str(err.value) and "--browser" in str(err.value)
+
+
+def test_windows_only_settings_are_hidden_elsewhere(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app_web import settings_store
+
+    monkeypatch.setattr(settings_store.os, "name", "posix")
+    assert "web_ui.custom_titlebar" not in [f["id"] for f in settings_store.schema()["fields"]]

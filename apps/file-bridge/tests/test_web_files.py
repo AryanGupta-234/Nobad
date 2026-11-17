@@ -87,3 +87,21 @@ def test_remote_actions_need_a_connection(ctx) -> None:
 def test_local_roots_include_home(ctx) -> None:
     data = api_post("fs.local.roots", {}, ctx)["data"]
     assert data["home"] == str(Path.home()) and data["places"][0]["label"] == "Home"
+
+
+def test_drives_are_listed_with_labels(ctx) -> None:
+    drives = api_post("fs.local.roots", {}, ctx)["data"]["drives"]
+    assert drives and all(set(d) == {"label", "path"} and Path(d["path"]).exists() for d in drives)
+
+
+def test_mounted_disks_are_offered_on_linux(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from app_web import files as files_mod
+
+    media = tmp_path / "media"
+    (media / "alex" / "USB-STICK").mkdir(parents=True)
+    (tmp_path / "mnt" / "backup").mkdir(parents=True)
+    monkeypatch.setattr(files_mod, "MOUNT_PARENTS", (str(media), str(tmp_path / "mnt"), str(tmp_path / "nope")))
+    drives = files_mod._posix_drives(Path("/home/alex"))
+    paths = [d["path"] for d in drives]
+    assert paths[0] == "/"
+    assert str(media / "alex" / "USB-STICK") in paths and str(tmp_path / "mnt" / "backup") in paths

@@ -156,3 +156,11 @@ select{appearance:none;padding-right:34px;cursor:pointer;
 .sw[aria-checked=true]:hover:not(:disabled){background:linear-gradient(135deg,#4b8dff,var(--acc-solid))}
 .sw:not(:disabled):active{transform:none}
 @media (forced-colors:active){.sw{border:1px solid CanvasText}.sw[aria-checked=true]{forced-color-adjust:none;background:Highlight}}
+
+/* ---------- scrollbars: thin, rounded, themed (WebView2 and WebKitGTK both use these) ---------- */
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track,::-webkit-scrollbar-corner{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--sb) padding-box;border:2px solid transparent;border-radius:999px;min-height:36px;min-width:36px}
+::-webkit-scrollbar-thumb:hover{background:var(--sb-hover) padding-box}
+::-webkit-scrollbar-thumb:active{background:var(--acc) padding-box}
+::-webkit-scrollbar-button{display:none;width:0;height:0}

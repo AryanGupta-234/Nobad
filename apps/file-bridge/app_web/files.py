@@ -69,6 +69,54 @@ def _listing(path: str, parent: str | None, result: OperationResult) -> dict[str
 
 
 # ---------------------------------------------------------------- local
+MOUNT_PARENTS = ("/media", "/run/media", "/mnt", "/Volumes")
+
+
+def _windows_drives() -> list[dict[str, str]]:
+    """Every drive letter, labelled like Explorer: "Data (D:)", "USB drive (E:)", "Network drive (Z:)"."""
+    import ctypes
+
+    kinds = {2: "USB drive", 3: "Local disk", 4: "Network drive", 5: "CD drive", 6: "RAM disk"}
+    found = []
+    letters = list(getattr(os, "listdrives", lambda: [])()) or [f"{c}:\\" for c in "ABCDEFGHIJKLMNOPQRSTUVWXYZ" if os.path.exists(f"{c}:\\")]
+    for root in letters:
+        name = ""
+        kernel = getattr(ctypes, "windll", None)
+        kind = kernel.kernel32.GetDriveTypeW(root) if kernel else 3
+        if kernel and kind in (2, 3, 6):                      # no volume query for network/CD: it can stall
+            buf = ctypes.create_unicode_buffer(261)
+            if kernel.kernel32.GetVolumeInformationW(root, buf, 261, None, None, None, None, 0):
+                name = buf.value
+        found.append({"label": f"{name or kinds.get(kind, 'Drive')} ({root.rstrip(chr(92))})", "path": root})
+    return found
+
+
+def _posix_drives(home: Path) -> list[dict[str, str]]:
+    """/ and every mounted disk under /media, /run/media, /mnt (and /Volumes on macOS)."""
+    drives = [{"label": "Computer (/)", "path": "/"}]
+    seen = {"/"}
+    for parent in MOUNT_PARENTS:
+        base = Path(parent)
+        candidates = []
+        try:
+            for entry in sorted(base.iterdir()):
+                # /media/<user>/<disk> and /run/media/<user>/<disk> hold one more level
+                if entry.name == home.name and entry.is_dir():
+                    candidates.extend(sorted(entry.iterdir()))
+                else:
+                    candidates.append(entry)
+        except OSError:
+            continue
+        for entry in candidates:
+            try:
+                if entry.is_dir() and not entry.is_symlink() and str(entry) not in seen:
+                    seen.add(str(entry))
+                    drives.append({"label": f"{entry.name} ({entry})", "path": str(entry)})
+            except OSError:
+                continue
+    return drives
+
+
 def local_roots() -> dict[str, Any]:
     home = Path.home()
     places = [{"label": "Home", "path": str(home)}]
@@ -76,7 +124,7 @@ def local_roots() -> dict[str, Any]:
         folder = home / label
         if folder.is_dir():
             places.append({"label": label, "path": str(folder)})
-    drives = list(getattr(os, "listdrives", lambda: [])()) if os.name == "nt" else ["/"]
+    drives = _windows_drives() if os.name == "nt" else _posix_drives(home)
     return {"home": str(home), "places": places, "drives": drives, "sep": os.sep}
 
 

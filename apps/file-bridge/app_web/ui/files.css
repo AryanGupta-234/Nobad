@@ -173,9 +173,15 @@ main#main:has(.screen-term) #screen{flex:1;min-height:0}
 .term-x .ico{width:12px;height:12px}
 .term-new{display:flex;gap:6px;margin-left:auto;padding:0 2px 6px}
 .term-body{flex:1;min-height:0;position:relative;background:var(--surface)}
-.term-view{position:absolute;inset:0;padding:8px 4px 4px 10px}
+.term-view{position:absolute;inset:0}
 .term-view .xterm{height:100%}
-.term-view .xterm-viewport{background:transparent!important;scrollbar-width:thin}
+/* The text area must never cover the scrollbar. The fit addon takes the parent's computed width, which with
+   border-box includes the parent's own padding, and subtracts only the padding of .xterm itself: so all spacing
+   lives on .xterm. Its right padding also keeps the text clear of the bar, while the scroll viewport (absolute,
+   inset 0) still reaches the edge, where the bar can be grabbed. */
+.term-view .xterm{padding:8px 12px 4px 10px}
+.pb-term .xterm{padding:6px 12px 6px 8px}
+.term-view .xterm-viewport,.pb-term .xterm-viewport{background:transparent!important}
 .term-empty{flex:1;display:flex;align-items:center;justify-content:center;padding:24px}
 
 /* ---------- editor ---------- */
@@ -454,7 +460,8 @@ button.danger-tx{color:var(--bad)}
 .pb-acts{display:flex;gap:8px;align-items:center}.pb-acts .spacer,.pb-run-head .spacer{flex:1}
 .pb-run{padding:12px 14px;display:flex;flex-direction:column;gap:10px}
 .pb-run-head{display:flex;gap:8px;align-items:center}
-.pb-term{height:300px;border-radius:12px;overflow:hidden;background:var(--surface);border:1px solid var(--edge);padding:6px 8px}
+.pb-term{height:300px;border-radius:12px;overflow:hidden;background:var(--surface);border:1px solid var(--edge)}
+.pb-term .xterm{height:100%}
 .pb-history{padding:12px 14px}
 .pb-hist summary{display:flex;gap:10px;align-items:center;min-height:34px;cursor:pointer;font-size:12px}
 .pb-hist pre,.pb-script{margin:6px 0 8px;max-height:300px;overflow:auto;padding:10px 12px;border-radius:12px;background:var(--surface-2);border:1px solid var(--edge);font-size:11.5px;line-height:1.5;white-space:pre-wrap;word-break:break-word}

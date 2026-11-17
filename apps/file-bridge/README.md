@@ -64,14 +64,27 @@ On systems where `QtWebEngine` is unavailable, the editor panel falls back to a 
 
 ## New web UI (in development)
 
-A redesigned interface in the NOBAD VPN style, with a blue accent, is being built screen by screen next to the
-classic window. So far it has the app shell, the command palette (Ctrl+K), dark and light themes and Settings;
-the other screens say what's coming and point to the classic window.
+A redesigned interface in the NOBAD VPN style, with a blue accent, next to the classic window. Every screen is
+there: Files, Connections, Terminal, Editor, Sync, Deployments, Credential vault, Server health, Services, Tunnels,
+Live logs, Playbooks and Settings.
 
 ```bash
 python -m app.web             # app window
 python -m app.web --browser   # same UI in your web browser
 ```
+
+**Windows** uses Edge WebView2, which is part of Windows 10 and 11.
+
+**Linux** uses GTK's WebKit2GTK when its Python bindings are installed, and otherwise Qt WebEngine through the
+PySide6 the app already installs (with `qtpy`, installed automatically on Linux). For the lighter GTK window:
+
+```bash
+sudo apt install python3-gi gir1.2-webkit2-4.1        # Debian, Ubuntu
+sudo dnf install python3-gobject webkit2gtk4.1        # Fedora
+```
+
+If neither is available, the app says which packages to install. `--browser` always works. Linux keeps its own
+window title bar; NOBAD's title bar is a Windows option.
 
 How it's built and the rules for new screens: [docs/WEB-UI.md](docs/WEB-UI.md).
 

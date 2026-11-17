@@ -256,6 +256,29 @@ on; every animation stops under `prefers-reduced-motion`. VPN's map, comet and c
   ("Save a copy").
 * Tests are in `tests/test_web_playbooks.py`, against a real AsyncSSH server with PTY exec channels.
 
+## Fixes after the screens (Files, Terminal, Linux)
+
+* **Files, double-click.** Every mousedown redraws the virtual rows, so the two clicks of a double-click hit
+  different elements and the browser never fired `dblclick`. The double-click is now read from the click count on
+  mousedown (`e.detail === 2`).
+* **Files, other drives.**
+  * A "Drives and places" button on the local pane lists drives with Explorer-style labels ("Data (D:)", "USB drive
+    (E:)"). Elsewhere it lists `/` and the disks mounted under `/media`, `/run/media` and `/mnt` (and `/Volumes` on
+    macOS), plus Home, Desktop, Documents and Downloads.
+  * Clicking the empty part of the path bar, or Ctrl+L, lets you type or paste any path, on both panes.
+* **Terminal scrollbar.** xterm's text area covered the scrollbar, so the bar couldn't be grabbed. The fit addon
+  takes the parent's computed width, which includes the parent's padding under border-box, but subtracts only the
+  padding of `.xterm`. All spacing now lives on `.xterm`, with room on the right, and the scroll viewport still
+  reaches the edge.
+* **Scrollbars everywhere.** They are thin (8 to 10 px to grab), rounded and themed (`--sb`, `--sb-hover`, accent
+  while dragging) through `::-webkit-scrollbar`, which WebView2 and WebKitGTK both use.
+* **Linux.**
+  * `window.linux_gui()` picks GTK/WebKit2GTK when available. Otherwise it uses Qt WebEngine through the bundled
+    PySide6 (`QT_API=pyside6`, `qtpy` added for Linux only). If neither is there, the error names the packages to
+    install.
+  * Linux keeps its system title bar, and the Windows-only "NOBAD title bar" setting is hidden there.
+  * The font stacks gained common Linux fonts.
+
 ## Page structure (`app_web/ui/`)
 
 | File | What |

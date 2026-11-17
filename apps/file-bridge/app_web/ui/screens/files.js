@@ -50,6 +50,7 @@
         '<div class="pane-title">' + ICO(s === "local" ? "window" : "servers") + '<span class="pane-name"></span>' +
           (s === "remote" ? '<span class="chip acc pane-badge" hidden></span>' : "") + "</div>" +
         '<div class="pane-tools">' +
+          (s === "local" ? '<button type="button" class="icon ghost sm" data-act="places" aria-label="Drives and places" title="Drives and places" aria-haspopup="menu">' + ICO("window") + "</button>" : "") +
           '<button type="button" class="icon ghost sm" data-act="up" aria-label="Up one folder" title="Up one folder (Backspace)">' + ICO("up") + "</button>" +
           '<button type="button" class="icon ghost sm" data-act="refresh" aria-label="Refresh" title="Refresh (Ctrl+R)">' + ICO("refresh") + "</button>" +
           '<button type="button" class="icon ghost sm" data-act="mkdir" aria-label="New folder" title="New folder (F7)">' + ICO("folderplus") + "</button>" +
@@ -174,6 +175,45 @@
     var last = nav.lastElementChild;
     if (last) { last.setAttribute("aria-current", "location"); nav.scrollLeft = nav.scrollWidth; }
   };
+  // Type or paste a folder path (click the empty part of the path bar, or Ctrl+L). Enter goes there, Esc cancels.
+  Pane.prototype.editPath = function () {
+    if (this.side === "remote" && NB.conn.status !== "connected") { return; }
+    var self = this, nav = $(".crumbs", this.el), done = false;
+    nav.innerHTML = '<input class="crumb-edit mono" autocomplete="off" spellcheck="false" aria-label="Go to folder">';
+    var input = nav.firstChild;
+    input.value = this.path || "";
+    input.focus();
+    input.select();
+    function finish(go) {
+      if (done) { return; }
+      done = true;
+      var target = input.value.trim();
+      if (go && target && target !== self.path) { self.load(target).then(function () { self.crumbs(); }); } else { self.crumbs(); }
+      if (go) { self.list.focus(); }
+    }
+    input.addEventListener("keydown", function (e) {
+      e.stopPropagation();
+      if (e.key === "Enter") { e.preventDefault(); finish(true); }
+      else if (e.key === "Escape") { e.preventDefault(); finish(false); self.list.focus(); }
+    });
+    input.addEventListener("blur", function () { finish(false); });
+  };
+  // Drives (C:, D: … on Windows; / and mounted disks elsewhere) and the usual folders.
+  Pane.prototype.places = function (x, y) {
+    var self = this;
+    NB.api("fs.local.roots").then(function (r) {
+      if (!r.ok) { NB.toast(r.error); return; }
+      var entries = r.data.drives.map(function (d) { return ["p:" + d.path, d.label]; });
+      entries.push(["-"]);
+      r.data.places.forEach(function (p) { entries.push(["p:" + p.path, p.label]); });
+      entries.push(["-"], ["type", "Type a path…", "Ctrl+L"]);
+      NB.contextMenu(x, y, entries, function (id) {
+        if (id === "type") { self.editPath(); return; }
+        self.load(id.slice(2));
+        self.list.focus();
+      });
+    });
+  };
   Pane.prototype.showDisconnected = function () {
     this.path = null;
     this.items = [];
@@ -255,6 +295,7 @@
       if (!b) { return; }
       var a = b.getAttribute("data-act");
       if (a === "up") { self.up(); }
+      else if (a === "places") { var bx = b.getBoundingClientRect(); self.places(bx.left, bx.bottom + 4); }
       else if (a === "refresh") { self.load(null, true); }
       else if (a === "mkdir") { self.screen.mkdir(self); }
       else if (a === "hidden") {
@@ -270,8 +311,9 @@
       if (e.key === "Escape") { e.target.value = ""; self.filter = ""; self.apply(); self.list.focus(); }
     });
     $(".crumbs", this.el).addEventListener("click", function (e) {
+      if (e.target.closest(".crumb-edit")) { return; }
       var c = e.target.closest("[data-path]");
-      if (c) { self.load(c.getAttribute("data-path")); }
+      if (c) { self.load(c.getAttribute("data-path")); } else { self.editPath(); }      // empty space: type a path
     });
     $(".cols", this.el).addEventListener("click", function (e) {
       var c = e.target.closest("[data-sort]");
@@ -286,6 +328,9 @@
       self.screen.active = self;
       if (!r || e.button !== 0) { return; }
       var i = Number(r.getAttribute("data-i"));
+      // Double-click is read from the click count here, not from "dblclick": every mousedown redraws the rows, so
+      // the second click's mousedown and mouseup land on different elements and the browser never fires dblclick.
+      if (e.detail === 2 && !e.shiftKey && !e.ctrlKey && !e.metaKey) { e.preventDefault(); self.open(i); return; }
       if (e.shiftKey) { self.setFocus(i, "range"); }
       else if (e.ctrlKey || e.metaKey) {
         var n = self.item(i)[0];
@@ -294,7 +339,6 @@
       } else if (!self.selected.has(self.item(i)[0]) || self.selected.size <= 1) { self.setFocus(i, "single"); }
       else { self.setFocus(i, "keep"); }
     });
-    this.list.addEventListener("dblclick", function (e) { var r = e.target.closest(".row"); if (r) { self.open(Number(r.getAttribute("data-i"))); } });
     this.list.addEventListener("contextmenu", function (e) {
       e.preventDefault();
       var r = e.target.closest(".row");
@@ -343,6 +387,7 @@
     else if (k === "Home") { e.preventDefault(); move(this, 0); }
     else if (k === "End") { e.preventDefault(); move(this, this.view.length - 1); }
     else if (k === "Enter") { e.preventDefault(); this.open(this.focus); }
+    else if (mod && k.toLowerCase() === "l") { e.preventDefault(); this.editPath(); }
     else if (k === "Backspace") { e.preventDefault(); this.up(); }
     else if (k === " " && !this.typed) {
       e.preventDefault();
