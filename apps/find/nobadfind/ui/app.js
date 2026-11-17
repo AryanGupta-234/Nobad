@@ -27,6 +27,7 @@ function toast(msg) {
 }
 window.nfNotice = toast;
 window.nfFocus = () => { tab("search"); const q = $("#q"); q.focus(); q.select(); };
+// (nfHere is set with the filters below)
 
 // ---------- tabs ----------
 function tab(name) {
@@ -38,11 +39,39 @@ function tab(name) {
 document.querySelectorAll(".tab").forEach(b => b.addEventListener("click", () => tab(b.dataset.tab)));
 
 // ---------- search ----------
+// ---------- filters (combined with whatever the question says) ----------
+const filters = { kind: "", modified: "", size: "", folder: "", sort: "" };
+const SELECTS = { kind: "#fKind", modified: "#fModified", size: "#fSize", sort: "#fSort" };
+const anyFilter = () => !!(filters.kind || filters.modified || filters.size || filters.folder);
+const baseName = p => String(p || "").replace(/[\\/]+$/, "").split(/[\\/]/).pop() || p;
+let hereFolder = "";
+function paintFilters() {
+  for (const [k, sel] of Object.entries(SELECTS)) { $(sel).value = filters[k]; $(sel).classList.toggle("on", !!filters[k]); }
+  const f = $("#fFolder");
+  f.textContent = filters.folder ? "In " + baseName(filters.folder) + "  ✕" : "Any folder";
+  f.title = filters.folder ? filters.folder + " (click to search everywhere again)" : "Only inside one folder";
+  f.classList.toggle("on", !!filters.folder);
+  const h = $("#fHere");
+  h.hidden = !hereFolder || filters.folder === hereFolder;
+  h.textContent = "Here: " + baseName(hereFolder);
+  h.title = hereFolder;
+  $("#fClear").hidden = !(anyFilter() || filters.sort);
+}
+for (const [k, sel] of Object.entries(SELECTS)) $(sel).addEventListener("change", e => { filters[k] = e.target.value; paintFilters(); run(); });
+$("#fFolder").addEventListener("click", async () => {
+  if (filters.folder) filters.folder = "";
+  else { const r = await api("pick_folder"); if (!r || !r.path) return; filters.folder = r.path; }
+  paintFilters(); run();
+});
+$("#fHere").addEventListener("click", () => { filters.folder = hereFolder; paintFilters(); run(); });
+$("#fClear").addEventListener("click", () => { Object.keys(filters).forEach(k => filters[k] = ""); paintFilters(); run(); $("#q").focus(); });
+window.nfHere = async () => { const r = await api("here_folder"); hereFolder = (r && r.path) || ""; paintFilters(); if ($("#q").value.trim()) run(); };
+
 async function run() {
   const text = $("#q").value;
   const my = ++seq;
-  if (!text.trim()) { results = []; render({ results: [], understood: [] }); return; }
-  const r = await api("search", text);
+  if (!text.trim() && !anyFilter()) { results = []; render({ results: [], understood: [] }); return; }
+  const r = await api("search", text, filters);
   if (my !== seq || !r) return;               // a newer search is already running
   results = r.results || [];
   sel = 0;
@@ -51,19 +80,46 @@ async function run() {
 
 function render(r) {
   $("#understood").innerHTML = (r.understood || []).map(u => `<span class="chip">${esc(u)}</span>`).join("");
-  $("#empty").style.display = $("#q").value.trim() ? "none" : "";
-  const q = $("#q").value.trim();
-  $("#meta").textContent = !q ? "" : r.error ? r.error :
-    results.length ? `${results.length}${results.length >= 60 ? "+" : ""} results · ${r.ms} ms` : "Nothing found. Try fewer or other words.";
-  $("#results").innerHTML = results.map((x, i) => `
-    <li class="res${i === sel ? " sel" : ""}" data-i="${i}">
-      <span class="ico">${esc(KIND[x.kind] || "FILE")}</span>
+  const q = $("#q").value.trim() || anyFilter();
+  $("#empty").style.display = q ? "none" : "";
+  const count = results.length ? `${results.length}${r.more ? "+" : ""} results · ${r.ms} ms` : "Nothing found. Try fewer or other words, or fewer filters.";
+  $("#meta").innerHTML = !q ? "" : r.error ? esc(r.error) :
+    esc(count) + (r.notes || []).map(n => ` · <span class="note">${esc(n)}</span>`).join("");
+  const firstWeak = results.findIndex(x => x.weak);
+  $("#results").innerHTML = results.map((x, i) => `${i === firstWeak && i > 0 ? `<li class="divider">Less sure</li>` : ""}
+    <li class="res${i === sel ? " sel" : ""}${x.weak ? " weak" : ""}" data-i="${i}">
+      <span class="ico${THUMB_KINDS.has(x.kind) ? " thumbable" : ""}" data-id="${Number(x.id)}">${esc(KIND[x.kind] || "FILE")}</span>
       <div><div class="name">${esc(x.name)}</div><div class="dir">${esc(x.dir)}</div>
         ${x.snippet ? `<div class="snip">${marks(x.snippet)}</div>` : ""}
         <div class="why">${(x.why || []).map(w => `<span>${esc(w)}</span>`).join("")}</div></div>
       <div class="side">${esc(x.ago)}<br>${esc(size(x.size))}</div>
     </li>`).join("");
+  watchThumbs();
 }
+
+// ---------- previews: Windows' own thumbnails, asked for by result id, only for results on screen ----------
+const THUMB_KINDS = new Set(["image", "video", "pdf"]);
+const thumbCache = new Map();
+const thumbSeen = new IntersectionObserver(entries => {
+  for (const e of entries) {
+    if (!e.isIntersecting) continue;
+    thumbSeen.unobserve(e.target);
+    loadThumb(e.target);
+  }
+}, { rootMargin: "200px" });
+async function loadThumb(el) {
+  const id = Number(el.dataset.id);
+  let url = thumbCache.get(id);
+  if (url === undefined) { const r = await api("thumbnail", id); url = (r && r.url) || ""; thumbCache.set(id, url); }
+  if (!url || !url.startsWith("data:image/")) return;       // only our own data: URLs, never a page-made string
+  const img = new Image();
+  img.alt = "";
+  img.src = url;                                            // set as a property, never through innerHTML
+  el.textContent = "";
+  el.appendChild(img);
+  el.classList.add("has-thumb");
+}
+function watchThumbs() { document.querySelectorAll(".ico.thumbable").forEach(el => thumbSeen.observe(el)); }
 
 function select(i) {
   if (!results.length) return;
@@ -101,7 +157,7 @@ document.addEventListener("keydown", e => {
 });
 
 // ---------- index status ----------
-const PHASE = { starting: "Starting", names: "Finding files", text: "Reading text", meaning: "Learning meaning", watching: "Up to date", error: "Stopped" };
+const PHASE = { starting: "Starting", names: "Finding files", text: "Reading text", images: "Reading photos and scans", photos: "Understanding photos", meaning: "Learning meaning", watching: "Up to date", error: "Stopped" };
 async function refreshStatus(full) {
   const s = await api("status");
   if (!s) { $("#railState").textContent = "preview"; return; }
@@ -113,13 +169,20 @@ async function refreshStatus(full) {
     card(phase, "Status", s.phase !== "watching"),
     card(Number(s.files).toLocaleString(), "Files and folders"),
     card(Number(s.with_text).toLocaleString(), "Files with readable text"),
-    card(Number(s.vectors).toLocaleString(), "Meaning vectors"),
+    card(Number((s.vectors || 0) + (s.name_vectors || 0)).toLocaleString(), "Meaning vectors (text + names)"),
+    card(Number(s.photo_vectors || 0).toLocaleString(), "Photos understood"),
+    card(s.memory_mb ? s.memory_mb + " MB" : "–", (s.models_loaded || []).length
+      ? "Memory now · models in use: " + s.models_loaded.join(", ") : "Memory now · no models loaded (they load when you search)"),
     card(s.rate ? Number(s.rate).toLocaleString() + "/s" : "–", "Scan speed"),
     card((s.db_bytes / 1048576).toFixed(0) + " MB", "Index size"),
-    card(s.plan && s.plan.cpu ? `${s.plan.text_workers} of ${s.plan.cpu}` : "–", "Text workers / CPU threads"),
+    card(s.plan && s.plan.cpu ? `${s.plan.text_workers}–${s.plan.text_workers_idle} of ${s.plan.cpu}` : "–", "Text workers / CPU threads"),
+    card(s.speed ? s.speed.split(" (")[0] : "–", s.speed ? "Speed: " + s.speed.split(" (")[1].replace(")", "") : "Speed"),
+    card(s.ocr === true ? "On" : "Off", s.ocr === true ? "OCR (Windows, offline)" : "OCR: " + (s.ocr || "not available")),
     card(s.plan && "ssd" in s.plan ? (s.plan.ssd ? "SSD" : "Hard disk") : "–", "Drive type"),
   ].join("");
   $("#roots").innerHTML = (s.roots || []).map(r => `<li>${esc(r)}</li>`).join("");
+  const DT = { fixed: "this PC", removable: "USB / external", network: "network", cd: "disc", ram: "RAM disk" };
+  $("#drives").innerHTML = (s.drives || []).map(d => `<li>${esc(d.root)} ${esc(d.label)} <span class="dim">· ${esc(DT[d.type] || d.type)}${d.present ? "" : " · not connected"}</span></li>`).join("");
   const n = $("#encNote");
   n.className = "note" + (s.encrypted ? "" : " warn");
   n.textContent = s.encrypted
@@ -135,25 +198,36 @@ const GROUPS = [
     ["content", "switch", "Read the text inside files", "Documents, PDFs, code, notes and e-mail files. Off: names only."],
     ["content_max_mb", "num", "Largest file to read (MB)", "Bigger files are still found by name."],
     ["src_mail", "switch", "E-mail files", ".eml and .mbox files found on your drives."],
+    ["ocr", "switch", "Words in photos and scans", "Screenshots, photos of documents and scanned PDFs, read with the OCR built into Windows (offline). Slower, so it runs after everything else."],
+    ["index_removable", "switch", "USB and external drives", "Indexed while plugged in. Their files stay findable (marked “not connected”) when you unplug them. Turning this off removes their files from the index."],
+    ["index_network", "switch", "Network drives", "Mapped network drives (Z: and so on). Big shares take a while and use your home or office network."],
     ["roots", "folders", "Folders to search", "Empty: your profile folder and every fixed drive (never other people's profiles or Windows itself)."],
     ["exclude", "folders", "Never search", "These folders and files are skipped and removed from the index."],
   ]],
   ["Meaning search", [
     ["allow_model_download", "switch", "Allow the one-time model download",
       "23 MB from Hugging Face (all-MiniLM-L6-v2, pinned and checked by SHA-256). This is NOBAD Find's only internet connection."],
-    ["semantic", "switch", "Search by meaning", "Finds “lease agreement” when you type “rent”. Runs on this PC only."],
+    ["semantic", "switch", "Search by meaning", "Finds “lease agreement” when you type “rent”, and photos or bills by what their names mean. Runs on this PC only."],
     ["_model", "model", "Model", ""],
+  ]],
+  ["Photo meaning", [
+    ["allow_photo_model_download", "switch", "Allow the one-time photo model download",
+      "About 211 MB from Hugging Face (SigLIP base by Google, Apache-2.0; pinned and checked by SHA-256). Only needed for this feature."],
+    ["photo_meaning", "switch", "Find photos by what's in them", "“Dog on a beach” finds IMG_0042.jpg even with no words in it. Runs on this PC only. The first pass is slow (a few photos per second), in the background."],
+    ["_photo_model", "pmodel", "Photo model", ""],
   ]],
   ["Staying out of your way", [
     ["pause_on_battery", "switch", "Pause on battery", ""],
     ["pause_fullscreen", "switch", "Pause during games and presentations", ""],
-    ["workers", "num", "Text reading workers", "0 = choose from your CPU (leaves two threads free for you)."],
+    ["pause_on_call", "switch", "Pause during calls", "While an app uses the microphone or camera."],
+    ["workers", "num", "Text reading workers", "0 = choose from your CPU: two threads stay free while you use the PC, one when you're away."],
   ]],
   ["Launch", [
     ["hotkey", "txt", "Hotkey", "For example win+shift+space or ctrl+alt+f. Takes effect at the next start."],
     ["autostart", "switch", "Start with Windows", "Starts hidden; the hotkey opens it."],
+    ["glass", "switch", "See-through window", "Windows 11 acrylic behind the window. Follows Windows' own Transparency effects switch. Takes effect at the next start."],
   ]],
-  ["Windows Search", [["_wsearch", "wsearch", "Windows Search indexing", ""]]],
+  ["Windows Search", [["_wsearch", "wsearch", "Use NOBAD Find instead of Windows Search", ""]]],
   ["Your data", [["_wipe", "wipe", "Delete the whole index", "Removes everything NOBAD Find has stored. It starts again from scratch."]]],
 ];
 
@@ -175,14 +249,22 @@ async function renderSettings() {
         ? `Downloading… ${m.size ? Math.round(100 * m.got / m.size) : 0}%` : (m.error ? "Last try failed: " + m.error : "Not downloaded.");
       ctl = m.state === "ready" ? "" : `<button class="btn" id="getModel">Download</button>`;
     }
+    if (type === "pmodel") {
+      const m = st && st.photo_model || {};
+      help = m.state === "ready" ? `Downloaded and verified. ${Number(st.photo_vectors || 0).toLocaleString()} photos understood so far.`
+        : m.state === "downloading" ? `Downloading… ${m.size ? Math.round(100 * m.got / m.size) : 0}%`
+        : (m.error ? "Last try failed: " + m.error : "Not downloaded.");
+      ctl = m.state === "ready" ? "" : `<button class="btn" id="getPhotoModel">Download</button>`;
+    }
     if (type === "wsearch") {
       if (!ws || ws.missing) help = "Windows Search isn't installed on this PC.";
       else {
         const off = ws.start === "disabled";
-        help = (off ? "Off. " : `On (${esc(ws.start)}${ws.running ? ", running" : ""}). `) +
-          "<span class='warn'>Turning it off frees CPU and disk, but the Start menu, Explorer and Outlook stop finding files by content. " +
-          "Windows asks for permission; turning it back on restores the setting it had before.</span>";
-        ctl = `<button class="btn ${off ? "" : "ghost"}" id="wsToggle" data-off="${off ? 0 : 1}">${off ? "Turn back on" : "Turn off"}</button>`;
+        help = (off ? "Done: Windows Search indexing is off and NOBAD Find starts with Windows. "
+                    : `Windows Search indexing is on (${esc(ws.start)}${ws.running ? ", running" : ""}). One click turns it off and starts NOBAD Find with Windows. `) +
+          "<span class='warn'>With it off, the Start menu, Explorer and Outlook stop finding files by their content (NOBAD Find does that instead). " +
+          "Windows asks for permission once; going back restores exactly the setting it had before.</span>";
+        ctl = `<button class="btn ${off ? "ghost" : ""}" id="wsToggle" data-off="${off ? 0 : 1}">${off ? "Go back to Windows Search" : "Switch to NOBAD Find"}</button>`;
       }
     }
     if (type === "wipe") ctl = `<button class="btn danger" id="wipe">Delete index</button>`;
@@ -209,12 +291,15 @@ settingsEl.addEventListener("click", async e => {
   } else if (t.dataset.del) {
     const list = s[t.dataset.del].filter((_, i) => i !== +t.dataset.i);
     await api("set_settings", { [t.dataset.del]: list }); renderSettings();
+  } else if (t.id === "getPhotoModel") {
+    const r = await api("download_photo_model"); if (r && !r.ok) toast(r.error); else toast("Downloading the photo model…");
+    const poll = setInterval(async () => { await renderSettings(); const st = await api("status"); if (!st || st.photo_model.state !== "downloading") clearInterval(poll); }, 1000);
   } else if (t.id === "getModel") {
     const r = await api("download_model"); if (r && !r.ok) toast(r.error); else toast("Downloading the model…");
     const poll = setInterval(async () => { await renderSettings(); const st = await api("status"); if (!st || st.model.state !== "downloading") clearInterval(poll); }, 1000);
   } else if (t.id === "wsToggle") {
     t.disabled = true; t.textContent = "Waiting for Windows…";
-    const r = await api("wsearch_set", t.dataset.off === "1");
+    const r = await api("use_instead_of_windows_search", t.dataset.off === "1");
     toast(r && r.ok ? "Done." : (r && r.error) || "No change.");
     renderSettings();
   } else if (t.id === "wipe") {

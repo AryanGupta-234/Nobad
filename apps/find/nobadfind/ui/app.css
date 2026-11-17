@@ -1,5 +1,6 @@
 /* NOBAD Find: the NOBAD look (black, NOBAD orange, mono labels), system fonts only so it works offline. */
 :root {
+  color-scheme: dark;            /* dark scrollbars and dropdown lists */
   --o: #ff4d00; --o-rgb: 255, 77, 0;
   --bg: #07080a; --bg2: #0c0e11; --bg3: #12151a;
   --tx: #f3f4f6; --mut: rgba(232, 236, 241, .68); --dim: rgba(232, 236, 241, .45);
@@ -14,6 +15,12 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--tx); f
 button, input, select { font: inherit; color: inherit; }
 :focus-visible { outline: 2px solid var(--o); outline-offset: 2px; }
 
+/* see-through window (Windows 11 acrylic behind it; app.py adds .glass only when Windows took it) */
+html.glass, html.glass body { background: transparent; }
+html.glass .rail { background: rgba(12, 14, 17, .30); }
+html.glass .view, html.glass .bar { background: rgba(7, 8, 10, .38); }
+html.glass .bar { backdrop-filter: blur(6px); }
+html.glass .res:hover, html.glass .res.sel { background: rgba(var(--o-rgb), .10); }
 .app { display: grid; grid-template-columns: 92px 1fr; height: 100vh; }
 .rail { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 16px 8px; border-right: 1px solid var(--line); background: var(--bg2); }
 .mark { width: 38px; height: 38px; margin-bottom: 14px; }
@@ -37,6 +44,13 @@ main { overflow: hidden; }
 .understood { display: flex; flex-wrap: wrap; gap: 6px; min-height: 0; margin-top: 8px; }
 .chip { padding: 4px 10px; border: 1px solid rgba(var(--o-rgb), .5); border-radius: 999px; color: var(--o); background: rgba(var(--o-rgb), .07); font: 700 10.5px/1.4 var(--mono); letter-spacing: .06em; text-transform: uppercase; }
 .meta { color: var(--dim); font: 11px var(--mono); margin: 2px 2px 8px; }
+.meta .note { color: #ffb38a; font-family: var(--body); }
+.filters { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.filters select, .fbtn { max-width: 260px; padding: 6px 10px; border: 1px solid var(--line2); border-radius: 9px; background: var(--bg2); color: var(--mut); font: 11px var(--mono); cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: border-color .2s, color .2s; }
+.filters select:hover, .fbtn:hover { border-color: rgba(var(--o-rgb), .6); color: var(--tx); }
+.filters select.on, .fbtn.on { border-color: rgba(var(--o-rgb), .7); color: var(--o); background: rgba(var(--o-rgb), .07); }
+.filters option { background: var(--bg2); color: var(--tx); }
+.fbtn.clear { border-style: dashed; }
 
 /* results */
 .results { list-style: none; margin: 0; padding: 0 0 24px; overflow-y: auto; flex: 1; }
@@ -44,7 +58,13 @@ main { overflow: hidden; }
 .res::before { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, rgba(var(--o-rgb), .14), transparent 70%); transform: translateX(-101%); transition: transform .35s cubic-bezier(.2, .7, .2, 1); }
 .res:hover::before, .res.sel::before { transform: none; }
 .res.sel { border-color: rgba(var(--o-rgb), .5); }
-.ico { display: grid; place-items: center; width: 38px; height: 38px; border: 1px solid var(--line2); border-radius: 10px; color: var(--o); font: 700 9.5px var(--mono); text-transform: uppercase; }
+.ico { display: grid; place-items: center; width: 38px; height: 38px; border: 1px solid var(--line2); border-radius: 10px; color: var(--o); font: 700 9.5px var(--mono); text-transform: uppercase; overflow: hidden; }
+.res:has(.ico.has-thumb) { grid-template-columns: 64px 1fr auto; }
+.res.weak { opacity: .62; }
+.res.weak:hover, .res.weak.sel { opacity: 1; }
+.divider { list-style: none; margin: 14px 4px 6px; padding-top: 10px; border-top: 1px solid var(--line); color: var(--dim); font: 700 10px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+.ico.has-thumb { width: 64px; height: 64px; border-color: var(--line); background: #000; }
+.ico.has-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; animation: rise .25s ease-out; }
 .name { font-weight: 650; font-size: 15px; overflow-wrap: anywhere; }
 .dir { color: var(--dim); font: 11.5px var(--mono); overflow-wrap: anywhere; }
 .snip { margin-top: 5px; color: var(--mut); font-size: 13px; line-height: 1.55; }
@@ -100,3 +120,4 @@ h3 { margin: 26px 0 10px; color: var(--o); font: 700 11px var(--mono); letter-sp
 .toast.on { transform: translate(-50%, 0); }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+.dim { color: var(--mut); }

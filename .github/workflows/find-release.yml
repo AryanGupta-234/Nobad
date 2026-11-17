@@ -1,0 +1,118 @@
+name: NOBAD Find release
+
+# Builds the NOBAD Find installer from a version tag on a clean GitHub-hosted runner and publishes a GitHub Release
+# with the installer and its SHA-256, plus a signed build-provenance attestation. Same shape as vpn-release.yml.
+#   Release:  git tag -a find-v0.6.0 -m "NOBAD Find 0.6.0" && git push origin find-v0.6.0
+#   Dry run:  Actions tab -> "NOBAD Find release" -> Run workflow (builds and uploads an artifact, no release)
+#   Verify a download:  gh attestation verify NobadFind-Setup-<version>.exe -R nobad-studio/Nobad-VPN --signer-workflow nobad-studio/Nobad-VPN/.github/workflows/find-release.yml --source-ref refs/tags/find-v<version> --deny-self-hosted-runners
+# NOBAD VPN and NOBAD Find share this repository: Find releases are never marked as the repository's "latest"
+# release, so links to the latest NOBAD VPN keep working.
+on:
+  push:
+    tags: ["find-v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: apps/find
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.11"
+
+      - name: Install Inno Setup (pinned)
+        run: choco install innosetup --version 6.7.1 --no-progress -y
+
+      - name: Read the app version
+        id: ver
+        run: |
+          $ver = (Select-String -Path nobadfind\const.py -Pattern 'APP_VER = "([^"]+)"').Matches[0].Groups[1].Value
+          "version=$ver" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "APP_VER=$ver" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Check the tag matches the app version and the changelog
+        if: startsWith(github.ref, 'refs/tags/find-v')
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          if ("find-v$env:APP_VER" -ne $env:TAG) { throw "Tag $env:TAG does not match APP_VER $env:APP_VER" }
+          $top = (Select-String -Path CHANGELOG.md -Pattern '^## (\d+\.\d+\.\d+)').Matches[0].Groups[1].Value
+          if ($top -ne $env:APP_VER) { throw "CHANGELOG.md's newest entry is $top, not $env:APP_VER" }
+          if (Select-String -Path CHANGELOG.md -Pattern "^## $([regex]::Escape($env:APP_VER)) \(in development\)") {
+            throw "CHANGELOG.md still says $env:APP_VER is in development" }
+
+      - name: Build (tests, lint, app, installer)
+        # Code signing: once SignPath (free for open source) is approved, sign between this step and the upload.
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File packaging\build.ps1
+
+      - name: Release notes from CHANGELOG.md
+        run: |
+          python -c "import re,sys;s=open('CHANGELOG.md',encoding='utf-8').read();m=re.search(r'^## ' + re.escape(sys.argv[1]) + r'\b.*?(?=^## |\Z)', s, re.S|re.M);open(sys.argv[2],'w',encoding='utf-8').write((m.group(0) if m else 'See CHANGELOG.md') + '\n\nThe installer is not code-signed yet: Windows SmartScreen warns (More info, then Run anyway). Check the download against the .sha256 file or with gh attestation verify.\n')" $env:APP_VER dist-installer\release-notes.md
+
+      - name: Keep the build as a workflow artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: nobad-find-release
+          path: apps/find/dist-installer/*
+          retention-days: 30
+          if-no-files-found: error
+
+  publish:
+    # Only this job can write to the repository, and it runs no build code: it attests and publishes the files
+    # the build job produced.
+    if: startsWith(github.ref, 'refs/tags/find-v')
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write        # create the GitHub Release
+      id-token: write        # sign the provenance attestation (Sigstore)
+      attestations: write    # store the attestation
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: nobad-find-release
+          path: dist
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/*.exe
+
+      - name: Publish the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VER: ${{ needs.build.outputs.version }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          notes=dist/release-notes.md
+          files=$(ls dist/* | grep -v release-notes.md)
+          gh release create "$TAG" $files -R "${{ github.repository }}" \
+            --title "NOBAD Find $VER" --notes-file "$notes" --verify-tag --latest=false
+
+      - name: Site entry for releases/find/releases.json
+        env:
+          VER: ${{ needs.build.outputs.version }}
+        run: |
+          {
+            echo "### Add NOBAD Find $VER to the website"
+            echo "In nobad-studio/website, run from the repository root, then open a PR:"
+            echo '```'
+            echo "python scripts/publish_find_release.py $VER \"<one-line summary>\""
+            echo '```'
+            echo "SHA-256: \`$(cut -d' ' -f1 dist/*.exe.sha256)\`"
+          } >> "$GITHUB_STEP_SUMMARY"

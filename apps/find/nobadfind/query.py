@@ -6,10 +6,11 @@
     '"exact phrase" notes 3 days ago'    -> phrase "exact phrase", kind text, 3 days ago
 """
 import datetime as dt
+import ntpath
 import re
 from dataclasses import dataclass, field
 
-from .kinds import WORDS
+from .kinds import AMBIGUOUS_APPS, APP_CUES, APPS, WORDS
 
 MONTHS = {m: i for i, m in enumerate(
     ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october",
@@ -27,7 +28,23 @@ STOP = {"the", "a", "an", "my", "i", "me", "that", "this", "those", "these", "fi
         "last", "past", "since", "before", "after", "between", "earlier", "recently", "recent", "any", "all",
         "did", "do", "when", "what", "think", "maybe", "like", "kind", "sort", "have", "has", "may", "might",
         "could", "would", "should", "can", "be", "been", "were", "are", "am", "put", "kept", "remember", "used",
-        "use", "look", "looking", "need", "want", "please", "where's", "whats", "im", "i'm", "we", "our", "your"}
+        "use", "look", "looking", "need", "want", "please", "where's", "whats", "im", "i'm", "we", "our", "your",
+        "every", "everything"}
+# Words that ask for something ("list all pdf"). Dropped when the question has something else to go on; kept
+# as words to look for when they're all there is ("list" alone finds list.txt).
+ASKING = {"list", "give", "get", "search", "inside", "folder", "folders", "located", "stored", "saved", "lying"}
+
+# The user's own folders: "in my downloads", "download folder pdf", "on the desktop", "in documents folder"
+_FOLDER_WORDS = {"download": "downloads", "downloads": "downloads", "desktop": "desktop", "documents": "documents",
+                 "document": "documents", "docs": "documents", "pictures": "pictures", "picture": "pictures",
+                 "photos": "pictures", "videos": "videos", "video": "videos", "music": "music"}
+_FW = "(" + "|".join(sorted(_FOLDER_WORDS, key=len, reverse=True)) + ")"
+FOLDER_PATTERNS = [
+    r"\b(?:in|from|on|inside) (?:my |the )?" + _FW + r" folder\b",      # "in my downloads folder"
+    r"\b" + _FW + r" folder\b",                                          # "download folder pdf"
+    r"\b(?:in|from|inside) (?:my |the )?(downloads?|documents|desktop)\b",   # "in my downloads"
+    r"\bon (?:my |the )?(desktop)\b",                                    # "on the desktop"
+]
 
 
 @dataclass
@@ -40,20 +57,76 @@ class Query:
     t0: float = None                                # time range (unix seconds), on modified/created time
     t1: float = None
     when: str = ""                                  # how the time was understood, for the UI
+    apps: set = field(default_factory=set)          # "photoshop files" -> {"photoshop"}; their extensions below
+    app_exts: set = field(default_factory=set)
+    place: str = ""                                 # "removable" | "network" | "fixed" | "E:" | "label:<name>"
+    drives: list = field(default_factory=list)      # the drives the place is matched against
+    folder: str = ""                                # "downloads" | "desktop" | "documents" | "pictures" | ...
+    path: str = ""                                  # a folder typed in the question: C:\Work\Taxes, \\nas\share
+    here: bool = False                              # "here", "this folder": the Explorer folder you came from
+    min_size: int = None                            # bytes
+    max_size: int = None
+    size_label: str = ""
+    sort: str = ""                                  # "" (best match) | "newest" | "oldest" | "largest" | "name"
+    notes: list = field(default_factory=list)       # things worth telling the user ("here" without a folder)
 
     @property
     def text(self):
         return " ".join(self.phrases + self.terms)
 
+    def all_exts(self):
+        return self.exts | self.app_exts
+
+    def place_label(self):
+        p = self.place
+        if p.startswith("label:"):
+            return "on " + p[6:].upper()
+        return {"removable": "on USB and external drives", "network": "on network drives",
+                "fixed": "on this PC's own drives"}.get(p, f"on {p}" if p else "")
+
     def understood(self):
         out = []
         if self.kinds:
             out.append(", ".join(sorted(self.kinds)))
+        if self.apps:
+            out.append(", ".join(f"{a} files" for a in sorted(self.apps)))
         if self.exts:
             out.append(", ".join(sorted(self.exts)))
         if self.when:
             out.append(self.when)
+        if self.place:
+            out.append(self.place_label())
+        if self.folder:
+            out.append(f"in {self.folder.capitalize()}")
+        if self.path:
+            out.append("in " + self.path)
+        if self.size_label:
+            out.append(self.size_label)
+        if self.sort:
+            out.append({"newest": "newest first", "oldest": "oldest first", "largest": "largest first",
+                        "name": "by name"}[self.sort])
         return out
+
+    def has_filters(self):
+        return bool(self.kinds or self.all_exts() or self.t0 is not None or self.place or self.folder or self.path
+                    or self.min_size is not None or self.max_size is not None or bool(self.sort))
+
+
+# Where a file is: "on my usb stick", "on the network drive", "on d:", "on drive e", "on SANDISK".
+_ON = r"\b(?:on|from|in|off) (?:my |the |a |an |this |that )?"
+# A place must end the phrase ("notes in my computer science class" is not about a drive).
+_END = r"(?=\s*$|\s+(?:from|in|on|at|last|this|that|with|about|and|or|before|after|since|during|yesterday|today|"
+_END += r"ago|recently|around|which|where|when)\b)"
+PLACES = [
+    (_ON + r"(?:usb(?: drive| stick| key| disk| flash drive)?|flash ?drive|pen ?drive|thumb ?drive|memory stick|"
+     r"sd card|memory card|(?:external|portable|backup) (?:drive|disk|hard ?drive|hdd|ssd))s?" + _END, "removable"),
+    (_ON + r"(?:network (?:drive|share|folder)|nas|shared drive|file server)s?" + _END, "network"),
+    (r"\b(?:on|from|in) (?:my|this) (?:pc|computer|laptop)" + _END, "fixed"),
+]
+_DRIVE = re.compile(_ON + r"(?:drive ([b-z])\b|([a-z]):(?:\\)?(?: drive)?(?=\s)|([b-z]) drive\b)")
+# Two-word app names, joined before the words are read
+APP_PHRASES = {"after effects": "aftereffects", "fusion 360": "fusion360", "fl studio": "flstudio",
+               "ms access": "msaccess", "microsoft access": "msaccess", "davinci resolve": "davinci"}
 
 
 def _day(d):
@@ -70,17 +143,90 @@ def _month_range(year, month):
     return start, end
 
 
-def parse(text, now=None):
+def _norm(p):
+    """C:/Work -> C:\\Work (the index stores Windows paths); C:\\ stays C:\\; \\\\nas\\share stays UNC."""
+    return ntpath.normpath(p)
+
+
+def _take_path(s, is_dir):
+    """Find a folder path in the question; returns (path, rest of the text). Paths may contain spaces: the
+    longest run of words that is a real folder wins ("pdf in C:\\My Files\\Tax 2024 from march")."""
+    if not is_dir:
+        return "", s
+    for m in re.finditer(r'"((?:[a-zA-Z]:|\\\\)[^"]*)"', s):              # a quoted path
+        p = m.group(1).rstrip("\\/ ")
+        if p and is_dir(p + ("\\" if len(p) == 2 else "")):
+            return _norm(p + ("\\" if len(p) == 2 else "")), s[:m.start()] + " " + s[m.end():]
+    m = re.search(r'(?:(?<=\s)|^)(?:[a-zA-Z]:[\\/]|\\\\[^\\/\s]+[\\/])', s)    # C:\ or \\server\
+    if not m:
+        return "", s
+    words = s[m.start():].split(" ")
+    for n in range(min(len(words), 8), 0, -1):             # a folder name of up to 8 words
+        cand = " ".join(words[:n]).rstrip("\\/ .,;")
+        if len(cand) == 2:
+            cand += "\\"
+        if cand and is_dir(cand):
+            return _norm(cand), s[:m.start()] + " " + " ".join(words[n:])
+    return None, s[:m.start()] + " " + " ".join(words[1:])        # looks like a path, but isn't a folder
+
+
+SIZE_UNITS = {"bytes": 1, "kb": 1024, "mb": 1 << 20, "gb": 1 << 30}
+_SIZE = r"(\d+(?:\.\d+)?) ?(gb|mb|kb|bytes)\b"            # a real unit: "less than 5 m" is not guessed at
+
+
+def parse(text, now=None, labels=(), is_dir=None):
+    """labels: names of drives this PC knows ("SANDISK"), so "on sandisk" means that drive.
+    is_dir: checks whether a typed path is a real folder (so "C:\\Work" in a question is understood)."""
     now = now or dt.datetime.now()
     q = Query(raw=text)
     s = text.strip()
 
-    # exact phrases first
+    # a folder path first (it may be quoted, and may contain spaces)
+    q.path, s = _take_path(s, is_dir)
+    if q.path is None:
+        q.path = ""
+        q.notes.append("That path isn't a folder on this PC, so it was left out.")
+
+    # exact phrases
     for m in re.findall(r'"([^"]{1,200})"', s):
         q.phrases.append(m.strip())
     s = re.sub(r'"[^"]*"', " ", s)
 
     low = " " + s.lower() + " "
+
+    # "here", "this folder": the folder you were looking at in File Explorer
+    # ("here" alone only at the end or after in/from/inside: "here comes the sun" is a song, not a folder)
+    m = re.search(r"\b(?:in |from |inside )?(?:this folder|current folder|this directory)\b"
+                  r"|\b(?:in |from |inside )(?:right )?here\b|\bhere\s*$", low)
+    if m:
+        q.here = True
+        low = low[:m.start()] + " " + low[m.end():]
+
+    # size: "bigger than 100 mb", "under 2mb", "big files"
+    m = re.search(r"\b(?:bigger|larger|over|above|more than|greater than|at least)(?: than)? " + _SIZE, low)
+    if m:
+        q.min_size = int(float(m.group(1)) * SIZE_UNITS[m.group(2)])
+        q.size_label = f"over {m.group(1)} {m.group(2).upper()}"
+        low = low[:m.start()] + " " + low[m.end():]
+    m = re.search(r"\b(?:smaller|under|below|less than|at most|up to)(?: than)? " + _SIZE, low)
+    if m:
+        q.max_size = int(float(m.group(1)) * SIZE_UNITS[m.group(2)])
+        q.size_label = (q.size_label + ", " if q.size_label else "") + f"under {m.group(1)} {m.group(2).upper()}"
+        low = low[:m.start()] + " " + low[m.end():]
+    m = re.search(r"\b(?:big|huge|large) (?:files?|ones|videos?|folders?)\b", low)
+    if m and q.min_size is None:
+        q.min_size, q.size_label = 100 << 20, "over 100 MB"
+        low = low[:m.start()] + " " + low[m.end() - len(m.group(0).split()[-1]):]
+
+    # order: "newest pdf", "latest", "oldest", "largest"
+    for pattern, order in ((r"\b(?:newest|latest|most recent)\b", "newest"), (r"\b(?:oldest|earliest)\b", "oldest"),
+                           (r"\b(?:largest|biggest)\b", "largest")):
+        m = re.search(pattern, low)
+        if m:
+            q.sort = order
+            low = low[:m.start()] + " " + low[m.end():]
+            break
+
     today = _day(now.date())
 
     def take(pattern, fn):
@@ -132,9 +278,50 @@ def parse(text, now=None):
         (dt.datetime(int(m.group(1)), 1, 1), dt.datetime(int(m.group(1)) + 1, 1, 1)), f"in {m.group(1)}"))
     take(r"\b(\d{4})-(\d{2})-(\d{2})\b", lambda m: _date(int(m.group(1)), int(m.group(2)), int(m.group(3))))
 
-    # kinds and extensions
+    # which of the user's folders
+    for pattern in FOLDER_PATTERNS:
+        m = re.search(pattern, low)
+        if m:
+            q.folder = _FOLDER_WORDS[m.group(1)]
+            low = low[:m.start()] + " " + low[m.end():]
+            break
+
+    # where: a kind of drive, a drive letter or a drive's name
+    for pattern, place in PLACES:
+        m = re.search(pattern, low)
+        if m:
+            q.place = place
+            low = low[:m.start()] + " " + low[m.end():]
+            break
+    if not q.place:
+        m = _DRIVE.search(low)
+        if m:
+            q.place = (m.group(1) or m.group(2) or m.group(3)).upper() + ":"
+            low = low[:m.start()] + " " + low[m.end():]
+    if not q.place:
+        for label in sorted({x.strip().lower() for x in labels if x and len(x.strip()) >= 3}, key=len, reverse=True):
+            m = re.search(_ON + re.escape(label) + r"(?: drive| disk| stick| card)?(?=\s)", low)
+            if m:
+                q.place = "label:" + label
+                low = low[:m.start()] + " " + low[m.end():]
+                break
+
+    # apps, kinds and extensions
+    for phrase, joined in APP_PHRASES.items():
+        low = low.replace(" " + phrase + " ", " " + joined + " ")
     words = re.findall(r"[\w.\-+#]+", low)
+    asked = []                                      # ASKING words seen (see the end)
+    cue_at = -1                                    # "projects" in "blender projects" is part of the app filter
     for i, w in enumerate(words):
+        if i == cue_at:
+            continue
+        cue = i + 1 < len(words) and words[i + 1] in APP_CUES
+        if w in APPS and (w not in AMBIGUOUS_APPS or cue):
+            q.apps.add(w)
+            q.app_exts |= APPS[w]
+            if cue:
+                cue_at = i + 1
+            continue
         if w in WORDS:
             k = WORDS[w]
             if k:
@@ -145,7 +332,12 @@ def parse(text, now=None):
             continue
         if w in STOP or w in NUM:
             continue
+        if w in ASKING:
+            asked.append(w)
+            continue
         q.terms.append(w)
+    if asked and not q.terms and not q.phrases and not q.has_filters() and not q.here and not q.sort:
+        q.terms = asked                             # "list" alone: a file called list, not an instruction
     return q
 
 

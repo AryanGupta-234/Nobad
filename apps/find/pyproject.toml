@@ -20,6 +20,15 @@ dependencies = [
   "numpy==2.4.6",
   "onnxruntime==1.27.0",
   "tokenizers==0.23.2",
+  "winrt-runtime==3.2.1",
+  "winrt-Windows.Media.Ocr==3.2.1",
+  "winrt-Windows.Graphics.Imaging==3.2.1",
+  "winrt-Windows.Storage.Streams==3.2.1",
+  "winrt-Windows.Globalization==3.2.1",
+  "winrt-Windows.Foundation==3.2.1",
+  "winrt-Windows.Foundation.Collections==3.2.1",
+  "winrt-Windows.Storage==3.2.1",
+  "winrt-Windows.Storage.FileProperties==3.2.1",
 ]
 
 [project.optional-dependencies]

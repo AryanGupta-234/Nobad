@@ -210,7 +210,7 @@ def test_meaning_search_with_fake_embedder(tmp_path):
     s.add_vectors([(r[0], embed.to_blob(v)) for r, v in zip(rows, vecs)])
     vi.load(s)
     r = search.search(s, "seaside", embedder=Fake(), vindex=vi)["results"]
-    assert r[0]["name"] == "holiday.txt" and any(w.startswith("similar meaning") for w in r[0]["why"])
+    assert r[0]["name"] == "holiday.txt" and "text has a close meaning" in r[0]["why"]
 
 
 # ---------- walker ----------

@@ -5,6 +5,7 @@ from one pinned revision, and every file is checked against its SHA-256 before u
 """
 import hashlib
 import os
+import re
 import threading
 import urllib.request
 
@@ -14,6 +15,43 @@ from .const import MODEL_DIM, MODEL_DIR, MODEL_FILES, MODEL_REV, MODEL_URL
 from .log import log
 
 MAX_TOKENS = 256
+VEC_VERSION = "2"          # how vectors are made (titles in chunks, name vectors); a change recomputes them
+BATCH = 64
+
+# Words in file names that say nothing about what the file is
+NAME_NOISE = {"img", "dsc", "dscn", "dcim", "pxl", "vid", "mvimg", "screenshot", "scan", "copy", "final", "new",
+              "old", "v", "ver", "version", "draft", "file", "doc", "untitled", "document", "image", "photo",
+              "edited", "export", "output", "tmp", "temp", "backup", "bak", "the", "and", "of", "for", "to", "in",
+              "a", "an", "my", "with", "wa", "pic", "picture", "rev", "fwd", "re",
+              # folders that say where a file is, not what it is
+              "downloads", "download", "desktop", "documents", "pictures", "videos", "music", "onedrive", "users",
+              "folder", "files", "misc", "stuff", "data", "camera", "roll", "uploads", "attachments", "inbox",
+              "personal", "work", "shared", "public", "home", "tmp", "dropbox", "drive", "google", "icloud"}
+_CAMEL = re.compile(r"(?<=[a-z])(?=[A-Z])")
+
+
+def name_words(name):
+    """'IMG_20250612_goa-beach_sunset.jpg' -> 'goa beach sunset'; '' when nothing meaningful is left."""
+    stem = os.path.splitext(name)[0] if "." in name[1:] else name
+    words = re.findall(r"[^\W\d_]{2,}", _CAMEL.sub(" ", stem))
+    words = [w.lower() for w in words]
+    keep = [w for w in words if w not in NAME_NOISE and not re.fullmatch(r"[a-f]{6,}", w)]
+    return " ".join(keep[:16])
+
+
+def name_text(name, folder):
+    """What a file's name (and its folder's name) says it is: the text a name vector is made from."""
+    words = name_words(name)
+    parent = name_words(os.path.basename(folder.rstrip("\\/"))) if folder else ""
+    if not words:
+        return parent                    # DSC0001.jpg in "Holiday photos" is about the holiday
+    return f"{words} ({parent})" if parent and parent != words else words
+
+
+def chunk_text(title, body):
+    """A chunk is embedded with its file's name in front: "contract final: This agreement is made..." """
+    t = name_words(title)
+    return f"{t}: {body}" if t else body
 
 
 def _sha256(path):
@@ -36,33 +74,37 @@ def download_model(model_dir=MODEL_DIR, progress=None):
     """Fetch the pinned model files over HTTPS and verify each SHA-256. Raises on any mismatch."""
     os.makedirs(model_dir, exist_ok=True)
     for name, (path, size, sha) in MODEL_FILES.items():
-        dest = os.path.join(model_dir, name)
-        if os.path.isfile(dest) and os.path.getsize(dest) == size and _sha256(dest) == sha:
-            continue
-        url = MODEL_URL.format(rev=MODEL_REV, path=path)
-        tmp = dest + ".part"
-        h = hashlib.sha256()
-        got = 0
-        req = urllib.request.Request(url, headers={"User-Agent": "NOBAD-Find"})
-        with urllib.request.urlopen(req, timeout=60) as r, open(tmp, "wb") as f:
-            if not r.geturl().startswith("https://"):
-                raise IOError("model download left HTTPS")
-            while True:
-                b = r.read(1 << 16)
-                if not b:
-                    break
-                got += len(b)
-                if got > size:
-                    raise IOError(f"{name}: bigger than expected")
-                h.update(b)
-                f.write(b)
-                if progress:
-                    progress(name, got, size)
-        if got != size or h.hexdigest() != sha:
-            os.remove(tmp)
-            raise IOError(f"{name}: checksum mismatch, download rejected")
-        os.replace(tmp, dest)
-        log(f"model file {name} verified")
+        _fetch_verified(MODEL_URL.format(rev=MODEL_REV, path=path), os.path.join(model_dir, name), size, sha,
+                        name, progress)
+
+
+def _fetch_verified(url, dest, size, sha, name, progress=None):
+    """One pinned model file: HTTPS only, never bigger than expected, SHA-256 checked before it's used."""
+    if os.path.isfile(dest) and os.path.getsize(dest) == size and _sha256(dest) == sha:
+        return
+    tmp = dest + ".part"
+    h = hashlib.sha256()
+    got = 0
+    req = urllib.request.Request(url, headers={"User-Agent": "NOBAD-Find"})
+    with urllib.request.urlopen(req, timeout=60) as r, open(tmp, "wb") as f:
+        if not r.geturl().startswith("https://"):
+            raise IOError("model download left HTTPS")
+        while True:
+            b = r.read(1 << 16)
+            if not b:
+                break
+            got += len(b)
+            if got > size:
+                raise IOError(f"{name}: bigger than expected")
+            h.update(b)
+            f.write(b)
+            if progress:
+                progress(name, got, size)
+    if got != size or h.hexdigest() != sha:
+        os.remove(tmp)
+        raise IOError(f"{name}: checksum mismatch, download rejected")
+    os.replace(tmp, dest)
+    log(f"model file {name} verified")
 
 
 class Embedder:
@@ -84,10 +126,19 @@ class Embedder:
         self._lock = threading.Lock()
 
     def encode(self, texts):
-        """Unit-length float32 vectors, one row per text."""
+        """Unit-length float32 vectors, one row per text. Similar lengths are batched together (less padding)."""
+        texts = list(texts)
         if not texts:
             return np.zeros((0, MODEL_DIM), np.float32)
-        enc = self.tok.encode_batch(list(texts))
+        order = sorted(range(len(texts)), key=lambda i: len(texts[i]))
+        out = np.zeros((len(texts), MODEL_DIM), np.float32)
+        for i in range(0, len(order), BATCH):
+            part = order[i:i + BATCH]
+            out[part] = self._encode([texts[j] for j in part])
+        return out
+
+    def _encode(self, texts):
+        enc = self.tok.encode_batch(texts)
         ids = np.array([e.ids for e in enc], np.int64)
         mask = np.array([e.attention_mask for e in enc], np.int64)
         feed = {"input_ids": ids, "attention_mask": mask}
@@ -100,36 +151,162 @@ class Embedder:
         return v / np.maximum(np.linalg.norm(v, axis=1, keepdims=True), 1e-9)
 
 
+class Lazy:
+    """A model that's only in memory while it's being used: loaded by the first encode(), released after
+    IDLE seconds without one (indexer.release_idle_models). Stands in for the model everywhere."""
+
+    IDLE = 180
+
+    def __init__(self, factory, name):
+        self._factory, self.name = factory, name
+        self._model, self._used = None, 0.0
+        self._lock = threading.Lock()
+
+    def _get(self):
+        import time
+        with self._lock:
+            if self._model is None:
+                self._model = self._factory()
+                log(f"{self.name} model loaded")
+            self._used = time.monotonic()
+            return self._model
+
+    def encode(self, *args, **kwargs):
+        return self._get().encode(*args, **kwargs)
+
+    @property
+    def loaded(self):
+        return self._model is not None
+
+    @property
+    def device(self):
+        return getattr(self._model, "device", "CPU")
+
+    def release_if_idle(self, idle=None):
+        import gc
+        import time
+        with self._lock:
+            if self._model is not None and time.monotonic() - self._used > (self.IDLE if idle is None else idle):
+                self._model = None
+                gc.collect()
+                log(f"{self.name} model released (not used for a while)")
+                return True
+        return False
+
+
 def to_blob(v):
     return np.asarray(v, np.float16).tobytes()
 
 
 class VectorIndex:
-    """All chunk vectors in memory as float16 (384 values = 768 bytes per chunk); brute-force cosine search."""
+    """Every vector in memory as float16 (384 values = 768 bytes each); brute-force cosine search.
 
-    def __init__(self):
-        self.ids = np.zeros(0, np.int64)
-        self.mat = np.zeros((0, MODEL_DIM), np.float16)
+    Keys: chunk vectors use the chunk id, name vectors use -file_id (see name_key / is_name)."""
+
+    BLOCK = 65536                 # rows scored at a time: memory stays flat however big the index gets
+
+    TEXT_QUERIES = ("SELECT chunk_id, v FROM vecs", "SELECT -file_id, v FROM nvecs WHERE length(v) > 0")
+
+    def __init__(self, dim=MODEL_DIM, queries=TEXT_QUERIES):
+        """dim: numbers per vector; queries: SQL that yields (key, float16 blob) rows to load."""
+        self.dim, self.queries = dim, queries
+        self._ids = np.zeros(1024, np.int64)
+        self._mat = np.zeros((1024, dim), np.float16)
+        self.n = 0
+        self._coarse = None               # n x PCA_DIMS float32 summary (big indexes only)
+        self._proj = None
+        self._fitted_at = 0
         self._lock = threading.Lock()
 
+    @property
+    def ids(self):
+        return self._ids[:self.n]
+
     def load(self, store):
-        rows = store.q("SELECT chunk_id, v FROM vecs")
+        rows = [r for sql in self.queries for r in store.q(sql)]
         with self._lock:
-            self.ids = np.array([r[0] for r in rows], np.int64)
-            self.mat = (np.frombuffer(b"".join(r[1] for r in rows), np.float16).reshape(-1, MODEL_DIM)
-                        if rows else np.zeros((0, MODEL_DIM), np.float16))
+            self.n = 0
+            self._coarse, self._proj, self._fitted_at = None, None, 0
+            self._ids = np.zeros(len(rows) + 1024, np.int64)
+            self._mat = np.zeros((len(rows) + 1024, self.dim), np.float16)
+            for i, (key, blob) in enumerate(rows):
+                self._ids[i] = key
+                self._mat[i] = np.frombuffer(blob, np.float16)
+            self.n = len(rows)
+
+    # Big indexes are searched in two steps: a compact 64-number summary of every vector (PCA, learned from the
+    # vectors themselves) picks a few thousand candidates fast, then the full vectors rank those exactly.
+    # Measured on real embeddings: with 4x the needed candidates, 98% of the exact top 50 are kept.
+    FAST_FROM = 20_000
+    PCA_DIMS = 64
+    MIN_CANDIDATES = 4000
+
+    def _grow(self, extra):
+        need = self.n + extra
+        if need <= len(self._ids):
+            return
+        cap = max(need, len(self._ids) * 3 // 2)       # growing by half: adding stays cheap on average
+        ids, mat = np.zeros(cap, np.int64), np.zeros((cap, self.dim), np.float16)
+        ids[:self.n], mat[:self.n] = self._ids[:self.n], self._mat[:self.n]
+        self._ids, self._mat = ids, mat
+        if self._coarse is not None:
+            c = np.zeros((cap, self.PCA_DIMS), np.float32)
+            c[:self.n] = self._coarse[:self.n]
+            self._coarse = c
+
+    def _fit(self):
+        """Learn the summary from (a sample of) the vectors; done again whenever the index has doubled."""
+        rng = np.random.default_rng(0)
+        pick = rng.choice(self.n, min(self.n, 8000), replace=False)
+        sample = self._mat[np.sort(pick)].astype(np.float32)
+        _u, _s, vt = np.linalg.svd(sample - sample.mean(0), full_matrices=False)
+        self._proj = vt[:self.PCA_DIMS].T.astype(np.float32).copy()
+        self._coarse = np.zeros((len(self._ids), self.PCA_DIMS), np.float32)
+        for i in range(0, self.n, self.BLOCK):
+            j = min(self.n, i + self.BLOCK)
+            self._coarse[i:j] = self._mat[i:j].astype(np.float32) @ self._proj
+        self._fitted_at = self.n
 
     def add(self, ids, vecs):
+        ids = np.asarray(ids, np.int64)
+        if not len(ids):
+            return
         with self._lock:
-            self.ids = np.concatenate([self.ids, np.asarray(ids, np.int64)])
-            self.mat = np.vstack([self.mat, np.asarray(vecs, np.float16)])
+            self._grow(len(ids))
+            a, b = self.n, self.n + len(ids)
+            self._ids[a:b] = ids
+            self._mat[a:b] = np.asarray(vecs, np.float16)
+            if self._coarse is not None:
+                self._coarse[a:b] = self._mat[a:b].astype(np.float32) @ self._proj
+            self.n = b
 
     def search(self, qvec, k=200):
+        q = np.asarray(qvec, np.float32)
         with self._lock:
-            if not len(self.ids):
+            if not self.n:
                 return []
-            scores = self.mat.astype(np.float32) @ np.asarray(qvec, np.float32)
-            k = min(k, len(scores))
+            k = min(k, self.n)
+            if self.n >= self.FAST_FROM:
+                if self._coarse is None or self.n >= 2 * self._fitted_at:
+                    self._fit()
+                cand = min(self.n, max(self.MIN_CANDIDATES, 10 * k))
+                rough = self._coarse[:self.n] @ (self._proj.T @ q)
+                rows = np.argpartition(-rough, cand - 1)[:cand]
+                scores = self._mat[rows].astype(np.float32) @ q
+            else:
+                rows = None
+                scores = np.empty(self.n, np.float32)
+                for i in range(0, self.n, self.BLOCK):
+                    scores[i:i + self.BLOCK] = self._mat[i:min(self.n, i + self.BLOCK)].astype(np.float32) @ q
             top = np.argpartition(-scores, k - 1)[:k]
             top = top[np.argsort(-scores[top])]
-            return [(int(self.ids[i]), float(scores[i])) for i in top]
+            at = rows[top] if rows is not None else top
+            return [(int(self._ids[i]), float(s)) for i, s in zip(at, scores[top])]
+
+
+def name_key(file_id):
+    return -int(file_id)
+
+
+def is_name(key):
+    return key < 0

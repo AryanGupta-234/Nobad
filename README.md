@@ -18,6 +18,7 @@ software in the open, in collaboration with AI. Each product lives in its own fo
 |---|---|---|---|
 | **NOBAD VPN** | A WireGuard client for Windows with a kill switch, DNS leak block, Network Intelligence, an Evil Twin network check and Where to watch. | Available | [`apps/vpn/`](apps/vpn/) · [product page](https://nobad-platform.aassworld99.workers.dev/products/vpn/) |
 | **NOBAD File Bridge** | Open, copy, edit and back up the files on your website or server from your PC: SFTP/FTP, two-way sync, a terminal, an encrypted password vault and deployments. Linux and Windows. By [@harshRaj1601](https://github.com/harshRaj1601). | In development: being hardened before its first release (see [issues labelled `nobad-files`](https://github.com/AryanGupta-234/Nobad/issues?q=is%3Aissue+label%3Anobad-files)) | [`apps/file-bridge/`](apps/file-bridge/) · [product page](https://nobad-platform.aassworld99.workers.dev/products/file-bridge/) |
+| **NOBAD Find** | Private, offline search for your own files on Windows: by name, by the words inside, by meaning and photos by what's in them, with plain-language questions, filters and previews. Nothing leaves your PC; the index is encrypted. | Available | [`apps/find/`](apps/find/) · [product page](https://nobad-platform.nobad-studio.workers.dev/products/find/) · [releases](https://github.com/nobad-studio/Nobad-VPN/releases?q=find-v) |
 
 The website source is in [`site-pages/`](site-pages/).
 
@@ -26,6 +27,10 @@ AI coding assistants: read [AGENTS.md](AGENTS.md) first.
 ## Repository layout
 
 ```
+apps/find/           NOBAD Find (private offline file search for Windows)
+  nobadfind/         app source (UI in nobadfind/ui/)
+  tests/             pytest suite
+  packaging/         PyInstaller spec, Inno Setup installer (per-user), build.ps1
 apps/file-bridge/          NOBAD File Bridge (remote file manager, Python + PySide6)
   tests/             pytest suite
   packaging/         Linux .deb script; PyInstaller spec is build.spec
