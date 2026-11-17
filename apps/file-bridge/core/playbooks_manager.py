@@ -419,10 +419,53 @@ echo "✔ Diagnostic bundle generated: $DEST.tar.gz"
 ]
 
 
+# Characters a playbook text value may contain. Values are pasted into the shell script as they are (templates use
+# them bare, in "double" and in 'single' quotes), so anything that could end a word or start a command is refused:
+# ; | & $ ` ( ) < > quotes, backslash, newlines, globs. Domains, paths, durations and service names still fit.
+_SAFE_TEXT = re.compile(r"[A-Za-z0-9 .,_\-/:@+=]*")
+_SAFE_TEXT_HINT = "letters, digits, spaces and . , _ - / : @ + ="
+
+
+def _only_single_quoted(template: str, key: str) -> bool:
+    """True when every use of {{KEY}} sits alone inside single quotes ('{{KEY}}'): there only ' can break out."""
+    uses = re.findall(r"(.?)\{\{\s*" + re.escape(key) + r"\s*\}\}(.?)", template)
+    return bool(uses) and all(before == "'" and after == "'" for before, after in uses)
+
+
+def check_variable_values(variables: list[Any], values: dict[str, Any], template: str = "") -> dict[str, str]:
+    """Each declared variable's value, checked against its type. Raises ValueError with a plain message.
+
+    Undeclared keys are dropped, so nothing but the recipe's own placeholders is ever substituted. A text value used
+    only inside single quotes in ``template`` may hold anything but a quote or a line break (a regex, a pipe)."""
+    clean: dict[str, str] = {}
+    for var in variables:
+        raw = values.get(var.key, var.default_value)
+        value = ("true" if raw else "false") if isinstance(raw, bool) else str(raw if raw is not None else "").strip()
+        kind = (var.var_type or "text").lower()
+        label = var.label or var.key
+        if kind == "boolean":
+            if value.lower() not in {"true", "false"}:
+                raise ValueError(f"{label} must be on or off.")
+            value = value.lower()
+        elif kind == "number":
+            if not re.fullmatch(r"\d{1,9}", value):
+                raise ValueError(f"{label} must be a whole number.")
+        elif kind == "choice":
+            if value not in var.options:
+                raise ValueError(f"Choose {label} from the list.")
+        elif template and _only_single_quoted(template, var.key):
+            if len(value) > 500 or "'" in value or "\n" in value or "\r" in value or "\0" in value:
+                raise ValueError(f"{label} can't contain a single quote or a line break.")
+        elif len(value) > 500 or not _SAFE_TEXT.fullmatch(value):
+            raise ValueError(f"{label} can only contain {_SAFE_TEXT_HINT}, so nothing in it can run as a command.")
+        clean[var.key] = value
+    return clean
+
+
 def interpolate_template(template: str, variables: dict[str, Any]) -> str:
     """
     Interpolate {{KEY}} placeholders and {{#if KEY}}...{{/if}} conditional blocks with provided variable values.
-    Sanitizes values to avoid unexpected shell injection syntax errors.
+    Values are pasted as they are: check them with ``check_variable_values`` first.
     """
     result = template
 

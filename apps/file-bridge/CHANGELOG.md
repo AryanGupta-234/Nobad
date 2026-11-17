@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+* New interface: Playbooks.
+  * Run ready-made maintenance scripts or your own snippets on the server, with live output and a history.
+  * Scripts that use sudo ask once per run, either for the sudo password or to run without one.
+  * Playbooks that delete things show the exact script and ask first.
+* Security (classic window too): a playbook value could run as a shell command. For example, a domain like
+  `example.com; rm -rf ~` would have run the second part. Values are now checked before the script is built.
+  Text fields refuse characters that could start a command, and the message says which characters are allowed.
 * New interface: Tunnels and Live logs.
   * Tunnels forward a database or internal site on the server to this computer (or the other way round, or as a
     SOCKS proxy). They stay private to this computer unless you choose otherwise, and close when you disconnect.

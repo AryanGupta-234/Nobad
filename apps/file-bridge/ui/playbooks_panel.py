@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
 from core.playbooks_manager import (
     PREBUNDLED_RECIPES,
     PlaybookStreamingRunner,
+    check_variable_values,
     interpolate_template,
     script_uses_sudo,
 )
@@ -362,6 +363,12 @@ class PlaybooksPanel(QWidget):
             )
             return
 
+        try:
+            param_values = check_variable_values(self._selected_recipe.variables, param_values,
+                                                 self._selected_recipe.script_template)
+        except ValueError as exc:
+            QMessageBox.warning(self, "Check the playbook settings", str(exc))
+            return
         interpolated_script = interpolate_template(self._selected_recipe.script_template, param_values)
         target_name = getattr(self.connection, "host", "remote-host")
 

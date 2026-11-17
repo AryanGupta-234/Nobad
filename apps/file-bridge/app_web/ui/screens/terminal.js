@@ -20,6 +20,8 @@
     };
   }
 
+  NB.termTheme = theme;            // shared with read-only output views (Playbooks)
+
   // ---- create / attach
   function create(info) {
     var el = document.createElement("div");

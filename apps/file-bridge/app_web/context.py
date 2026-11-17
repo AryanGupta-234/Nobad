@@ -42,10 +42,12 @@ class AppContext:
     services: Any = field(init=False)
     tunnels: Any = field(init=False)
     logs: Any = field(init=False)
+    playbooks: Any = field(init=False)
 
     def __post_init__(self) -> None:
         from app_web.deploy import DeployService
         from app_web.editor import EditorService
+        from app_web.playbooks import PlaybookService
         from app_web.server_tools import HealthService, ServicesService
         from app_web.session import SessionService
         from app_web.tunnels_logs import LogsService, TunnelService
@@ -67,6 +69,7 @@ class AppContext:
         self.services = ServicesService(self.session)
         self.tunnels = TunnelService(self.app_data, self.session)
         self.logs = LogsService(self.session)
+        self.playbooks = PlaybookService(self.app_data, self.session)
 
     @classmethod
     def create(cls, db_path: str | Path | None = None) -> "AppContext":

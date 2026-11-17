@@ -233,6 +233,29 @@ on; every animation stops under `prefers-reduced-motion`. VPN's map, comet and c
 * Tests: `tests/test_web_tunnels_logs.py`, against a real AsyncSSH server: traffic through a real forward, logs over
   real exec channels.
 
+## Playbooks (stage 6c)
+
+* `app_web/playbooks.py` (`PlaybookService`) runs on `core.playbooks_manager`: the bundled recipes, custom
+  snippets and the PTY runner.
+* **Values are checked before anything is rendered** (core fix, the classic window too). `interpolate_template`
+  pastes values into the shell script as they are, and its docstring wrongly said it sanitized them. A domain like
+  `example.com; rm -rf ~` would have run. `check_variable_values` now checks every value by its type:
+  * booleans, numbers and choices must match their type
+  * free text may only hold letters, digits, spaces and `. , _ - / : @ + =`
+  * a value used only inside single quotes may hold anything but `'` and line breaks, which keeps regexes like
+    `nginx|node` working
+  * undeclared keys are dropped
+* **Sudo, chosen per run:**
+  * Type the password. It is answered only to the app's own random prompt, once, and masked in the output (#32).
+  * Or run without one, which turns every `sudo` in the script into `sudo -n` with a shell function.
+  * The password is never stored or logged.
+* **Review:** sudo and destructive playbooks show the exact script first. Destructive ones need `confirmed`.
+* **Running:** output streams into a read-only xterm (`pb.out`), one run at a time with Stop. The history keeps the
+  last 2,000 characters of each run.
+* **Custom snippets:** their variables are found from `{{NAME}}` and `{{#if NAME}}`. Bundled recipes are read-only
+  ("Save a copy").
+* Tests are in `tests/test_web_playbooks.py`, against a real AsyncSSH server with PTY exec channels.
+
 ## Page structure (`app_web/ui/`)
 
 | File | What |
