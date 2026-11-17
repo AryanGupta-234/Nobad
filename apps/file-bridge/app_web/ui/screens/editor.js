@@ -42,6 +42,28 @@
   function themeName() { return document.documentElement.getAttribute("data-theme") === "light" ? "nobad-light" : "nobad-dark"; }
   NB.on("theme", function () { if (window.monaco) { window.monaco.editor.setTheme(themeName()); } });
 
+  // Read-only side-by-side compare in a dialog (Sync's conflicts). Left and right are labelled in `sub`.
+  NB.diffModal = function (o) {
+    return loadMonaco().then(function (m) {
+      var host = document.createElement("div"), actions = document.createElement("div");
+      host.className = "diff-host";
+      actions.className = "modal-actions";
+      actions.innerHTML = '<button type="button" class="pri" data-a="close">Close</button>';
+      var body = document.createElement("div");
+      body.appendChild(host);
+      body.appendChild(actions);
+      var left = m.editor.createModel(o.left, o.language || "plaintext"), right = m.editor.createModel(o.right, o.language || "plaintext");
+      var d = null;
+      var md = NB.modal({ title: o.title, sub: o.sub, body: body, className: "diff", initialFocus: "[data-a=close]",
+        onClose: function () { if (d) { d.dispose(); } left.dispose(); right.dispose(); } });
+      d = m.editor.createDiffEditor(host, { theme: themeName(), automaticLayout: true, readOnly: true, originalEditable: false,
+        renderSideBySide: true, fontFamily: cssVar("--font-mono"), fontSize: 13, minimap: { enabled: false }, scrollBeyondLastLine: false });
+      d.setModel({ original: left, modified: right });
+      actions.addEventListener("click", function () { md.close(); });
+      return md;
+    });
+  };
+
   // ---- tabs
   function isDirty(t) { return t.model && t.model.getAlternativeVersionId() !== t.savedVersion; }
   function addTab(info, text) {

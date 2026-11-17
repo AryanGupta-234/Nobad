@@ -117,6 +117,7 @@
   // ---------------------------------------------------------------- dock
   var logEntries = [], dockTab = "transfers";
   function dockOpen() { return !$("#dock").classList.contains("collapsed"); }
+  NB.openDock = function (tab) { setDock(true, tab); };
   function setDock(open, tab) {
     if (tab) { dockTab = tab; }
     $("#dock").classList.toggle("collapsed", !open);

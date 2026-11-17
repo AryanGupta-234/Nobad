@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+* New interface: Sync folders. Every sync starts with a preview of what would be copied, replaced or deleted, and
+  nothing changes until you press Sync now. Replacing or deleting files asks first. Two-way jobs remember the
+  last sync, so changes and deletions on either side cross over. Files changed on both sides wait for your choice:
+  keep yours, keep the server's, keep both or skip, with a side-by-side compare. If files change between the
+  preview and the sync, nothing runs and you get a fresh preview.
 * New interface: the Credential vault. Secrets stay hidden until you reveal or copy one; revealed values hide again
   after 30 seconds and a copied secret is cleared from the clipboard after 30 seconds. The vault locks itself after
   10 minutes without use (change it in Settings), slows down repeated wrong master passwords, and includes a

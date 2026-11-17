@@ -133,6 +133,34 @@ on; every animation stops under `prefers-reduced-motion`. VPN's map, comet and c
   form with a generator. The page re-locks when the app locks the vault.
 * Tests: `tests/test_web_vault.py`.
 
+## Sync folders (stage 5b)
+
+* `app_web/sync.py` (`SyncService`) on the existing `SyncPlanner`, `SyncConflictResolver`, `SyncExecutor` and
+  `SyncBaselineService`; this replaces the logic that lived in `ui/sync_panel.py` for the new interface.
+* **Preview first.** `sync.preview` lists both folders and plans every file, changing nothing:
+  * the local folder is walked without following links
+  * the server folder is listed folder by folder, joining only plain names (`is_unsafe_entry_name`)
+  * skip names prune whole folders
+  * both listings stop at 200,000 files
+  * two-way conflicts with equal sizes are compared by SHA-256 first
+  The result is kept under a one-time token for 15 minutes; rows come from `sync.entries`.
+* **Two-way and baselines.** A saved two-way job compares against the baseline saved after its last successful run,
+  so a change or deletion on one side crosses over. A baseline only counts for the same local folder, server folder
+  and server it was taken for. A new baseline is read back from both sides after a run, never assumed.
+* **Conflicts.**
+  * Every conflict needs a choice: keep mine, keep the server's, keep both, or skip.
+  * Choices a file can't support are refused, such as "keep mine" for a file deleted here.
+  * `sync.compare` shows text files up to 2 MB side by side (`NB.diffModal`, read-only Monaco).
+* **Run.**
+  * `sync.run` refuses to replace or delete files without `confirmed`. Whether a file is replaced is decided from the
+    listings, not from sizes.
+  * The plan is built again first. If anything changed since the preview, nothing runs and the page gets the new
+    preview.
+  * Copies go through the transfer queue (shown in the Transfers dock). Deletes happen only after every copy
+    finished.
+* Not in the new interface yet: the rsync engine (jobs saved with it run through the transfer queue).
+* Tests: `tests/test_web_sync.py` (real AsyncSSH SFTP server).
+
 ## Page structure (`app_web/ui/`)
 
 | File | What |

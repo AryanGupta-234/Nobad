@@ -36,10 +36,12 @@ class AppContext:
     terminals: Any = field(init=False)
     editor: Any = field(init=False)
     vault: Any = field(init=False)
+    sync: Any = field(init=False)
 
     def __post_init__(self) -> None:
         from app_web.editor import EditorService
         from app_web.session import SessionService
+        from app_web.sync import SyncService
         from app_web.terminals import TerminalService
         from app_web.vault import VaultFacade
         from app_web.transfers import TransferService
@@ -51,6 +53,7 @@ class AppContext:
         self.editor = EditorService()
         self.vault = VaultFacade(self.app_data.session_factory, self.settings)
         self.session.on_closed.append(self.terminals.close_for_profile)
+        self.sync = SyncService(self.app_data, self.session, self.transfers)
 
     @classmethod
     def create(cls, db_path: str | Path | None = None) -> "AppContext":

@@ -45,7 +45,7 @@ kbd{display:inline-flex;align-items:center;min-width:20px;height:20px;padding:0 
   color:var(--mu);background:var(--glass);border:1px solid var(--line);border-bottom-width:2px}
 
 /* ---------- inputs ---------- */
-.in,input[type=text],input[type=search],input[type=number],input[type=password],select{
+.in,input:not([type]),input[type=text],input[type=search],input[type=number],input[type=password],select{
   font:13px/1.2 var(--font-ui);color:var(--tx);background:var(--surface-2);border:1px solid var(--edge);
   border-radius:var(--r-md);min-height:36px;padding:8px 12px;width:100%;
   transition:border-color .2s,box-shadow .2s,background-color .2s}
