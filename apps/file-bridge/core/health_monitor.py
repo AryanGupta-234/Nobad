@@ -5,6 +5,7 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
+from core.remote_command import command_error, command_ok
 from core.result import OperationResult
 
 
@@ -513,9 +514,9 @@ async def kill_remote_process(connection: Any, pid: int, force: bool = False) ->
     cmd = f"kill {sig} {int(pid)}"
     try:
         res = await connection.run_command(cmd)
-        if res.ok:
+        if command_ok(res):
             return OperationResult.success(f"Signal {sig} delivered to PID {pid}.")
-        return OperationResult.failure(f"Failed to kill PID {pid}: {res.message}")
+        return OperationResult.failure(command_error(res, f"Couldn't stop process {pid}"))
     except Exception as exc:
         return OperationResult.failure(f"Error terminating PID {pid}: {exc}")
 

@@ -186,6 +186,29 @@ on; every animation stops under `prefers-reduced-motion`. VPN's map, comet and c
     run on Linux.
   * Validation and refusals run everywhere.
 
+## Server health and Services (stage 6a)
+
+* `app_web/server_tools.py` contains `HealthService` and `ServicesService`, built on `core.health_monitor` and
+  `core.services_manager`.
+* **Health sampling.**
+  * Each sample is one batch command (`/proc`, `df`, `ps`).
+  * Sampling runs only while the screen asks for it: `health.watch` must be renewed at least every 30 s (the page
+    renews every 10 s). It stops on leave, when renewals stop, and when the connection changes.
+  * Samples arrive as `health.sample`. The screen redraws inside one persistent frame, so the entrance animation
+    plays only once.
+  * Charts are single-series sparklines with a crosshair readout. Meters show the status colour with a written level.
+* **Stopping a process** checks kill's exit status.
+* **Services.**
+  * Unit names always go through `validate_unit_name` before any command.
+  * Actions use `sudo -n` unless the login is root, so a server that wants a sudo password says so at once.
+  * Logs are read without sudo first, and with `sudo -n` only when the journal refuses.
+  * Stopping or restarting SSH warns first.
+* **Core fix, which also helps the classic window.** `core/remote_command.py`: `run_command` reports that a command
+  *ran*, and its exit status says whether it *worked*. `control_service`, `daemon_reload`, `install_unit_file` and
+  `kill_remote_process` used to call a failed command a success. They now check the exit status, show sudo's or
+  systemctl's own reason, and use `sudo -n`, so sudo can't wait forever for a password on a channel nobody types into.
+* Tests: `tests/test_web_server_tools.py`.
+
 ## Page structure (`app_web/ui/`)
 
 | File | What |

@@ -38,10 +38,13 @@ class AppContext:
     vault: Any = field(init=False)
     sync: Any = field(init=False)
     deploy: Any = field(init=False)
+    health: Any = field(init=False)
+    services: Any = field(init=False)
 
     def __post_init__(self) -> None:
         from app_web.deploy import DeployService
         from app_web.editor import EditorService
+        from app_web.server_tools import HealthService, ServicesService
         from app_web.session import SessionService
         from app_web.sync import SyncService
         from app_web.terminals import TerminalService
@@ -57,6 +60,8 @@ class AppContext:
         self.session.on_closed.append(self.terminals.close_for_profile)
         self.sync = SyncService(self.app_data, self.session, self.transfers)
         self.deploy = DeployService(self.app_data, self.session, self.transfers)
+        self.health = HealthService(self.session)
+        self.services = ServicesService(self.session)
 
     @classmethod
     def create(cls, db_path: str | Path | None = None) -> "AppContext":

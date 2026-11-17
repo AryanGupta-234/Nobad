@@ -5,6 +5,7 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
+from core.remote_command import command_error, command_ok, sudo_prefix
 from core.result import OperationResult
 
 # Compound command gathering all service units and boot enable states in a single SSH round-trip
@@ -297,14 +298,13 @@ async def control_service(connection: Any, unit_name: str, action: str, sudo: bo
     except ValueError as exc:
         return OperationResult.failure(str(exc))
 
-    prefix = "sudo " if sudo else ""
-    cmd = f"{prefix}systemctl {action} {safe_name}"
+    cmd = f"{sudo_prefix(sudo)}systemctl {action} {safe_name}"
 
     try:
         res = await connection.run_command(cmd)
-        if res.ok:
+        if command_ok(res):
             return OperationResult.success(f"systemctl {action} {safe_name} executed successfully.")
-        return OperationResult.failure(f"Failed to {action} {safe_name}: {res.message}")
+        return OperationResult.failure(command_error(res, f"Couldn't {action} {safe_name}"))
     except Exception as exc:
         return OperationResult.failure(f"Error executing {action} for {safe_name}: {exc}")
 
@@ -314,14 +314,13 @@ async def daemon_reload(connection: Any, sudo: bool = True) -> OperationResult:
     if connection is None:
         return OperationResult.failure("Cannot execute daemon-reload: No active SSH connection.")
 
-    prefix = "sudo " if sudo else ""
-    cmd = f"{prefix}systemctl daemon-reload"
+    cmd = f"{sudo_prefix(sudo)}systemctl daemon-reload"
 
     try:
         res = await connection.run_command(cmd)
-        if res.ok:
+        if command_ok(res):
             return OperationResult.success("systemctl daemon-reload executed successfully.")
-        return OperationResult.failure(f"Failed to reload daemon: {res.message}")
+        return OperationResult.failure(command_error(res, "Couldn't reload systemd"))
     except Exception as exc:
         return OperationResult.failure(f"Error reloading systemd daemon: {exc}")
 
@@ -368,7 +367,7 @@ async def fetch_unit_logs(
         return ()
 
     err_flag = " -p err" if errors_only else ""
-    prefix = "sudo " if sudo else ""
+    prefix = sudo_prefix(sudo)
     cmd = f"{prefix}journalctl -u {safe_name} -n {int(lines)} --no-pager{err_flag}"
 
     try:
@@ -405,7 +404,7 @@ async def install_unit_file(
     # Use base64 encoding to prevent POSIX echo backslash expansion corruption and shell quoting errors
     b64_content = base64.b64encode(content.encode("utf-8")).decode("ascii")
 
-    prefix = "sudo " if sudo else ""
+    prefix = sudo_prefix(sudo)
     cmd = (
         f"echo {b64_content} | base64 -d | {prefix}tee {target_path} >/dev/null && "
         f"{prefix}systemctl daemon-reload"
@@ -415,8 +414,8 @@ async def install_unit_file(
 
     try:
         res = await connection.run_command(cmd)
-        if res.ok:
+        if command_ok(res):
             return OperationResult.success(f"Unit file installed at {target_path} and daemon reloaded.")
-        return OperationResult.failure(f"Failed to install unit file: {res.message}")
+        return OperationResult.failure(command_error(res, f"Couldn't install {safe_name}"))
     except Exception as exc:
         return OperationResult.failure(f"Error installing unit file: {exc}")

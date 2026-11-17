@@ -157,16 +157,16 @@ class TestServicesManager(unittest.IsolatedAsyncioTestCase):
         mock = MockConnection()
         res = await control_service(mock, "nginx.service", "restart")
         self.assertTrue(res.ok)
-        self.assertEqual(mock.commands[-1], "sudo systemctl restart nginx.service")
+        self.assertEqual(mock.commands[-1], "sudo -n systemctl restart nginx.service")
 
         res_reload = await daemon_reload(mock)
         self.assertTrue(res_reload.ok)
-        self.assertEqual(mock.commands[-1], "sudo systemctl daemon-reload")
+        self.assertEqual(mock.commands[-1], "sudo -n systemctl daemon-reload")
 
         res_install = await install_unit_file(mock, "test-api.service", "[Unit]\nDescription=Test", enable_and_start=True)
         self.assertTrue(res_install.ok)
-        self.assertIn("base64 -d | sudo tee /etc/systemd/system/test-api.service", mock.commands[-1])
-        self.assertIn("sudo systemctl enable --now test-api.service", mock.commands[-1])
+        self.assertIn("base64 -d | sudo -n tee /etc/systemd/system/test-api.service", mock.commands[-1])
+        self.assertIn("sudo -n systemctl enable --now test-api.service", mock.commands[-1])
 
 
 if __name__ == "__main__":

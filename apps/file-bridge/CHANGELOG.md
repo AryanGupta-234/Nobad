@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+* New interface: Server health and Services.
+  * Server health shows CPU, memory, network, disks, the biggest folders and the busiest processes, with a small
+    chart for the last minute. It reads the server only while you look at it.
+  * Services lists systemd services with failed ones first. You can start, stop, restart and reload them, choose
+    whether they start at boot, read their logs, and install a new one.
+* Fixed (classic window too): starting, stopping or restarting a service, reloading systemd, installing a unit file
+  and stopping a process no longer report success when the command failed. You now see the server's reason. When
+  sudo needs a password, it says so at once instead of waiting forever.
 * New interface: Deployments.
   * Every deploy starts with a preview, with an optional build on your computer first.
   * Deploying makes a backup, uploads, runs your commands and checks that the site works. If any step fails, the
