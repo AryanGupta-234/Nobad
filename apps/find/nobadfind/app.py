@@ -4,6 +4,7 @@ import ctypes
 import os
 import sys
 import threading
+import time
 
 from . import embed, winapi
 from .const import APP_NAME, APP_VER, DATA_DIR, DB_PATH, KEY_PATH, LOG_PATH, SETTINGS_PATH
@@ -87,8 +88,12 @@ def main(argv=None):
     from .api import Api
     holder = {}
     api = Api(store, settings, indexer, vindex, lambda: holder.get("w"))
+    want_glass = settings.get("glass") and winapi.transparency_allowed()
+    if want_glass:
+        os.environ["WEBVIEW2_DEFAULT_BACKGROUND_COLOR"] = "00000000"     # let the acrylic show through the page
     win = webview.create_window(APP_NAME, os.path.join(UI_DIR, "index.html"), js_api=api, width=1080, height=720,
-                                min_size=(720, 480), background_color="#07080a", hidden=args.background,
+                                min_size=(720, 480), background_color="#000000" if want_glass else "#07080a",
+                                hidden=args.background,
                                 text_select=True)
     holder["w"] = win
 
@@ -109,6 +114,7 @@ def main(argv=None):
                 api.here = folder
                 win.evaluate_js("window.nfHere && window.nfHere()")
         threading.Thread(target=find_here, daemon=True, name="here").start()
+        threading.Thread(target=indexer.warm_models, daemon=True, name="warm").start()
         win.show()
         win.restore()
         win.evaluate_js("window.nfFocus && window.nfFocus()")
@@ -116,7 +122,22 @@ def main(argv=None):
     from .hotkey import Hotkey
     hk = Hotkey(settings.get("hotkey"), bring_up)
 
+    def make_glass():
+        hwnd = 0
+        for _ in range(50):                        # the window appears a moment after the app starts
+            hwnd = winapi.own_window(APP_NAME)
+            if hwnd:
+                break
+            time.sleep(0.1)
+        ok = bool(want_glass and winapi.glass(hwnd))
+        log(f"see-through window: {'on' if ok else 'off'} (wanted {bool(want_glass)}, window {hwnd != 0})")
+        if ok:
+            win.evaluate_js("document.documentElement.classList.add('glass')")
+
     def started():
+        threading.Thread(target=make_glass, daemon=True, name="glass").start()
+        if not args.background:
+            threading.Thread(target=indexer.warm_models, daemon=True, name="warm").start()
         if not hk.start():
             win.evaluate_js("window.nfNotice && window.nfNotice('The hotkey is used by another app. Pick another "
                             "one in Settings.')")

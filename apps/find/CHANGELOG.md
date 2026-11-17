@@ -1,5 +1,18 @@
 # NOBAD Find changelog
 
+## 0.6.0 (in development)
+- Previews: photos, videos and PDFs in the results show Windows' own thumbnails, so you can see at a glance
+  whether a photo match is right.
+- More accurate photo meaning: the cut-off was tuned on 55 real photos in 19 topics (precision 0.73 -> 0.82 at
+  the same recall); look-alikes ("flowers" -> a colourful cake) are shown dimmed under "Less sure"; when you ask
+  for photos, what's in the picture counts most; OCR no longer turns stray marks in a photo into text.
+- Light when idle: the models load when you search or when there's indexing work, warm up when you open the
+  window, and leave memory after 3 minutes unused (idle memory 315 MB -> about 135 MB). Faster photo pass when
+  you're away (photos in batches, out of Windows background mode).
+- See-through window on Windows 11 (acrylic), following Windows' own Transparency effects switch (setting).
+- The Index tab shows memory in use right now and which models are loaded.
+- New app icon: a white magnifier with a spark on NOBAD orange.
+
 ## 0.5.0 (in development)
 - Photo meaning (optional): "dog on a beach" finds IMG_0042.jpg even with no words in it. A local image-text
   model (SigLIP base by Google, Apache-2.0, about 211 MB, pinned and SHA-256 checked) is downloaded only when you

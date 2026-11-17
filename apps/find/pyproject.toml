@@ -27,6 +27,8 @@ dependencies = [
   "winrt-Windows.Globalization==3.2.1",
   "winrt-Windows.Foundation==3.2.1",
   "winrt-Windows.Foundation.Collections==3.2.1",
+  "winrt-Windows.Storage==3.2.1",
+  "winrt-Windows.Storage.FileProperties==3.2.1",
 ]
 
 [project.optional-dependencies]

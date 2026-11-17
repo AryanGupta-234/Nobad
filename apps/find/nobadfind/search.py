@@ -165,11 +165,15 @@ def _meaning_hits(store, q, embedder, vindex, limit):
     return order[:limit], best
 
 
-# Photo matches (SigLIP cosine similarity: a much smaller scale than the text model's). Measured on real photos:
-# right answers 0.04-0.11, 95% of wrong ones under 0.012.
-PHOTO_MIN = 0.03
+# Photo matches (SigLIP cosine similarity: a much smaller scale than the text model's). Tuned on 55 real photos in
+# 19 topics: precision 0.82, recall 0.84 (was 0.73 / 0.87). A photo must clear the floor, be within the spread of
+# the best match and score at least PHOTO_RATIO of it.
+PHOTO_MIN = 0.04
 PHOTO_SPREAD = 0.04
+PHOTO_RATIO = 0.6
+PHOTO_SURE = 0.85
 W_PHOTO = 1.0
+W_PHOTO_ASKED = 1.8
 
 
 def _photo_hits(store, q, photo_text, pindex, limit):
@@ -180,7 +184,7 @@ def _photo_hits(store, q, photo_text, pindex, limit):
     hits = pindex.search(photo_text.encode(q.text), k=limit * 3)
     if not hits:
         return [], {}
-    floor = max(PHOTO_MIN, hits[0][1] - PHOTO_SPREAD)
+    floor = max(PHOTO_MIN, hits[0][1] - PHOTO_SPREAD, hits[0][1] * PHOTO_RATIO)
     hits = [(fid, s) for fid, s in hits if s >= floor]
     if not hits:
         return [], {}
@@ -294,7 +298,8 @@ def search(store, text, embedder=None, vindex=None, limit=60, now=None, drives=N
     meaning, best = _meaning_hits(store, q, embedder, vindex, 150)
     lists.append((W_MEANING, meaning))
     photos, pbest = _photo_hits(store, q, photo_text, pindex, 100)
-    lists.append((W_PHOTO, photos))
+    # asking for photos ("beach photos", the Images filter): what's in the picture counts most
+    lists.append((W_PHOTO_ASKED if "image" in q.kinds else W_PHOTO, photos))
 
     score = {}
     for w, ids in lists:
@@ -328,6 +333,9 @@ def search(store, text, embedder=None, vindex=None, limit=60, now=None, drives=N
     more = len(pool) > limit
     top = pool[:limit]
     name_set, text_set = set(names), set(texts)
+    # a photo is "sure" when it's close to the best photo for this question (measured: right photos score within
+    # ~10% of the best one, look-alikes 20% or more below it)
+    photo_sure = max(PHOTO_MIN + 0.005, PHOTO_SURE * max(pbest.values())) if pbest else 1.0
     offline = {d["root"].upper(): (d.get("label") or d["root"].rstrip("\\")) for d in drives
                if d.get("present") is False}
     out = []
@@ -344,7 +352,7 @@ def search(store, text, embedder=None, vindex=None, limit=60, now=None, drives=N
             s, _body, how = best[fid]
             why.append(f"{'name' if how == 'name' else 'text'} has a {_closeness(s)} meaning")
         if fid in pbest:
-            why.append("the picture shows something like it" if pbest[fid] >= 0.06 else "the picture may show it")
+            why.append("the picture shows something like it" if pbest[fid] >= photo_sure else "the picture may show it")
         if q.t0 is not None:
             why.append(f"changed {_ago(r[6], now)}" if r[6] else "date matches")
         if q.place:
@@ -353,7 +361,12 @@ def search(store, text, embedder=None, vindex=None, limit=60, now=None, drives=N
         if drive:
             why.append(f"on {drive}, not connected now")
         snippet = snippets.get(fid) or (best[fid][1] if fid in best else "")
+        # only a weak hint (a picture that "may show it", a loosely related meaning): shown, but as less sure
+        strong = (fid in name_set or fid in text_set or (fid in pbest and pbest[fid] >= photo_sure)
+                  or (fid in best and best[fid][0] >= 0.38) or listing)
         out.append({"id": fid, "path": r[1], "name": r[2], "dir": r[3], "kind": r[4], "size": r[5], "mtime": r[6],
-                    "ago": _ago(r[6], now) if r[6] else "", "why": why, "snippet": snippet})
+                    "ago": _ago(r[6], now) if r[6] else "", "why": why, "snippet": snippet, "weak": not strong})
+    if not q.sort and not listing:                   # sure results first, the less sure ones after them
+        out.sort(key=lambda x: x["weak"])
     return {"results": out, "understood": q.understood(), "terms": q.terms + q.phrases, "notes": q.notes,
             "more": more, "ms": round((time.perf_counter() - t_start) * 1000)}

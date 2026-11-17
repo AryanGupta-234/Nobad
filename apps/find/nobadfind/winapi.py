@@ -244,6 +244,79 @@ def foreground_folder(hwnd=None):
         return ""
 
 
+def own_window(title):
+    """The handle of this process's top-level window with this title (0 if none yet)."""
+    if not WIN:
+        return 0
+    found = []
+    pid = os.getpid()
+    proc = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+
+    def each(h, _l):
+        if window_pid(h) == pid and _window_title(h) == title:
+            found.append(h)
+            return False
+        return True
+    user32.EnumWindows(proc(each), 0)
+    return found[0] if found else 0
+
+
+def transparency_allowed():
+    """Windows' own "Transparency effects" switch (Settings > Personalization > Colors)."""
+    if not WIN:
+        return False
+    import winreg
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+                            r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize") as k:
+            return bool(winreg.QueryValueEx(k, "EnableTransparency")[0])
+    except OSError:
+        return True
+
+
+class _MARGINS(ctypes.Structure):
+    _fields_ = [("l", ctypes.c_int), ("r", ctypes.c_int), ("t", ctypes.c_int), ("b", ctypes.c_int)]
+
+
+def glass(hwnd):
+    """Windows 11 acrylic behind the whole window, dark title bar. True if Windows took it (22H2 and later)."""
+    if not WIN or not hwnd:
+        return False
+    try:
+        dwm = ctypes.WinDLL("dwmapi")
+        h = wintypes.HWND(hwnd)
+        dark = ctypes.c_int(1)
+        dwm.DwmSetWindowAttribute(h, 20, ctypes.byref(dark), 4)              # DWMWA_USE_IMMERSIVE_DARK_MODE
+        backdrop = ctypes.c_int(3)                                           # DWMSBT_TRANSIENTWINDOW (acrylic)
+        if dwm.DwmSetWindowAttribute(h, 38, ctypes.byref(backdrop), 4) != 0:  # DWMWA_SYSTEMBACKDROP_TYPE
+            return False
+        m = _MARGINS(-1, -1, -1, -1)                                          # the backdrop fills the client area
+        return dwm.DwmExtendFrameIntoClientArea(h, ctypes.byref(m)) == 0
+    except Exception:
+        return False
+
+
+class _PMC(ctypes.Structure):
+    _fields_ = [("cb", wintypes.DWORD), ("PageFaultCount", wintypes.DWORD), ("PeakWorkingSetSize", ctypes.c_size_t),
+                ("WorkingSetSize", ctypes.c_size_t), ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
+                ("QuotaPagedPoolUsage", ctypes.c_size_t), ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
+                ("QuotaNonPagedPoolUsage", ctypes.c_size_t), ("PagefileUsage", ctypes.c_size_t),
+                ("PeakPagefileUsage", ctypes.c_size_t)]
+
+
+def memory_mb():
+    """This process's memory in use right now (working set), in MB."""
+    if not WIN:
+        return 0
+    pmc = _PMC()
+    pmc.cb = ctypes.sizeof(_PMC)
+    psapi = ctypes.WinDLL("psapi")
+    psapi.GetProcessMemoryInfo.argtypes = [wintypes.HANDLE, ctypes.c_void_p, wintypes.DWORD]
+    if not psapi.GetProcessMemoryInfo(k32.GetCurrentProcess(), ctypes.byref(pmc), pmc.cb):
+        return 0
+    return round(pmc.WorkingSetSize / 1048576)
+
+
 def fixed_drives():
     """Fixed local drives, e.g. ['C:\\', 'D:\\']."""
     if not WIN:

@@ -85,15 +85,41 @@ function render(r) {
   const count = results.length ? `${results.length}${r.more ? "+" : ""} results · ${r.ms} ms` : "Nothing found. Try fewer or other words, or fewer filters.";
   $("#meta").innerHTML = !q ? "" : r.error ? esc(r.error) :
     esc(count) + (r.notes || []).map(n => ` · <span class="note">${esc(n)}</span>`).join("");
-  $("#results").innerHTML = results.map((x, i) => `
-    <li class="res${i === sel ? " sel" : ""}" data-i="${i}">
-      <span class="ico">${esc(KIND[x.kind] || "FILE")}</span>
+  const firstWeak = results.findIndex(x => x.weak);
+  $("#results").innerHTML = results.map((x, i) => `${i === firstWeak && i > 0 ? `<li class="divider">Less sure</li>` : ""}
+    <li class="res${i === sel ? " sel" : ""}${x.weak ? " weak" : ""}" data-i="${i}">
+      <span class="ico${THUMB_KINDS.has(x.kind) ? " thumbable" : ""}" data-id="${Number(x.id)}">${esc(KIND[x.kind] || "FILE")}</span>
       <div><div class="name">${esc(x.name)}</div><div class="dir">${esc(x.dir)}</div>
         ${x.snippet ? `<div class="snip">${marks(x.snippet)}</div>` : ""}
         <div class="why">${(x.why || []).map(w => `<span>${esc(w)}</span>`).join("")}</div></div>
       <div class="side">${esc(x.ago)}<br>${esc(size(x.size))}</div>
     </li>`).join("");
+  watchThumbs();
 }
+
+// ---------- previews: Windows' own thumbnails, asked for by result id, only for results on screen ----------
+const THUMB_KINDS = new Set(["image", "video", "pdf"]);
+const thumbCache = new Map();
+const thumbSeen = new IntersectionObserver(entries => {
+  for (const e of entries) {
+    if (!e.isIntersecting) continue;
+    thumbSeen.unobserve(e.target);
+    loadThumb(e.target);
+  }
+}, { rootMargin: "200px" });
+async function loadThumb(el) {
+  const id = Number(el.dataset.id);
+  let url = thumbCache.get(id);
+  if (url === undefined) { const r = await api("thumbnail", id); url = (r && r.url) || ""; thumbCache.set(id, url); }
+  if (!url || !url.startsWith("data:image/")) return;       // only our own data: URLs, never a page-made string
+  const img = new Image();
+  img.alt = "";
+  img.src = url;                                            // set as a property, never through innerHTML
+  el.textContent = "";
+  el.appendChild(img);
+  el.classList.add("has-thumb");
+}
+function watchThumbs() { document.querySelectorAll(".ico.thumbable").forEach(el => thumbSeen.observe(el)); }
 
 function select(i) {
   if (!results.length) return;
@@ -145,6 +171,8 @@ async function refreshStatus(full) {
     card(Number(s.with_text).toLocaleString(), "Files with readable text"),
     card(Number((s.vectors || 0) + (s.name_vectors || 0)).toLocaleString(), "Meaning vectors (text + names)"),
     card(Number(s.photo_vectors || 0).toLocaleString(), "Photos understood"),
+    card(s.memory_mb ? s.memory_mb + " MB" : "–", (s.models_loaded || []).length
+      ? "Memory now · models in use: " + s.models_loaded.join(", ") : "Memory now · no models loaded (they load when you search)"),
     card(s.rate ? Number(s.rate).toLocaleString() + "/s" : "–", "Scan speed"),
     card((s.db_bytes / 1048576).toFixed(0) + " MB", "Index size"),
     card(s.plan && s.plan.cpu ? `${s.plan.text_workers}–${s.plan.text_workers_idle} of ${s.plan.cpu}` : "–", "Text workers / CPU threads"),
@@ -197,6 +225,7 @@ const GROUPS = [
   ["Launch", [
     ["hotkey", "txt", "Hotkey", "For example win+shift+space or ctrl+alt+f. Takes effect at the next start."],
     ["autostart", "switch", "Start with Windows", "Starts hidden; the hotkey opens it."],
+    ["glass", "switch", "See-through window", "Windows 11 acrylic behind the window. Follows Windows' own Transparency effects switch. Takes effect at the next start."],
   ]],
   ["Windows Search", [["_wsearch", "wsearch", "Use NOBAD Find instead of Windows Search", ""]]],
   ["Your data", [["_wipe", "wipe", "Delete the whole index", "Removes everything NOBAD Find has stored. It starts again from scratch."]]],

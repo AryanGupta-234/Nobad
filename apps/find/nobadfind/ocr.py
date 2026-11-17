@@ -84,7 +84,14 @@ def _recognize(data):
                                                     ExifOrientationMode.RESPECT_EXIF_ORIENTATION,
                                                     ColorManagementMode.DO_NOT_COLOR_MANAGE).get()
     result = _engine.recognize_async(bmp).get()
-    return "\n".join(line.text for line in result.lines)
+    return real_words("\n".join(line.text for line in result.lines))
+
+
+def real_words(text):
+    """OCR on a photo without writing can 'read' a few stray letters ("vzÄ"): keep text only when it has words."""
+    import re
+    words = re.findall(r"[^\W\d_]{3,}", text)
+    return text if len(words) >= 2 or sum(map(len, words)) >= 8 else ""
 
 
 def image_bytes_text(data):

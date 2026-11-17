@@ -24,6 +24,8 @@ The repository rules in the root [`AGENTS.md`](../../AGENTS.md) apply. Specific 
   Apache-2.0, gated by `allow_photo_model_download`). Keep model licences permissive for shipping (OpenAI CLIP's
   model card rules out deployment, so it isn't used).
 - Photos for photo meaning are decoded only by Windows' decoders in the one photo worker process (`photo.py`).
+  Result previews come from Windows' thumbnail cache (`thumbs.py`), asked for by result id, never a page path.
+- Models are `embed.Lazy`: loaded on use, released when idle. Don't hold a model outside that wrapper.
 - Typed network paths (\\server\share) are never looked up on disk (`search.folder_checker`): only folders already
   in the index or the folder list count, so typing one can't make Windows contact a server.
 - New setting: `const.DEFAULTS` + `settings.coerce` + a row in `ui/app.js` GROUPS.

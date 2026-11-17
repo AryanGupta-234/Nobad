@@ -151,6 +151,49 @@ class Embedder:
         return v / np.maximum(np.linalg.norm(v, axis=1, keepdims=True), 1e-9)
 
 
+class Lazy:
+    """A model that's only in memory while it's being used: loaded by the first encode(), released after
+    IDLE seconds without one (indexer.release_idle_models). Stands in for the model everywhere."""
+
+    IDLE = 180
+
+    def __init__(self, factory, name):
+        self._factory, self.name = factory, name
+        self._model, self._used = None, 0.0
+        self._lock = threading.Lock()
+
+    def _get(self):
+        import time
+        with self._lock:
+            if self._model is None:
+                self._model = self._factory()
+                log(f"{self.name} model loaded")
+            self._used = time.monotonic()
+            return self._model
+
+    def encode(self, *args, **kwargs):
+        return self._get().encode(*args, **kwargs)
+
+    @property
+    def loaded(self):
+        return self._model is not None
+
+    @property
+    def device(self):
+        return getattr(self._model, "device", "CPU")
+
+    def release_if_idle(self, idle=None):
+        import gc
+        import time
+        with self._lock:
+            if self._model is not None and time.monotonic() - self._used > (self.IDLE if idle is None else idle):
+                self._model = None
+                gc.collect()
+                log(f"{self.name} model released (not used for a while)")
+                return True
+        return False
+
+
 def to_blob(v):
     return np.asarray(v, np.float16).tobytes()
 

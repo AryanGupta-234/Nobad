@@ -8,7 +8,7 @@ import subprocess
 import sys
 import threading
 
-from . import embed, ocr, photo, wsearch, winapi
+from . import embed, ocr, photo, thumbs, wsearch, winapi
 from .log import log
 from .search import search
 
@@ -65,6 +65,15 @@ class Api:
             return {"ok": False, "error": "That file isn't there any more."}
         return {"ok": reveal_in_explorer(p)}
 
+    def thumbnail(self, file_id):
+        """A small preview of one result (photo, video, PDF) from Windows' thumbnail cache, or ""."""
+        if not isinstance(file_id, int) or isinstance(file_id, bool):
+            return {"url": ""}
+        row = self._store.q("SELECT path, kind, mtime FROM files WHERE id=?", (file_id,))
+        if not row or row[0][1] not in thumbs.KINDS:
+            return {"url": ""}
+        return {"url": thumbs.data_url(row[0][0], row[0][2])}
+
     def here_folder(self):
         """For the filter bar: the folder "here" means right now ('' if NOBAD Find wasn't opened from one)."""
         return {"path": self.here}
@@ -90,6 +99,8 @@ class Api:
         st.update(self._store.stats())
         st["model"] = dict(self._model)
         st["photo_model"] = dict(self._photo_model)
+        st["memory_mb"] = winapi.memory_mb()
+        st["models_loaded"] = self._indexer.models_loaded()
         st["admin"] = winapi.is_admin()
         st["roots"] = self._indexer.roots()
         st["ocr"] = ocr.available() or ocr.why_missing()

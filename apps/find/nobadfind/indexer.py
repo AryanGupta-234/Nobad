@@ -173,6 +173,7 @@ class Indexer:
                 self.status["phase"] = "watching"
                 self.status.update(self.store.stats())
                 self._tidy_vectors()
+                self.release_idle_models()
                 self.known_drives()
                 self.wake.wait(30)
                 self.wake.clear()
@@ -314,14 +315,16 @@ class Indexer:
     def _load_embedder(self):
         if self.settings.get("semantic") and embed.model_ready():
             try:
-                self.embedder = embed.Embedder()
+                if not embed.model_ready():
+                    raise RuntimeError("model not downloaded")
+                self.embedder = embed.Lazy(embed.Embedder, "meaning")
                 if self.store.meta("vec_version") != embed.VEC_VERSION:
                     log("meaning vectors are made a better way now; computing them again")
                     self.store.drop_vectors()
                     self.store.set_meta("vec_version", embed.VEC_VERSION)
                 if self.vindex is not None:
                     self.vindex.load(self.store)
-                log(f"meaning search on ({self.embedder.device})")
+                log("meaning search on (the model loads when it's needed)")
             except Exception as e:
                 log(f"meaning search unavailable: {type(e).__name__}", "warn")
                 self.embedder = None
@@ -370,7 +373,7 @@ class Indexer:
     def _load_photo(self):
         if self.settings.get("photo_meaning") and photo.model_ready():
             try:
-                self.photo_text = photo.TextEncoder()
+                self.photo_text = embed.Lazy(photo.TextEncoder, "photo text")
                 self.pindex.load(self.store)
                 log(f"photo meaning on ({self.pindex.n} photos ready)")
             except Exception as e:
@@ -419,6 +422,24 @@ class Indexer:
                 self._photo_one_by_one = False      # the suspects were read one by one: back to batches
         finally:
             pool.shutdown(wait=True, cancel_futures=True)
+
+    def warm_models(self):
+        """The window just opened: load the models now, so the first search is quick (released again when idle)."""
+        for m in (self.embedder, self.photo_text):
+            if isinstance(m, embed.Lazy):
+                try:
+                    m.encode(["warm"] if m is self.embedder else "warm")
+                except Exception as e:
+                    log(f"model warm-up failed: {type(e).__name__}", "warn")
+
+    def models_loaded(self):
+        return [m.name for m in (self.embedder, self.photo_text) if isinstance(m, embed.Lazy) and m.loaded]
+
+    def release_idle_models(self):
+        """Light when idle: models leave memory a few minutes after the last search or indexing work."""
+        for m in (self.embedder, self.photo_text):
+            if isinstance(m, embed.Lazy):
+                m.release_if_idle()
 
     def _tidy_vectors(self):
         """Vectors of text that changed or files that went stay in memory until the index is reloaded."""

@@ -2,56 +2,60 @@
 
     python packaging/make_icon.py
 
-The NOBAD brand mark (nobadfind/ui/brand/nobad-mark.png) stays the brand inside the app. The app icon (the exe,
-the taskbar, the installer and the shortcuts) is NOBAD Find's own: the NOBAD black tile and orange, with a
-magnifying glass whose lens holds the NOBAD "n". Writes packaging/nobadfind.ico (16-256 px) and
-packaging/nobadfind-icon.png (512 px, for previews). The .ico is committed, so a build doesn't need Pillow.
+The NOBAD brand mark (nobadfind/ui/brand/nobad-mark.png) stays the brand inside the app. The app icon (exe,
+taskbar, title bar, installer, shortcuts) is NOBAD Find's own: a NOBAD-orange tile with a white magnifier and a
+spark in the lens (search by meaning). At 16-24 px the spark is left out (it would only be a dot).
+Writes packaging/nobadfind.ico (16-256 px) and packaging/nobadfind-icon.png (512 px). The .ico is committed.
 """
+import math
 import os
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "nobadfind.ico")
 PNG = os.path.join(HERE, "nobadfind-icon.png")
 SIZES = [(16, 16), (20, 20), (24, 24), (32, 32), (40, 40), (48, 48), (64, 64), (128, 128), (256, 256)]
-ORANGE = (255, 77, 0, 255)
-TILE = (10, 11, 13, 255)
-RIM = (40, 44, 52, 255)
+LIGHT, DEEP = (255, 106, 26), (226, 52, 0)            # NOBAD orange, top to bottom
+WHITE = (255, 255, 255)
 
 
-def _font(px):
-    for name in ("ariblk.ttf", "seguibl.ttf", "arialbd.ttf"):
-        try:
-            return ImageFont.truetype(name, px)
-        except OSError:
-            continue
-    return ImageFont.load_default()
+def _tile(size):
+    g = Image.new("RGB", (size, size))
+    d = ImageDraw.Draw(g)
+    for y in range(size):
+        t = y / size
+        d.line([(0, y), (size, y)], fill=tuple(int(a + (b - a) * t) for a, b in zip(LIGHT, DEEP)))
+    mask = Image.new("L", (size, size), 0)
+    ImageDraw.Draw(mask).rounded_rectangle([0, 0, size - 1, size - 1], radius=int(size * 0.22), fill=255)
+    out = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    out.paste(g, (0, 0), mask)
+    return out
 
 
-def draw(size=1024, simple=False):
-    """simple: the 16-24 px version (no letter in the lens: it would be a blur)."""
-    im = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+def draw(size=1024, spark=True):
+    im = _tile(size)
     d = ImageDraw.Draw(im)
-    s = size / 1024
-    d.rounded_rectangle([24 * s, 24 * s, 1000 * s, 1000 * s], radius=220 * s, fill=TILE, outline=RIM,
-                        width=max(1, int(10 * s)))
-    cx, cy, r = 440 * s, 430 * s, 255 * s
-    ring = (78 if simple else 64) * s
-    # handle first, so the ring sits on top of it
-    d.line([(cx + r * 0.62, cy + r * 0.62), (850 * s, 840 * s)], fill=ORANGE, width=int((150 if simple else 130) * s))
-    d.ellipse([838 * s - 75 * s, 828 * s - 75 * s, 862 * s + 50 * s, 852 * s + 50 * s], fill=ORANGE)
-    d.ellipse([cx - r, cy - r, cx + r, cy + r], outline=ORANGE, width=int(ring))
-    if not simple:
-        f = _font(int(300 * s))
-        box = d.textbbox((0, 0), "n", font=f)
-        w, h = box[2] - box[0], box[3] - box[1]
-        d.text((cx - w / 2 - box[0], cy - h / 2 - box[1] - 6 * s), "n", font=f, fill=(243, 244, 246, 255))
+    cx = cy = size * 0.43
+    r, ring, handle = size * 0.20, size * 0.085, size * 0.20
+    k = math.sqrt(0.5)
+    x0, y0 = cx + (r + ring * 0.3) * k, cy + (r + ring * 0.3) * k
+    x1, y1 = x0 + handle * k, y0 + handle * k
+    d.line([(x0, y0), (x1, y1)], fill=WHITE, width=int(ring * 1.25))
+    w = ring * 1.25 / 2
+    d.ellipse([x1 - w, y1 - w, x1 + w, y1 + w], fill=WHITE)
+    d.ellipse([cx - r - ring / 2, cy - r - ring / 2, cx + r + ring / 2, cy + r + ring / 2], outline=WHITE,
+              width=int(ring))
+    if spark:                                          # a four-point spark: search by meaning
+        sr = size * 0.105
+        pts = [(cx + (sr if i % 2 == 0 else sr * 0.28) * math.cos(math.pi / 4 * i - math.pi / 2),
+                cy + (sr if i % 2 == 0 else sr * 0.28) * math.sin(math.pi / 4 * i - math.pi / 2)) for i in range(8)]
+        d.polygon(pts, fill=WHITE)
     return im
 
 
 def main():
-    big, small = draw(1024), draw(1024, simple=True)
+    big, small = draw(1024), draw(1024, spark=False)
     frames = [(small if w <= 24 else big).resize((w, h), Image.LANCZOS) for w, h in SIZES]
     frames[-1].save(OUT, format="ICO", sizes=SIZES, append_images=frames[:-1])
     big.resize((512, 512), Image.LANCZOS).save(PNG)

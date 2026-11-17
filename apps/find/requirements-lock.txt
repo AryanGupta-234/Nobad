@@ -607,6 +607,8 @@ winrt-runtime==3.2.1 \
     #   winrt-windows-globalization
     #   winrt-windows-graphics-imaging
     #   winrt-windows-media-ocr
+    #   winrt-windows-storage
+    #   winrt-windows-storage-fileproperties
     #   winrt-windows-storage-streams
 winrt-windows-foundation==3.2.1 \
     --hash=sha256:14d5191725301498e4feb744d91f5b46ce317bf3d28370efda407d5c87f4423b \
@@ -712,6 +714,48 @@ winrt-windows-media-ocr==3.2.1 \
     --hash=sha256:dd2a8f427f18c122cbeb9f556999650bd8bf55402f648005efc29a2972878f5b \
     --hash=sha256:e1d44b85875643b4718d1094dbe75cee72b3cecedafe37c3f27b738f53bef96c \
     --hash=sha256:e731cf200a4731f53c0e40fba72e0312e895f80ab4e3574dc45ef3b1e35509ef
+    # via -r requirements.txt
+winrt-windows-storage==3.2.1 \
+    --hash=sha256:01a4ae3b61c30c3fb492615c6961791cc83f2344b2fc1a9bdb2fd8d83024fce0 \
+    --hash=sha256:05cb70a8f5cc356257a5e51964b280bd40b200f7257f2438f6edc192e67a3a9b \
+    --hash=sha256:4a99cfa3e45169620d818750209c8bba426594012b336414671dcba9a3e8d5bf \
+    --hash=sha256:4c916d94856ed89fb5c67f649852310fcffb9d948c3b931fd4d47e970c46d685 \
+    --hash=sha256:53984f0d0ba0027c23116b9084e5f5c48720466909dcad180240abdc880b9435 \
+    --hash=sha256:5bafa8c44238c3080c54fe44486c400a7a7a3f5ca9005e8fd97e6dd3e49920a2 \
+    --hash=sha256:699965462247f3affba041cb89fee2d8ab4bd48e64af6ac166478c2ded2f0d64 \
+    --hash=sha256:7827a46098e0b0c97fdb085c1ebb4de0b130f36402723d9f539a1c1fb399c8e7 \
+    --hash=sha256:78b70421bd19c6705f47bf96a34cce80477522fa9c7d182b56ca781a64e76543 \
+    --hash=sha256:78d6191e1daabd4b6aff31b84cc890e5483f4e168bceb0ef6d099ec32af9b835 \
+    --hash=sha256:7a57e022bc8e7096a12f2b530ab544a71ede704a01cdfde75009ed40897b696e \
+    --hash=sha256:a9020311207e937bde7a0a1cbe277d08eb051b6c0d90b3482cf305ec2cff03dd \
+    --hash=sha256:b7d5739001d435c914da3354e2c173d3f3bc48b344ebf294308685db82240376 \
+    --hash=sha256:c7d1c2326fd842babbf98d944d4991b7592ee8433c762af0a8b47696437fae0b \
+    --hash=sha256:cbf8c592e5ff62579990da34bbba2aadb4343ab332c6f1773c8ec4621d64fe47 \
+    --hash=sha256:ddc5f82eee771cab9b57dc56908a3fdce7bbd3da1dd4d418df8436002e076f64 \
+    --hash=sha256:f4ddf0826731f58df56bdf67a5e523adb9f22773dc179ac3bc0e86a02faf774c \
+    --hash=sha256:f4f1fff7846f934f53b4cdc7089faa6d21ced9bc993215e95c4fcc716da851e7 \
+    --hash=sha256:fc0567ff2303bcf7d471dba178a997bfdab57371e8282e90a40cc522d7fb4421
+    # via -r requirements.txt
+winrt-windows-storage-fileproperties==3.2.1 \
+    --hash=sha256:106ca4eb0990bde76769242684f59999b12da87ba32cc1a9ab395fb6c52443e1 \
+    --hash=sha256:32cc8071fcc5cd10472d20d43afef27c344ca428b67f1ab938d7dedf3e486d12 \
+    --hash=sha256:376e68f00f6db5c3185fd67b3795782660bda7f0a987357386108df810a0eb0a \
+    --hash=sha256:3dcae9f3fa0c94333c371d4367c490027cb38866c3c6da2e1e5fea46898a117a \
+    --hash=sha256:44fb4e757df9f979353fc8f4f27edae2b2a2834e60ca9beba84ecdab264bd0c2 \
+    --hash=sha256:58f18c2da8d4339159a388a8c078e45731171cb0bfb7a621e3e9e1622fc6a041 \
+    --hash=sha256:7931e899c70bbe2b1685bfc66b4d95f1f536e336cd8e50b6c6dd0f01140c3c3f \
+    --hash=sha256:7f140aef21c471ce56e3bfe375834249c4e9b746ad93c19a78e2d45bf43593ab \
+    --hash=sha256:82f44d4e2014ee61090dda0a732a7ce8484337b440ca863ea02e57ed0c25b8d1 \
+    --hash=sha256:8bb015af1d3809ed3d2955b7f2d0e557e43bdb730a377c39bee8fe77c09f937e \
+    --hash=sha256:9f1571920e1ca9e4e1941ffbe985aea1b8422a38033d044cce3ed5617addeff0 \
+    --hash=sha256:aa8862dd1621e7737b6f85be2f134dab2e2116f29b330141f45bd1d98a0d5d6b \
+    --hash=sha256:bc986e6769a043b10f40f7bcc662fff63ff74e385973f086cd2d5082986c253e \
+    --hash=sha256:c1f73bc92a3c277644c207cb8709992ab61a9a1195714c1869515f57a62bc7e9 \
+    --hash=sha256:c7cbf1e298e2559af11e432c9aceba59e05255564464bae2760afe0334965138 \
+    --hash=sha256:cff37e3646ad4955f91f82e643d9c68633549d5383e72f56eac3716b2d1ec481 \
+    --hash=sha256:d229f1483158a5f8458cec39ad5a91ddcf3a5570198f20be2e23e2a755e9f367 \
+    --hash=sha256:f94d550c65084978c57fde86bb8f3e0980ddf42e6df5f363bc6e70004701b42a \
+    --hash=sha256:fba23ad7f0865d6bfb706b1044af81960a3e78ce730de6da1b4baf9e96a1c357
     # via -r requirements.txt
 winrt-windows-storage-streams==3.2.1 \
     --hash=sha256:040cb94e6fb26b0d00a00e8b88b06fadf29dfe18cf24ed6cb3e69709c3613307 \
