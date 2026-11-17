@@ -5,12 +5,12 @@ NOBAD File Bridge · part of [NOBAD](../../README.md): software with a point of 
 **Status:** in development, not released yet. Issues [#29](https://github.com/AryanGupta-234/Nobad/issues/29) to [#33](https://github.com/AryanGupta-234/Nobad/issues/33) must be fixed before the first release. Author and code owner: [@harshRaj1601](https://github.com/harshRaj1601). AI assistants: see [AGENTS.md](AGENTS.md).
 
 Open, copy, edit and back up the files on your website or server, right from your PC. NOBAD File Bridge
-(formerly *NOBAD Files*) is a cross-platform desktop app and part of the NOBAD platform. It's built with Python 3.12
-and PySide6.
+(formerly *NOBAD Files*) is a cross-platform desktop app and part of the NOBAD platform. It's built with Python 3.12;
+its window is a web interface in a pywebview window (Edge WebView2 on Windows, WebKit2GTK or Qt WebEngine on Linux).
 
 All commands below are run from `apps/file-bridge/`.
 
-Phase 4A/4B/4C MVP for a cross-platform Python desktop application: a PySide6 file manager with SSH/SFTP and FTP/FTPS browsing, queued transfers, cross-server relay, baseline-aware sync, visual text diffs, remote editing, terminals, structured logs, secure credential references, password-protected credential vaults, and release-aware deployment workflows.
+A cross-platform Python desktop application: a file manager with SSH/SFTP and FTP/FTPS browsing, queued transfers, cross-server relay, baseline-aware sync, visual text diffs, remote editing, terminals, structured logs, secure credential references, password-protected credential vaults, and release-aware deployment workflows.
 
 The app does not claim to connect to every hosting platform directly. cPanel, hPanel, AWS EC2, Ubuntu VPS, shared hosting, and cloud storage are profile types. They work only when a supported access method is available, such as SSH, SFTP, FTP/FTPS, a provider API, rsync, or rclone.
 
@@ -18,7 +18,7 @@ The app does not claim to connect to every hosting platform directly. cPanel, hP
 
 Implemented in this scaffold:
 
-- PySide6 `QtWidgets` responsive workbench with navigation rail, connection page, file manager workspace, editor, terminal, Activity page, settings, sync, and deployments.
+- A web interface in the NOBAD VPN style (`app_web/`, see [docs/WEB-UI.md](docs/WEB-UI.md)): navigation rail, command palette, dual-pane files, connections, terminal tabs, editor, sync, deployments, credential vault, server health, services, tunnels, live logs, playbooks and settings, in dark and light.
 - Saved deployment jobs with optional local builds, upload-only or mirror previews, remote tar/zip backups, queued uploads, ordered remote commands, cancellation, and automatic rollback.
 - Opt-in atomic deployments under `.rfm-releases`, safe adoption of existing targets, staged symlink switching, active/previous release retention, and in-place compatibility for existing jobs.
 - Command and HTTP health checks with retries, desktop or remote-curl origin, status/body verification, TLS warnings, and automatic rollback after failed verification.
@@ -28,7 +28,7 @@ Implemented in this scaffold:
 - Capability matrix for profile/protocol-aware UI gating.
 - Protocol-neutral remote file operations implemented for SFTP, FTP, and FTPS.
 - Faster SFTP directory listing using server-returned directory attributes.
-- Interactive tabbed SSH PTY terminal surface using QtWebEngine, QtWebChannel, and local xterm.js assets.
+- Terminal tabs for the server (SSH PTY) and this computer, with bundled xterm.js.
 - Queue-scheduled upload/download transfers with concurrency settings, progress, speed, ETA, retry/cancel controls, `.part` safety, and history hooks.
 - SQLite persistence for saved connection profiles, secret references, transfer history, recent paths, logs, settings, deployment runs, stage timing, and rollback artifacts.
 - Advanced local/remote editor workflow with stable tabs, find/replace, syntax hooks, encoding status, secure temp workspace, stale remote detection, side-by-side comparison, and explicit overwrite/reload/save-as conflict actions.
@@ -60,7 +60,6 @@ source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
-On systems where `QtWebEngine` is unavailable, the editor panel falls back to a plain Qt text editor so the app can still run.
 
 ## The app window
 
@@ -70,7 +69,6 @@ Editor, Sync, Deployments, Credential vault, Server health, Services, Tunnels, L
 ```bash
 nobad-file-bridge             # or: python -m app.main
 nobad-file-bridge --browser   # the same app in your web browser
-nobad-file-bridge --classic   # the previous Qt window, while it still ships
 ```
 
 **Windows** uses Edge WebView2, which is part of Windows 10 and 11.
@@ -108,7 +106,7 @@ the encrypted vault. Nothing is written to disk in plain text.
 QT_QPA_PLATFORM=offscreen python -m pytest -q tests
 ```
 
-Network integration tests remain optional because they require test servers. The deterministic suite covers migrations, sync baselines, conflict resolution, FTP streaming, transfer safety, deployment behavior, terminals, and UI models.
+Most web UI tests run against real AsyncSSH servers started on 127.0.0.1. `QT_QPA_PLATFORM=offscreen` is for the page smoke test, which opens every screen in Qt WebEngine. The suite also covers migrations, sync baselines, conflict resolution, FTP streaming, transfer safety, deployments and terminals.
 
 ## Package
 
@@ -151,7 +149,7 @@ The Linux package installs a launcher at `/usr/bin/nobad-file-bridge`. If the ap
 QT_DEBUG_PLUGINS=1 nobad-file-bridge 2>&1 | tee /tmp/nobad-file-bridge-startup.log
 ```
 
-The `.deb` declares common PySide6/QtWebEngine runtime dependencies, including XCB, WebEngine, GL, GTK, NSS, and audio libraries. Rebuild the `.deb` after changing `packaging/linux/build-deb.sh`; the old `.deb` will not contain new dependency metadata.
+On Linux the packaged window runs in Qt WebEngine from the bundled PySide6, so the `.deb` declares common PySide6/QtWebEngine runtime dependencies, including XCB, WebEngine, GL, GTK, NSS, and audio libraries. The Windows build has no Qt at all. Rebuild the `.deb` after changing `packaging/linux/build-deb.sh`; the old `.deb` will not contain new dependency metadata.
 
 For Windows, run these commands in PowerShell from the project root:
 

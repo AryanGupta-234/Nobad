@@ -9,15 +9,6 @@ def test_branding_assets_include_runtime_and_packaged_icons() -> None:
     assert Path("resources/branding/remote-file-manager.ico").is_file()
 
 
-def test_app_main_sets_qt_application_icon() -> None:
-    source = Path("app/classic.py").read_text(encoding="utf-8")
-
-    assert "icon = application_icon()" in source
-    assert 'app.setDesktopFileName("nobad-file-bridge")' in source
-    assert "app.setWindowIcon(icon)" in source
-    assert "window.setWindowIcon(icon)" in source
-
-
 def test_pyinstaller_spec_includes_resources_and_app_icon() -> None:
     source = Path("build.spec").read_text(encoding="utf-8")
 

@@ -1,6 +1,4 @@
-"""One asyncio event loop on a daemon thread, shared by every backend service (Qt-free, so any UI can use it).
-
-Moved from ui/async_worker.py unchanged; ui.async_worker re-exports it for the Qt UI."""
+"""One asyncio event loop on a daemon thread, shared by every backend service (no UI toolkit involved)."""
 from __future__ import annotations
 
 import asyncio

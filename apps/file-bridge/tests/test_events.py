@@ -1,13 +1,11 @@
-"""The transfer backend is Qt-free (so the web UI can use it), and the Qt UI still gets its signals on the GUI thread."""
+"""The transfer backend has no UI toolkit in it: events are plain callbacks, safe across threads."""
 from __future__ import annotations
 
 import os
 import subprocess
 import sys
-import threading
 from pathlib import Path
 
-import pytest
 
 from core.events import Event
 
@@ -61,38 +59,3 @@ def test_backend_imports_without_pyside6() -> None:
 
     assert done.returncode == 0, done.stderr
     assert done.stdout.strip() == "ok"
-
-
-def test_transfer_manager_events_reach_qt_slots_on_the_gui_thread(monkeypatch: pytest.MonkeyPatch) -> None:
-    pytest.importorskip("PySide6")
-    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
-    from PySide6.QtCore import QCoreApplication, QObject, QThread, Slot
-
-    from transfers.transfer_manager import TransferManager
-    from ui.qt_bridge import QtTransferSignals
-
-    app = QCoreApplication.instance() or QCoreApplication([])
-
-    class Receiver(QObject):
-        def __init__(self) -> None:
-            super().__init__()
-            self.calls: list[tuple[str, bool]] = []
-
-        @Slot(str)
-        def on_batch(self, batch_id: str) -> None:
-            self.calls.append((batch_id, QThread.currentThread() is app.thread()))
-
-    manager = TransferManager()
-    bridge = QtTransferSignals(manager)
-    receiver = Receiver()
-    bridge.batch_finished.connect(receiver.on_batch)
-
-    worker = threading.Thread(target=manager.batch_finished.emit, args=("batch-1",))   # like the asyncio thread
-    worker.start()
-    worker.join()
-    assert receiver.calls == []          # queued, not run on the worker thread
-    app.processEvents()
-
-    assert receiver.calls == [("batch-1", True)]
-    bridge.detach()
-    assert len(manager.batch_finished) == 0

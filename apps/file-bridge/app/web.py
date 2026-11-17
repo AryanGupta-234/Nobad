@@ -18,8 +18,7 @@ from core.diagnostics import install_diagnostics
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="nobad-file-bridge", description="NOBAD File Bridge",
-                                     epilog="--classic opens the previous Qt window while it still ships.")
+    parser = argparse.ArgumentParser(prog="nobad-file-bridge", description="NOBAD File Bridge")
     parser.add_argument("--browser", action="store_true", help="open the UI in your web browser instead of a window")
     parser.add_argument("--db", help="use this database file instead of the normal one (for testing)")
     parser.add_argument("--debug", action="store_true", help="allow the web inspector in the window")

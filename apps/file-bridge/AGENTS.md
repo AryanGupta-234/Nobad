@@ -4,13 +4,13 @@ This file applies to everything under `apps/file-bridge/`. The repository-wide r
 (read it too); project memory is in [`/docs/ai/memory.md`](../../docs/ai/memory.md).
 
 NOBAD File Bridge is a desktop file manager for remote servers (SSH/SFTP, FTP/FTPS, transfers, sync, remote editing,
-terminals, an encrypted credential vault, deployments). Python 3.12 + PySide6. Author and code owner:
+terminals, an encrypted credential vault, deployments). Python 3.12; the window is a web UI (`app_web/`) in pywebview. Author and code owner:
 @harshRaj1601. Part of NOBAD: *software with a point of view*.
 
 ## Commands (from `apps/file-bridge`)
 - Install: `pip install -e ".[dev]"` (CI should move to `uv sync --locked`, see #33)
 - Tests: `python -m pytest -q tests` (Qt offscreen: `QT_QPA_PLATFORM=offscreen`). CI: `.github/workflows/file-bridge-ci.yml`.
-- Run: `python -m app.main` (the web UI; see `docs/WEB-UI.md`) · `python -m app.main --classic` (previous Qt UI, to be removed)
+- Run: `python -m app.main` (the web UI; see `docs/WEB-UI.md`) · `--browser` opens it in a web browser
 - Package: `uv run --with pyinstaller pyinstaller --clean --noconfirm build.spec` (on the target OS), then
   `packaging/linux/build-deb.sh` on Linux
 - Web UI screenshots (temporary database, never commit them): `python -I scripts/ui_screenshots.py <folder> [screen ...]`

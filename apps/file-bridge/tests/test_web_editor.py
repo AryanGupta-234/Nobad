@@ -185,8 +185,7 @@ def test_local_binary_files_are_refused(ctx, tmp_path: Path) -> None:
 
 # ---------------------------------------------------------------- Monaco is bundled (issue #30)
 def test_no_editor_page_loads_anything_from_a_cdn() -> None:
-    pages = [APP_ROOT / "resources" / "editor" / "editor.html", APP_ROOT / "resources" / "editor" / "editor_v2.html",
-             APP_ROOT / "app_web" / "ui" / "index.html", APP_ROOT / "app_web" / "ui" / "screens" / "editor.js"]
+    pages = [APP_ROOT / "app_web" / "ui" / "index.html", APP_ROOT / "app_web" / "ui" / "screens" / "editor.js"]
     for page in pages:
         text = page.read_text(encoding="utf-8")
         assert not re.search(r"https?://(unpkg\.com|cdnjs\.|cdn\.jsdelivr|fonts\.googleapis)", text), page.name

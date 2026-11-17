@@ -2,7 +2,7 @@
 
 It keeps the familiar ``connect`` / ``disconnect`` / ``emit`` shape of a Qt signal, but handlers run synchronously on
 the thread that calls ``emit`` (for the transfer manager: the asyncio runtime thread). A UI that needs its own thread
-re-emits from a handler (the Qt UI does that in ``ui/qt_bridge.py``; the web UI pushes onto its event bus).
+re-emits from a handler (the web UI pushes onto its event bus).
 
 A failing handler is logged and skipped: one broken subscriber must never stop a transfer."""
 from __future__ import annotations

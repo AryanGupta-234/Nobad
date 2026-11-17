@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+* The classic Qt window is removed. File Bridge's window has every screen it had, and more. Your saved servers,
+  sync jobs, deployments, the credential vault and settings are kept, because both windows used the same database.
+  `--classic` now says it was removed.
+* Smaller Windows app: it no longer bundles Qt, because the window uses Edge WebView2. On Linux, Qt is still used
+  for the window when GTK's WebKit isn't installed.
 * The new interface is now File Bridge's window: `nobad-file-bridge` (or `python -m app.main`) opens it, and
   `--browser` opens it in your web browser. The previous window is still there with `--classic` for now.
 * Packaging: the app now ships the new interface. Before, `pip install` and the packaged app would have left it

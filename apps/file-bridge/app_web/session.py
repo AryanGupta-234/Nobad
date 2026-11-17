@@ -1,8 +1,7 @@
 """The connection session for the web UI: one active server connection, saved profiles and the host-key prompt.
 
-Qt-free port of the connection flow in ui/main_window.py (_quick_connect, _start_profile_connection,
-_handle_connection_attempt_failure, _connected, _disconnect_current). It uses the same backend services, so a
-profile saved here shows up in the classic window and the other way round.
+Built on the shared backend services (ConnectionManager, SavedConnectionService), so profiles saved by earlier
+versions of the app are listed here too.
 
 Host keys (repository rule: unknown host = ask, changed key = refuse by default): when the server's key isn't
 trusted yet, connecting stops and the page gets a ``hostkey`` event with the fingerprint and a one-time token. Only

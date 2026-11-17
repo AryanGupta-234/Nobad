@@ -5,7 +5,7 @@ description = "SSH/SFTP and FTP/FTPS file manager with terminals, an editor, syn
 readme = "README.md"
 requires-python = ">=3.12, <3.13"
 dependencies = [
-    "PySide6>=6.7",
+    "PySide6>=6.7; sys_platform == 'linux'",
     "asyncssh>=2.14",
     "keyring>=25.0",
     "SQLAlchemy>=2.0",
@@ -50,8 +50,7 @@ packages = [
     "storage",
     "sync",
     "terminal",
-    "transfers",
-    "ui"
+    "transfers"
 ]
 
 [tool.setuptools.package-data]

@@ -53,16 +53,20 @@ datas += collect_data_files("webview")
 
 # pywebview backends per platform: Edge WebView2 (WinForms) on Windows; Qt WebEngine through the bundled PySide6 on
 # Linux (a frozen app can't import the system's GTK bindings). The others would only make the bundle bigger.
+QT_HIDDEN = ["PySide6.QtCore", "PySide6.QtGui", "PySide6.QtWidgets", "PySide6.QtWebEngineCore",
+             "PySide6.QtWebEngineWidgets", "PySide6.QtWebChannel", "PySide6.QtNetwork", "PySide6.QtPrintSupport"]
 if sys.platform == "win32":
     WEBVIEW_SKIP = (".gtk", ".qt", ".cocoa", ".android", ".cef", ".mshtml")
     PLATFORM_HIDDEN = ["clr", "clr_loader", "pythonnet"]
+    PLATFORM_EXCLUDES = ["PySide6", "shiboken6", "qtpy"]       # Windows draws the window with WebView2: no Qt at all
 else:
     WEBVIEW_SKIP = (".winforms", ".edgechromium", ".win32", ".mshtml", ".cef", ".cocoa", ".android", ".gtk")
-    PLATFORM_HIDDEN = ["qtpy", "qtpy.QtCore", "qtpy.QtGui", "qtpy.QtWidgets", "qtpy.QtWebEngineWidgets",
-                       "qtpy.QtWebEngineCore", "qtpy.QtWebChannel", "qtpy.QtNetwork"]
+    PLATFORM_HIDDEN = QT_HIDDEN + ["qtpy", "qtpy.QtCore", "qtpy.QtGui", "qtpy.QtWidgets", "qtpy.QtWebEngineWidgets",
+                                   "qtpy.QtWebEngineCore", "qtpy.QtWebChannel", "qtpy.QtNetwork"]
+    PLATFORM_EXCLUDES = []
 
 for distribution in [
-    "PySide6",
+    *([] if sys.platform == "win32" else ["PySide6"]),
     "asyncssh",
     "aioftp",
     "keyring",
@@ -83,16 +87,6 @@ for distribution in [
 
 hiddenimports = [
     *PLATFORM_HIDDEN,
-    "PySide6.QtCore",
-    "PySide6.QtGui",
-    "PySide6.QtWidgets",
-    "PySide6.QtWebEngineCore",
-    "PySide6.QtWebEngineWidgets",
-    "PySide6.QtWebChannel",
-    "PySide6.QtNetwork",
-    "PySide6.QtPrintSupport",
-    "PySide6.QtSvg",
-    "PySide6.QtSvgWidgets",
     "winpty",
     "sqlalchemy.dialects.sqlite",
     "cryptography.hazmat.backends.openssl",
@@ -118,7 +112,6 @@ for package in [
     "sync",
     "terminal",
     "transfers",
-    "ui",
     "asyncssh",
     "aioftp",
     "keyring",
@@ -151,6 +144,7 @@ a = Analysis(
         "PyQt5",
         "PyQt6",
         "PySide2",
+        *PLATFORM_EXCLUDES,
         *(f"webview.platforms{x}" for x in WEBVIEW_SKIP),
     ],
     noarchive=False,
