@@ -17,7 +17,7 @@ software in the open, in collaboration with AI. Each product lives in its own fo
 | Product | What it is | Status | Where |
 |---|---|---|---|
 | **NOBAD VPN** | A WireGuard client for Windows with a kill switch, DNS leak block, Network Intelligence, an Evil Twin network check and Where to watch. | Available | [`apps/vpn/`](apps/vpn/) · [product page](https://nobad-platform.aassworld99.workers.dev/products/vpn/) |
-| **NOBAD File Bridge** | Open, copy, edit and back up the files on your website or server from your PC: SFTP/FTP, two-way sync, a terminal, an encrypted password vault and deployments. Linux and Windows. By [@harshRaj1601](https://github.com/harshRaj1601). | In development: being hardened before its first release (see [issues labelled `nobad-files`](https://github.com/nobad-studio/Nobad-VPN/issues?q=is%3Aissue+label%3Anobad-files)) | [`apps/file-bridge/`](apps/file-bridge/) · [product page](https://nobad-platform.aassworld99.workers.dev/products/file-bridge/) |
+| **NOBAD File Bridge** | Open, copy, edit and back up the files on your website or server from your PC: SFTP/FTP, two-way sync, a terminal, an encrypted password vault and deployments. Linux and Windows. By [@harshRaj1601](https://github.com/harshRaj1601). | In development: being hardened before its first release (see [issues labelled `area:file-bridge`](https://github.com/nobad-studio/Nobad-VPN/issues?q=is%3Aissue+label%3Aarea%3Afile-bridge)) | [`apps/file-bridge/`](apps/file-bridge/) · [product page](https://nobad-platform.aassworld99.workers.dev/products/file-bridge/) |
 
 The website source is in [`site-pages/`](site-pages/).
 

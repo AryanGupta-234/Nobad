@@ -34,10 +34,13 @@ Add to it when the maintainer decides something; delete lines that stop being tr
 - 2026-11-17 Move to `nobad-studio`. Done: repo transferred and renamed to `nobad-studio/Nobad-VPN` (old URLs
   redirect, but attestation `--signer-workflow` must name the exact repo), org profile `nobad-studio/.github`, website
   split into `nobad-studio/website` (full history), ruleset bypass "Organization admin" restored on "Protect main"
-  and "Protect release tags", secret scanning + push protection on, Dependabot covers every app. Still pending:
-  `gh auth refresh -s admin:org` (team `file-bridge`, Harsh's invite, "members can't create repositories"), "Require
-  2FA" in org settings; once Cloudflare Workers Builds deploys from `nobad-studio/website`, remove `site-pages/`,
-  `releases/` and the site build from this repo; File Bridge split waits for Harsh's PRs #35, #38, #39.
+  and "Protect release tags", secret scanning + push protection on in all three repos (same merge settings: squash
+  only, delete branch on merge), Dependabot covers every app, 2FA required, Harsh is an org member. Still pending:
+  `gh auth refresh -s admin:org` (team `file-bridge`, "members can't create repositories"); the live site is stuck at
+  `ffbb177` because Cloudflare Workers Builds stopped after the move: reconnect `nobad-platform` to
+  `nobad-studio/website`, then remove `site-pages/`, `releases/` and the site build from this repo. Until then site
+  edits go to `nobad-studio/website` first and are copied here unchanged. File Bridge split waits for Harsh's PRs
+  #35, #38, #39. File Bridge issues use the label `area:file-bridge` (was `nobad-files`).
 - 2026-11-17 Releases up to 1.6.1 keep their attestations under the old owner: verify with `--owner AryanGupta-234
   --signer-workflow AryanGupta-234/Nobad/.github/workflows/vpn-release.yml` (tested). New releases: `-R nobad-studio/Nobad-VPN`.
 - 2026-11-17 NOBAD Find (`apps/find/`, in development, no installer yet): private offline search over your own files.
