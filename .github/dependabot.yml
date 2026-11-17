@@ -1,4 +1,6 @@
 version: 2
+# Weekly version updates for every manifest in the repo. Security updates are on as well (repository setting) and
+# open their own PRs as soon as an advisory lands. Minor and patch bumps are grouped per app to keep the PR list short.
 updates:
   - package-ecosystem: github-actions
     directory: /
@@ -7,8 +9,33 @@ updates:
     groups:
       actions:
         patterns: ["*"]
+
+  # NOBAD VPN (requirements.txt + hash-pinned requirements-lock.txt)
   - package-ecosystem: pip
     directory: /apps/vpn
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    groups:
+      vpn-minor:
+        update-types: [minor, patch]
+
+  # NOBAD Find (pyproject.toml, requirements*.txt, requirements-lock.txt)
+  - package-ecosystem: pip
+    directory: /apps/find
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      find-minor:
+        update-types: [minor, patch]
+
+  # NOBAD File Bridge (pyproject.toml)
+  - package-ecosystem: pip
+    directory: /apps/file-bridge
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      file-bridge-minor:
+        update-types: [minor, patch]
