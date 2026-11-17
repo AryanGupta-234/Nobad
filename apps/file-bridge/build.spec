@@ -17,9 +17,10 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
-from PyInstaller.utils.hooks import collect_submodules, copy_metadata
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules, copy_metadata
 
 
 ROOT = Path(globals().get("SPECPATH", ".")).resolve()
@@ -44,7 +45,21 @@ def safe_copy_metadata(distribution: str) -> list[tuple[str, str]]:
 
 datas = [
     (str(RESOURCES_DIR), "resources"),
+    # The app window: pages, styles, scripts and vendored xterm (served by app_web.server from this folder).
+    (str(ROOT / "app_web" / "ui"), "app_web/ui"),
 ]
+# pywebview's own files (WebView2 loader and helpers on Windows, JS bridge everywhere).
+datas += collect_data_files("webview")
+
+# pywebview backends per platform: Edge WebView2 (WinForms) on Windows; Qt WebEngine through the bundled PySide6 on
+# Linux (a frozen app can't import the system's GTK bindings). The others would only make the bundle bigger.
+if sys.platform == "win32":
+    WEBVIEW_SKIP = (".gtk", ".qt", ".cocoa", ".android", ".cef", ".mshtml")
+    PLATFORM_HIDDEN = ["clr", "clr_loader", "pythonnet"]
+else:
+    WEBVIEW_SKIP = (".winforms", ".edgechromium", ".win32", ".mshtml", ".cef", ".cocoa", ".android", ".gtk")
+    PLATFORM_HIDDEN = ["qtpy", "qtpy.QtCore", "qtpy.QtGui", "qtpy.QtWidgets", "qtpy.QtWebEngineWidgets",
+                       "qtpy.QtWebEngineCore", "qtpy.QtWebChannel", "qtpy.QtNetwork"]
 
 for distribution in [
     "PySide6",
@@ -59,10 +74,15 @@ for distribution in [
     "secretstorage",
     "jeepney",
     "pywinpty",
+    "pywebview",
+    "pythonnet",
+    "clr_loader",
+    "qtpy",
 ]:
     datas += safe_copy_metadata(distribution)
 
 hiddenimports = [
+    *PLATFORM_HIDDEN,
     "PySide6.QtCore",
     "PySide6.QtGui",
     "PySide6.QtWidgets",
@@ -85,6 +105,8 @@ hiddenimports = [
 
 for package in [
     "app",
+    "app_web",
+    "app_web.handlers",
     "core",
     "core.connections",
     "credentials",
@@ -110,6 +132,7 @@ for package in [
 ]:
     hiddenimports += safe_collect_submodules(package)
 
+hiddenimports += [m for m in safe_collect_submodules("webview") if not any(x in m for x in WEBVIEW_SKIP)]
 hiddenimports = sorted(set(hiddenimports))
 
 
@@ -125,6 +148,10 @@ a = Analysis(
     excludes=[
         "tkinter",
         "unittest",
+        "PyQt5",
+        "PyQt6",
+        "PySide2",
+        *(f"webview.platforms{x}" for x in WEBVIEW_SKIP),
     ],
     noarchive=False,
 )

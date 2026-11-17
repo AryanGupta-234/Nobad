@@ -34,14 +34,16 @@ set -euo pipefail
 
 APP_DIR="/opt/nobad-file-bridge/NobadFileBridge"
 
-# XCB is the most predictable backend for PySide6/PyInstaller desktop bundles
-# across Ubuntu/Debian versions. Users can override it before launching if needed.
+# The window is the web UI in Qt WebEngine (pywebview's Qt backend on the bundled
+# PySide6; a frozen app can't use the system's GTK bindings). XCB is the most
+# predictable Qt platform across Ubuntu/Debian versions; override it if needed.
+export QT_API="${QT_API:-pyside6}"
 export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-xcb}"
 export QT_QPA_PLATFORMTHEME="${QT_QPA_PLATFORMTHEME:-generic}"
 export QT_STYLE_OVERRIDE="${QT_STYLE_OVERRIDE:-Fusion}"
 
-# The terminal surface uses local QtWebEngine assets. Disabling GPU avoids
-# startup crashes on machines with older or VM graphics drivers.
+# Disabling the GPU avoids Qt WebEngine startup crashes on machines with older or
+# VM graphics drivers.
 export QTWEBENGINE_CHROMIUM_FLAGS="${QTWEBENGINE_CHROMIUM_FLAGS:---disable-gpu}"
 
 exec "${APP_DIR}/NobadFileBridge" "$@"
@@ -61,8 +63,8 @@ Installed-Size: ${INSTALLED_SIZE_KIB}
 Depends: libc6, libstdc++6, libgcc-s1, libglib2.0-0, libdbus-1-3, libfontconfig1, libfreetype6, libgl1, libegl1, libx11-6, libx11-xcb1, libxext6, libxrender1, libsm6, libice6, libxcb1, libxcb-cursor0, libxcb-icccm4, libxcb-image0, libxcb-keysyms1, libxcb-randr0, libxcb-render0, libxcb-render-util0, libxcb-shape0, libxcb-shm0, libxcb-sync1, libxcb-util1, libxcb-xfixes0, libxcb-xinerama0, libxcb-xkb1, libxkbcommon0, libxkbcommon-x11-0, libnss3, libnspr4, libatk1.0-0, libatk-bridge2.0-0, libcups2, libdrm2, libgbm1, libxcomposite1, libxdamage1, libxfixes3, libxrandr2, libgtk-3-0, libasound2t64 | libasound2
 Maintainer: NOBAD contributors <support@example.invalid>
 Description: ${APP_NAME}
- Native desktop workbench for SSH/SFTP and FTP/FTPS file management,
- transfers, terminals, sync, editing, and deployment workflows.
+ Desktop app for SSH/SFTP and FTP/FTPS servers: files side by side,
+ transfers, terminals, an editor, sync, deployments and server tools.
 CONTROL
 
 dpkg-deb --build "${PACKAGE_ROOT}" "${OUTPUT_DEB}"

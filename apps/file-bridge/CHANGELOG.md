@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+* The new interface is now File Bridge's window: `nobad-file-bridge` (or `python -m app.main`) opens it, and
+  `--browser` opens it in your web browser. The previous window is still there with `--classic` for now.
+* Packaging: the app now ships the new interface. Before, `pip install` and the packaged app would have left it
+  out. The Windows build bundles Edge WebView2's pywebview backend. The Linux build and `.deb` use Qt WebEngine from
+  the bundled PySide6.
 * Fixed (new interface):
   * Double-clicking a folder in Files opens it.
   * Files can switch to other drives (D:, E:, USB disks, mounted disks on Linux) and common folders. Click the path

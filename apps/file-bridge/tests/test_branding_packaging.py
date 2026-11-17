@@ -10,7 +10,7 @@ def test_branding_assets_include_runtime_and_packaged_icons() -> None:
 
 
 def test_app_main_sets_qt_application_icon() -> None:
-    source = Path("app/main.py").read_text(encoding="utf-8")
+    source = Path("app/classic.py").read_text(encoding="utf-8")
 
     assert "icon = application_icon()" in source
     assert 'app.setDesktopFileName("nobad-file-bridge")' in source

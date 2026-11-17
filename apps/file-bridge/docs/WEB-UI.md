@@ -1,13 +1,14 @@
 # NOBAD File Bridge web UI
 
-The new interface: HTML/CSS/JS in a pywebview window, styled as a sibling of NOBAD VPN with File Bridge's own blue
-accent. It's being built screen by screen next to the classic Qt window (`python -m app.main`), which stays the
-default until the web UI covers everything.
+File Bridge's interface: HTML/CSS/JS in a pywebview window, styled as a sibling of NOBAD VPN with File Bridge's own
+blue accent. It is the app's window (`nobad-file-bridge`, `python -m app.main`); the previous Qt window still ships
+behind `--classic` until it is removed.
 
 ```bash
-python -m app.web             # app window (Edge WebView2 on Windows, GTK/Qt WebKit on Linux)
-python -m app.web --browser   # the same UI in your default browser
-python -m app.web --db x.db   # use another database (testing)
+python -m app.main            # app window (Edge WebView2 on Windows, GTK/Qt WebKit on Linux)
+python -m app.main --browser  # the same UI in your default browser
+python -m app.main --db x.db  # use another database (testing)
+python -m app.main --classic  # the previous Qt window
 python -I scripts/ui_screenshots.py <folder> [screen ...]   # headless-Edge screenshots, temporary database
 ```
 

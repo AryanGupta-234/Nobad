@@ -107,7 +107,7 @@ def test_top_bar_branding_uses_icon_and_full_name() -> None:
 
 def test_native_menu_and_diagnostics_are_installed() -> None:
     menu_source = _source("ui/menu_controller.py")
-    main_source = _source("app/main.py")
+    main_source = _source("app/classic.py")
 
     for menu in ["File", "Connection", "View", "Terminal", "Tools", "Help"]:
         assert f'bar.addMenu("{menu}")' in menu_source

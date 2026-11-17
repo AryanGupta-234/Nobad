@@ -1,7 +1,7 @@
-"""Start NOBAD File Bridge with the new web UI (in development; the classic UI is ``python -m app.main``).
+"""NOBAD File Bridge's window: a loopback server and the web UI in a pywebview window (``app.main`` starts it).
 
-    python -m app.web             # app window (pywebview)
-    python -m app.web --browser   # same UI in your default web browser
+    nobad-file-bridge             # app window (pywebview)
+    nobad-file-bridge --browser   # same UI in your default web browser
 """
 from __future__ import annotations
 
@@ -18,7 +18,8 @@ from core.diagnostics import install_diagnostics
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="python -m app.web", description="NOBAD File Bridge (web UI)")
+    parser = argparse.ArgumentParser(prog="nobad-file-bridge", description="NOBAD File Bridge",
+                                     epilog="--classic opens the previous Qt window while it still ships.")
     parser.add_argument("--browser", action="store_true", help="open the UI in your web browser instead of a window")
     parser.add_argument("--db", help="use this database file instead of the normal one (for testing)")
     parser.add_argument("--debug", action="store_true", help="allow the web inspector in the window")

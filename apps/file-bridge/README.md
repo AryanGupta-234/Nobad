@@ -62,15 +62,15 @@ pip install -e ".[dev]"
 
 On systems where `QtWebEngine` is unavailable, the editor panel falls back to a plain Qt text editor so the app can still run.
 
-## New web UI (in development)
+## The app window
 
-A redesigned interface in the NOBAD VPN style, with a blue accent, next to the classic window. Every screen is
-there: Files, Connections, Terminal, Editor, Sync, Deployments, Credential vault, Server health, Services, Tunnels,
-Live logs, Playbooks and Settings.
+File Bridge's window is a web interface in the NOBAD VPN style, with a blue accent: Files, Connections, Terminal,
+Editor, Sync, Deployments, Credential vault, Server health, Services, Tunnels, Live logs, Playbooks and Settings.
 
 ```bash
-python -m app.web             # app window
-python -m app.web --browser   # same UI in your web browser
+nobad-file-bridge             # or: python -m app.main
+nobad-file-bridge --browser   # the same app in your web browser
+nobad-file-bridge --classic   # the previous Qt window, while it still ships
 ```
 
 **Windows** uses Edge WebView2, which is part of Windows 10 and 11.
@@ -91,7 +91,7 @@ How it's built and the rules for new screens: [docs/WEB-UI.md](docs/WEB-UI.md).
 ## Run
 
 ```bash
-python -m app.main
+python -m app.main            # the app window (see above)
 ```
 
 New Host supports `SSH`, `SFTP`, `FTP`, and `FTPS`. Passwords are session-only unless `Save profile` and `Remember secret` are enabled. Saved connection secrets are stored in the OS keyring; SQLite stores only keyring reference metadata. The separate Credentials page stores general developer/devops secrets in a local master-password encrypted vault.

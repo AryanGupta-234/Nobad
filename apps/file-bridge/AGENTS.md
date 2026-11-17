@@ -10,7 +10,9 @@ terminals, an encrypted credential vault, deployments). Python 3.12 + PySide6. A
 ## Commands (from `apps/file-bridge`)
 - Install: `pip install -e ".[dev]"` (CI should move to `uv sync --locked`, see #33)
 - Tests: `python -m pytest -q tests` (Qt offscreen: `QT_QPA_PLATFORM=offscreen`). CI: `.github/workflows/file-bridge-ci.yml`.
-- Run: `python -m app.main` (classic Qt UI) · `python -m app.web` (new web UI, in development; see `docs/WEB-UI.md`)
+- Run: `python -m app.main` (the web UI; see `docs/WEB-UI.md`) · `python -m app.main --classic` (previous Qt UI, to be removed)
+- Package: `uv run --with pyinstaller pyinstaller --clean --noconfirm build.spec` (on the target OS), then
+  `packaging/linux/build-deb.sh` on Linux
 - Web UI screenshots (temporary database, never commit them): `python -I scripts/ui_screenshots.py <folder> [screen ...]`
 
 ## Before the first NOBAD File Bridge release: fix these (open issues)

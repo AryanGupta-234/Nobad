@@ -1,7 +1,7 @@
 [project]
 name = "nobad-file-bridge"
 version = "0.4.0"
-description = "PySide6 SSH/SFTP and FTP/FTPS remote file manager with sync and deployment workflows."
+description = "SSH/SFTP and FTP/FTPS file manager with terminals, an editor, sync, deployments and server tools."
 readme = "README.md"
 requires-python = ">=3.12, <3.13"
 dependencies = [
@@ -38,6 +38,8 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools]
 packages = [
     "app",
+    "app_web",
+    "app_web.handlers",
     "core",
     "core.connections",
     "credentials",
@@ -51,6 +53,10 @@ packages = [
     "transfers",
     "ui"
 ]
+
+[tool.setuptools.package-data]
+# The web UI's pages, styles, scripts and vendored xterm are data files next to app_web.
+app_web = ["ui/*.html", "ui/*.css", "ui/*.js", "ui/screens/*.js", "ui/vendor/xterm/*", "ui/brand/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
