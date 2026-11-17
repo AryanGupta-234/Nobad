@@ -7,7 +7,7 @@ Out of scope (decided 2026-11-17): no activity timeline (Recent items, browser h
 and no raw NTFS/MFT or change-journal reading. Files are found with the normal-user folder walk and kept up to
 date with standard folder-change notifications.
 
-Status: 0.2.0 in development in `apps/find/` (pywebview + HTML UI, runs as the normal user). Every item below is
+Status: released (0.6.0, 2026-11-17) from `apps/find/` (pywebview + HTML UI, runs as the normal user). Every item below is
 built; context filters are time, kind, app and place (drive / USB / network), since activity history is out of
 scope. Installer: `apps/find/packaging/`.
 

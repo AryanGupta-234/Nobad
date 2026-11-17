@@ -37,10 +37,12 @@ Add to it when the maintainer decides something; delete lines that stop being tr
   journal/MFT) with reminders to enable it, reversing the 2026-11-17 "normal user only" decision. Not built yet;
   the app still never runs elevated. Kernel drivers are out (signing, crash risk, no accuracy gain).
 - 2026-11-17 NOBAD Find has its own packaging in `apps/find/packaging/` (maintainer: never reuse the VPN's).
-  Per-user Inno Setup installer, no admin; CI job `find-build` keeps it as an artifact only (no release yet).
-- 2026-11-17 NOBAD Find (`apps/find/`, in development, no installer yet): private offline search over your own files.
-  Maintainer chose: full build, pywebview + HTML UI, name "NOBAD Find". Out of scope: activity timeline/usage history
-  and raw NTFS/MFT reading. Design: `docs/ai/ideas/nobad-find.md`. Not on the website until it ships.
+  Per-user Inno Setup installer, no admin; CI job `find-build` checks every PR; releases via `find-release.yml`.
+- 2026-11-17 NOBAD Find (`apps/find/`): private offline search over your own files, first release 0.6.0.
+  Releases only from CI: tag `find-vX.Y.Z` -> `find-release.yml` (attested; never marked the repo's "latest" so
+  NOBAD VPN keeps that). On the website at /products/find/; the home slider card is red (maintainer's choice,
+  the one exception to "one NOBAD orange"). Out of scope: activity timeline/usage history. Design:
+  `docs/ai/ideas/nobad-find.md`.
 - Releases before 1.5.0 aren't immutable (the setting only covers new releases); anyone with write access could
   replace their files. Users should verify with the strict `gh attestation verify ... --signer-workflow ...
   --source-ref ...` command (docs/RELEASE-PROCESS.md). Optional hardening: a protected `release` environment with

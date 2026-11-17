@@ -6,7 +6,8 @@ Describe what you're looking for the way you remember it: *"rent pdf from last w
 march"*, *"budget.xlsx"*. NOBAD Find looks at file names, the words inside files and, if you turn it on, what
 they're about, and tells you why each result matched.
 
-> **Status: in development.** There is no installer yet. Run it from source (below).
+> **Download:** the installer is on the [NOBAD Find releases](https://github.com/nobad-studio/Nobad-VPN/releases?q=find-v)
+> (per-user, no admin). It isn't code-signed yet, so Windows SmartScreen warns: **More info**, then **Run anyway**.
 
 ## What it does
 - **Names, instantly.** Any part of a file or folder name, across your profile and every fixed drive.

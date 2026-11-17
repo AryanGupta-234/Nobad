@@ -13,7 +13,7 @@ only point here. Keep this file short; details live in the files it links.
 - `apps/file-bridge/`: NOBAD File Bridge, a remote file manager (Python 3.12 + PySide6), code owner @harshRaj1601. It has its own
   [`apps/file-bridge/AGENTS.md`](apps/file-bridge/AGENTS.md) with the fixes it owes before its first release.
 - `apps/find/`: NOBAD Find, private offline search for your own files (Python 3.11 + pywebview, runs as the normal
-  user, in development). Its own [`apps/find/AGENTS.md`](apps/find/AGENTS.md) lists what's in and out of scope.
+  user, released from `find-v*` tags by `find-release.yml`). Its own [`apps/find/AGENTS.md`](apps/find/AGENTS.md) lists what's in and out of scope.
 - `site-pages/` + `releases/vpn/releases.json` → `npm run build` → `public/` (generated, untracked). Hosted on a
   Cloudflare worker (`wrangler.jsonc`), deployed from `main`.
 - `apps/Sentinal/`: separate, uncommitted work. Don't touch or commit it.
@@ -37,7 +37,7 @@ only point here. Keep this file short; details live in the files it links.
 ## Playbooks (follow them step by step)
 | Task | Playbook |
 |---|---|
-| Release ("ship", "build", "update everywhere") | [`docs/ai/playbooks/release.md`](docs/ai/playbooks/release.md) |
+| Release ("ship", "build", "update everywhere") | [`docs/ai/playbooks/release.md`](docs/ai/playbooks/release.md) (NOBAD VPN), [`release-find.md`](docs/ai/playbooks/release-find.md) (NOBAD Find) |
 | Look at the UI without running the admin app | [`docs/ai/playbooks/ui-preview.md`](docs/ai/playbooks/ui-preview.md) |
 | Review a diff or an external pull request | [`docs/ai/playbooks/review.md`](docs/ai/playbooks/review.md) |
 
