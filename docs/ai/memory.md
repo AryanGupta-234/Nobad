@@ -5,8 +5,8 @@ Add to it when the maintainer decides something; delete lines that stop being tr
 (this repository is public): no keys, configs, personal data or private review notes.
 
 ## Standing decisions
-- 2026-11-17 GitHub organization `nobad-studio` (`nobad` is taken), Aryan Gupta the only owner. Repos: `nobad`
-  (NOBAD VPN + NOBAD Find, transferred from AryanGupta-234/Nobad), `website` (own repo, same Cloudflare Worker and
+- 2026-11-17 GitHub organization `nobad-studio` (`nobad` is taken), Aryan Gupta the only owner. Repos: `Nobad-VPN`
+  (NOBAD VPN + NOBAD Find, transferred from AryanGupta-234/Nobad, renamed from `nobad`), `website` (own repo, same Cloudflare Worker and
   URL), `file-bridge` (own repo, history kept), `.github` (org profile + shared community files). Harsh is an
   organization member: base permission Read, team `file-bridge` with Maintain on `file-bridge`; he must never have
   to redo work. Members can't create repositories; 2FA required.
@@ -31,16 +31,15 @@ Add to it when the maintainer decides something; delete lines that stop being tr
 - 2026-11-16 New outbound connections need a setting and an entry in SYSTEM-INTEGRATION.md.
 
 ## Open items
-- 2026-11-17 Move to `nobad-studio` in progress. Done: repo transferred to `nobad-studio/nobad` (old URLs redirect),
-  org profile repo `nobad-studio/.github`, Cloudflare app installed on the org (deploys continue; `/build.json` shows
-  the live commit), links updated (PR #42). Blocked on the maintainer: the transfer dropped the ruleset bypass on
-  "Protect main" and "Protect release tags" (`bypass_actors: []`), so nobody can merge owner PRs or push `vpn-v*`
-  tags until he re-adds the org-owner bypass (Settings → Rules → each ruleset → Bypass list → "Organization admin").
-  AI assistants must not edit rulesets. Also pending: `gh auth refresh -s admin:org` (teams, Harsh's invite, "members
-  can't create repositories"), "Require 2FA" in org settings. Website split waits for the site PR (#41) to merge;
-  File Bridge split waits for Harsh's PRs #35, #38, #39.
+- 2026-11-17 Move to `nobad-studio`. Done: repo transferred and renamed to `nobad-studio/Nobad-VPN` (old URLs
+  redirect, but attestation `--signer-workflow` must name the exact repo), org profile `nobad-studio/.github`, website
+  split into `nobad-studio/website` (full history), ruleset bypass "Organization admin" restored on "Protect main"
+  and "Protect release tags", secret scanning + push protection on, Dependabot covers every app. Still pending:
+  `gh auth refresh -s admin:org` (team `file-bridge`, Harsh's invite, "members can't create repositories"), "Require
+  2FA" in org settings; once Cloudflare Workers Builds deploys from `nobad-studio/website`, remove `site-pages/`,
+  `releases/` and the site build from this repo; File Bridge split waits for Harsh's PRs #35, #38, #39.
 - 2026-11-17 Releases up to 1.6.1 keep their attestations under the old owner: verify with `--owner AryanGupta-234
-  --signer-workflow AryanGupta-234/Nobad/.github/workflows/vpn-release.yml` (tested). New releases: `-R nobad-studio/nobad`.
+  --signer-workflow AryanGupta-234/Nobad/.github/workflows/vpn-release.yml` (tested). New releases: `-R nobad-studio/Nobad-VPN`.
 - 2026-11-17 NOBAD Find (`apps/find/`, in development, no installer yet): private offline search over your own files.
   Maintainer chose: full build, pywebview + HTML UI, name "NOBAD Find". Out of scope: activity timeline/usage history
   and raw NTFS/MFT reading. Design: `docs/ai/ideas/nobad-find.md`. Not on the website until it ships.

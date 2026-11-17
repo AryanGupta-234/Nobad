@@ -3,7 +3,7 @@
 The human-facing process is [`docs/RELEASE-PROCESS.md`](../../RELEASE-PROCESS.md); this is the full checklist an
 assistant runs. Stop and report on the first failure. Work from the repo root unless noted.
 
-**Repositories (organization `nobad-studio`).** The app, its tags and its releases live in `nobad-studio/nobad`.
+**Repositories (organization `nobad-studio`).** The app, its tags and its releases live in `nobad-studio/Nobad-VPN`.
 The website (the page edit in step 3, and steps 8 to 10) lives in `site-pages/` of this repo until it moves to
 `nobad-studio/website`; once `site-pages/` is gone from this repo, do those steps in a clone of
 `nobad-studio/website`. Pushes to `main` and `vpn-v*` tags rely on the organization owner's ruleset bypass: if a
@@ -22,9 +22,9 @@ rulesets or bypass lists yourself.
    `git tag -a vpn-vX.Y.Z -m "NOBAD VPN X.Y.Z" && git push origin vpn-vX.Y.Z`, then
    `gh run watch <id of the latest vpn-release.yml run> --exit-status`. Both `build` and `publish` must succeed.
 7. **Verify the published installer** in a scratch folder outside the repo:
-   `gh release download vpn-vX.Y.Z -R nobad-studio/nobad -p "NobadVPN-Setup-X.Y.Z.exe*"`, compare `sha256sum` with
-   the `.sha256` file, and run `gh attestation verify NobadVPN-Setup-X.Y.Z.exe -R nobad-studio/nobad --signer-workflow
-   nobad-studio/nobad/.github/workflows/vpn-release.yml --source-ref refs/tags/vpn-vX.Y.Z --deny-self-hosted-runners`
+   `gh release download vpn-vX.Y.Z -R nobad-studio/Nobad-VPN -p "NobadVPN-Setup-X.Y.Z.exe*"`, compare `sha256sum` with
+   the `.sha256` file, and run `gh attestation verify NobadVPN-Setup-X.Y.Z.exe -R nobad-studio/Nobad-VPN --signer-workflow
+   nobad-studio/Nobad-VPN/.github/workflows/vpn-release.yml --source-ref refs/tags/vpn-vX.Y.Z --deny-self-hosted-runners`
    (exit 0). Without the last three options the check accepts any workflow in the repo.
 8. **Manifest.** New first entry in `releases/vpn/releases.json` (same fields as the others; `size` in decimal MB,
    e.g. 24547952 bytes → "24.5 MB") with the **CI** installer's sha256 and size; set `latest`. Bump the example

@@ -20,7 +20,7 @@ dev = ["pytest", "pyflakes"]
 
 [project.urls]
 Homepage = "https://nobad-platform.aassworld99.workers.dev/products/vpn/"
-Source = "https://github.com/nobad-studio/nobad"
+Source = "https://github.com/nobad-studio/Nobad-VPN"
 
 [tool.setuptools.dynamic]
 version = { attr = "nobadvpn.const.APP_VER" }

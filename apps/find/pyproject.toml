@@ -29,7 +29,7 @@ dev = ["pytest==9.1.1", "pyflakes==4.1.0"]
 nobad-find = "nobadfind.app:main"
 
 [project.urls]
-Source = "https://github.com/nobad-studio/nobad"
+Source = "https://github.com/nobad-studio/Nobad-VPN"
 
 [tool.setuptools.dynamic]
 version = { attr = "nobadfind.const.APP_VER" }

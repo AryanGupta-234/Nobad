@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: Report a security vulnerability (private)
-    url: https://github.com/nobad-studio/nobad/security/advisories/new
+    url: https://github.com/nobad-studio/Nobad-VPN/security/advisories/new
     about: Please report security problems privately, not as a public issue.
   - name: Questions and ideas
-    url: https://github.com/nobad-studio/nobad/discussions
+    url: https://github.com/nobad-studio/Nobad-VPN/discussions
     about: How do I…? Is this normal? Ideas you'd like to talk through first. Bugs go in a bug report.

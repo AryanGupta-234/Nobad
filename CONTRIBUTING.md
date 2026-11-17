@@ -26,8 +26,8 @@ NOBAD File Bridge).
   private keys removed; attach it if you can.
 - **Improve docs.** The user manual is `apps/vpn/docs/USER-MANUAL.md`.
 - **Send code** as a pull request (see below). New here? Issues labelled
-  [`good first issue`](https://github.com/nobad-studio/nobad/labels/good%20first%20issue) are picked to be a
-  friendly start, and [Discussions](https://github.com/nobad-studio/nobad/discussions) is the place to ask first.
+  [`good first issue`](https://github.com/nobad-studio/Nobad-VPN/labels/good%20first%20issue) are picked to be a
+  friendly start, and [Discussions](https://github.com/nobad-studio/Nobad-VPN/discussions) is the place to ask first.
 
 ## Building NOBAD VPN
 
@@ -70,7 +70,7 @@ The website lives in `site-pages/` as plain HTML and is built by `npm run build`
 4. `main` can't be force-pushed or deleted, and release tags (`vpn-v*`) can only be created by the maintainer.
    Releases are built from a tag by `.github/workflows/vpn-release.yml` on a clean GitHub runner and carry a signed
    build-provenance attestation. Check it with
-   `gh attestation verify NobadVPN-Setup-<version>.exe -R nobad-studio/nobad --signer-workflow nobad-studio/nobad/.github/workflows/vpn-release.yml --source-ref refs/tags/vpn-v<version> --deny-self-hosted-runners`
+   `gh attestation verify NobadVPN-Setup-<version>.exe -R nobad-studio/Nobad-VPN --signer-workflow nobad-studio/Nobad-VPN/.github/workflows/vpn-release.yml --source-ref refs/tags/vpn-v<version> --deny-self-hosted-runners`
    (releases up to 1.6.1: see [docs/RELEASE-PROCESS.md](docs/RELEASE-PROCESS.md)).
 
 ## Pull requests

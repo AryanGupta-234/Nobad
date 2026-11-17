@@ -2,7 +2,7 @@
 
 NOBAD File Bridge · part of [NOBAD](../../README.md): software with a point of view.
 
-**Status:** in development, not released yet. Issues [#29](https://github.com/nobad-studio/nobad/issues/29) to [#33](https://github.com/nobad-studio/nobad/issues/33) must be fixed before the first release. Author and code owner: [@harshRaj1601](https://github.com/harshRaj1601). AI assistants: see [AGENTS.md](AGENTS.md).
+**Status:** in development, not released yet. Issues [#29](https://github.com/nobad-studio/Nobad-VPN/issues/29) to [#33](https://github.com/nobad-studio/Nobad-VPN/issues/33) must be fixed before the first release. Author and code owner: [@harshRaj1601](https://github.com/harshRaj1601). AI assistants: see [AGENTS.md](AGENTS.md).
 
 Open, copy, edit and back up the files on your website or server, right from your PC. NOBAD File Bridge
 (formerly *NOBAD Files*) is a cross-platform desktop app and part of the NOBAD platform. It's built with Python 3.12

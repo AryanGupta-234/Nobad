@@ -8,7 +8,7 @@ credentials and runs commands on remote servers. Security reports are taken seri
 
 Please **don't open a public issue** for security problems. Use GitHub's private reporting instead:
 **Security → Report a vulnerability** on this repository
-(<https://github.com/nobad-studio/nobad/security/advisories/new>).
+(<https://github.com/nobad-studio/Nobad-VPN/security/advisories/new>).
 
 Include what you found, how to reproduce it, which product it affects, and the version: for NOBAD VPN the version
 from *Settings → Help* and your Windows version; for NOBAD File Bridge the commit you tested and your operating system.
