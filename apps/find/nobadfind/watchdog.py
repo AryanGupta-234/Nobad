@@ -1,7 +1,8 @@
 """The watchdog ends NOBAD Find's OWN stuck or runaway work. It never touches another app.
 
 - a text-reader worker over WORKER_MB is ended (the indexer treats it as a crashed reader and skips the file);
-- all of Find's processes together over JOB_MB: the models are released (at most once per 5 minutes);
+- all of Find's processes together over JOB_MB: the models are released and the worker processes start
+  fresh (at most once per 5 minutes);
 - the window is visible but its page stopped answering: reload it; a second miss soon after quits.
 Only pids listed by jobs.WORKERS.pids() are ever ended, and never this process.
 """
@@ -52,10 +53,12 @@ class Watchdog:
                  pids=lambda: _jobs.WORKERS.pids() if _jobs.WORKERS else [],
                  job_usage=lambda: _jobs.OUTER.usage() if _jobs.OUTER else {"memory_mb": 0},
                  release=lambda: None, reload_ui=lambda: None, quit_app=lambda: None,
-                 clock=time.monotonic, visible=lambda: True, names=lambda: {}):
+                 clock=time.monotonic, visible=lambda: True, names=lambda: {}, recycle=lambda: None):
         self.activity = activity
         self._kill, self._info, self._pids, self._job_usage = kill, info, pids, job_usage
         self._release, self._reload_ui, self._quit_app = release, reload_ui, quit_app
+        self._recycle = recycle
+        self._last_check = None      # monotonic time runs on while the PC sleeps: a long gap means it woke up
         self._clock, self._visible = clock, visible
         self._names = names
         self._last_beat = clock()
@@ -83,7 +86,15 @@ class Watchdog:
             self.window_shown()
 
     def check(self):
-        for step in (self._check_workers, self._check_job, self._check_heartbeat):
+        now = self._clock()
+        woke = self._last_check is not None and now - self._last_check > 3 * BEAT_MISS
+        self._last_check = now
+        steps = [self._check_workers, self._check_job]
+        if woke:
+            self.window_shown()      # the PC slept: the page gets a fresh wait, its search is not reloaded away
+        else:
+            steps.append(self._check_heartbeat)
+        for step in steps:
             try:
                 step()
             except Exception as e:
@@ -123,7 +134,9 @@ class Watchdog:
             return
         self._last_release = now
         self._release()
-        self.activity.add("model", "NOBAD Find is using a lot of memory, so it let go of its search models")
+        self._recycle()
+        self.activity.add("model", "NOBAD Find is using a lot of memory, so it let go of its search models "
+                                   "and restarts its workers")
 
     def _spawn(self, fn):
         """Reload and quit touch the page or window and can hang: never on the caller's thread."""

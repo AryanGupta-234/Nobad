@@ -12,12 +12,13 @@ class Clock:
 
 def make(pids=(), mem=None, job_mb=0, visible=True, names=None, reload_ui=None):
     c = Clock()
-    log = {"kill": [], "release": 0, "reload": 0, "quit": 0}
+    log = {"kill": [], "release": 0, "reload": 0, "quit": 0, "recycle": 0}
     act = Activity()
     w = Watchdog(act, kill=log["kill"].append,
                  info=lambda pid: {"pid": pid, "cpu_seconds": 0.0, "memory_mb": (mem or {}).get(pid, 10)},
                  pids=lambda: list(pids), job_usage=lambda: {"memory_mb": job_mb},
                  release=lambda: log.__setitem__("release", log["release"] + 1),
+                 recycle=lambda: log.__setitem__("recycle", log["recycle"] + 1),
                  reload_ui=reload_ui or (lambda: log.__setitem__("reload", log["reload"] + 1)),
                  names=lambda: names or {},
                  quit_app=lambda: log.__setitem__("quit", log["quit"] + 1),
@@ -44,7 +45,7 @@ def test_job_memory_releases_models_once_per_5_min():
     w, c, log, act = make(job_mb=3100)
     w.check()
     w.check()
-    assert log["release"] == 1
+    assert log["release"] == 1 and log["recycle"] == 1          # M-5: the worker pools start fresh too
     assert act.recent()[0]["kind"] == "model"
     c.t += 299
     w.beat()
@@ -59,6 +60,15 @@ def test_job_memory_releases_models_once_per_5_min():
 def settle():
     import time
     time.sleep(0.15)
+
+
+def run_for(w, c, secs, beat=False):
+    """Check every 2 s for secs seconds, like the governor thread (beating like a live page if asked)."""
+    for _ in range(int(secs // 2)):
+        c.t += 2
+        if beat:
+            w.beat()
+        w.check()
 
 
 def test_missing_heartbeat_reloads_then_quits():
@@ -81,9 +91,8 @@ def test_late_second_miss_reloads_again():
     w.beat()
     c.t += 16
     w.check()
-    w.beat()
-    c.t += 200
-    w.check()
+    run_for(w, c, 190, beat=True)       # the reloaded page is fine for a while, then stops answering
+    run_for(w, c, 16)
     settle()
     assert log["reload"] == 2 and log["quit"] == 0
 
@@ -117,8 +126,7 @@ def test_blocking_reload_does_not_block_check_and_next_miss_quits():
     t0 = time.time()
     w.check()
     assert time.time() - t0 < 1
-    c.t += 61                       # the hung page never sends a first heartbeat
-    w.check()
+    run_for(w, c, 62)               # the hung page never sends a first heartbeat
     settle()
     assert log["quit"] == 1
     block.set()
@@ -187,5 +195,22 @@ def test_window_shown_gives_page_time():
     assert log["reload"] == 0
     c.t += 6
     w.check()
+    settle()
+    assert log["reload"] == 1
+
+
+def test_sleep_and_resume_is_not_a_miss():
+    """M-4: the clock runs on while the PC sleeps; the first check after waking gives the page a fresh wait."""
+    w, c, log, act = make()
+    w.beat()
+    w.check()
+    c.t += 3600                     # asleep for an hour
+    w.check()
+    settle()
+    assert log["reload"] == 0 and log["quit"] == 0
+    run_for(w, c, 10, beat=True)    # the page answers again
+    settle()
+    assert log["reload"] == 0
+    run_for(w, c, 16)               # but a page that really stopped is still caught
     settle()
     assert log["reload"] == 1

@@ -113,6 +113,7 @@ def main(argv=None):
     from .watchdog import Watchdog
     ui = {}      # the pieces the watchdog reaches later: window, api, indexer
     watchdog = Watchdog(activity, release=lambda: ui["indexer"].release_models(),
+                        recycle=lambda: ui["indexer"].recycle_workers(),
                         reload_ui=lambda: ui["win"].evaluate_js("location.reload()"),
                         quit_app=lambda: ui["api"].quit(), visible=lambda: ui["api"].visible,
                         names=lambda: ui["indexer"].worker_names())
@@ -120,7 +121,7 @@ def main(argv=None):
     governor = Governor(settings, apps, activity, watchdog=watchdog,
                         release_idle=lambda: ui["indexer"].release_idle_models() if "indexer" in ui else None)
     governor.start()
-    indexer = Indexer(store, settings, vindex, governor=governor)
+    indexer = Indexer(store, settings, vindex, governor=governor, activity=activity)
     ui["indexer"] = indexer
     # Closing the window with background indexing off stops the indexer (lifecycle "hide_idle"); opening it
     # again starts it. Started hidden (with Windows), indexing follows the same setting.

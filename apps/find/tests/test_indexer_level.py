@@ -1,4 +1,5 @@
 """The governor thread, and the indexer obeying its level."""
+import concurrent.futures as cf
 import json
 import time
 
@@ -256,9 +257,9 @@ def test_indexer_uses_light_limit_and_rechecks_each_loop(tmp_path, monkeypatch):
 
     orig = ix._wait_while_paused
 
-    def counting():
+    def counting(*a, **k):
         checks[0] += 1
-        return orig()
+        return orig(*a, **k)
 
     real_wait = indexer.cf.wait
 
@@ -301,3 +302,211 @@ def test_every_tick_lets_idle_models_go():
     gv.release_idle = boom
     assert gv.tick().level                          # a failing release never stops the governor
     assert calls == [1]
+
+
+# ---------- paused: nothing runs (I-8), paused time is not work time (I-9), kills are listed (I-10) ----------
+class _Proc:
+    def __init__(self):
+        self.ended = False
+
+    def terminate(self):
+        self.ended = True
+
+
+class _Pool:
+    """A ProcessPoolExecutor stand-in with one worker process and futures the test completes."""
+    made = []
+
+    def __init__(self, *a, **k):
+        self._processes = {4242: _Proc()}
+        self.futures, self.down = [], False
+        _Pool.made.append(self)
+
+    def submit(self, fn, *args):
+        f = cf.Future()
+        self.futures.append((f, args))
+        return f
+
+    def shutdown(self, **k):
+        self.down = True
+        self._processes = {}
+
+
+def _clocked(ix, fg, per_wait, unpause_after=None):
+    """A fake clock: each pause-wait round moves it per_wait seconds; after unpause_after rounds the level is
+    Gentle again."""
+    c, rounds = [0.0], [0]
+    ix._clock = lambda: c[0]
+
+    def wait(t=None):
+        c[0] += per_wait
+        rounds[0] += 1
+        if unpause_after is not None and rounds[0] >= unpause_after:
+            fg.decision = g.Decision(g.GENTLE, "Gentle: ok")
+        return ix.stop_ev.is_set()
+    ix.stop_ev.wait = wait
+    return c
+
+
+def _text_ix(tmp_path, fg, n=1):
+    from nobadfind.store import Store
+    from nobadfind.walker import Walker
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    for i in range(n):
+        (docs / f"n{i}.txt").write_text(f"note {i}")
+    s = Store(str(tmp_path / "i.db"), encrypt=False)
+    Walker([str(docs)], gen=1, on_batch=s.upsert_files).run()
+    act = Activity()
+    ix = indexer.Indexer(s, S(content=True, content_max_mb=1, ocr=False, src_mail=True), governor=fg, activity=act)
+    ix.status["plan"] = {"text_workers": 1, "text_workers_idle": 1}
+    return ix, s, act
+
+
+def test_long_pause_ends_the_text_readers(tmp_path, monkeypatch):
+    """I-8: paused for over a minute (low memory, a game), the reader processes end; the file in flight is
+    simply read again later, not marked."""
+    fg = FakeGov(g.GENTLE)
+    ix, s, act = _text_ix(tmp_path, fg)
+    _Pool.made.clear()
+    monkeypatch.setattr(indexer.cf, "ProcessPoolExecutor", _Pool)
+
+    def no_result(fs, **k):
+        assert ix.worker_names() == {4242: "text reader"}
+        fg.decision = g.Decision(g.PAUSED, "Paused: low on memory (900 MB free)")
+        return set(), set(fs)
+    monkeypatch.setattr(indexer.cf, "wait", no_result)
+    _clocked(ix, fg, per_wait=20)
+    ix._read_texts()
+    pool = _Pool.made[0]
+    assert pool._processes == {} and pool.down and ix.worker_names() == {}
+    assert ix._recycled is True
+    assert len(s.needs_text({".txt"}, 1 << 20)) == 1          # not marked: read again when work resumes
+    assert any(a["kind"] == "kill" and "ended its text readers" in a["text"] for a in act.recent())
+    s.close()
+
+
+def test_paused_time_does_not_count_against_a_file(tmp_path, monkeypatch):
+    """I-9: 250 s of work, a 30 s pause, 40 s more: 290 s of work, under the 300 s limit (the old clock said 320)."""
+    fg = FakeGov(g.GENTLE)
+    ix, s, act = _text_ix(tmp_path, fg)
+    _Pool.made.clear()
+    monkeypatch.setattr(indexer.cf, "ProcessPoolExecutor", _Pool)
+    c = _clocked(ix, fg, per_wait=30, unpause_after=1)
+    calls = [0]
+
+    def scripted(fs, **k):
+        calls[0] += 1
+        if calls[0] == 1:
+            c[0] += 250
+            fg.decision = g.Decision(g.PAUSED, "Paused: on battery")
+            return set(), set(fs)
+        if calls[0] == 2:
+            c[0] += 40
+            return set(), set(fs)
+        f, args = _Pool.made[0].futures[0]
+        job = args[0]
+        f.set_result((job[0], job[3], [], ""))
+        return {f}, set()
+    monkeypatch.setattr(indexer.cf, "wait", scripted)
+    ix._read_texts()
+    assert s.q("SELECT text_err FROM files")[0][0] in ("", None)
+    assert not any(a["kind"] == "kill" for a in act.recent())
+    s.close()
+
+
+def test_stuck_reader_is_listed_in_activity(tmp_path, monkeypatch):
+    """I-10: a reader stopped after 5 minutes on one file shows in the activity list with its reason."""
+    fg = FakeGov(g.GENTLE)
+    ix, s, act = _text_ix(tmp_path, fg)
+    monkeypatch.setattr(indexer.cf, "ProcessPoolExecutor", _Pool)
+    c = [0.0]
+    ix._clock = lambda: c[0]
+
+    def slow(fs, **k):
+        c[0] += 301
+        return set(), set(fs)
+    monkeypatch.setattr(indexer.cf, "wait", slow)
+    ix._read_texts()
+    assert s.q("SELECT text_err FROM files")[0][0] == "took too long"
+    kills = [a["text"] for a in act.recent() if a["kind"] == "kill"]
+    assert kills == ["Stopped a text reader stuck on one file for 5 minutes; the file is skipped"]
+    s.close()
+
+
+def test_long_pause_ends_the_meaning_worker(monkeypatch):
+    """I-8: the meaning worker (and its model) leaves memory when the pause lasts over a minute."""
+    fg = FakeGov(g.PAUSED, "Paused: a game")
+    act = Activity()
+    ix = indexer.Indexer(None, S(), governor=fg, activity=act)
+    ix._mpool = _Pool()
+    assert ix.worker_names() == {4242: "meaning worker"}
+    _clocked(ix, fg, per_wait=20, unpause_after=None)
+    ix._chunk_vectors()                       # the store is never reached: still paused
+    assert ix._mpool is None and ix.worker_names() == {} and ix._recycled
+    assert any("ended its meaning worker" in a["text"] for a in act.recent())
+
+
+def test_meaning_timeout_is_listed_and_skips_paused_time(monkeypatch):
+    fg = FakeGov(g.GENTLE)
+    act = Activity()
+    ix = indexer.Indexer(None, S(), governor=fg, activity=act)
+    ix._vectors_in_worker = True
+    monkeypatch.setattr(indexer.cf, "ProcessPoolExecutor", _Pool)
+    c = [0.0]
+    ix._clock = lambda: c[0]
+    seen = []
+
+    def tick(fs, timeout=None, **k):
+        c[0] += 30
+        seen.append(c[0])
+        # one 30 s round paused: it must not count towards the 2-minute limit
+        fg.decision = g.Decision(g.PAUSED if 30 <= c[0] < 60 else g.GENTLE, "x")
+        return set(), set(fs)
+    monkeypatch.setattr(indexer.cf, "wait", tick)
+    assert ix._encode(["a"]) is None
+    assert c[0] == 180                        # 150 s of work + 30 s paused (the old clock gave up at 150)
+    assert ix._mpool is None
+    kills = [a["text"] for a in act.recent() if a["kind"] == "kill"]
+    assert kills == ["Restarted the meaning worker: a batch took longer than 2 minutes"]
+
+
+def test_photo_wait_skips_paused_time_and_ends_the_reader_when_paused_long(monkeypatch):
+    fg = FakeGov(g.GENTLE)
+    ix = indexer.Indexer(None, S(), governor=fg)
+    c = [0.0]
+    ix._clock = lambda: c[0]
+    f = cf.Future()
+
+    def tick(fs, timeout=None, **k):
+        c[0] += 10
+        fg.decision = g.Decision(g.PAUSED if c[0] >= 200 else g.GENTLE, "x")
+        return set(), set(fs)
+    monkeypatch.setattr(indexer.cf, "wait", tick)
+    assert ix._await(f, 300) is indexer.RECYCLE            # 190 s of work, then paused for a minute
+    assert c[0] < 300
+    ix.stop_ev.set()
+    assert ix._await(f, 300) is None                       # stopping
+
+
+def test_watchdog_recycle_ends_the_workers_at_a_safe_point(tmp_path, monkeypatch):
+    """M-5: Find over its memory limit: the worker pools end (not just the models), the work is redone later."""
+    fg = FakeGov(g.GENTLE)
+    ix, s, act = _text_ix(tmp_path, fg)
+    _Pool.made.clear()
+    monkeypatch.setattr(indexer.cf, "ProcessPoolExecutor", _Pool)
+
+    def no_result(fs, **k):
+        ix.recycle_workers()                       # the watchdog, from its own thread
+        return set(), set(fs)
+    monkeypatch.setattr(indexer.cf, "wait", no_result)
+    ix._read_texts()
+    assert _Pool.made[0]._processes == {} and ix.worker_names() == {} and ix._recycled
+    assert len(s.needs_text({".txt"}, 1 << 20)) == 1
+    assert any("Using a lot of memory, so NOBAD Find ended its text readers" in a["text"] for a in act.recent())
+    ix.recycle_workers()
+    assert ix._recycle_req is False                # no worker running: nothing to do
+    ix._mpool = _Pool()
+    ix.recycle_workers()
+    assert ix._await(cf.Future(), 300) is indexer.RECYCLE    # a meaning or photo batch in flight stops too
+    s.close()
