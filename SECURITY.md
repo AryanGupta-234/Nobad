@@ -8,7 +8,7 @@ policy: [nobad-studio/file-bridge](https://github.com/nobad-studio/file-bridge/s
 
 Please **don't open a public issue** for security problems. Use GitHub's private reporting instead:
 **Security → Report a vulnerability** on this repository
-(<https://github.com/AryanGupta-234/Nobad/security/advisories/new>).
+(<https://github.com/nobad-studio/Nobad-VPN/security/advisories/new>).
 
 Include what you found, how to reproduce it, which product it affects, and the version: for NOBAD VPN the version
 from *Settings → Help* and your Windows version.

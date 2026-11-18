@@ -31,11 +31,3 @@ updates:
         update-types: [minor, patch]
 
   # NOBAD File Bridge (pyproject.toml)
-  - package-ecosystem: pip
-    directory: /apps/file-bridge
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 5
-    groups:
-      file-bridge-minor:
-        update-types: [minor, patch]

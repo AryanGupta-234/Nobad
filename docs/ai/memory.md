@@ -7,8 +7,8 @@ Add to it when the maintainer decides something; delete lines that stop being tr
 ## Standing decisions
 - 2026-11-18 NOBAD File Bridge lives only in nobad-studio/file-bridge; its copy in this repo was removed (its open review
   fixes are tracked there). `file-bridge-ci.yml` is a stub that keeps the ruleset's required check green until it's dropped.
-- 2026-11-17 GitHub organization `nobad-studio` (`nobad` is taken), Aryan Gupta the only owner. Repos: `nobad`
-  (NOBAD VPN + NOBAD Find, transferred from AryanGupta-234/Nobad), `website` (own repo, same Cloudflare Worker and
+- 2026-11-17 GitHub organization `nobad-studio` (`nobad` is taken), Aryan Gupta the only owner. Repos: `Nobad-VPN`
+  (NOBAD VPN + NOBAD Find, transferred from AryanGupta-234/Nobad, renamed from `nobad`), `website` (own repo, same Cloudflare Worker and
   URL), `file-bridge` (own repo, history kept), `.github` (org profile + shared community files). Harsh is an
   organization member: base permission Read, team `file-bridge` with Maintain on `file-bridge`; he must never have
   to redo work. Members can't create repositories; 2FA required.
@@ -45,6 +45,13 @@ Add to it when the maintainer decides something; delete lines that stop being tr
   NOBAD VPN keeps that). On the website at /products/find/; the home slider card is red (maintainer's choice,
   the one exception to "one NOBAD orange"). Out of scope: activity timeline/usage history. Design:
   `docs/ai/ideas/nobad-find.md`.
+- 2026-11-17 Move to `nobad-studio` done: repo transferred and renamed to `nobad-studio/Nobad-VPN` (old URLs redirect,
+  but attestation `--signer-workflow` must name the exact repo); website in `nobad-studio/website` (Cloudflare deploys
+  `nobad-platform` from its `main`, address `https://nobad-platform.nobad-studio.workers.dev/`); File Bridge in
+  `nobad-studio/file-bridge`. Still pending: remove `site-pages/`, `releases/` and the site build from this repo
+  (site edits go to `nobad-studio/website` only).
+- 2026-11-17 Releases up to 1.6.1 keep their attestations under the old owner: verify with `--owner AryanGupta-234
+  --signer-workflow AryanGupta-234/Nobad/.github/workflows/vpn-release.yml` (tested). New releases: `-R nobad-studio/Nobad-VPN`.
 - Releases before 1.5.0 aren't immutable (the setting only covers new releases); anyone with write access could
   replace their files. Users should verify with the strict `gh attestation verify ... --signer-workflow ...
   --source-ref ...` command (docs/RELEASE-PROCESS.md). Optional hardening: a protected `release` environment with

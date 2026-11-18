@@ -132,7 +132,7 @@ if ($LASTEXITCODE) { throw "journal update failed" }
 if ($buildId -ne "none") { Write-Host "Recorded as build $buildId in the private build journal" }
 
 $base = if ($env:NOBAD_RELEASE_URL) { $env:NOBAD_RELEASE_URL.TrimEnd('/') } else { "https://YOUR-HOST/vpn/$ver" }
-python packaging\make_manifest.py $setup "$base/NobadVPN-Setup-$ver.exe" "Release notes: https://github.com/AryanGupta-234/Nobad/releases" --out dist-installer\latest.json
+python packaging\make_manifest.py $setup "$base/NobadVPN-Setup-$ver.exe" "Release notes: https://github.com/nobad-studio/Nobad-VPN/releases" --out dist-installer\latest.json
 if ($LASTEXITCODE) { throw "manifest failed" }
 $hash = (Get-FileHash $setup -Algorithm SHA256).Hash.ToLower()
 python packaging\make_sbom.py $ver "dist-installer\NobadVPN-Setup-$ver.sbom.json"

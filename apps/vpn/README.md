@@ -140,7 +140,7 @@ docs/      CODE-SIGNING.md USER-MANUAL.md FEATURES.md ARCHITECTURE.md SYSTEM-INT
 NOBAD is an independent studio in its initial launch phase, and NOBAD VPN is its first major release. It is developed
 **in collaboration with AI**: AI helps design, write, test and document the code, and a person reviews and owns every
 decision and release. The app shows a small "built with AI" mark in its status bar. Contributions are welcome: open
-an issue or a pull request on [GitHub](https://github.com/AryanGupta-234/Nobad).
+an issue or a pull request on [GitHub](https://github.com/nobad-studio/Nobad-VPN).
 
 ## License
 NOBAD VPN is released under the [MIT License](../../LICENSE). The installer also ships third-party components under their

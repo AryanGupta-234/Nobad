@@ -33,7 +33,7 @@
     return `<ol class="si-steps">
       <li>${E(tr("Create a free TMDB account"))}: ${u(TMDB_SIGNUP)} ${E(tr("(skip if you have one), then confirm your e-mail."))}</li>
       <li>${E(tr("Open the API page"))}: ${u(TMDB_API)} ${E(tr("(Settings → API)."))}</li>
-      <li>${E(tr("Request an API key for personal, non-commercial use and accept TMDB's terms. For the app details you can enter: name 'NOBAD VPN (personal)', URL https://github.com/AryanGupta-234/Nobad, summary 'Personal use of Where to watch in NOBAD VPN'."))}</li>
+      <li>${E(tr("Request an API key for personal, non-commercial use and accept TMDB's terms. For the app details you can enter: name 'NOBAD VPN (personal)', URL https://github.com/nobad-studio/Nobad-VPN, summary 'Personal use of Where to watch in NOBAD VPN'."))}</li>
       <li>${E(tr("Back on"))} ${u(TMDB_API)}, ${E(tr("copy the API Read Access Token (the long one starting with eyJ, recommended) or the shorter API Key."))}</li>
       <li>${E(tr("Paste it here and press Save & check. NOBAD verifies it with TMDB and stores it encrypted on this PC. Don't share it or put it in NOBAD's source code."))}</li></ol>`;
   }
