@@ -98,18 +98,80 @@ def test_pause_for_and_resume():
 def test_quiet_game_session_is_reported_once_it_ends():
     apps = Apps()
     gv, _ = gov([smp(t=1.0, **GAME), smp(t=2.0, **GAME), smp(t=3.0, foreground="code.exe"),
-                 smp(t=4.0, foreground="forza.exe", game=True), smp(t=5.0, foreground="code.exe")], apps=apps)
-    for _ in range(5):
+                 smp(t=400.0, foreground="code.exe"),
+                 smp(t=401.0, foreground="forza.exe", game=True), smp(t=402.0, foreground="other.exe", game=True)],
+                apps=apps)
+    for _ in range(4):
         gv.tick()
-    assert apps.quiet == ["forza.exe", "forza.exe"]
+    assert apps.quiet == ["forza.exe"]          # away from the front for over 5 minutes
+    gv.tick()
+    gv.tick()
+    assert apps.quiet == ["forza.exe", "forza.exe"]    # another game came to the front
 
 
-def test_laggy_game_session_is_not_quiet():
+def test_alt_tab_is_not_a_session_end():
     apps = Apps()
-    gv, _ = gov([smp(t=1.0, hung=True, **GAME), smp(t=2.0, foreground="code.exe")], apps=apps)
+    gv, _ = gov([smp(t=1.0, **GAME), smp(t=100.0, foreground="code.exe"), smp(t=200.0, **GAME),
+                 smp(t=450.0, foreground="code.exe"), smp(t=520.0, foreground="code.exe")], apps=apps)
+    for _ in range(4):
+        gv.tick()
+    assert apps.quiet == []
+    gv.tick()
+    assert apps.quiet == ["forza.exe"]
+
+
+class Boom:
+    def start_level(self, exe):
+        raise RuntimeError("db locked")
+
+    record_lag = quiet_session = start_level
+
+
+def test_failing_app_memory_does_not_stop_the_decision():
+    jobs = FakeJobs()
+    gv, act = gov([smp(t=1.0, hung=True, **GAME), smp(t=2.0, **GAME), smp(t=500.0, foreground="code.exe")],
+                  jobs=jobs, apps=Boom())
+    for _ in range(3):
+        gv.tick()
+    assert jobs.WORKERS.caps[0] == 5 and gv.decision.level in (g.PAUSED, g.LIGHT, g.GENTLE)
+    assert [a["kind"] for a in act.recent()][-1] == "level"
+
+
+def test_quiet_session_failure_keeps_decision_and_cap():
+    jobs = FakeJobs()
+    apps = Apps()
+    apps.quiet_session = Boom().quiet_session
+    gv, _ = gov([smp(t=1.0, **GAME), smp(t=500.0, foreground="code.exe")], jobs=jobs, apps=apps)
     gv.tick()
     gv.tick()
-    assert apps.lags == ["forza.exe"] and apps.quiet == []
+    assert jobs.WORKERS.caps == [15] and gv.decision.level == g.LIGHT
+
+
+def test_usage_failure_does_not_abort_tick():
+    class Bad:
+        def usage(self):
+            raise OSError("gone")
+
+    jobs = FakeJobs()
+    jobs.OUTER = Bad()
+    gv, _ = gov([smp(t=1.0)], jobs=jobs)
+    gv.tick()
+    assert gv.history[0]["find_mb"] == 0
+
+
+def test_usage_is_read_once_per_tick():
+    class Counting:
+        n = 0
+
+        def usage(self):
+            Counting.n += 1
+            return {"cpu_seconds": 1.0, "memory_mb": 7}
+
+    jobs = FakeJobs()
+    jobs.OUTER = Counting()
+    gv, _ = gov([smp(t=1.0)], jobs=jobs)
+    gv.tick()
+    assert Counting.n == 1 and gv.history[0]["find_mb"] == 7
 
 
 def test_non_game_session_is_not_reported():

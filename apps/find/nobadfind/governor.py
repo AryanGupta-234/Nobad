@@ -179,18 +179,47 @@ HISTORY = 150            # samples kept for the live chart (5 minutes at one eve
 SLOW_SENSE_EVERY = 15    # battery and call checks cost a registry walk
 
 
+SESSION_GAP = 300        # seconds a game may stay out of the front (alt-tab) before its session is over
+
+
+class _SafeApps:
+    def __init__(self, apps):
+        self._apps = apps
+
+    def start_level(self, exe):
+        try:
+            return self._apps.start_level(exe)
+        except Exception as e:
+            log(f"app memory unavailable: {type(e).__name__}", "warn")
+            return None
+
+    def record_lag(self, exe, sample):
+        try:
+            self._apps.record_lag(exe, sample)
+        except Exception as e:
+            log(f"app memory unavailable: {type(e).__name__}", "warn")
+
+    def quiet_session(self, exe):
+        try:
+            self._apps.quiet_session(exe)
+        except Exception as e:
+            log(f"app memory unavailable: {type(e).__name__}", "warn")
+
+
 class Governor(threading.Thread):
     def __init__(self, settings, apps, activity, sense=None, every=2.0, jobs=None):
         super().__init__(daemon=True, name="governor")
-        self.settings, self.apps, self.activity = settings, apps, activity
-        self.brain = Brain(settings, apps)
+        self.settings, self.activity = settings, activity
+        self.apps = _SafeApps(apps)                 # a store error must never stop the governor
+        self.brain = Brain(settings, self.apps)
         self.every = every
         self.jobs = _jobs if jobs is None else jobs
         self.decision = Decision(GENTLE, "Gentle: starting up")
         self._history = deque(maxlen=HISTORY)
         self._stop_ev = threading.Event()
         self._applied = None
-        self._session = {"exe": "", "game": False, "lagged": False}
+        self._session = {"exe": "", "seen": 0.0, "lagged": False}   # the current game session
+        self._usage = {"cpu_seconds": 0.0, "memory_mb": 0}
         self._sense = sense or self._real_sense
         self._cpu, self._gpu = None, None
         self._slow = (0.0, False, False)         # (checked at, on battery, in call)
@@ -222,13 +251,11 @@ class Governor(threading.Thread):
 
     # ---------- one step ----------
     def tick(self):
+        self._usage = self._read_usage()            # once per tick: find_cpu and find_mb share it
         s = self._sense()
         d = self.brain.decide(s)
-        self._track_session(s)
-        outer = getattr(self.jobs, "OUTER", None)
-        find_mb = outer.usage()["memory_mb"] if outer is not None else 0
         self._history.append({"t": s.t, "cpu": s.cpu, "gpu": s.gpu, "find_cpu": s.find_cpu,
-                              "find_mb": find_mb, "level": d.level})
+                              "find_mb": self._usage["memory_mb"], "level": d.level})
         if d.level != self._applied:
             self._applied = d.level
             workers = getattr(self.jobs, "WORKERS", None)
@@ -236,18 +263,37 @@ class Governor(threading.Thread):
                 workers.set_cpu_cap(CPU_CAP[d.level])
             self.activity.add("level", d.reason)
         self.decision = d
+        try:
+            self._track_session(s)
+        except Exception as e:
+            log(f"governor session tracking failed: {type(e).__name__}", "warn")
         return d
 
+    def _read_usage(self):
+        outer = getattr(self.jobs, "OUTER", None)
+        if outer is not None:
+            try:
+                return outer.usage()
+            except Exception as e:
+                log(f"governor could not read usage: {type(e).__name__}", "warn")
+        return {"cpu_seconds": 0.0, "memory_mb": 0}
+
     def _track_session(self, s):
+        """A game session ends when another game comes to the front, or when its exe has not been in
+        front for SESSION_GAP seconds (alt-tab does not end it). A session without lag counts as quiet."""
         cur = self._session
-        if s.foreground != cur["exe"]:
-            if cur["exe"] and cur["game"] and not cur["lagged"]:
-                self.apps.quiet_session(cur["exe"])
-            cur.update(exe=s.foreground, game=False, lagged=False)
-        if s.game:
-            cur["game"] = True
-        if self.brain._lag_recorded:
-            cur["lagged"] = True
+        if cur["exe"]:
+            if s.foreground == cur["exe"]:
+                cur["seen"] = s.t
+            elif (s.game and s.foreground) or s.t - cur["seen"] >= SESSION_GAP:
+                if not cur["lagged"]:
+                    self.apps.quiet_session(cur["exe"])
+                cur["exe"] = ""
+        if cur["exe"]:
+            if s.foreground == cur["exe"] and self.brain._lag_recorded:
+                cur["lagged"] = True
+        elif s.game and s.foreground:
+            cur.update(exe=s.foreground, seen=s.t, lagged=self.brain._lag_recorded)
 
     # ---------- real sensors ----------
     def _real_sense(self):
@@ -264,10 +310,9 @@ class Governor(threading.Thread):
                       idle_s=winapi.idle_seconds())
 
     def _find_cpu(self, now):
-        outer = getattr(self.jobs, "OUTER", None)
-        if outer is None:
+        secs = self._usage["cpu_seconds"]
+        if not secs and getattr(self.jobs, "OUTER", None) is None:
             return 0.0
-        secs = outer.usage()["cpu_seconds"]
         last, self._last_cpu_s = self._last_cpu_s, (now, secs)
         if last is None or now <= last[0]:
             return 0.0
