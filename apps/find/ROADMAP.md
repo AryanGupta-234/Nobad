@@ -46,6 +46,7 @@ later phase while an earlier one has open work unless the status table says it w
 | 2026-11-18 | UI and engine talk over a **private named pipe**, never HTTP | Removes the local-server/URL bug class (cause 3) |
 | 2026-11-18 | Prototype first, measure, then commit to the full move | A wrong platform choice is expensive; numbers decide |
 | 2026-11-18 | Maintainer: start the Flutter prototype now, before Phases 0-1 finish. Flutter SDK 3.50 at `E:\devlutter` (PUB_CACHE `E:\dev\pub-cache`), VS 2022 Build Tools (C++ only) at `E:\dev\VSBuildTools` | Maintainer's call; the prototype also gives the first UI measurements |
+| 2026-11-18 | Flutter prototype renders with **Skia**, not Impeller (Flutter 3.50's Windows default) | On the reference PC Impeller took 0.9 s to the first frame and ~50 MB more; re-measure on every Flutter upgrade and on another GPU before the full move |
 
 Options considered for the UI and why they lost:
 
@@ -297,7 +298,7 @@ both; the release workflow (`find-release.yml`) builds and attests both; SHA-256
 | 1 | Event-driven governor inputs (power, foreground) | not started | | |
 | 2 | `rpc.py` named-pipe server + contract tests | not started | | |
 | 2 | `engine.py` headless with hotkeys; WebView UI on rpc handlers | not started | | |
-| 3 | Flutter prototype (Search + bar) and measurement | in progress | find-flutter-prototype | Started ahead of 0-2 by the maintainer; minimal pipe server in the prototype. Fallback: Qt/QML |
+| 3 | Flutter prototype (Search + bar) and measurement | **built, measured; waiting for the maintainer's go/no-go** | find-flutter-prototype (draft PR) | Window 465 MB/7 processes (WebView2) → ~132 MB/1 process (Flutter, Skia), first frame 0.2 s, pipe adds ≤ 3 ms ([measurements](docs/measurements.md)). Misses the ≤ 100 MB window budget (Intel D3D11 driver ~100 MB in-process). Prototype `nobadfind/rpc/` + `engine.py` cover only hello/subscribe/search/open/reveal/thumbnail/status. Fallback: Qt/QML |
 | 3 | Full Flutter UI, packaging, release workflow | not started | | |
 | 4 | 0.8.0 model tiers (multilingual, consent) | not started | | Spec §4 |
 | 5 | NOBAD VPN mini-window bug | waiting | | Needs the steps that trigger it from the maintainer |
