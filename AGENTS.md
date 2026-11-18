@@ -48,3 +48,10 @@ out, install or run them.
 - Heredocs mangle backslashes: write multi-line patch scripts to a scratch folder outside the repo, run them with
   `python -I`, then delete the folder. `/tmp` in bash isn't Python's temp; use Windows paths.
 - Never launch the real app to look at it (UAC, firewall, tunnels): use the UI preview playbook.
+
+## Shared memory (all NOBAD repos)
+Decisions, open items and ideas shared by every contributor and AI assistant live in
+[`nobad-studio/memory`](https://github.com/nobad-studio/memory) (it supersedes `docs/ai/memory.md`, which stays until
+it's retired). Read its `INDEX.md` first (Claude Code loads it at session start through `.claude/settings.json`), open
+a fact only when it matters, and check who else is working on what with `python tools/mem.py status` there. Record new
+decisions as a PR to that repo (the `nobad-memory` skill), never secrets.
