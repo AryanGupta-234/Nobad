@@ -19,8 +19,8 @@ dependencies = ["pywebview>=5.0", "pystray>=0.19", "Pillow>=10.0"]
 dev = ["pytest", "pyflakes"]
 
 [project.urls]
-Homepage = "https://nobad-platform.aassworld99.workers.dev/products/vpn/"
-Source = "https://github.com/AryanGupta-234/Nobad"
+Homepage = "https://nobad-platform.nobad-studio.workers.dev/products/vpn/"
+Source = "https://github.com/nobad-studio/Nobad-VPN"
 
 [tool.setuptools.dynamic]
 version = { attr = "nobadvpn.const.APP_VER" }

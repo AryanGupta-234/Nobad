@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://nobad-platform.aassworld99.workers.dev/sitemap.xml
+Sitemap: https://nobad-platform.nobad-studio.workers.dev/sitemap.xml

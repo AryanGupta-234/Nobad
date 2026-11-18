@@ -1,4 +1,4 @@
-name: Bug report
+name: Bug report (NOBAD VPN)
 description: Something in NOBAD VPN doesn't work as expected
 labels: ["bug"]
 body:

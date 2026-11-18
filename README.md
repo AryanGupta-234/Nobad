@@ -5,19 +5,19 @@
 NOBAD is an independent, free and open-source software studio. It builds privacy tools, utilities and practical
 software in the open, in collaboration with AI. Each product lives in its own folder under `apps/`.
 
-[Website](https://nobad-platform.aassworld99.workers.dev/) ·
-[Releases](https://github.com/AryanGupta-234/Nobad/releases) ·
-[Discussions](https://github.com/AryanGupta-234/Nobad/discussions) ·
+[Website](https://nobad-platform.nobad-studio.workers.dev/) ·
+[Releases](https://github.com/nobad-studio/Nobad-VPN/releases) ·
+[Discussions](https://github.com/nobad-studio/Nobad-VPN/discussions) ·
 [Security policy](SECURITY.md) ·
-[Code signing policy](https://nobad-platform.aassworld99.workers.dev/code-signing-policy/) ·
-[Privacy policy](https://nobad-platform.aassworld99.workers.dev/privacy/)
+[Code signing policy](https://nobad-platform.nobad-studio.workers.dev/code-signing-policy/) ·
+[Privacy policy](https://nobad-platform.nobad-studio.workers.dev/privacy/)
 
 ## Products
 
 | Product | What it is | Status | Where |
 |---|---|---|---|
-| **NOBAD VPN** | A WireGuard client for Windows with a kill switch, DNS leak block, Network Intelligence, an Evil Twin network check and Where to watch. | Available | [`apps/vpn/`](apps/vpn/) · [product page](https://nobad-platform.aassworld99.workers.dev/products/vpn/) |
-| **NOBAD File Bridge** | Open, copy, edit and back up the files on your website or server from your PC: SFTP/FTP, two-way sync, a terminal, an encrypted password vault and deployments. Linux and Windows. By [@harshRaj1601](https://github.com/harshRaj1601). | In development: being hardened before its first release (see [issues labelled `nobad-files`](https://github.com/AryanGupta-234/Nobad/issues?q=is%3Aissue+label%3Anobad-files)) | [`apps/file-bridge/`](apps/file-bridge/) · [product page](https://nobad-platform.aassworld99.workers.dev/products/file-bridge/) |
+| **NOBAD VPN** | A WireGuard client for Windows with a kill switch, DNS leak block, Network Intelligence, an Evil Twin network check and Where to watch. | Available | [`apps/vpn/`](apps/vpn/) · [product page](https://nobad-platform.nobad-studio.workers.dev/products/vpn/) |
+| **NOBAD File Bridge** | Open, copy, edit and back up the files on your website or server from your PC: SFTP/FTP, two-way sync, a terminal, an encrypted password vault and deployments. Linux and Windows. By [@harshRaj1601](https://github.com/harshRaj1601). | Available | Own repository: [nobad-studio/file-bridge](https://github.com/nobad-studio/file-bridge) · [product page](https://nobad-platform.nobad-studio.workers.dev/products/file-bridge/) |
 | **NOBAD Find** | Private, offline search for your own files on Windows: by name, by the words inside, by meaning and photos by what's in them, with plain-language questions, filters and previews. Nothing leaves your PC; the index is encrypted. | Available | [`apps/find/`](apps/find/) · [product page](https://nobad-platform.nobad-studio.workers.dev/products/find/) · [releases](https://github.com/nobad-studio/Nobad-VPN/releases?q=find-v) |
 
 The website source is in [`site-pages/`](site-pages/).
@@ -31,9 +31,6 @@ apps/find/           NOBAD Find (private offline file search for Windows)
   nobadfind/         app source (UI in nobadfind/ui/)
   tests/             pytest suite
   packaging/         PyInstaller spec, Inno Setup installer (per-user), build.ps1
-apps/file-bridge/          NOBAD File Bridge (remote file manager, Python + PySide6)
-  tests/             pytest suite
-  packaging/         Linux .deb script; PyInstaller spec is build.spec
 apps/vpn/            NOBAD VPN (Windows app)
   nobadvpn/          app source (engine, UI in nobadvpn/ui/)
   tests/             pytest suite
@@ -48,7 +45,7 @@ docs/                repo-wide docs: release process, release-notes template
 .github/             CI, release, CodeQL, Scorecard workflows; issue and PR templates
 ```
 
-Installers for every version are on [GitHub Releases](https://github.com/AryanGupta-234/Nobad/releases), not in
+Installers for every version are on [GitHub Releases](https://github.com/nobad-studio/Nobad-VPN/releases), not in
 the repository. Local build output (`build/`, `dist/`, `dist-installer/`, `public/`) is git-ignored.
 
 ## Free servers in 2 minutes
@@ -66,7 +63,7 @@ one-connection free account. Each person gets their own.
 
 ## Download NOBAD VPN
 
-Get the installer from **[GitHub Releases](https://github.com/AryanGupta-234/Nobad/releases)**. Each release is built
+Get the installer from **[GitHub Releases](https://github.com/nobad-studio/Nobad-VPN/releases)**. Each release is built
 by GitHub Actions from the tagged source on a clean Windows runner, and ships with its SHA-256, the update manifest
 and a software bill of materials (CycloneDX).
 
@@ -80,7 +77,7 @@ run VPN servers and doesn't collect telemetry.
 
 Bug reports, testing on your PC and network, documentation and code are all welcome, for either product; see
 [CONTRIBUTING.md](CONTRIBUTING.md). Questions and ideas go to
-[Discussions](https://github.com/AryanGupta-234/Nobad/discussions). Report security problems privately:
+[Discussions](https://github.com/nobad-studio/Nobad-VPN/discussions). Report security problems privately:
 [SECURITY.md](SECURITY.md).
 
 ## Website: local development and deployment

@@ -8,7 +8,7 @@ import urllib.request
 
 from ..const import APP_VER
 
-USER_AGENT = f"NOBAD-VPN/{APP_VER} (+https://github.com/AryanGupta-234/Nobad)"
+USER_AGENT = f"NOBAD-VPN/{APP_VER} (+https://github.com/nobad-studio/Nobad-VPN)"
 MAX_RETRY_WAIT = 4.0
 
 

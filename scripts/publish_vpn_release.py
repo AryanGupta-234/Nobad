@@ -19,7 +19,7 @@ import re
 import urllib.request
 from pathlib import Path
 
-REPO = "AryanGupta-234/Nobad"
+REPO = "nobad-studio/Nobad-VPN"
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "releases" / "vpn" / "releases.json"
 SEMVER = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
