@@ -11,12 +11,10 @@ Each product has its own folder and its own test suite. Run the tests from that 
 |---|---|---|
 | NOBAD VPN | [`apps/vpn/`](apps/vpn/) | `python -m pytest -q` |
 | NOBAD Find | [`apps/find/`](apps/find/) | `python -m pytest -q tests` |
-| NOBAD File Bridge | [`apps/file-bridge/`](apps/file-bridge/) | `python -m pytest -q tests` |
 
-Changes to `apps/file-bridge/` are reviewed by its code owner (@harshRaj1601) and the maintainer.
+NOBAD File Bridge has its own repository: [nobad-studio/file-bridge](https://github.com/nobad-studio/file-bridge).
 
-AI coding assistants: read [AGENTS.md](AGENTS.md) first (and [apps/file-bridge/AGENTS.md](apps/file-bridge/AGENTS.md) for
-NOBAD File Bridge).
+AI coding assistants: read [AGENTS.md](AGENTS.md) first.
 
 ## Ways to help
 
@@ -41,18 +39,6 @@ python -m pytest -q                                              # all tests run
 python nobad_vpn.py                                              # run from source (asks for admin rights)
 powershell -ExecutionPolicy Bypass -File packaging\build.ps1     # full installer (tests, app, WireGuard, Inno)
 ```
-
-## Building NOBAD File Bridge
-
-Requirements: Python 3.12. From `apps/file-bridge`:
-
-```bash
-pip install -e ".[dev]"
-python -m pytest -q tests        # Qt offscreen: QT_QPA_PLATFORM=offscreen
-python -m app.main               # run from source
-```
-
-See [apps/file-bridge/README.md](apps/file-bridge/README.md) for details.
 
 ## Website
 

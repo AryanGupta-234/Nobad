@@ -5,6 +5,8 @@ Add to it when the maintainer decides something; delete lines that stop being tr
 (this repository is public): no keys, configs, personal data or private review notes.
 
 ## Standing decisions
+- 2026-11-18 NOBAD File Bridge lives only in nobad-studio/file-bridge; its copy in this repo was removed (its open review
+  fixes are tracked there). `file-bridge-ci.yml` is a stub that keeps the ruleset's required check green until it's dropped.
 - 2026-11-17 GitHub organization `nobad-studio` (`nobad` is taken), Aryan Gupta the only owner. Repos: `nobad`
   (NOBAD VPN + NOBAD Find, transferred from AryanGupta-234/Nobad), `website` (own repo, same Cloudflare Worker and
   URL), `file-bridge` (own repo, history kept), `.github` (org profile + shared community files). Harsh is an
@@ -47,10 +49,6 @@ Add to it when the maintainer decides something; delete lines that stop being tr
   replace their files. Users should verify with the strict `gh attestation verify ... --signer-workflow ...
   --source-ref ...` command (docs/RELEASE-PROCESS.md). Optional hardening: a protected `release` environment with
   the owner as required reviewer on the publish job.
-- NOBAD File Bridge (`apps/file-bridge/`, formerly NOBAD Files in `apps/files/`, by @harshRaj1601, write access) was merged by the maintainer on 2026-11-16 (PR #27).
-  Fixes still owed from its review: remote file names can write outside the download folder (sftp_ops/transfer_manager),
-  Monaco editor loaded from a CDN without integrity pinning, world-readable app database on Linux, sudo password
-  auto-typed on a server-controlled prompt, failing tests. Track them as issues; don't release NOBAD File Bridge before they're fixed.
 - Code signing isn't set up yet (SmartScreen warns; the in-app updater only accepts signed builds). SignPath for
   open source is the planned route (see `apps/vpn/docs/CODE-SIGNING.md`).
 
