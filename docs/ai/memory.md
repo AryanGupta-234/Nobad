@@ -41,6 +41,9 @@ Add to it when the maintainer decides something; delete lines that stop being tr
   the app still never runs elevated. Kernel drivers are out (signing, crash risk, no accuracy gain).
 - 2026-11-17 NOBAD Find has its own packaging in `apps/find/packaging/` (maintainer: never reuse the VPN's).
   Per-user Inno Setup installer, no admin; CI job `find-build` checks every PR; releases via `find-release.yml`.
+- 2026-11-18 NOBAD Find roadmap (`apps/find/ROADMAP.md`): maintainer's aim is RAM/CPU/GPU first, then features.
+  Measured 0.7.0: WebView2 425 MB in 7 processes; engine 549 MB working / 3.98 GB committed. Plan: measure →
+  engine diet → named-pipe engine service → Flutter UI (Qt fallback) → 0.8.0 models. Status table in the roadmap.
 - 2026-11-18 NOBAD Find 0.7.0: resource governor (levels + per-app memory), job objects + watchdog, close stops
   indexing (keep_background setting), Indexing transparency page, quick find bar (Ctrl+Alt+Space), splash, Settings pages.
   Model tiers (multilingual) are 0.8.0, same spec.
