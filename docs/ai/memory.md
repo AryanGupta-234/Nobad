@@ -41,6 +41,9 @@ Add to it when the maintainer decides something; delete lines that stop being tr
   the app still never runs elevated. Kernel drivers are out (signing, crash risk, no accuracy gain).
 - 2026-11-17 NOBAD Find has its own packaging in `apps/find/packaging/` (maintainer: never reuse the VPN's).
   Per-user Inno Setup installer, no admin; CI job `find-build` checks every PR; releases via `find-release.yml`.
+- 2026-11-18 NOBAD Find 0.7.0: resource governor (levels + per-app memory), job objects + watchdog, close stops
+  indexing (keep_background setting), Indexing transparency page, quick find bar (Ctrl+Alt+Space), splash, Settings pages.
+  Model tiers (multilingual) are 0.8.0, same spec.
 - 2026-11-18 NOBAD Find 0.6.2: query linking words ("having/containing X") and Enter keeps the window. 0.7.0 (governor,
   transparency, find bar, UI) is designed in `docs/superpowers/specs/2026-11-18-find-governor-transparency-models-design.md`.
 - 2026-11-17 NOBAD Find (`apps/find/`): private offline search over your own files, first release 0.6.0.

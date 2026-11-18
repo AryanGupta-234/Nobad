@@ -359,7 +359,8 @@ def work(job):
 
 
 def init_worker():
-    from . import winapi
+    from . import jobs, winapi
+    jobs.join_workers()            # into Find's worker group (CPU-capped, ends with the app)
     winapi.background_mode()
 
 

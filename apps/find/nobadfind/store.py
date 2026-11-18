@@ -25,6 +25,7 @@ SCHEMA = """
 PRAGMA journal_mode=WAL;
 PRAGMA synchronous=NORMAL;
 CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT);
+CREATE TABLE IF NOT EXISTS apps(exe TEXT PRIMARY KEY, data TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS files(
   id INTEGER PRIMARY KEY, path TEXT NOT NULL UNIQUE, name TEXT NOT NULL, dir TEXT NOT NULL, ext TEXT,
   kind TEXT, size INTEGER, mtime REAL, ctime REAL, gen INTEGER DEFAULT 0, text_mtime REAL, text_err TEXT);
@@ -138,6 +139,24 @@ class Store:
             self.db.execute("INSERT INTO meta(k,v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v", (k, str(v)))
             self.db.commit()
 
+    # ---------- learned app profiles (exe file names only) ----------
+    def app_rows(self):
+        return [(r[0], r[1]) for r in self.q("SELECT exe, data FROM apps")]
+
+    def set_app(self, exe, data_json):
+        with self.wlock:
+            self.db.execute("INSERT INTO apps(exe,data) VALUES(?,?) ON CONFLICT(exe) DO UPDATE SET data=excluded.data",
+                            (exe, data_json))
+            self.db.commit()
+
+    def drop_app(self, exe=None):
+        with self.wlock:
+            if exe is None:
+                self.db.execute("DELETE FROM apps")
+            else:
+                self.db.execute("DELETE FROM apps WHERE exe=?", (exe,))
+            self.db.commit()
+
     # ---------- files ----------
     def upsert_files(self, rows):
         """rows: (path, name, dir, ext, kind, size, mtime, ctime, gen). A changed mtime makes the text stale."""
@@ -215,6 +234,43 @@ class Store:
                       f"AND (p.file_id IS NULL OR p.mtime IS NOT f.mtime) ORDER BY f.mtime DESC LIMIT ?",
                       (*sorted(exts), min_bytes, max_bytes, limit))
 
+    def count_readable(self, kinds_ext, max_bytes, min_bytes=0):
+        """How many files the text reader is meant to read (same filter as needs_text)."""
+        marks = ",".join("?" * len(kinds_ext))
+        return self.one(f"SELECT count(*) FROM files WHERE ext IN ({marks}) AND size <= ? AND size >= ?",
+                        (*sorted(kinds_ext), max_bytes, min_bytes)) or 0
+
+    def count_needs_text(self, kinds_ext, max_bytes, min_bytes=0):
+        marks = ",".join("?" * len(kinds_ext))
+        return self.one(f"SELECT count(*) FROM files WHERE ext IN ({marks}) AND size <= ? AND size >= ? "
+                        "AND (text_mtime IS NULL OR text_mtime <> mtime)",
+                        (*sorted(kinds_ext), max_bytes, min_bytes)) or 0
+
+    def count_chunks_without_vectors(self):
+        return self.one("SELECT count(*) FROM chunks c LEFT JOIN vecs v ON v.chunk_id=c.id "
+                        "WHERE v.chunk_id IS NULL") or 0
+
+    def count_names(self, kinds):
+        marks = ",".join("?" * len(kinds))
+        return self.one(f"SELECT count(*) FROM files WHERE kind IN ({marks})", tuple(sorted(kinds))) or 0
+
+    def count_names_without_vectors(self, kinds):
+        marks = ",".join("?" * len(kinds))
+        return self.one(f"SELECT count(*) FROM files f LEFT JOIN nvecs v ON v.file_id=f.id "
+                        f"WHERE v.file_id IS NULL AND f.kind IN ({marks})", tuple(sorted(kinds))) or 0
+
+    def count_photos(self, exts, min_bytes, max_bytes):
+        marks = ",".join("?" * len(exts))
+        return self.one(f"SELECT count(*) FROM files WHERE ext IN ({marks}) AND size BETWEEN ? AND ?",
+                        (*sorted(exts), min_bytes, max_bytes)) or 0
+
+    def count_photos_to_read(self, exts, min_bytes, max_bytes):
+        marks = ",".join("?" * len(exts))
+        return self.one(f"SELECT count(*) FROM files f LEFT JOIN pvecs p ON p.file_id = f.id "
+                        f"WHERE f.ext IN ({marks}) AND f.size BETWEEN ? AND ? "
+                        f"AND (p.file_id IS NULL OR p.mtime IS NOT f.mtime)",
+                        (*sorted(exts), min_bytes, max_bytes)) or 0
+
     def set_photo_vector(self, file_id, mtime, blob, err=None):
         with self.wlock:
             self.db.execute("INSERT OR REPLACE INTO pvecs(file_id, mtime, v, err) VALUES(?,?,?,?)",
@@ -244,7 +300,7 @@ class Store:
 
     def wipe(self):
         with self.wlock:
-            for t in ("vecs", "nvecs", "pvecs", "chunks", "files", "meta"):
+            for t in ("vecs", "nvecs", "pvecs", "chunks", "files", "meta", "apps"):
                 self.db.execute(f"DELETE FROM {t}")
             self.db.execute("INSERT INTO names(names) VALUES('rebuild')")
             self.db.execute("INSERT INTO text(text) VALUES('rebuild')")

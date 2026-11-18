@@ -30,15 +30,24 @@ they're about, and tells you why each result matched.
 - **USB, external and network drives** (optional). Indexed while plugged in; when you unplug one, its files
   stay findable and are marked "not connected".
 - **Always current.** Folder-change notifications put new, changed and deleted files in the index within seconds.
-- **Stays out of your way.** It sizes its work to your CPU and drive (SSD or hard disk), runs in Windows
-  background mode, works gently while you use the PC and at full speed when you're away, and pauses on battery,
-  during full-screen games or presentations and during calls (microphone or camera in use).
+- **Stays out of your way, and says why.** Every two seconds it checks how much of the PC is free and works at
+  full speed, gently, lightly (one worker) or not at all, always with a one-line reason. A game alone doesn't
+  stop it: it only pauses when the PC is really busy, an app stops responding or memory runs low. It remembers
+  apps that lagged (by program name only) and gives them room next time. It pauses on battery, during
+  presentations and during calls. Its own processes run in Windows background mode inside one Windows job, so
+  quitting or a crash ends every one of them; a watchdog ends its own stuck or oversized workers.
+- **Full transparency.** The Indexing page shows each phase with progress and time left, NOBAD Find's own CPU,
+  memory, disk and graphics use per process, every model (size, licence, in memory or not, CPU or GPU) and
+  every decision it made.
 - **Optional: turn off Windows Search indexing**, with one-click undo (see below).
 - Hotkey **Win+Shift+Space** from anywhere. ↑ ↓ to move, Enter to open, Ctrl+Enter to show in its folder, Ctrl+C
   to copy the path, Shift+Delete to forget a result. The window stays up after Enter (Settings → Launch → Hide after
   opening a file hides it, like a launcher).
-  Closing the window keeps NOBAD Find in the background for the hotkey; **Settings → Launch → Quit** stops it
-  completely.
+  Closing the window (or Esc) stops indexing and every worker; one small idle process stays so the hotkey works.
+  **Settings → Performance → Keep indexing in the background** keeps indexing after closing; **Settings → About →
+  Quit** stops it completely.
+- **Quick find bar** on **Ctrl+Alt+Space**: a small floating search bar with up to 8 results. Enter opens,
+  Ctrl+Enter shows in its folder, Alt+Enter moves the search into the full window, Esc hides it.
 
 ## Privacy and security
 - **Nothing leaves your PC.** No account, no cloud, no telemetry.

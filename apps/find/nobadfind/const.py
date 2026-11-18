@@ -2,7 +2,7 @@
 import os
 
 APP_NAME = "NOBAD Find"
-APP_VER = "0.6.2"
+APP_VER = "0.7.0"
 
 # NOBAD Find runs as the normal user, so its data lives in the user's own profile (not readable by other users).
 DATA_DIR = os.environ.get("NOBAD_FIND_DATA_DIR") or os.path.join(
@@ -47,7 +47,11 @@ DEFAULTS = {
     "index_removable": False,       # USB sticks, SD cards and external drives while they're plugged in
     "index_network": False,         # mapped network drives (your own network; slow on big shares)
     "pause_on_battery": True,
-    "pause_fullscreen": True,
+    "pause_fullscreen": True,       # old: replaced by games_mode, kept so a downgrade still reads it
+    "games_mode": "smart",          # smart | always | off: what to do while a game is running
+    "keep_background": False,
+    "bar": True,
+    "bar_hotkey": "ctrl+alt+space",
     "pause_on_call": True,          # while the microphone or camera is in use
     "workers": 0,                   # 0 = pick from the CPU
     "hotkey": "win+shift+space",
@@ -56,4 +60,5 @@ DEFAULTS = {
     "wsearch_prev": "",             # Windows Search start type saved before NOBAD Find turned it off
     "theme": "dark",
     "glass": True,                  # see-through acrylic window on Windows 11 (follows Windows' transparency switch)
+    "bg_notice_seen": False,        # the one-time "closing keeps NOBAD Find ready" notice was dismissed
 }

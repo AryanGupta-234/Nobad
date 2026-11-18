@@ -1,5 +1,38 @@
 # NOBAD Find changelog
 
+## 0.7.0 · 2026-11-18
+
+### Added
+- A smarter way to stay out of your way. NOBAD Find checks every two seconds how much of your PC is free and works
+  at full speed, gently, lightly (one worker) or not at all, always with a one-line reason. A game alone no longer
+  stops indexing: it pauses only when the PC is really busy, an app stops responding or memory runs low.
+  Settings → Performance → Games and presentations: Smart (recommended), Always pause or Don't change.
+- It learns: an app that lagged while NOBAD Find was working gets more room next time. Settings → Performance lists
+  those apps (by program name only, kept in the encrypted index), each with a Forget button.
+- The Indexing page shows everything: each phase with progress and time left, NOBAD Find's own CPU, memory, disk and
+  graphics use (with a 5-minute chart and a per-process list), every model, recent decisions, and Pause for 1 hour.
+- Quick find bar on Ctrl+Alt+Space: a small floating search bar on the monitor with your mouse.
+- A splash screen while it starts, a fuller home screen (example searches, quick tiles, recently changed files),
+  Settings in six pages (General, Indexing, Models, Performance, Privacy, About), "Your PC" hardware info, and a
+  working light theme.
+
+### Changed
+- Closing the window or pressing Esc now stops indexing and ends every worker process; one small idle process stays
+  so the hotkey works. To keep indexing after closing, turn on Settings → Performance → Keep indexing in the
+  background.
+- All of NOBAD Find's processes run in one Windows job: quitting or a crash ends every one of them. Files and apps
+  you open from NOBAD Find start outside it, so they stay open when NOBAD Find quits.
+- A watchdog ends NOBAD Find's own stuck or oversized workers and reloads its window if the page stops answering.
+  It never touches other apps. Every stop is listed on the Indexing page.
+- Meaning vectors are made in a separate low-priority worker; searches stay quick while it works.
+
+### Fixed
+- Files that were being read when a long pause started are no longer skipped as "took too long".
+- If quitting ever hangs, NOBAD Find ends itself after 15 seconds.
+
+### Privacy and security
+- No new internet connections. Model downloads are saved only after their size and SHA-256 check out.
+
 ## 0.6.2 · 2026-11-18
 
 ### Fixed

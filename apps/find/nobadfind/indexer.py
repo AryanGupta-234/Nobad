@@ -1,6 +1,7 @@
 """The indexer: scan names, read text, compute meaning vectors, then keep everything fresh. Tuned to this PC.
 
-Phases:  names (parallel walk)  ->  text (worker processes)  ->  meaning (local model)  ->  watching
+Phases:  names (parallel walk)  ->  text (worker processes)  ->  meaning (local model, in a worker process)
+         ->  watching
 It steps aside for you: it pauses on battery, during full-screen games or presentations and during calls
 (settings), works gently while you use the PC and at full speed when you're away, and every worker process
 runs in Windows background mode (low CPU, disk and memory priority).
@@ -15,6 +16,7 @@ import time
 import numpy as np
 
 from . import embed, extract, ocr, photo, winapi
+from .governor import FULL, PAUSED, workers_for
 from .kinds import READABLE_EXT, kind_of
 from .log import log
 from .walker import Walker, default_roots
@@ -22,9 +24,12 @@ from .walker import Walker, default_roots
 RESCAN_EVERY = 6 * 3600
 DEBOUNCE = 2.0
 PHOTO_BATCH = 8                  # photos sent to the photo reader at a time
+MEANING_TIMEOUT = 120           # seconds one batch of meaning vectors may take before its worker is replaced
 JOB_TIMEOUT = 300                # seconds one file may take before its reader is stopped
 REMOVABLE_RESCAN = 1800          # USB drives aren't watched (that would block "safely remove"): re-walk them
 PAUSE_CHECK_EVERY = 5.0
+RECYCLE_AFTER = 60               # seconds paused before the worker processes end ("Paused: nothing runs")
+RECYCLE = "recycle"              # _wait_while_paused / _await: paused that long, end the workers
 # Names worth a meaning vector: things people make and keep (not code, programs or unknown files)
 NAME_KINDS = {"pdf", "document", "spreadsheet", "slides", "text", "email", "image", "video", "audio", "archive",
               "ebook", "folder"}
@@ -54,15 +59,26 @@ def plan(settings, roots):
 
 
 class Indexer:
-    def __init__(self, store, settings, vindex=None):
+    def __init__(self, store, settings, vindex=None, governor=None, activity=None):
         self.store = store
+        self.governor = governor
+        self.activity = activity         # every worker Find ends is listed there with its reason
+        self._clock = time.monotonic     # tests replace it
+        self.paused_s = 0.0              # how long the last _wait_while_paused waited
+        self._recycled = False           # a long pause ended the workers: start again from the top
+        self._recycle_req = False        # the watchdog asked for fresh workers (Find uses too much memory)
         self.settings = settings
         self.vindex = vindex
-        self.embedder = None
+        self.embedder = None             # the query encoder for live search (CPU, in this process)
+        self._vectors_in_worker = False  # index-time vectors come from the meaning worker (the real model)
+        self._mpool, self._mpool_gpu = None, None
+        self._text_pool, self._photo_pool = None, None   # for worker_names (the watchdog's messages)
         self.stop_ev = threading.Event()
         self.wake = threading.Event()
         self.status = {"phase": "starting", "files": 0, "texts": 0, "vectors": 0, "paused": "", "rate": 0,
                        "errors": 0, "plan": {}, "last_scan": 0}
+        if governor is not None:
+            self.status.update(level=governor.decision.level, reason=governor.decision.reason)
         self._pending = {}
         self._plock = threading.Lock()
         self._watcher = None
@@ -107,23 +123,45 @@ class Indexer:
         return self.drive_list
 
     def _away(self):
+        if self.governor is not None:
+            return self.governor.decision.level == FULL
         return winapi.idle_seconds() >= IDLE_AFTER
 
     def start(self):
+        """Start (or start again after stop() + join()). False while the indexer is still running."""
+        if self._thread is not None and self._thread.is_alive():
+            return False
+        if self.stop_ev.is_set():
+            self.stop_ev = threading.Event()
+        self.wake.clear()
         self._thread = threading.Thread(target=self._run, daemon=True, name="indexer")
         self._thread.start()
+        return True
 
-    def stop(self):
+    def stop(self, keep_watching=False):
+        """keep_watching: the live watcher (threads in this process, no worker) keeps collecting changes, so
+        indexing picks them up when it starts again."""
         self.stop_ev.set()
         self.wake.set()
-        if self._watcher:
+        if self._watcher and not keep_watching:
             self._watcher.stop()
+            self._watcher = None
+
+    def join(self, timeout=10):
+        """Wait for the indexer (and its worker processes) to end. True when it has."""
+        t = self._thread
+        if t is not None:
+            t.join(timeout)
+        return t is None or not t.is_alive()
 
     def rescan(self):
         self.store.set_meta("last_scan", 0)
         self.wake.set()
 
     def _pause_reason(self):
+        if self.governor is not None:
+            d = self.governor.decision
+            return d.reason if d.level == PAUSED else ""
         t, why = self._pause
         if time.monotonic() - t < PAUSE_CHECK_EVERY:
             return why
@@ -140,22 +178,92 @@ class Indexer:
             return "microphone or camera in use"
         return ""
 
-    def _wait_while_paused(self):
+    def _wait_while_paused(self, max_wait=None):
+        """Wait while paused. True: go on; False: stopping; RECYCLE: still paused after max_wait seconds (the
+        caller ends its worker processes, so nothing runs while paused). self.paused_s: how long it waited."""
+        t0 = self._clock()
+        self.paused_s = 0.0
         while not self.stop_ev.is_set():
+            if max_wait is not None and self._recycle_req:
+                return RECYCLE
+            if self.governor is not None:
+                d = self.governor.decision
+                self.status["level"], self.status["reason"] = d.level, d.reason
             why = self._pause_reason()
             self.status["paused"] = why
             if not why:
                 return True
-            self.stop_ev.wait(15)
+            self.paused_s = self._clock() - t0
+            if max_wait is not None and self.paused_s >= max_wait:
+                return RECYCLE
+            self.stop_ev.wait(0.5 if self.governor is not None else 15)
+            self.paused_s = self._clock() - t0
         return False
+
+    def _await(self, fut, timeout):
+        """fut's result, where only time not paused counts towards timeout: a pause caps the workers at 5% CPU,
+        and that must not make a file "take too long". RECYCLE when it stays paused for RECYCLE_AFTER with
+        fut in flight, None when stopping. Raises cf.TimeoutError, or what the job raised."""
+        used = paused = 0.0
+        last = self._clock()
+        while not fut.done():
+            if self.stop_ev.is_set():
+                return None
+            if self._recycle_req:
+                return RECYCLE
+            cf.wait([fut], timeout=0.5)
+            now = self._clock()
+            dt, last = now - last, now
+            if fut.done():
+                break
+            if self._pause_reason():
+                paused += dt
+                if paused >= RECYCLE_AFTER:
+                    return RECYCLE
+            else:
+                paused = 0.0
+                used += dt
+                if used > timeout:
+                    raise cf.TimeoutError()
+        return fut.result()
+
+    def _note(self, text):
+        """A worker Find ended, with the reason, for the activity list (and the log)."""
+        log(text, "warn")
+        if self.activity is not None:
+            try:
+                self.activity.add("kill", text)
+            except Exception:
+                pass
+
+    def recycle_workers(self):
+        """The watchdog: Find uses too much memory. The worker processes end at their next safe point (the
+        work in flight is done again) and fresh ones start."""
+        if self.worker_names():
+            self._recycle_req = True
+
+    def _recycle(self, pool, what):
+        """A long pause or the watchdog: end this pool's worker processes now (its jobs are done again later)."""
+        alive = bool(getattr(pool, "_processes", None))
+        _kill_pool(pool)
+        self._recycled = True
+        if alive and self._recycle_req:
+            self._note(f"Using a lot of memory, so NOBAD Find ended its {what}; they start again in a moment")
+        elif alive:
+            self._note(f"Paused for over a minute, so NOBAD Find ended its {what}; work starts again when it "
+                       "resumes")
+        self._recycle_req = False
 
     # ---------- main loop ----------
     def _run(self):
+        self._recycled = False
         try:
             self.status["plan"] = plan(self.settings, self.roots())
             log(f"indexer plan {self.status['plan']}")
-            self._load_embedder()
-            self._load_photo()
+            if self.embedder is None:               # started again after a stop: already loaded
+                self._load_embedder()
+            if self.photo_text is None:
+                self._load_photo()
             self.known_drives()
             if time.time() - float(self.store.meta("last_scan", 0) or 0) <= RESCAN_EVERY:
                 self._start_watcher()               # a recent index: just keep it fresh from now on
@@ -166,10 +274,16 @@ class Indexer:
                     self._start_watcher(restart=True)
                 else:
                     self._new_drives()
-                self._read_texts()
-                self._read_texts(images=True)
-                self._make_vectors()
-                self._photo_vectors()
+                for step in (self._read_texts, lambda: self._read_texts(images=True), self._make_vectors,
+                             self._photo_vectors):
+                    if self._recycled:
+                        break
+                    step()
+                if self._recycled:
+                    # a long pause ended the workers: wait it out with none running, then start from the top
+                    self._recycled = False
+                    self._wait_while_paused()
+                    continue
                 self.status["phase"] = "watching"
                 self.status.update(self.store.stats())
                 self._tidy_vectors()
@@ -260,15 +374,29 @@ class Indexer:
         gentle, full = plan_.get("text_workers", 2), plan_.get("text_workers_idle", 2)
         inflight, queued = {}, []                    # future -> (job, started)
         pool = cf.ProcessPoolExecutor(max_workers=max(gentle, full), initializer=extract.init_worker)
+        self._text_pool = pool
         try:
             while not self.stop_ev.is_set():
-                if not self._wait_while_paused():
+                go = self._wait_while_paused(max_wait=RECYCLE_AFTER)
+                if not go:
                     return
+                if go is RECYCLE:
+                    self._recycle(pool, "text readers")
+                    return                          # the files in flight are read again, not marked
+                if self.paused_s:                   # paused time isn't reading time (JOB_TIMEOUT)
+                    inflight = {f: (j, t + self.paused_s) for f, (j, t) in inflight.items()}
                 away = self._away()
-                self.status["speed"] = "full (you're away)" if away else "gentle (you're using the PC)"
+                if self.governor is not None:
+                    level = self.governor.decision.level
+                    self.status["speed"] = level
+                else:
+                    self.status["speed"] = "full (you're away)" if away else "gentle (you're using the PC)"
                 # after a reader crashed, the files that were being read run one at a time to find the culprit
                 careful = bool(self._suspects)
-                limit = 1 if careful else (full if away else gentle)
+                if self.governor is not None:
+                    limit = 1 if careful else max(1, workers_for(level, plan_))
+                else:
+                    limit = 1 if careful else (full if away else gentle)
                 if careful:
                     if not inflight:
                         queued = [self._suspects.pop(0)]
@@ -282,7 +410,7 @@ class Indexer:
                 self.status["phase"] = phase
                 while queued and len(inflight) < limit:
                     job = queued.pop(0)
-                    inflight[pool.submit(extract.work, job)] = (job, time.monotonic())
+                    inflight[pool.submit(extract.work, job)] = (job, self._clock())
                 done, _ = cf.wait(list(inflight), timeout=5, return_when=cf.FIRST_COMPLETED)
                 for f in done:
                     job, _t = inflight.pop(f)
@@ -292,7 +420,7 @@ class Indexer:
                         # a worker process died: every file in flight fails with it, so don't blame them yet
                         lost = [job] + [j for j, _t in inflight.values()]
                         if careful:
-                            log("a file crashed the text reader; it won't be read again until it changes", "warn")
+                            self._note("A file crashed the text reader; it is skipped until it changes")
                             self.store.set_text(job[0], job[3], [], "reader crashed")
                         else:
                             self._suspects = lost
@@ -302,22 +430,28 @@ class Indexer:
                         fid, mtime, chunks, err = job[0], job[3], [], "reader failed"
                     self.store.set_text(fid, mtime, chunks, err)
                     self.status["texts"] += 1
-                stuck = [(f, j) for f, (j, t) in inflight.items() if time.monotonic() - t > JOB_TIMEOUT]
+                stuck = [(f, j) for f, (j, t) in inflight.items() if self._clock() - t > JOB_TIMEOUT]
                 if stuck:
                     for _f, j in stuck:
                         self.store.set_text(j[0], j[3], [], "took too long")
-                    log(f"{len(stuck)} file(s) took too long to read; restarting the readers", "warn")
+                    files = "one file" if len(stuck) == 1 else f"{len(stuck)} files"
+                    self._note(f"Stopped a text reader stuck on {files} for {JOB_TIMEOUT // 60} minutes; "
+                               f"{'the file is' if len(stuck) == 1 else 'those files are'} skipped")
                     _kill_pool(pool)                # the other files in flight are simply read again
                     return
         finally:
+            if self.stop_ev.is_set():
+                _kill_pool(pool)                    # stopping: the files in flight are read again next time
             pool.shutdown(wait=True, cancel_futures=True)
+            self._text_pool = None
 
     def _load_embedder(self):
         if self.settings.get("semantic") and embed.model_ready():
             try:
                 if not embed.model_ready():
                     raise RuntimeError("model not downloaded")
-                self.embedder = embed.Lazy(embed.Embedder, "meaning")
+                self.embedder = embed.Lazy(lambda: embed.Embedder(gpu=False), "meaning")    # live search only
+                self._vectors_in_worker = True
                 if self.store.meta("vec_version") != embed.VEC_VERSION:
                     log("meaning vectors are made a better way now; computing them again")
                     self.store.drop_vectors()
@@ -334,16 +468,34 @@ class Indexer:
         then for the text inside files, each piece with its file's name in front."""
         if not self.embedder:
             return
-        self._name_vectors()
+        try:
+            self._name_vectors()
+            if not self._recycled:
+                self._chunk_vectors()
+        finally:
+            self._end_meaning_pool()                # the worker process ends when there's nothing to do
+
+    def _meaning_pause(self):
+        """Before each meaning batch. False: end this phase (stopping, or a long pause ended the worker)."""
+        go = self._wait_while_paused(max_wait=RECYCLE_AFTER if self._mpool is not None else None)
+        if go is RECYCLE:
+            self._recycle(self._mpool, "meaning worker")
+            self._end_meaning_pool()
+            return False
+        return bool(go)
+
+    def _chunk_vectors(self):
         while not self.stop_ev.is_set():
-            if not self._wait_while_paused():
+            if not self._meaning_pause():
                 return
             rows = self.store.chunks_without_vectors(128)
             if not rows:
                 return
             self.status["phase"] = "meaning"
             titles = self.store.chunk_titles([r[0] for r in rows])
-            vecs = self.embedder.encode([embed.chunk_text(titles.get(r[0], ""), r[1]) for r in rows])
+            vecs = self._encode([embed.chunk_text(titles.get(r[0], ""), r[1]) for r in rows])
+            if vecs is None:
+                return
             self.store.add_vectors([(r[0], embed.to_blob(v)) for r, v in zip(rows, vecs)])
             if self.vindex is not None:
                 self.vindex.add([r[0] for r in rows], vecs)
@@ -352,7 +504,7 @@ class Indexer:
 
     def _name_vectors(self):
         while not self.stop_ev.is_set():
-            if not self._wait_while_paused():
+            if not self._meaning_pause():
                 return
             rows = self.store.names_without_vectors(NAME_KINDS, 512)
             if not rows:
@@ -361,13 +513,62 @@ class Indexer:
             texts = {fid: ("" if any(s in d.lower() for s in SKIP_NAME_DIRS) else embed.name_text(n, d))
                      for fid, n, d in rows}
             todo = [fid for fid, t in texts.items() if t]
-            vecs = self.embedder.encode([texts[f] for f in todo]) if todo else []
+            vecs = self._encode([texts[f] for f in todo]) if todo else []
+            if vecs is None:
+                return
             blobs = dict(zip(todo, (embed.to_blob(v) for v in vecs)))
             self.store.add_name_vectors([(fid, blobs.get(fid, b"")) for fid in texts])
             if self.vindex is not None and todo:
                 self.vindex.add([embed.name_key(f) for f in todo], vecs)
             self.status["vectors"] += len(todo)
             self._breathe()
+
+    def _encode(self, texts):
+        """Index-time vectors, float32 (n, MODEL_DIM), made in the meaning worker process (CPU-capped with the
+        other workers). GPU only at Full: when the level changes, the next batch gets a matching worker.
+        None when stopping or when the worker failed (the batch is done again next round)."""
+        if not self._vectors_in_worker:
+            return self.embedder.encode(texts)      # a stand-in model (tests): in this process
+        level = self.governor.decision.level if self.governor is not None else FULL
+        gpu = level == FULL
+        if self._mpool is not None and self._mpool_gpu != gpu:
+            self._end_meaning_pool()
+        if self._mpool is None:
+            plan_ = self.status.get("plan") or {}
+            most = max(1, (os.cpu_count() or 2) // 2)
+            threads = min(most, max(1, workers_for(level, plan_))) if plan_ else most
+            self._mpool = cf.ProcessPoolExecutor(max_workers=1, initializer=embed.init_meaning_worker,
+                                                 initargs=(embed.MODEL_DIR, threads, gpu))
+            self._mpool_gpu = gpu
+            log(f"meaning worker started ({'graphics card if there is one' if gpu else 'processor only'}, "
+                f"{threads} threads)")
+        texts = list(texts)
+        try:
+            fut = self._mpool.submit(embed.encode_job, texts)
+            data = self._await(fut, MEANING_TIMEOUT)    # paused time doesn't count towards the limit
+            if data is None:
+                return None                     # stopping: _end_meaning_pool ends the worker now
+            if data is RECYCLE:
+                self._recycle(self._mpool, "meaning worker")    # the batch is done again after the pause
+                self._end_meaning_pool()
+                return None
+        except Exception as e:
+            if isinstance(e, cf.TimeoutError):
+                self._note(f"Restarted the meaning worker: a batch took longer than {MEANING_TIMEOUT // 60} minutes")
+            else:
+                log(f"meaning worker failed: {type(e).__name__}", "warn")
+                self._note("Restarted the meaning worker after it stopped unexpectedly")
+            _kill_pool(self._mpool)
+            self._end_meaning_pool()
+            return None
+        return np.frombuffer(data, np.float32).reshape(len(texts), embed.MODEL_DIM)
+
+    def _end_meaning_pool(self):
+        pool, self._mpool, self._mpool_gpu = self._mpool, None, None
+        if pool is not None:
+            if self.stop_ev.is_set():
+                _kill_pool(pool)                    # stopping: don't wait for the batch in flight
+            pool.shutdown(wait=True, cancel_futures=True)
 
     # ---------- photo meaning ----------
     def _load_photo(self):
@@ -385,9 +586,14 @@ class Indexer:
         if not self.photo_text or not self.settings.get("photo_meaning"):
             return
         pool = cf.ProcessPoolExecutor(max_workers=1, initializer=photo.init_worker)
+        self._photo_pool = pool
         try:
             while not self.stop_ev.is_set():
-                if not self._wait_while_paused():
+                go = self._wait_while_paused(max_wait=RECYCLE_AFTER)
+                if not go:
+                    return
+                if go is RECYCLE:
+                    self._recycle(pool, "photo reader")
                     return
                 rows = self.store.photos_to_read(photo.PHOTO_EXT, photo.MIN_PHOTO_BYTES, photo.MAX_PHOTO_BYTES,
                                                  limit=PHOTO_BATCH if self._photo_one_by_one else 64)
@@ -402,15 +608,24 @@ class Indexer:
                     away = self._away()
                     fut = pool.submit(photo.embed_photos, [(f, p, m, photo.PHOTO_DIR) for f, p, m in batch], away)
                     try:
-                        results = fut.result(timeout=JOB_TIMEOUT)
+                        results = self._await(fut, JOB_TIMEOUT)     # paused time doesn't count
                     except (cf.TimeoutError, cf.BrokenExecutor) as e:
                         # one of these photos hangs or crashes the reader: read them one by one next time
-                        if len(batch) == 1:
+                        one = len(batch) == 1
+                        if one:
                             self.store.set_photo_vector(batch[0][0], batch[0][2], b"", "unreadable")
                         else:
                             self._photo_one_by_one = True
-                        log(f"photo reader stopped ({type(e).__name__})", "warn")
+                        what = (f"was stuck for {JOB_TIMEOUT // 60} minutes" if isinstance(e, cf.TimeoutError)
+                                else "crashed")
+                        self._note(f"Stopped the photo reader: it {what}; "
+                                   + ("the photo is skipped" if one else "those photos are tried one by one"))
                         _kill_pool(pool)
+                        return
+                    if results is None:
+                        return                      # stopping: the finally ends the reader
+                    if results is RECYCLE:
+                        self._recycle(pool, "photo reader")     # these photos are read again later
                         return
                     for fid, mtime, blob, err in results:
                         self.store.set_photo_vector(fid, mtime, blob, err)
@@ -419,9 +634,13 @@ class Indexer:
                             self.status["photos"] = self.status.get("photos", 0) + 1
                     if not away:
                         self.stop_ev.wait(0.2)      # gently while you use the PC
-                self._photo_one_by_one = False      # the suspects were read one by one: back to batches
+                else:
+                    self._photo_one_by_one = False  # the suspects were read one by one: back to batches
         finally:
+            if self.stop_ev.is_set():
+                _kill_pool(pool)                    # stopping: don't wait for the photos in flight
             pool.shutdown(wait=True, cancel_futures=True)
+            self._photo_pool = None
 
     def warm_models(self):
         """The window just opened: load the models now, so the first search is quick (released again when idle)."""
@@ -435,11 +654,30 @@ class Indexer:
     def models_loaded(self):
         return [m.name for m in (self.embedder, self.photo_text) if isinstance(m, embed.Lazy) and m.loaded]
 
-    def release_idle_models(self):
+    def release_idle_models(self, idle=None):
         """Light when idle: models leave memory a few minutes after the last search or indexing work."""
         for m in (self.embedder, self.photo_text):
             if isinstance(m, embed.Lazy):
-                m.release_if_idle()
+                m.release_if_idle(idle)
+
+    def meaning_device(self):
+        """'GPU' or 'CPU' for the running meaning worker, None when there is none."""
+        if self._mpool is None:
+            return None
+        return "GPU" if self._mpool_gpu else "CPU"
+
+    def worker_names(self):
+        """{pid: 'text reader' | 'meaning worker' | 'photo worker'} for the worker processes running now."""
+        out = {}
+        for pool, name in ((self._text_pool, "text reader"), (self._mpool, "meaning worker"),
+                           (self._photo_pool, "photo worker")):
+            for pid in list(getattr(pool, "_processes", None) or {}):
+                out[pid] = name
+        return out
+
+    def release_models(self):
+        """Every model out of memory now (the window closed, or Find is using too much)."""
+        self.release_idle_models(0)
 
     def _tidy_vectors(self):
         """Vectors of text that changed or files that went stay in memory until the index is reloaded."""

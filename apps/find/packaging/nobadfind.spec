@@ -54,6 +54,9 @@ _OLD_CRT = {os.path.normcase(os.path.join("winrt", n)) for n in ("msvcp140.dll",
 a.binaries = [b for b in a.binaries if os.path.normcase(b[0]) not in _OLD_CRT]
 a.datas = [d for d in a.datas if os.path.normcase(d[0]) not in _OLD_CRT]
 pyz = PYZ(a.pure)
-exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name="NobadFind", console=False, disable_windowed_traceback=False,
+# The start-up picture shown while the exe unpacks; app.py closes it with pyi_splash when the window is up.
+splash = Splash(os.path.join(ROOT, "nobadfind", "ui", "brand", "splash.png"), binaries=a.binaries, datas=a.datas,
+                text_pos=None, always_on_top=False)
+exe = EXE(pyz, a.scripts, splash, [], exclude_binaries=True, name="NobadFind", console=False, disable_windowed_traceback=False,
           icon=ICON, version=VERSION if os.path.exists(VERSION) else None)
-coll = COLLECT(exe, a.binaries, a.datas, strip=False, upx=False, name="NobadFind")
+coll = COLLECT(exe, splash.binaries, a.binaries, a.datas, strip=False, upx=False, name="NobadFind")

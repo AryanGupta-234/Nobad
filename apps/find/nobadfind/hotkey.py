@@ -32,10 +32,15 @@ def parse(spec):
     return (mods | MOD_NOREPEAT, vk) if mods else None
 
 
+def _user32():
+    return ctypes.windll.user32
+
+
 class Hotkey:
-    def __init__(self, spec, callback):
+    def __init__(self, spec, callback, hk_id: int = 1):
         self.spec = spec
         self.callback = callback
+        self.hk_id = hk_id                  # one per hotkey (the main window uses 1, the quick find bar 2)
         self.ok = False
         self._tid = None
 
@@ -53,9 +58,9 @@ class Hotkey:
             ctypes.windll.user32.PostThreadMessageW(self._tid, WM_QUIT, 0, 0)
 
     def _loop(self, parsed, ready):
-        user32 = ctypes.windll.user32
+        user32 = _user32()
         self._tid = ctypes.windll.kernel32.GetCurrentThreadId()
-        self.ok = bool(user32.RegisterHotKey(None, 1, parsed[0], parsed[1]))
+        self.ok = bool(user32.RegisterHotKey(None, self.hk_id, parsed[0], parsed[1]))
         ready.set()
         if not self.ok:
             log(f"hotkey {self.spec} is taken by another app", "warn")
@@ -69,4 +74,4 @@ class Hotkey:
                     except Exception as e:
                         log(f"hotkey action failed: {type(e).__name__}", "warn")
         finally:
-            user32.UnregisterHotKey(None, 1)
+            user32.UnregisterHotKey(None, self.hk_id)

@@ -1,12 +1,13 @@
 """Start NOBAD Find: one copy per user, the index, the indexer, the hotkey and the window."""
 import argparse
 import ctypes
+import json
 import os
 import sys
 import threading
 import time
 
-from . import embed, winapi
+from . import bar as quickbar, embed, jobs, lifecycle, winapi
 from .const import APP_NAME, APP_VER, DATA_DIR, DB_PATH, KEY_PATH, LOG_PATH, SETTINGS_PATH
 from .log import init as init_log, log
 
@@ -53,8 +54,53 @@ def uninstall():
     return 0
 
 
+def close_splash():
+    """Close the start-up picture the exe shows while it unpacks (PyInstaller's splash). Not there when run from
+    source, and closing it twice is harmless."""
+    try:
+        import pyi_splash
+    except ImportError:
+        return
+    try:
+        pyi_splash.close()
+        log("start-up picture closed")
+    except Exception as e:
+        log(f"start-up picture: {type(e).__name__}", "warn")
+
+
+def ui_hooks(ui):
+    """What the watchdog and the governor reach through ui, which fills up as the pieces are made. The governor
+    starts first, so each hook is a no-op (or a safe default) until its piece exists."""
+    def on(key, fn, default=None):
+        def call():
+            obj = ui.get(key)
+            return default if obj is None else fn(obj)
+        return call
+    return {"release": on("indexer", lambda i: i.release_models()),
+            "recycle": on("indexer", lambda i: i.recycle_workers()),
+            "release_idle": on("indexer", lambda i: i.release_idle_models()),
+            "names": on("indexer", lambda i: i.worker_names(), {}),
+            "reload_ui": on("win", lambda w: w.evaluate_js("location.reload()")),
+            "quit_app": on("api", lambda a: a.quit()),
+            "visible": on("api", lambda a: bool(a.visible), False)}
+
+
+def quit_teardown(api, indexer, governor, hk, bar_hk, bar_ctl):
+    """Closing the window really quits (Quit was chosen, or there is no hotkey to open it again)."""
+    api._arm_hard_exit()                # a hung WebView2 teardown can't keep the process alive
+    indexer.stop()
+    governor.stop()
+    hk.stop()
+    for k in bar_hk:
+        k.stop()
+    if bar_ctl:
+        bar_ctl.close()                 # else the hidden bar would keep the app alive
+
+
 def main(argv=None):
     args = parse_args(argv)
+    if args.version or args.wsearch or args.uninstall:
+        close_splash()                              # no window to wait for
     if args.version:
         print(f"{APP_NAME} {APP_VER}")
         return 0
@@ -65,16 +111,20 @@ def main(argv=None):
         return uninstall()
     if winapi.is_admin():
         # Everything NOBAD Find needs works as the normal user; running it as admin would index as admin.
+        close_splash()
         winapi.message("NOBAD Find runs as your normal account. Start it without 'Run as administrator'.")
         return 1
     if not single_instance():
         # Already running (often hidden in the background): bring that window up instead of doing nothing.
+        close_splash()
         if not args.background:
             winapi.ask_running_copy_to_show()
         return 0
-
     os.makedirs(DATA_DIR, exist_ok=True)
-    init_log(LOG_PATH)
+    init_log(LOG_PATH)              # first, so a job-setup failure is logged
+    jobs.setup()                    # before any worker or the window: nothing Find starts can outlive it
+    if args.background:
+        close_splash()                              # hidden start: there is no window to wait for
     log(f"{APP_NAME} {APP_VER} starting")
     from .indexer import Indexer
     from .settings import Settings
@@ -84,13 +134,38 @@ def main(argv=None):
     if not store.encrypted:
         log("SQLCipher missing: the index is NOT encrypted", "warn")
     vindex = embed.VectorIndex()
-    indexer = Indexer(store, settings, vindex)
-    indexer.start()
+    from .activity import Activity
+    from .appmemory import AppMemory
+    from .governor import Governor
+    activity = Activity()
+    from .watchdog import Watchdog
+    ui = {}      # the pieces the watchdog reaches later: window, api, indexer
+    hooks = ui_hooks(ui)
+    watchdog = Watchdog(activity, **{k: hooks[k] for k in ("release", "recycle", "reload_ui", "quit_app",
+                                                           "visible", "names")})
+    apps = AppMemory(store)
+    governor = Governor(settings, apps, activity, watchdog=watchdog, release_idle=hooks["release_idle"])
+    governor.start()
+    indexer = Indexer(store, settings, vindex, governor=governor, activity=activity)
+    ui["indexer"] = indexer
+    # Closing the window with background indexing off stops the indexer (lifecycle "hide_idle"); opening it
+    # again starts it. Started hidden (with Windows), indexing follows the same setting.
+    win_life = lifecycle.Window(indexer, bool(args.background and not settings.get("keep_background")), log,
+                                quitting=lambda: getattr(ui.get("api"), "_quitting", False))
+    wanted = win_life.wanted
+
+    if win_life.want_idle:
+        log("started in the background: indexing starts when the window opens")
+    else:
+        indexer.start()
 
     import webview
     from .api import Api
     holder = {}
     api = Api(store, settings, indexer, vindex, lambda: holder.get("w"))
+    api._watchdog, api.visible = watchdog, not args.background
+    ui["api"] = api
+    api._governor, api._activity, api._apps = governor, activity, apps      # the status page reads these
     want_glass = settings.get("glass") and winapi.transparency_allowed()
     if want_glass:
         os.environ["WEBVIEW2_DEFAULT_BACKGROUND_COLOR"] = "00000000"     # let the acrylic show through the page
@@ -99,9 +174,25 @@ def main(argv=None):
                                 hidden=args.background,
                                 text_select=True)
     holder["w"] = win
+    # Esc / "Hide after opening" hide the window: with background indexing off that stops indexing too
+    api._on_hide = lambda: lifecycle.after_hide(win_life, settings, hk.ok, getattr(api, "_quitting", False))
+    ui["win"] = win
+    bar_ctl = bar_win = None
+    if settings.get("bar"):
+        # The quick find bar: a second, small window that starts hidden; its own hotkey shows it.
+        bar_ctl = quickbar.Bar(lambda: bar_win, want_glass)
+        bar_api = quickbar.BarApi(api, bar_ctl, lambda text: to_main(text))
+        bar_win = webview.create_window(quickbar.TITLE, os.path.join(UI_DIR, "bar.html"), js_api=bar_api,
+                                        width=quickbar.WIDTH, height=quickbar.HEIGHT, min_size=(320, 40),
+                                        frameless=True, on_top=True, easy_drag=False, resizable=False, hidden=True,
+                                        background_color="#000000" if want_glass else "#07080a")
+        bar_win.events.closing += bar_ctl.closing
 
     def bring_up():
+        api.visible = True
+        watchdog.window_shown()
         front = winapi.foreground_window()          # before our window takes the front: where you were
+        wanted(False)
         if not front or winapi.window_pid(front) == os.getpid():
             win.show()                              # already in front: keep the folder it was opened from
             win.restore()
@@ -122,15 +213,28 @@ def main(argv=None):
         win.restore()
         win.evaluate_js("window.nfFocus && window.nfFocus()")
 
+    def to_main(text):
+        """The bar's Alt+Enter: the same way up as the hotkey (indexing restarts, the watchdog is told), then the
+        words are typed into the search box. The text goes in as JSON, never pasted into the script."""
+        bring_up()
+        win.evaluate_js("window.nfQuery && window.nfQuery(" + json.dumps(text) + ")")
+
+    def notice(text):
+        win.evaluate_js("window.nfNotice && window.nfNotice(" + json.dumps(text) + ")")
+
     from .hotkey import Hotkey
     hk = Hotkey(settings.get("hotkey"), bring_up)
     show_evt = winapi.show_event()
+    bar_hk = []
 
     def show_requests():
         # Starting NOBAD Find again (Start menu, desktop) while it runs signals this event.
         while not getattr(api, "_quitting", False):
             if winapi.wait_event(show_evt, 1000):
                 api.here = ""
+                api.visible = True
+                watchdog.window_shown()
+                wanted(False)
                 win.show()
                 win.restore()
                 win.evaluate_js("window.nfFocus && window.nfFocus()")
@@ -148,29 +252,49 @@ def main(argv=None):
             win.evaluate_js("document.documentElement.classList.add('glass')")
 
     def started():
+        if not args.background:
+            win.events.loaded += close_splash       # the page is up: the start-up picture can go
+            late = threading.Timer(12, close_splash)    # in case the page never reports loading
+            late.daemon = True
+            late.start()
         threading.Thread(target=make_glass, daemon=True, name="glass").start()
         if show_evt:
             threading.Thread(target=show_requests, daemon=True, name="show").start()
         if not args.background:
             threading.Thread(target=indexer.warm_models, daemon=True, name="warm").start()
         if not hk.start():
-            win.evaluate_js("window.nfNotice && window.nfNotice('The hotkey is used by another app. Pick another "
-                            "one in Settings.')")
+            notice("The hotkey is used by another app. Pick another one in Settings.")
+        if bar_ctl:
+            threading.Thread(target=bar_ctl.make_glass, daemon=True, name="barglass").start()
+            bar_hk.append(quickbar.start_hotkey(settings.get("bar_hotkey"), bar_ctl.toggle, notice))
 
     def closing():
-        # with the hotkey ready, closing the window keeps NOBAD Find in the background, like a launcher
-        if hk.ok and not getattr(api, "_quitting", False):
+        # with the hotkey ready, closing the window keeps NOBAD Find in the background, like a launcher;
+        # unless background indexing is on, everything but this one idle process stops (lifecycle.on_close)
+        mode = lifecycle.on_close(settings, hk.ok, getattr(api, "_quitting", False))
+        if mode != "quit":
+            api.visible = False
             win.hide()
+            if mode == "hide_idle":
+                wanted(True)
             return False
-        indexer.stop()
-        hk.stop()
+        quit_teardown(api, indexer, governor, hk, bar_hk, bar_ctl)
         return True
 
     win.events.closing += closing
     webview.start(started, http_server=True, private_mode=True)
     indexer.stop()
+    governor.stop()
+    indexer.join(5)                     # its database writes are committed before the process ends
     log("stopped")
-    return 0
+    for f in (sys.stdout, sys.stderr):
+        try:
+            f.flush()
+        except Exception:
+            pass
+    # End now: a leftover thread (pythonnet/WinForms, the concurrent.futures exit join) can't keep the
+    # process alive, and ending it closes the job, which ends every worker and WebView2.
+    os._exit(0)
 
 
 if __name__ == "__main__":

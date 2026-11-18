@@ -35,9 +35,11 @@ def coerce(key, value):
             return max(0, min(64, int(value)))
         except (TypeError, ValueError):
             return d
-    if key == "hotkey":
+    if key in ("hotkey", "bar_hotkey"):
         v = str(value).lower().replace(" ", "")
         return v if _HOTKEY.match(v) else d
+    if key == "games_mode":
+        return value if value in ("smart", "always", "off") else d
     if key == "wsearch_prev":
         return value if value in WSEARCH_STARTS else d
     if key == "theme":
@@ -59,6 +61,8 @@ class Settings:
                 for k in DEFAULTS:
                     if k in raw:
                         self.data[k] = coerce(k, raw[k])
+                if raw.get("pause_fullscreen") is False and "games_mode" not in raw:
+                    self.data["games_mode"] = "off"
         except (OSError, ValueError):
             pass
 

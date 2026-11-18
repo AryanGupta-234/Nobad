@@ -51,19 +51,55 @@
       </div>
       <div class="meta" id="meta"></div>
       <ol class="results" id="results"></ol>
-      <div class="empty" id="empty">
+      <div class="home" id="home">
         <h1>Find anything on this PC.</h1>
-        <p>Search by name, by the words inside a file, or by what it was about. Add a kind (“pdf”, “photos”, “code”)
-          or a time (“yesterday”, “in March”, “3 weeks ago”), a folder (“in my downloads”, “here”, or type a path like
-          C:\Work\Taxes), a size (“bigger than 100 mb”) or an order (“newest”). Or just pick filters above:
-          “list all pdf here” works with an empty box too.</p>
-        <p class="keys"><kbd>↑</kbd><kbd>↓</kbd> move · <kbd>Enter</kbd> open · <kbd>Ctrl</kbd>+<kbd>Enter</kbd> show in folder
-          · <kbd>Ctrl</kbd>+<kbd>C</kbd> copy path · <kbd>Esc</kbd> hide</p>
+        <p class="lede">Search by name, by the words inside a file, or by what it was about. Add a kind, a time, a folder
+          or a size to the words, or pick filters above.</p>
+        <div class="chips" id="homeChips" aria-label="Examples to try"></div>
+        <div class="tiles" id="homeTiles" aria-label="Browse by kind"></div>
+        <h3>Recently changed</h3>
+        <ol class="recent" id="homeRecent"></ol>
+        <div class="homebar">
+          <div class="homestatus" id="homeStatus" aria-live="off"></div>
+          <p class="keys"><kbd>↑</kbd><kbd>↓</kbd> move · <kbd>Enter</kbd> open · <kbd>Ctrl</kbd>+<kbd>Enter</kbd> show in folder
+            · <kbd>Ctrl</kbd>+<kbd>C</kbd> copy path · <kbd>Esc</kbd> hide</p>
+        </div>
       </div>
     </section>
 
     <section class="view" id="v-index">
       <h2>Index</h2>
+      <div class="notice" id="bgNotice" hidden>
+        <p>Closing the window now stops indexing. Turn on Keep indexing in the background in Settings → Performance to keep it going.</p>
+        <button class="btn ghost" id="bgNoticeOk">Got it</button>
+      </div>
+
+      <div class="now" id="ixNow">
+        <span class="dot" aria-hidden="true"></span>
+        <div class="nowtext" id="ixNowText" aria-live="polite"><b id="ixLevel"></b><p id="ixReason"></p></div>
+        <button class="btn ghost" id="ixPause" data-act="pause">Pause for 1 hour</button>
+      </div>
+
+      <h3>What it is doing</h3>
+      <div class="pipeline" id="ixPipeline"></div>
+
+      <h3>What NOBAD Find uses</h3>
+      <div id="ixResources">
+        <div class="stats" id="ixStats"></div>
+        <figure class="spark">
+          <canvas id="ixSpark" height="110" role="img" aria-label="NOBAD Find processor and memory use over the last 5 minutes"></canvas>
+          <figcaption id="ixSparkCap"></figcaption>
+        </figure>
+        <div class="tablewrap"><table class="procs" id="ixProcs"></table></div>
+      </div>
+
+      <h3>Models</h3>
+      <div class="models" id="ixModels"></div>
+
+      <h3>Recent decisions</h3>
+      <ul class="activity" id="ixActivity"></ul>
+
+      <h3>Index at a glance</h3>
       <div class="cards" id="cards"></div>
       <div class="row-actions"><button class="btn" id="rescan">Rescan now</button></div>
       <h3>Folders being searched</h3>
@@ -75,7 +111,22 @@
 
     <section class="view" id="v-settings">
       <h2>Settings</h2>
-      <div id="settings"></div>
+      <nav class="subnav" id="spNav" aria-label="Settings pages">
+        <button class="on" data-sp="general">General</button>
+        <button data-sp="indexing">Indexing</button>
+        <button data-sp="models">Models</button>
+        <button data-sp="performance">Performance</button>
+        <button data-sp="privacy">Privacy</button>
+        <button data-sp="about">About</button>
+      </nav>
+      <div id="settings">
+        <div class="spage on" id="sp-general"></div>
+        <div class="spage" id="sp-indexing"></div>
+        <div class="spage" id="sp-models"></div>
+        <div class="spage" id="sp-performance"></div>
+        <div class="spage" id="sp-privacy"></div>
+        <div class="spage" id="sp-about"></div>
+      </div>
     </section>
   </main>
 </div>
