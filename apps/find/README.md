@@ -35,7 +35,8 @@ they're about, and tells you why each result matched.
   during full-screen games or presentations and during calls (microphone or camera in use).
 - **Optional: turn off Windows Search indexing**, with one-click undo (see below).
 - Hotkey **Win+Shift+Space** from anywhere. ↑ ↓ to move, Enter to open, Ctrl+Enter to show in its folder, Ctrl+C
-  to copy the path, Shift+Delete to forget a result.
+  to copy the path, Shift+Delete to forget a result. The window stays up after Enter (Settings → Launch → Hide after
+  opening a file hides it, like a launcher).
   Closing the window keeps NOBAD Find in the background for the hotkey; **Settings → Launch → Quit** stops it
   completely.
 
