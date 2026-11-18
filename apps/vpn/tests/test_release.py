@@ -740,3 +740,70 @@ def test_free_servers_guide_links_are_allowlisted_and_https():
     used = set(re.findall(r'link\("([a-z_]+)"', js[js.index("function freeServers"):js.index("function serversTools")]))
     assert used - {"import"} <= set(api.ALLOWED_URLS), used
     assert 'mk("nxBtnFree"' in js
+
+
+class _Ev(list):
+    def __iadd__(self, fn):
+        self.append(fn)
+        return self
+
+
+class _Flag:
+    def __init__(self, on):
+        self.on = on
+
+    def is_set(self):
+        return self.on
+
+
+def test_windows_only_navigate_to_their_own_page():
+    """The quick view once showed Edge's JSON viewer: a WebView2 window navigates when something is dropped on it, and
+    nothing stopped it from leaving NOBAD's page. NavigationStarting now cancels anything but the window's page."""
+    from types import SimpleNamespace as NS
+    from nobadvpn import window
+    base = "http://127.0.0.1:5555"
+    assert window.is_own_page(base, "/mini", base + "/mini?k=abc") and window.is_own_page(base, "/", base + "/")
+    for bad in (base + "/", base + "/static/brand/nobad-logo.png", base + "/si/img/w92/x.jpg", base + "/api/state",
+                "http://127.0.0.1:5556/mini", "http://localhost:5555/mini", "file:///C:/Users/me/a.conf",
+                "https://example.com/mini", "", None):
+        assert not window.is_own_page(base, "/mini", bad), bad
+    nav = _Ev()
+    win = NS(events=NS(before_show=_Ev()), native=NS(webview=NS(NavigationStarting=nav)))
+    window.guard_navigation(win, base, "/mini")
+    assert not nav
+    win.events.before_show[0]()                                  # pywebview fires it on the UI thread
+    assert len(nav) == 1
+    for uri, cancel in ((base + "/mini?k=abc", False), (base + "/mini", False), (base + "/static/mini.js", True),
+                        ("file:///C:/x.json", True), (base + "/", True)):
+        args = NS(Uri=uri, Cancel=False)
+        nav[0](None, args)
+        assert args.Cancel is cancel, uri
+    other = NS(events=NS(before_show=_Ev()), native=None)       # another backend: nothing to hook, no error
+    window.guard_navigation(other, base, "/")
+    other.events.before_show[0]()
+
+
+def test_window_that_left_its_page_reloads_a_signed_one(monkeypatch):
+    from types import SimpleNamespace as NS
+    from nobadvpn import window
+    monkeypatch.setattr(window, "_signed", lambda base, page: f"{base}{page}?k=fresh")
+    wm = window.WindowManager("http://127.0.0.1:5555")
+    loads = []
+    win = NS(events=NS(loaded=_Flag(True)), get_current_url=lambda: "http://127.0.0.1:5555/static/x.png",
+             load_url=loads.append)
+    assert wm._recover(win, "/mini") and loads == ["http://127.0.0.1:5555/mini?k=fresh"]
+    win.get_current_url = lambda: "http://127.0.0.1:5555/mini"
+    assert not wm._recover(win, "/mini") and len(loads) == 1
+    win.events.loaded = _Flag(False)                            # still loading: never block on get_current_url
+    win.get_current_url = lambda: (_ for _ in ()).throw(AssertionError("must not wait"))
+    assert not wm._recover(win, "/mini") and len(loads) == 1
+
+
+def test_pages_swallow_stray_drops():
+    """Second line of defence in the page itself: a drop the page doesn't handle is cancelled, and the quick view's
+    logo can't be dragged."""
+    mini = open(os.path.join(UI, "mini.html"), encoding="utf-8").read()
+    assert all('draggable="false"' in img for img in re.findall(r"<img[^>]*>", mini))
+    for fn in ("mini.js", "app_ext.js"):
+        js = open(os.path.join(UI, fn), encoding="utf-8").read()
+        assert 'addEventListener("dragover"' in js and 'addEventListener("drop"' in js and "dropEffect" in js, fn

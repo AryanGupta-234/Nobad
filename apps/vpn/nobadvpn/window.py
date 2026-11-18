@@ -4,6 +4,7 @@ import os
 import threading
 import time
 import webbrowser
+from urllib.parse import urlparse
 
 from .const import UI_DIR, WINDOW_TITLE
 from .ctx import ctx
@@ -153,6 +154,42 @@ def _signed(base_url, path):
     return launch_url(base_url, path)
 
 
+def is_own_page(base_url, page, uri):
+    """True if `uri` is NOBAD's own `page` ("/" or "/mini") on this server (a launch code in the query is fine)."""
+    try:
+        u, b = urlparse(str(uri or "")), urlparse(base_url)
+        return u.scheme == b.scheme and u.netloc == b.netloc and u.path == page
+    except ValueError:
+        return False
+
+
+def guard_navigation(win, base_url, page):
+    """Keep a window on its own page. WebView2 navigates the whole window when a file, link or image is dropped on it
+    (or dragged from it onto itself), so the window could end up on a JSON response or a local file, in the elevated
+    app. pywebview has no setting for this; its WebView2 control's NavigationStarting can cancel the navigation.
+    Attached in before_show, which runs on the UI thread before the first navigation. Other backends: no-op."""
+    def on_start(_sender, args):
+        try:
+            if not is_own_page(base_url, page, args.Uri):
+                args.Cancel = True
+        except Exception:
+            pass
+
+    def attach():
+        wv = getattr(getattr(win, "native", None), "webview", None)
+        if wv is None:
+            return
+        try:
+            wv.NavigationStarting += on_start
+        except Exception:
+            pass
+    try:
+        win.events.before_show += attach
+    except Exception:
+        pass
+    return on_start
+
+
 class WindowManager:
     def __init__(self, base_url):
         self.url = base_url
@@ -209,6 +246,7 @@ class WindowManager:
             kw.pop("maximized", None)
             self.main = webview.create_window(WINDOW_TITLE, _signed(self.url, "/"), **kw)
         self._wire(self.main)
+        guard_navigation(self.main, self.url, "/")
         self._on_shown = on_shown
         self._revealed = False
         if start_hidden:
@@ -247,7 +285,22 @@ class WindowManager:
                 kw.update(x=x, y=y)
             self.mini = self.webview.create_window("NOBAD VPN", _signed(self.url, "/mini"), **kw)
             self.mini.events.closing += self._mini_closing
+            guard_navigation(self.mini, self.url, "/mini")
         return self.mini
+
+    def _recover(self, win, page):
+        """A window that is not on its own page any more (an error page, or a backend without guard_navigation)
+        reloads a freshly signed one instead of showing what it landed on. Only once it has loaded: get_current_url
+        would otherwise wait for the first load."""
+        try:
+            if win is None or not win.events.loaded.is_set():
+                return False
+            if is_own_page(self.url, page, win.get_current_url()):
+                return False
+            win.load_url(_signed(self.url, page))
+            return True
+        except Exception:
+            return False
 
     def _wire(self, win):
         ev = win.events
@@ -288,6 +341,7 @@ class WindowManager:
             return
         try:
             self.main.show()
+            self._recover(self.main, "/")
             if not self._maximized:
                 self.main.restore()  # un-minimize (restore() would also un-maximize)
             self.main.on_top = True   # bring to the front (a second launch hands over to this window)
@@ -416,6 +470,7 @@ class WindowManager:
             if x is not None:
                 self.mini.move(x, y)
             self.mini.show()
+            self._recover(self.mini, "/mini")
             self._mini_visible = True
         except Exception:
             pass

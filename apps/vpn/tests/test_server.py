@@ -2,6 +2,8 @@
 static-file whitelist."""
 import http.client
 import json
+import os
+import shutil
 import threading
 
 import pytest
@@ -131,3 +133,76 @@ def test_svg_responses_are_sandboxed(srv, monkeypatch):
     st, h, _body = req(srv, "GET", "/si/img/w92/abcdef.svg", {"Cookie": f"{server.COOKIE}={server.SESSION}"})
     assert st == 200 and h["Content-Type"] == "image/svg+xml"
     assert "sandbox" in h["Content-Security-Policy"] and "default-src 'none'" in h["Content-Security-Policy"]
+
+
+JAR = {"Cookie": f"{server.COOKIE}={server.SESSION}"}
+NAV = {"Accept": "text/html,application/xhtml+xml,*/*;q=0.8", "Sec-Fetch-Dest": "document", "Sec-Fetch-Mode": "navigate"}
+
+
+def test_ui_keeps_working_when_its_files_vanish_while_running(srv, monkeypatch, tmp_path):
+    """The maintainer's quick view showed `{"ok": false}`: NOBAD 1.5.1 was uninstalled while it kept running, the
+    uninstaller deleted every file not in use (the whole ui folder) and the quick view, created on first use, got
+    a 404 for /mini. Everything was preloaded at start-up, so the cached copy must keep the windows working."""
+    from nobadvpn import const
+    ui = tmp_path / "ui"
+    shutil.copytree(const.UI_DIR, ui)
+    monkeypatch.setattr(server, "UI_DIR", str(ui))
+    monkeypatch.setattr(server, "_ui_cache", {})
+    server.preload_ui()
+    shutil.rmtree(ui)
+    st, h, body = req(srv, "GET", "/mini", JAR)
+    assert st == 200 and h["Content-Type"].startswith("text/html") and b'id="go"' in body
+    assert req(srv, "GET", "/", JAR)[0] == 200
+    assert req(srv, "GET", "/static/mini.js", JAR)[0] == 200
+    assert req(srv, "GET", "/favicon.ico")[0] == 200
+
+
+def test_ui_file_changed_on_disk_is_served_fresh(srv, monkeypatch, tmp_path):
+    ui = tmp_path / "ui"
+    ui.mkdir()
+    (ui / "mini.html").write_text("<p>old __VER__</p>", encoding="utf-8")
+    monkeypatch.setattr(server, "UI_DIR", str(ui))
+    monkeypatch.setattr(server, "_ui_cache", {})
+    assert b"old" in req(srv, "GET", "/mini", JAR)[2]
+    (ui / "mini.html").write_text("<p>new __VER__</p>", encoding="utf-8")
+    os.utime(ui / "mini.html", ns=(1, 1))                  # a different mtime, whatever the clock resolution
+    assert b"new" in req(srv, "GET", "/mini", JAR)[2]
+
+
+def test_missing_page_file_says_so_in_html(srv, monkeypatch, tmp_path):
+    """Never cached and gone: an honest page, not raw JSON."""
+    monkeypatch.setattr(server, "UI_DIR", str(tmp_path))
+    monkeypatch.setattr(server, "_ui_cache", {})
+    st, h, body = req(srv, "GET", "/mini", dict(JAR, **NAV))
+    assert st == 404 and h["Content-Type"].startswith("text/html") and b"reinstall" in body.lower()
+    assert b'{"ok"' not in body and "script-src 'self'" in h["Content-Security-Policy"]
+
+
+def test_page_navigation_to_a_non_page_gets_html_back_link(srv):
+    """Defence in depth: a window that lands on a non-page URL (a dropped link, an image dragged onto it) shows a way
+    back, not Edge's JSON viewer. The link goes to the window's own page."""
+    for path, extra, home in (("/nope", {}, b'href="/"'), ("/static/brand/none.png", {}, b'href="/"'),
+                              ("/api/window", {}, b'href="/"'),
+                              ("/nope", {"Referer": "http://127.0.0.1/mini"}, b'href="/mini"')):
+        st, h, body = req(srv, "GET", path, dict(JAR, **NAV, **extra))
+        assert st == 404 and h["Content-Type"].startswith("text/html"), path
+        assert b"Back to NOBAD VPN" in body and home in body, (path, body)
+        assert server.TOKEN.encode() not in body and server.SESSION.encode() not in body
+    st, h, body = req(srv, "GET", "/", dict(NAV, Host="evil.example"))      # DNS rebinding: still refused, no JSON
+    assert st == 403 and h["Content-Type"].startswith("text/html") and b"Back to NOBAD VPN" in body
+    st, h, body = req(srv, "GET", "/nope", dict(JAR, Accept="text/html"))     # old WebView without Sec-Fetch-*
+    assert st == 404 and h["Content-Type"].startswith("text/html")
+    st, h, body = req(srv, "GET", "/api/state", NAV)                          # not signed in: the locked page
+    assert st == 401 and h["Content-Type"].startswith("text/html") and b"only opens from NOBAD VPN" in body
+
+
+def test_api_and_fetch_callers_still_get_json(srv):
+    fetch = {"Accept": "*/*", "Sec-Fetch-Dest": "empty", "Sec-Fetch-Mode": "cors"}
+    for path, hdr in (("/nope", JAR), ("/nope", dict(JAR, **fetch)), ("/static/brand/none.png", {"Sec-Fetch-Dest": "image", "Accept": "image/*"}),
+                      ("/api/nope", dict(JAR, **fetch))):
+        st, h, body = req(srv, "GET", path, hdr)
+        assert st == 404 and h["Content-Type"] == "application/json" and json.loads(body) == {"ok": False}, path
+    st, h, body = req(srv, "GET", "/", {"Host": "evil.example", "Sec-Fetch-Dest": "empty"})
+    assert st == 403 and json.loads(body) == {"ok": False}
+    st, _h, body = req(srv, "GET", "/api/state", fetch)                        # auth failure keeps its error key
+    assert st == 401 and json.loads(body) == {"ok": False, "error": "auth"}
