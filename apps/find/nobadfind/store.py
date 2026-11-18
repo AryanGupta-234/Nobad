@@ -25,6 +25,7 @@ SCHEMA = """
 PRAGMA journal_mode=WAL;
 PRAGMA synchronous=NORMAL;
 CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT);
+CREATE TABLE IF NOT EXISTS apps(exe TEXT PRIMARY KEY, data TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS files(
   id INTEGER PRIMARY KEY, path TEXT NOT NULL UNIQUE, name TEXT NOT NULL, dir TEXT NOT NULL, ext TEXT,
   kind TEXT, size INTEGER, mtime REAL, ctime REAL, gen INTEGER DEFAULT 0, text_mtime REAL, text_err TEXT);
@@ -138,6 +139,24 @@ class Store:
             self.db.execute("INSERT INTO meta(k,v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v", (k, str(v)))
             self.db.commit()
 
+    # ---------- learned app profiles (exe file names only) ----------
+    def app_rows(self):
+        return [(r[0], r[1]) for r in self.q("SELECT exe, data FROM apps")]
+
+    def set_app(self, exe, data_json):
+        with self.wlock:
+            self.db.execute("INSERT INTO apps(exe,data) VALUES(?,?) ON CONFLICT(exe) DO UPDATE SET data=excluded.data",
+                            (exe, data_json))
+            self.db.commit()
+
+    def drop_app(self, exe=None):
+        with self.wlock:
+            if exe is None:
+                self.db.execute("DELETE FROM apps")
+            else:
+                self.db.execute("DELETE FROM apps WHERE exe=?", (exe,))
+            self.db.commit()
+
     # ---------- files ----------
     def upsert_files(self, rows):
         """rows: (path, name, dir, ext, kind, size, mtime, ctime, gen). A changed mtime makes the text stale."""
@@ -244,7 +263,7 @@ class Store:
 
     def wipe(self):
         with self.wlock:
-            for t in ("vecs", "nvecs", "pvecs", "chunks", "files", "meta"):
+            for t in ("vecs", "nvecs", "pvecs", "chunks", "files", "meta", "apps"):
                 self.db.execute(f"DELETE FROM {t}")
             self.db.execute("INSERT INTO names(names) VALUES('rebuild')")
             self.db.execute("INSERT INTO text(text) VALUES('rebuild')")
