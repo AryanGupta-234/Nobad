@@ -11,12 +11,10 @@ Each product has its own folder and its own test suite. Run the tests from that 
 |---|---|---|
 | NOBAD VPN | [`apps/vpn/`](apps/vpn/) | `python -m pytest -q` |
 | NOBAD Find | [`apps/find/`](apps/find/) | `python -m pytest -q tests` |
-| NOBAD File Bridge | [`apps/file-bridge/`](apps/file-bridge/) | `python -m pytest -q tests` |
 
-Changes to `apps/file-bridge/` are reviewed by its code owner (@harshRaj1601) and the maintainer.
+NOBAD File Bridge has its own repository: [nobad-studio/file-bridge](https://github.com/nobad-studio/file-bridge).
 
-AI coding assistants: read [AGENTS.md](AGENTS.md) first (and [apps/file-bridge/AGENTS.md](apps/file-bridge/AGENTS.md) for
-NOBAD File Bridge).
+AI coding assistants: read [AGENTS.md](AGENTS.md) first.
 
 ## Ways to help
 
@@ -26,8 +24,8 @@ NOBAD File Bridge).
   private keys removed; attach it if you can.
 - **Improve docs.** The user manual is `apps/vpn/docs/USER-MANUAL.md`.
 - **Send code** as a pull request (see below). New here? Issues labelled
-  [`good first issue`](https://github.com/AryanGupta-234/Nobad/labels/good%20first%20issue) are picked to be a
-  friendly start, and [Discussions](https://github.com/AryanGupta-234/Nobad/discussions) is the place to ask first.
+  [`good first issue`](https://github.com/nobad-studio/Nobad-VPN/labels/good%20first%20issue) are picked to be a
+  friendly start, and [Discussions](https://github.com/nobad-studio/Nobad-VPN/discussions) is the place to ask first.
 
 ## Building NOBAD VPN
 
@@ -41,18 +39,6 @@ python -m pytest -q                                              # all tests run
 python nobad_vpn.py                                              # run from source (asks for admin rights)
 powershell -ExecutionPolicy Bypass -File packaging\build.ps1     # full installer (tests, app, WireGuard, Inno)
 ```
-
-## Building NOBAD File Bridge
-
-Requirements: Python 3.12. From `apps/file-bridge`:
-
-```bash
-pip install -e ".[dev]"
-python -m pytest -q tests        # Qt offscreen: QT_QPA_PLATFORM=offscreen
-python -m app.main               # run from source
-```
-
-See [apps/file-bridge/README.md](apps/file-bridge/README.md) for details.
 
 ## Website
 
@@ -70,7 +56,8 @@ The website lives in `site-pages/` as plain HTML and is built by `npm run build`
 4. `main` can't be force-pushed or deleted, and release tags (`vpn-v*`) can only be created by the maintainer.
    Releases are built from a tag by `.github/workflows/vpn-release.yml` on a clean GitHub runner and carry a signed
    build-provenance attestation. Check it with
-   `gh attestation verify NobadVPN-Setup-<version>.exe -R AryanGupta-234/Nobad --signer-workflow AryanGupta-234/Nobad/.github/workflows/vpn-release.yml --source-ref refs/tags/vpn-v<version> --deny-self-hosted-runners`.
+   `gh attestation verify NobadVPN-Setup-<version>.exe -R nobad-studio/Nobad-VPN --signer-workflow nobad-studio/Nobad-VPN/.github/workflows/vpn-release.yml --source-ref refs/tags/vpn-v<version> --deny-self-hosted-runners`
+   (releases up to 1.6.1: see [docs/RELEASE-PROCESS.md](docs/RELEASE-PROCESS.md)).
 
 ## Pull requests
 

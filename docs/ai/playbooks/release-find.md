@@ -12,7 +12,7 @@ and every release goes everywhere. Stop and report on the first failure.
    (nobad-studio/website first). One line in `docs/ai/memory.md`.
 4. **Check.** In `apps/find`: `python -m pytest -q tests` and `python -m pyflakes nobadfind tests`; a local
    `packaging/build.ps1` run must pass.
-5. **Merge to `main`** through a PR (code-owner review). Stage only your own files; never `apps/Sentinal/`.
+5. **Merge to `main`** through a PR (code-owner review). Stage only your own files.
 6. **Tag. CI builds and publishes.**
    `git tag -a find-vX.Y.Z -m "NOBAD Find X.Y.Z" <main commit> && git push origin find-vX.Y.Z`, then
    `gh run watch <id of the latest find-release.yml run> --exit-status`. `build` and `publish` must both succeed.

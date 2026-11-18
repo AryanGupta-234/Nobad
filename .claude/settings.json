@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "gh api -H \"Accept: application/vnd.github.raw\" repos/nobad-studio/memory/contents/INDEX.md 2>/dev/null || curl -fsS https://raw.githubusercontent.com/nobad-studio/memory/main/INDEX.md || echo \"(NOBAD shared memory unavailable: https://github.com/nobad-studio/memory)\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}
