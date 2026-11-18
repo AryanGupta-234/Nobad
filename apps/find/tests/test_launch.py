@@ -69,3 +69,11 @@ def test_enter_keeps_the_window_up_unless_asked():
     assert '"hide_after_open", "switch"' in js
     opener = js[js.index('if (kind === "open")'):].split("\n", 1)[0]
     assert ".hide_after_open) api(\"hide\")" in opener
+
+
+def test_splash_closed_in_app():
+    root = pathlib.Path(__file__).resolve().parent.parent
+    src = (root / "nobadfind" / "app.py").read_text(encoding="utf-8")
+    assert "pyi_splash" in src and ".close()" in src and "except ImportError" in src
+    assert "Splash(" in (root / "packaging" / "nobadfind.spec").read_text(encoding="utf-8")
+    assert (root / "nobadfind" / "ui" / "brand" / "splash.png").exists()

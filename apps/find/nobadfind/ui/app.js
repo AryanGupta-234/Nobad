@@ -84,7 +84,8 @@ async function run() {
 function render(r) {
   $("#understood").innerHTML = (r.understood || []).map(u => `<span class="chip">${esc(u)}</span>`).join("");
   const q = $("#q").value.trim() || anyFilter();
-  $("#empty").style.display = q ? "none" : "";
+  $("#home").style.display = q ? "none" : "";
+  if (!q && Date.now() - recentAt > 3000) loadRecent();
   const count = results.length ? `${results.length}${r.more ? "+" : ""} results · ${r.ms} ms` : "Nothing found. Try fewer or other words, or fewer filters.";
   $("#meta").innerHTML = !q ? "" : r.error ? esc(r.error) :
     esc(count) + (r.notes || []).map(n => ` · <span class="note">${esc(n)}</span>`).join("");
@@ -166,6 +167,7 @@ async function refreshStatus(full) {
   if (!s) { $("#railState").textContent = "preview"; return; }
   const phase = s.paused ? "Paused · " + s.paused : (PHASE[s.phase] || s.phase);
   $("#railState").textContent = phase;
+  paintHome(s);
   if (!full && !$("#v-index").classList.contains("on")) return;
   paintIndexPage(s);
   const card = (v, l, live) => `<div class="card${live ? " live" : ""}"><b>${esc(v)}</b><span>${esc(l)}</span></div>`;
@@ -352,102 +354,231 @@ window.addEventListener("resize", () => { if ($("#v-index").classList.contains("
 if (!localStorage.getItem("nf-bg-notice")) $("#bgNotice").hidden = false;
 $("#bgNoticeOk").addEventListener("click", () => { localStorage.setItem("nf-bg-notice", "1"); $("#bgNotice").hidden = true; });
 
-// ---------- settings ----------
-const GROUPS = [
-  ["What to search", [
-    ["content", "switch", "Read the text inside files", "Documents, PDFs, code, notes and e-mail files. Off: names only."],
-    ["content_max_mb", "num", "Largest file to read (MB)", "Bigger files are still found by name."],
-    ["src_mail", "switch", "E-mail files", ".eml and .mbox files found on your drives."],
-    ["ocr", "switch", "Words in photos and scans", "Screenshots, photos of documents and scanned PDFs, read with the OCR built into Windows (offline). Slower, so it runs after everything else."],
-    ["index_removable", "switch", "USB and external drives", "Indexed while plugged in. Their files stay findable (marked “not connected”) when you unplug them. Turning this off removes their files from the index."],
-    ["index_network", "switch", "Network drives", "Mapped network drives (Z: and so on). Big shares take a while and use your home or office network."],
-    ["roots", "folders", "Folders to search", "Empty: your profile folder and every fixed drive (never other people's profiles or Windows itself)."],
-    ["exclude", "folders", "Never search", "These folders and files are skipped and removed from the index."],
-  ]],
-  ["Meaning search", [
-    ["allow_model_download", "switch", "Allow the one-time model download",
-      "23 MB from Hugging Face (all-MiniLM-L6-v2, pinned and checked by SHA-256). This is NOBAD Find's only internet connection."],
-    ["semantic", "switch", "Search by meaning", "Finds “lease agreement” when you type “rent”, and photos or bills by what their names mean. Runs on this PC only."],
-    ["_model", "model", "Model", ""],
-  ]],
-  ["Photo meaning", [
-    ["allow_photo_model_download", "switch", "Allow the one-time photo model download",
-      "About 211 MB from Hugging Face (SigLIP base by Google, Apache-2.0; pinned and checked by SHA-256). Only needed for this feature."],
-    ["photo_meaning", "switch", "Find photos by what's in them", "“Dog on a beach” finds IMG_0042.jpg even with no words in it. Runs on this PC only. The first pass is slow (a few photos per second), in the background."],
-    ["_photo_model", "pmodel", "Photo model", ""],
-  ]],
-  ["Staying out of your way", [
-    ["pause_on_battery", "switch", "Pause on battery", ""],
-    ["pause_fullscreen", "switch", "Pause during games and presentations", ""],
-    ["pause_on_call", "switch", "Pause during calls", "While an app uses the microphone or camera."],
-    ["workers", "num", "Text reading workers", "0 = choose from your CPU: two threads stay free while you use the PC, one when you're away."],
-  ]],
-  ["Launch", [
-    ["hotkey", "txt", "Hotkey", "For example win+shift+space or ctrl+alt+f. Takes effect at the next start."],
-    ["bar", "switch", "Quick find bar", "A small search box on its own shortcut that shows over whatever you are doing. Takes effect at the next start."],
-    ["bar_hotkey", "txt", "Quick find bar shortcut", "For example ctrl+alt+space or win+alt+f. Takes effect at the next start."],
-    ["autostart", "switch", "Start with Windows", "Starts hidden; the hotkey opens it."],
-    ["hide_after_open", "switch", "Hide after opening a file", "Off: the window stays up after Enter opens a file. On: it hides, like a launcher."],
-    ["_quit", "quit", "Quit NOBAD Find", "Closing the window keeps NOBAD Find running in the background so the hotkey works. This stops it completely, indexing included, until you start it again."],
-    ["glass", "switch", "See-through window", "Windows 11 acrylic behind the window. Follows Windows' own Transparency effects switch. Takes effect at the next start."],
-  ]],
-  ["Windows Search", [["_wsearch", "wsearch", "Use NOBAD Find instead of Windows Search", ""]]],
-  ["Your data", [["_wipe", "wipe", "Delete the whole index", "Removes everything NOBAD Find has stored. It starts again from scratch."]]],
+// ---------- home: shown while the search box and filters are empty ----------
+const EXAMPLES = ["rent pdf from last week", "beach photos in march", "budget.xlsx", "newest in my downloads", "video bigger than 100 mb"];
+const TILES = [
+  ["PDF", "PDFs", { kind: "pdf" }], ["IMG", "Photos", { kind: "image" }], ["DOC", "Documents", { kind: "document" }],
+  ["XLS", "Spreadsheets", { kind: "spreadsheet" }], ["DIR", "Downloads folder", { text: "in my downloads" }],
+  ["NEW", "Recent", { modified: "week", sort: "newest" }],
 ];
+$("#homeChips").innerHTML = EXAMPLES.map((t, i) => `<button class="eg" data-i="${i}">${esc(t)}</button>`).join("");
+$("#homeTiles").innerHTML = TILES.map(([g, label], i) => `<button class="tile" data-i="${i}"><span class="ico">${esc(g)}</span>${esc(label)}</button>`).join("");
+$("#homeChips").addEventListener("click", e => {
+  const b = e.target.closest(".eg");
+  if (!b) return;
+  $("#q").value = EXAMPLES[+b.dataset.i];
+  $("#q").focus();
+  run();
+});
+$("#homeTiles").addEventListener("click", e => {
+  const b = e.target.closest(".tile");
+  if (!b) return;
+  const t = TILES[+b.dataset.i][2];
+  Object.keys(filters).forEach(k => filters[k] = "");      // the same controls as the filter bar
+  $("#q").value = t.text || "";
+  for (const k of ["kind", "modified", "sort"]) if (t[k]) filters[k] = t[k];
+  paintFilters();
+  run();
+});
+
+let recentAt = 0;
+async function loadRecent() {
+  if ($("#home").style.display === "none") return;
+  recentAt = Date.now();
+  const r = await api("search", "", { sort: "newest" });
+  const files = ((r && r.results) || []).filter(x => x.kind !== "folder").slice(0, 8);
+  $("#homeRecent").innerHTML = files.length ? files.map(x => `<li><button class="rc" data-id="${Number(x.id)}">
+      <span class="ico">${esc(KIND[x.kind] || "FILE")}</span>
+      <span class="rn"><b>${esc(x.name)}</b><span>${esc(x.dir)}</span></span><span class="ra">${esc(x.ago)}</span></button></li>`).join("")
+    : `<li class="none">Files you change will show up here once they are indexed.</li>`;
+}
+$("#homeRecent").addEventListener("click", async e => {
+  const b = e.target.closest(".rc");
+  if (!b) return;
+  const r = await api("open", Number(b.dataset.id));
+  if (r && !r.ok) toast(r.error); else if ((await api("get_settings") || {}).hide_after_open) api("hide");
+});
+function paintHome(s) {
+  const el = $("#homeStatus");
+  if (!s) { el.textContent = ""; return; }
+  const lv = LEVEL[s.level] || "";
+  el.innerHTML = `<span class="hs-n">${esc(num(s.files))}</span> files indexed${lv ? ` · ${esc(lv)}` : ""} · <button class="link" id="homeDetails">Details</button>`;
+  if (Date.now() - recentAt > 14000) loadRecent();
+}
+$("#homeStatus").addEventListener("click", e => { if (e.target.id === "homeDetails") document.querySelector(".tab[data-tab=index]").click(); });
+
+// ---------- settings ----------
+// Each page is a list of groups; each group is [title, rows]; each row is [key, type, label, help, options?].
+// Keys starting with "_" are not settings: they draw a block (model download, Windows Search, hardware, ...).
+const PAGES = {
+  general: [
+    ["Look and launch", [
+      ["theme", "select", "Theme", "Dark or light. Applies right away.", [["dark", "Dark"], ["light", "Light"]]],
+      ["glass", "switch", "See-through window", "Windows 11 acrylic behind the window. Follows Windows' own Transparency effects switch. Takes effect at the next start."],
+      ["hotkey", "txt", "Hotkey", "For example win+shift+space or ctrl+alt+f. Takes effect at the next start."],
+      ["bar", "switch", "Quick find bar", "A small search box on its own shortcut that shows over whatever you are doing. Takes effect at the next start."],
+      ["bar_hotkey", "txt", "Quick find bar shortcut", "For example ctrl+alt+space or win+alt+f. Takes effect at the next start."],
+      ["hide_after_open", "switch", "Hide after opening a file", "Off: the window stays up after Enter opens a file. On: it hides, like a launcher."],
+      ["autostart", "switch", "Start with Windows", "Starts hidden; the hotkey opens it."],
+    ]],
+  ],
+  indexing: [
+    ["What to search", [
+      ["roots", "folders", "Folders to search", "Empty: your profile folder and every fixed drive (never other people's profiles or Windows itself)."],
+      ["exclude", "folders", "Never search", "These folders and files are skipped and removed from the index."],
+      ["content", "switch", "Read the text inside files", "Documents, PDFs, code, notes and e-mail files. Off: names only."],
+      ["content_max_mb", "num", "Largest file to read (MB)", "Bigger files are still found by name."],
+      ["ocr", "switch", "Words in photos and scans", "Screenshots, photos of documents and scanned PDFs, read with the OCR built into Windows (offline). Slower, so it runs after everything else."],
+      ["src_mail", "switch", "E-mail files", ".eml and .mbox files found on your drives."],
+      ["index_removable", "switch", "USB and external drives", "Indexed while plugged in. Their files stay findable (marked “not connected”) when you unplug them. Turning this off removes their files from the index."],
+      ["index_network", "switch", "Network drives", "Mapped network drives (Z: and so on). Big shares take a while and use your home or office network."],
+    ]],
+  ],
+  models: [
+    ["Your PC", [["_hardware", "hardware", "", ""]]],
+    ["Meaning search", [
+      ["allow_model_download", "switch", "Allow the one-time model download",
+        "23 MB from Hugging Face (all-MiniLM-L6-v2, pinned and checked by SHA-256). This is NOBAD Find's only internet connection."],
+      ["semantic", "switch", "Search by meaning", "Finds “lease agreement” when you type “rent”, and photos or bills by what their names mean. Runs on this PC only."],
+      ["_model", "model", "Model", ""],
+    ]],
+    ["Photo meaning", [
+      ["allow_photo_model_download", "switch", "Allow the one-time photo model download",
+        "About 211 MB from Hugging Face (SigLIP base by Google, Apache-2.0; pinned and checked by SHA-256). Only needed for this feature."],
+      ["photo_meaning", "switch", "Find photos by what's in them", "“Dog on a beach” finds IMG_0042.jpg even with no words in it. Runs on this PC only. The first pass is slow (a few photos per second), in the background."],
+      ["_photo_model", "pmodel", "Photo model", ""],
+    ]],
+  ],
+  performance: [
+    ["Staying out of your way", [
+      ["games_mode", "select", "Games and presentations",
+        "Smart slows down or pauses only for the apps that really need your PC, and learns which ones. Always pause stops whenever a game is running. Don't change never reacts to games. Presentations always pause NOBAD Find.",
+        [["smart", "Smart (recommended)"], ["always", "Always pause"], ["off", "Don't change"]]],
+      ["pause_on_battery", "switch", "Pause on battery", ""],
+      ["pause_on_call", "switch", "Pause during calls", "While an app uses the microphone or camera."],
+      ["keep_background", "switch", "Keep indexing in the background",
+        "Closing the window stops indexing and every worker; NOBAD Find stays as one small idle process so the hotkey works. On: keeps indexing after closing."],
+      ["workers", "num", "Text reading workers", "0 = choose from your CPU: two threads stay free while you use the PC, one when you're away."],
+    ]],
+    ["Apps NOBAD Find has learned", [["_learned", "learned", "Apps that slowed your PC down",
+      "When an app lagged while NOBAD Find was working, NOBAD Find remembers the app's file name (nothing else) and starts gentler next time."]]],
+  ],
+  privacy: [
+    ["Windows Search", [["_wsearch", "wsearch", "Use NOBAD Find instead of Windows Search", ""]]],
+    ["Your data", [["_wipe", "wipe", "Delete the whole index", "Removes everything NOBAD Find has stored. It starts again from scratch."]]],
+  ],
+  about: [
+    ["NOBAD Find", [["_about", "about", "", ""]]],
+    ["Quit", [["_quit", "quit", "Quit NOBAD Find",
+      "Closing the window stops indexing and leaves NOBAD Find as one small idle process so the hotkey still works (unless Keep indexing in the background is on). This stops it completely until you start it again."]]],
+  ],
+};
+const SP_LINK = "github.com/nobad-studio/Nobad-VPN";
+const gb = v => { const n = fin(v); return n ? (n >= 100 ? Math.round(n) : n.toFixed(1).replace(/\.0$/, "")) + " GB" : "–"; };
+const bare = exe => String(exe || "").replace(/\.exe$/i, "");
+
+function hardwareBlock(h) {
+  if (!h) return `<p class="note">Not available here.</p>`;
+  const tile = (v, l, wide) => `<div class="stat${wide ? " wide" : ""}"><b>${esc(v)}</b><span>${esc(l)}</span></div>`;
+  const fast = [h.avx2 ? "AVX2" : "", h.avx512_vnni ? "AVX-512 VNNI" : ""].filter(Boolean).join(" + ");
+  const drive = h.ssd === true ? "SSD" : h.ssd === false ? "Hard disk" : "Disk";
+  return `<div class="stats hw">` +
+    tile(gb(h.ram_gb), "Memory") +
+    tile(`${num(h.cores)} cores`, `${num(h.threads)} threads`) +
+    tile(h.gpu || "None found", h.gpu ? (fin(h.vram_gb) ? gb(h.vram_gb) + " video memory" : "Graphics card") + (h.directml ? ", usable for models" : "") : "Graphics card", true) +
+    tile(fast || "Standard", "Processor speed-ups") +
+    tile(drive, fin(h.disk_free_gb) ? gb(h.disk_free_gb) + " free" : "Drive type") + `</div>`;
+}
+function learnedBlock(list) {
+  if (!list || !list.length) return `<p class="note">None yet. When an app lags while NOBAD Find works, it shows up here.</p>`;
+  return list.map(a => `<div class="lapp"><div><b>${esc(bare(a.exe))}</b><small>${esc(a.reason)} Seen ${esc(num(a.seen))} ${a.seen === 1 ? "time" : "times"}.</small></div>
+    <button class="btn ghost" data-reset="${esc(a.exe)}">Forget</button></div>`).join("");
+}
 
 async function renderSettings() {
   const s = await api("get_settings");
-  if (!s) { $("#settings").innerHTML = "<p class='note'>Settings are available in the app.</p>"; return; }
+  if (!s) { $("#sp-general").innerHTML = "<p class='note'>Settings are available in the app.</p>"; return; }
   const st = await api("status");
   const ws = await api("wsearch_state");
-  $("#settings").innerHTML = GROUPS.map(([title, rows]) => `<div class="group"><h3>${esc(title)}</h3>${rows.map(([k, type, label, help]) => {
-    let ctl = "";
-    if (type === "switch") ctl = `<input class="switch" type="checkbox" data-k="${k}" ${s[k] ? "checked" : ""}>`;
-    if (type === "num") ctl = `<input class="num" type="number" min="0" data-k="${k}" value="${esc(s[k])}">`;
-    if (type === "txt") ctl = `<input class="txt" type="text" data-k="${k}" value="${esc(s[k])}">`;
-    if (type === "folders") ctl = `<button class="btn ghost" data-add="${k}">Add folder</button>
-      <div class="list">${(s[k] || []).map((p, i) => `<div><span>${esc(p)}</span><button data-del="${k}" data-i="${i}" title="Remove">✕</button></div>`).join("")}</div>`;
-    if (type === "model") {
-      const m = st && st.model || {};
-      help = m.state === "ready" ? "Downloaded and verified." : m.state === "downloading"
-        ? `Downloading… ${m.size ? Math.round(100 * m.got / m.size) : 0}%` : (m.error ? "Last try failed: " + m.error : "Not downloaded.");
-      ctl = m.state === "ready" ? "" : `<button class="btn" id="getModel">Download</button>`;
-    }
-    if (type === "pmodel") {
-      const m = st && st.photo_model || {};
-      help = m.state === "ready" ? `Downloaded and verified. ${Number(st.photo_vectors || 0).toLocaleString()} photos understood so far.`
-        : m.state === "downloading" ? `Downloading… ${m.size ? Math.round(100 * m.got / m.size) : 0}%`
-        : (m.error ? "Last try failed: " + m.error : "Not downloaded.");
-      ctl = m.state === "ready" ? "" : `<button class="btn" id="getPhotoModel">Download</button>`;
-    }
-    if (type === "wsearch") {
-      if (!ws || ws.missing) help = "Windows Search isn't installed on this PC.";
-      else {
-        const off = ws.start === "disabled";
-        help = (off ? "Done: Windows Search indexing is off and NOBAD Find starts with Windows. "
-                    : `Windows Search indexing is on (${esc(ws.start)}${ws.running ? ", running" : ""}). One click turns it off and starts NOBAD Find with Windows. `) +
-          "<span class='warn'>With it off, the Start menu, Explorer and Outlook stop finding files by their content (NOBAD Find does that instead). " +
-          "Windows asks for permission once; going back restores exactly the setting it had before.</span>";
-        ctl = `<button class="btn ${off ? "ghost" : ""}" id="wsToggle" data-off="${off ? 0 : 1}">${off ? "Go back to Windows Search" : "Switch to NOBAD Find"}</button>`;
+  const hwd = await api("hardware");
+  const learned = await api("learned_apps");
+  applyTheme(s.theme);
+  for (const [page, groups] of Object.entries(PAGES)) {
+    $("#sp-" + page).innerHTML = groups.map(([title, rows]) => `<div class="group"><h3>${esc(title)}</h3>${rows.map(([k, type, label, help, opts]) => {
+      let ctl = "", extra = "";
+      if (type === "switch") ctl = `<input class="switch" type="checkbox" data-k="${k}" ${s[k] ? "checked" : ""} aria-label="${esc(label)}">`;
+      if (type === "num") ctl = `<input class="num" type="number" min="0" data-k="${k}" value="${esc(s[k])}" aria-label="${esc(label)}">`;
+      if (type === "txt") ctl = `<input class="txt" type="text" data-k="${k}" value="${esc(s[k])}" aria-label="${esc(label)}">`;
+      if (type === "select") ctl = `<select class="pick" data-k="${k}" aria-label="${esc(label)}">${opts.map(([v, l]) => `<option value="${esc(v)}"${s[k] === v ? " selected" : ""}>${esc(l)}</option>`).join("")}</select>`;
+      if (type === "folders") ctl = `<button class="btn ghost" data-add="${k}">Add folder</button>
+        <div class="list">${(s[k] || []).map((p, i) => `<div><span>${esc(p)}</span><button data-del="${k}" data-i="${i}" title="Remove">✕</button></div>`).join("")}</div>`;
+      if (type === "model") {
+        const m = st && st.model || {};
+        help = m.state === "ready" ? "Downloaded and verified." : m.state === "downloading"
+          ? `Downloading… ${m.size ? Math.round(100 * m.got / m.size) : 0}%` : (m.error ? "Last try failed: " + m.error : "Not downloaded.");
+        ctl = m.state === "ready" ? "" : `<button class="btn" id="getModel">Download</button>`;
       }
-    }
-    if (type === "wipe") ctl = `<button class="btn danger" id="wipe">Delete index</button>`;
-    if (type === "quit") ctl = `<button class="btn ghost" id="quitApp">Quit</button>`;
-    return `<div class="set"><label><b>${esc(label)}</b>${help ? `<small>${type === "wsearch" ? help : esc(help)}</small>` : ""}</label>${ctl}</div>`;
-  }).join("")}</div>`).join("");
+      if (type === "pmodel") {
+        const m = st && st.photo_model || {};
+        help = m.state === "ready" ? `Downloaded and verified. ${Number(st.photo_vectors || 0).toLocaleString()} photos understood so far.`
+          : m.state === "downloading" ? `Downloading… ${m.size ? Math.round(100 * m.got / m.size) : 0}%`
+          : (m.error ? "Last try failed: " + m.error : "Not downloaded.");
+        ctl = m.state === "ready" ? "" : `<button class="btn" id="getPhotoModel">Download</button>`;
+      }
+      if (type === "hardware") return `<div class="set block">${hardwareBlock(hwd)}</div>`;
+      if (type === "learned") {
+        ctl = learned && learned.length ? `<button class="btn ghost" id="resetAll">Reset all</button>` : "";
+        extra = `<div class="lapps">${learnedBlock(learned)}</div>`;
+      }
+      if (type === "about") {
+        return `<div class="set about"><div><b class="ver">Version ${esc((st && st.version) || "")}</b>
+          <p>Private, offline file search for Windows. Your files, your index and your searches stay on this PC.</p>
+          <p class="dim">Open source under the MIT licence. Source and releases: ${esc(SP_LINK)}</p></div>
+          <button class="btn ghost" id="copyLink">Copy link</button></div>`;
+      }
+      if (type === "wsearch") {
+        if (!ws || ws.missing) help = "Windows Search isn't installed on this PC.";
+        else {
+          const off = ws.start === "disabled";
+          help = (off ? "Done: Windows Search indexing is off and NOBAD Find starts with Windows. "
+                      : `Windows Search indexing is on (${esc(ws.start)}${ws.running ? ", running" : ""}). One click turns it off and starts NOBAD Find with Windows. `) +
+            "<span class='warn'>With it off, the Start menu, Explorer and Outlook stop finding files by their content (NOBAD Find does that instead). " +
+            "Windows asks for permission once; going back restores exactly the setting it had before.</span>";
+          ctl = `<button class="btn ${off ? "ghost" : ""}" id="wsToggle" data-off="${off ? 0 : 1}">${off ? "Go back to Windows Search" : "Switch to NOBAD Find"}</button>`;
+        }
+      }
+      if (type === "wipe") ctl = `<button class="btn danger" id="wipe">Delete index</button>`;
+      if (type === "quit") ctl = `<button class="btn ghost" id="quitApp">Quit</button>`;
+      return `<div class="set"><label><b>${esc(label)}</b>${help ? `<small>${type === "wsearch" ? help : esc(help)}</small>` : ""}</label>${ctl}${extra}</div>`;
+    }).join("")}</div>`).join("");
+  }
 }
+function showPage(name) {
+  document.querySelectorAll("#spNav button").forEach(b => b.classList.toggle("on", b.dataset.sp === name));
+  document.querySelectorAll(".spage").forEach(p => p.classList.toggle("on", p.id === "sp-" + name));
+}
+$("#spNav").addEventListener("click", e => { const b = e.target.closest("button[data-sp]"); if (b) showPage(b.dataset.sp); });
+
+// The look, dark or light. Remembered locally so the next start does not flash the other one first.
+function applyTheme(t) {
+  const v = t === "light" ? "light" : "dark";
+  document.documentElement.dataset.theme = v;
+  try { localStorage.setItem("nf-theme", v); } catch (e) { /* storage unavailable: the setting still applies */ }
+}
+applyTheme(localStorage.getItem("nf-theme"));
 
 const settingsEl = $("#settings");
 settingsEl.addEventListener("change", async e => {
   const k = e.target.dataset.k;
   if (!k) return;
   const v = e.target.type === "checkbox" ? e.target.checked : e.target.type === "number" ? Number(e.target.value) : e.target.value;
+  if (k === "theme") applyTheme(v);
   const r = await api("set_settings", { [k]: v });
   if (r && !r.changed.length) toast("That value wasn't accepted.");
   renderSettings();
 });
 settingsEl.addEventListener("click", async e => {
-  const t = e.target;
+  const t = e.target.closest("button") || e.target;
   const s = await api("get_settings");
   if (!s) return;
   if (t.dataset.add) {
@@ -456,6 +587,12 @@ settingsEl.addEventListener("click", async e => {
   } else if (t.dataset.del) {
     const list = s[t.dataset.del].filter((_, i) => i !== +t.dataset.i);
     await api("set_settings", { [t.dataset.del]: list }); renderSettings();
+  } else if (t.dataset.reset) {
+    await api("reset_learned", t.dataset.reset); toast("Forgotten."); renderSettings();
+  } else if (t.id === "resetAll") {
+    if (confirm("Forget every app NOBAD Find has learned?")) { await api("reset_learned", null); toast("Forgotten."); renderSettings(); }
+  } else if (t.id === "copyLink") {
+    try { await navigator.clipboard.writeText("https://" + SP_LINK); toast("Link copied."); } catch (err) { toast("Couldn't copy the link."); }
   } else if (t.id === "getPhotoModel") {
     const r = await api("download_photo_model"); if (r && !r.ok) toast(r.error); else toast("Downloading the photo model…");
     const poll = setInterval(async () => { await renderSettings(); const st = await api("status"); if (!st || st.photo_model.state !== "downloading") clearInterval(poll); }, 1000);
@@ -474,5 +611,9 @@ settingsEl.addEventListener("click", async e => {
   }
 });
 
-window.addEventListener("pywebviewready", () => { refreshStatus(false); $("#q").focus(); });
+window.addEventListener("pywebviewready", async () => {
+  const s = await api("get_settings");
+  if (s) applyTheme(s.theme);
+  refreshStatus(false); loadRecent(); $("#q").focus();
+});
 $("#q").focus();

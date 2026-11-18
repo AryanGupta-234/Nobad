@@ -12,11 +12,11 @@ from collections import deque
 
 from . import embed, jobs, ocr, photo, thumbs, wsearch, winapi
 from . import hardware as hw
-from .const import MODEL_FILES
+from .const import APP_VER, MODEL_FILES
 from .indexer import NAME_KINDS
 from .kinds import READABLE_EXT
 from .log import log
-from .search import search
+from .search import SORTS, search
 
 MAX_QUERY = 500
 TOTALS_TTL = 10                  # seconds: the phase counts are COUNT queries, too heavy for every 2 s poll
@@ -57,7 +57,8 @@ class Api:
             return empty
         text = text.strip()[:MAX_QUERY]
         filters = filters if isinstance(filters, dict) else {}
-        if not text and not any(filters.get(k) for k in ("kind", "modified", "size", "folder")):
+        listing = any(filters.get(k) for k in ("kind", "modified", "size", "folder")) or filters.get("sort") in SORTS - {""}
+        if not text and not listing:
             return empty
         try:
             return search(self._store, text, self._indexer.embedder, self._vindex, drives=self._indexer.drive_list,
@@ -121,6 +122,7 @@ class Api:
     def status(self):
         st = dict(self._indexer.status)
         st.update(self._store.stats())
+        st["version"] = APP_VER
         st["model"] = dict(self._model)
         st["photo_model"] = dict(self._photo_model)
         st["memory_mb"] = winapi.memory_mb()

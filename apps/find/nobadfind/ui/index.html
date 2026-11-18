@@ -51,14 +51,19 @@
       </div>
       <div class="meta" id="meta"></div>
       <ol class="results" id="results"></ol>
-      <div class="empty" id="empty">
+      <div class="home" id="home">
         <h1>Find anything on this PC.</h1>
-        <p>Search by name, by the words inside a file, or by what it was about. Add a kind (“pdf”, “photos”, “code”)
-          or a time (“yesterday”, “in March”, “3 weeks ago”), a folder (“in my downloads”, “here”, or type a path like
-          C:\Work\Taxes), a size (“bigger than 100 mb”) or an order (“newest”). Or just pick filters above:
-          “list all pdf here” works with an empty box too.</p>
-        <p class="keys"><kbd>↑</kbd><kbd>↓</kbd> move · <kbd>Enter</kbd> open · <kbd>Ctrl</kbd>+<kbd>Enter</kbd> show in folder
-          · <kbd>Ctrl</kbd>+<kbd>C</kbd> copy path · <kbd>Esc</kbd> hide</p>
+        <p class="lede">Search by name, by the words inside a file, or by what it was about. Add a kind, a time, a folder
+          or a size to the words, or pick filters above.</p>
+        <div class="chips" id="homeChips" aria-label="Examples to try"></div>
+        <div class="tiles" id="homeTiles" aria-label="Browse by kind"></div>
+        <h3>Recently changed</h3>
+        <ol class="recent" id="homeRecent"></ol>
+        <div class="homebar">
+          <div class="homestatus" id="homeStatus" aria-live="off"></div>
+          <p class="keys"><kbd>↑</kbd><kbd>↓</kbd> move · <kbd>Enter</kbd> open · <kbd>Ctrl</kbd>+<kbd>Enter</kbd> show in folder
+            · <kbd>Ctrl</kbd>+<kbd>C</kbd> copy path · <kbd>Esc</kbd> hide</p>
+        </div>
       </div>
     </section>
 
@@ -106,7 +111,22 @@
 
     <section class="view" id="v-settings">
       <h2>Settings</h2>
-      <div id="settings"></div>
+      <nav class="subnav" id="spNav" aria-label="Settings pages">
+        <button class="on" data-sp="general">General</button>
+        <button data-sp="indexing">Indexing</button>
+        <button data-sp="models">Models</button>
+        <button data-sp="performance">Performance</button>
+        <button data-sp="privacy">Privacy</button>
+        <button data-sp="about">About</button>
+      </nav>
+      <div id="settings">
+        <div class="spage on" id="sp-general"></div>
+        <div class="spage" id="sp-indexing"></div>
+        <div class="spage" id="sp-models"></div>
+        <div class="spage" id="sp-performance"></div>
+        <div class="spage" id="sp-privacy"></div>
+        <div class="spage" id="sp-about"></div>
+      </div>
     </section>
   </main>
 </div>

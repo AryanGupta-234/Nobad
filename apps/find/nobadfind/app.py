@@ -54,8 +54,24 @@ def uninstall():
     return 0
 
 
+def close_splash():
+    """Close the start-up picture the exe shows while it unpacks (PyInstaller's splash). Not there when run from
+    source, and closing it twice is harmless."""
+    try:
+        import pyi_splash
+    except ImportError:
+        return
+    try:
+        pyi_splash.close()
+        log("start-up picture closed")
+    except Exception as e:
+        log(f"start-up picture: {type(e).__name__}", "warn")
+
+
 def main(argv=None):
     args = parse_args(argv)
+    if args.background or args.version or args.wsearch or args.uninstall:
+        close_splash()                              # no window to wait for
     if args.version:
         print(f"{APP_NAME} {APP_VER}")
         return 0
@@ -66,10 +82,12 @@ def main(argv=None):
         return uninstall()
     if winapi.is_admin():
         # Everything NOBAD Find needs works as the normal user; running it as admin would index as admin.
+        close_splash()
         winapi.message("NOBAD Find runs as your normal account. Start it without 'Run as administrator'.")
         return 1
     if not single_instance():
         # Already running (often hidden in the background): bring that window up instead of doing nothing.
+        close_splash()
         if not args.background:
             winapi.ask_running_copy_to_show()
         return 0
@@ -202,6 +220,9 @@ def main(argv=None):
             win.evaluate_js("document.documentElement.classList.add('glass')")
 
     def started():
+        if not args.background:
+            win.events.loaded += close_splash       # the page is up: the start-up picture can go
+            threading.Timer(12, close_splash).start()   # in case the page never reports loading
         threading.Thread(target=make_glass, daemon=True, name="glass").start()
         if show_evt:
             threading.Thread(target=show_requests, daemon=True, name="show").start()

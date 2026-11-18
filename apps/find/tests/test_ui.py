@@ -34,3 +34,27 @@ def test_now_panel_is_built_once_and_updated_in_place():
     assert 'id="ixPause"' in HTML and 'id="ixNowText"' in HTML
     assert 'aria-live="polite"' in HTML.split('id="ixNowText"')[0].rsplit("<", 1)[1] + HTML.split('id="ixNowText"')[1].split(">")[0]
     assert 'tab("index")' not in JS and "ixTick();" not in JS.split("function tab(name)")[1].split("}\n", 1)[0]
+
+
+def test_settings_pages_exist():
+    for ident in ("sp-general", "sp-indexing", "sp-models", "sp-performance", "sp-privacy", "sp-about"):
+        assert f'id="{ident}"' in HTML, ident
+
+
+def test_every_setting_key_has_a_control():
+    from nobadfind.const import DEFAULTS
+    internal = {"wsearch_prev", "pause_fullscreen"}          # old/internal: no control
+    for key in set(DEFAULTS) - internal:
+        assert f'"{key}"' in JS, f"no control for setting {key}"
+    for label in ("Smart (recommended)", "Always pause", "Don't change"):
+        assert label in JS
+
+
+def test_home_sections_exist():
+    for ident in ("home", "homeChips", "homeTiles", "homeRecent", "homeStatus"):
+        assert f'id="{ident}"' in HTML, ident
+    assert "<kbd>" in HTML.split('id="home"')[1]               # the keyboard hints stay
+
+
+def test_theme_setting_is_applied():
+    assert "dataset.theme" in JS

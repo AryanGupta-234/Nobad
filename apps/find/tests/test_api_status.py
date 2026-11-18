@@ -9,7 +9,7 @@ from nobadfind.store import Store
 
 
 class Ix:
-    embedder = photo_text = None
+    embedder = photo_text = pindex = None
     drive_list = []
 
     def __init__(self, phase="text"):
@@ -256,3 +256,13 @@ def test_counts_are_cached_and_refreshed_in_background(tmp_path):
     a._refresher.join(5)
     assert len(calls) > n and a._counts(12.0) is not first
     s.close()
+
+
+def test_newest_first_listing_and_version_for_the_home_screen(tmp_path):
+    a, s = make(tmp_path)
+    r = a.search("", {"sort": "newest"})                      # the Home screen's "Recently changed"
+    assert {x["name"] for x in r["results"]} == {"a.docx", "b.pdf", "c.jpg"}
+    assert a.search("", {"sort": "bogus"})["results"] == []   # an unknown order alone is still not a search
+    assert a.search("", {})["results"] == []
+    from nobadfind.const import APP_VER
+    assert a.status()["version"] == APP_VER
