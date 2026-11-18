@@ -142,15 +142,28 @@ class Job:
             _k.CloseHandle(ph)
 
     def set_cpu_cap(self, percent):
-        """Hard-cap the whole group at percent of all CPU time; None lifts the cap."""
+        """Hard-cap the whole group at percent of all CPU time; None lifts the cap. True on success."""
         if not self.handle:
-            return
+            return False
         info = _CpuRate()
         if percent is not None:
             info.ControlFlags = _CPU_ENABLE | _CPU_HARD_CAP
             info.CpuRate = max(1, min(100, int(percent))) * 100
         if not _k.SetInformationJobObject(self.handle, _CLS_CPU_RATE, ctypes.byref(info), ctypes.sizeof(info)):
             log("could not change the background CPU limit (error %d)" % ctypes.get_last_error())
+            return False
+        return True
+
+    def cpu_cap(self):
+        """The cap now in force as a percent, or None when there is none."""
+        if not self.handle:
+            return None
+        info = _CpuRate()
+        if not _k.QueryInformationJobObject(self.handle, _CLS_CPU_RATE, ctypes.byref(info), ctypes.sizeof(info), None):
+            return None
+        if info.ControlFlags & _CPU_ENABLE and info.ControlFlags & _CPU_HARD_CAP:
+            return info.CpuRate // 100
+        return None
 
     def pids(self):
         if not self.handle:

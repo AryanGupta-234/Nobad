@@ -37,12 +37,14 @@ def test_closing_the_job_ends_its_processes(procs):
     assert p.returncode is not None
 
 
-def test_cpu_cap_can_be_set_and_removed(procs):
+def test_cpu_cap_can_be_set_and_removed():
     from nobadfind import jobs
     job = jobs.Job()
     try:
-        job.set_cpu_cap(15)
-        job.set_cpu_cap(None)
+        assert job.set_cpu_cap(15) is True
+        assert job.cpu_cap() == 15
+        assert job.set_cpu_cap(None) is True
+        assert job.cpu_cap() is None
     finally:
         job.close()
 
