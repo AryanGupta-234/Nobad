@@ -137,9 +137,9 @@ def main(argv=None):
     from .api import Api
     holder = {}
     api = Api(store, settings, indexer, vindex, lambda: holder.get("w"))
-    api.watchdog, api.visible = watchdog, not args.background
+    api._watchdog, api.visible = watchdog, not args.background
     ui["api"] = api
-    api.governor, api.activity, api.apps = governor, activity, apps      # the status page reads these
+    api._governor, api._activity, api._apps = governor, activity, apps      # the status page reads these
     want_glass = settings.get("glass") and winapi.transparency_allowed()
     if want_glass:
         os.environ["WEBVIEW2_DEFAULT_BACKGROUND_COLOR"] = "00000000"     # let the acrylic show through the page

@@ -34,14 +34,14 @@ class Api:
         self._indexer = indexer
         self._vindex = vindex
         self._win = window_ref            # callable returning the pywebview window (or None)
-        self.watchdog = None              # set by app.py
+        self._watchdog = None             # set by app.py
         self.visible = True               # the main window is shown (the watchdog expects heartbeats)
         self.here = ""                    # the Explorer folder the hotkey was pressed in (see app.bring_up)
         self._model = {"state": "ready" if embed.model_ready() else "missing", "got": 0, "size": 0, "error": ""}
         self._photo_model = {"state": "ready" if photo.model_ready() else "missing", "got": 0, "size": 0, "error": ""}
-        self.governor = None              # set by app.py (the status page reads the governor, the activity log,
-        self.activity = None              # and what was learned about apps); None in tests
-        self.apps = None
+        self._governor = None             # set by app.py (the status page reads the governor, the activity log,
+        self._activity = None             # and what was learned about apps); None in tests
+        self._apps = None
         self._slock = threading.Lock()
         self._totals = (0.0, None, {})    # (computed at, settings key, counts)
         self._refresher = None
@@ -147,7 +147,7 @@ class Api:
     # ---------- transparency: what NOBAD Find is doing, what it uses, and why ----------
     def _transparency(self, st):
         now = self._clock()
-        gov = self.governor
+        gov = self._governor
         if gov is not None:
             st["level"], st["reason"] = gov.decision.level, gov.decision.reason
             st["history"] = gov.history
@@ -157,7 +157,7 @@ class Api:
         st["resources"] = self._resources(now, history[-1].get("gpu") if history else None)
         st["phases"] = self._phases(now, st)
         st["models"] = self._models(now, st, st["resources"]["processes"])
-        st["activity"] = self.activity.recent(50) if self.activity is not None else []
+        st["activity"] = self._activity.recent(50) if self._activity is not None else []
 
     def _resources(self, now, gpu):
         names = {os.getpid(): "Main"}
@@ -306,24 +306,24 @@ class Api:
 
     # ---------- governor controls ----------
     def pause_for(self, seconds):
-        if self.governor is None or not isinstance(seconds, int) or isinstance(seconds, bool) or seconds <= 0:
+        if self._governor is None or not isinstance(seconds, int) or isinstance(seconds, bool) or seconds <= 0:
             return {"ok": False}
-        self.governor.pause_for(min(seconds, MAX_PAUSE_S))
+        self._governor.pause_for(min(seconds, MAX_PAUSE_S))
         return {"ok": True}
 
     def resume(self):
-        if self.governor is None:
+        if self._governor is None:
             return {"ok": False}
-        self.governor.resume()
+        self._governor.resume()
         return {"ok": True}
 
     def learned_apps(self):
-        return self.apps.list() if self.apps is not None else []
+        return self._apps.list() if self._apps is not None else []
 
     def reset_learned(self, exe=None):
-        if self.apps is None or not (exe is None or isinstance(exe, str)):
+        if self._apps is None or not (exe is None or isinstance(exe, str)):
             return {"ok": False}
-        self.apps.reset(exe)
+        self._apps.reset(exe)
         return {"ok": True}
 
     def hardware(self):
@@ -464,13 +464,13 @@ class Api:
 
     # ---------- window ----------
     def heartbeat(self):
-        if self.watchdog is not None:
-            self.watchdog.beat()
+        if self._watchdog is not None:
+            self._watchdog.beat()
         return {"ok": True}
 
     def page_visible(self, on):
-        if self.watchdog is not None:
-            self.watchdog.page_visible(bool(on))
+        if self._watchdog is not None:
+            self._watchdog.page_visible(bool(on))
         return {"ok": True}
 
     def hide(self):

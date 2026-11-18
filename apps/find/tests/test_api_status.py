@@ -49,13 +49,13 @@ def make(tmp_path, phase="text", **changes):
     if changes:
         st.update(changes)
     a = api_mod.Api(s, st, Ix(phase), None, lambda: None)
-    a.governor, a.activity = Gov(), Activity()
+    a._governor, a._activity = Gov(), Activity()
     return a, s
 
 
 def test_status_has_transparency_keys(tmp_path):
     a, s = make(tmp_path)
-    a.activity.add("info", "hello")
+    a._activity.add("info", "hello")
     st = a.status()
     assert st["level"] == "gentle" and st["reason"].startswith("Gentle")
     assert isinstance(st["history"], list) and st["history"][0]["find_mb"] == 100
@@ -78,7 +78,7 @@ def test_status_has_transparency_keys(tmp_path):
 
 def test_status_without_governor(tmp_path):
     a, s = make(tmp_path)
-    a.governor = a.activity = None
+    a._governor = a._activity = None
     st = a.status()
     assert st["history"] == [] and st["activity"] == [] and st["resources"]["gpu"] is None
     assert a.pause_for(60) == {"ok": False} and a.resume() == {"ok": False}
@@ -125,7 +125,7 @@ def test_pause_for_and_resume_reach_the_governor(tmp_path):
     a, s = make(tmp_path)
     assert a.pause_for(900) == {"ok": True}
     assert a.resume() == {"ok": True}
-    assert a.governor.calls == [("pause", 900), ("resume",)]
+    assert a._governor.calls == [("pause", 900), ("resume",)]
     assert a.pause_for("x") == {"ok": False} and a.pause_for(True) == {"ok": False}
     s.close()
 
@@ -142,12 +142,12 @@ def test_learned_apps_and_reset(tmp_path):
             self.reset_with = exe
     a, s = make(tmp_path)
     assert a.learned_apps() == []
-    a.apps = Apps()
+    a._apps = Apps()
     assert a.learned_apps() == [{"exe": "game.exe"}]
     a.reset_learned(None)
-    assert a.apps.reset_with is None
+    assert a._apps.reset_with is None
     a.reset_learned("game.exe")
-    assert a.apps.reset_with == "game.exe"
+    assert a._apps.reset_with == "game.exe"
     assert a.reset_learned(5) == {"ok": False}
     s.close()
 
@@ -296,10 +296,11 @@ def test_open_outside_job_starts_explorer_with_breakaway(monkeypatch):
         def __init__(self, argv, **kw):
             calls.append((argv, kw))
     monkeypatch.setattr(winapi.subprocess, "Popen", P)
-    monkeypatch.setenv("WINDIR", "C:\Windows")
-    winapi.open_outside_job("C:\a, b & c\\u00e4.txt")
+    monkeypatch.setenv("WINDIR", r"C:\Windows")
+    path = "C:\\a, b & c\\\u00e4 \u65e5.txt"
+    winapi.open_outside_job(path)
     argv, kw = calls[0]
-    assert argv == [os.path.join("C:\Windows", "explorer.exe"), "C:\a, b & c\\u00e4.txt"]   # a list: no shell string
+    assert argv == [os.path.join(r"C:\Windows", "explorer.exe"), path]       # a list: no shell string
     assert kw["creationflags"] & winapi.CREATE_BREAKAWAY_FROM_JOB and not kw.get("shell")
 
 
@@ -363,4 +364,54 @@ def test_hide_tells_the_app(tmp_path):
     a._on_hide = lambda: order.append("hook")
     a.hide()
     assert order == ["hide", "hide", "hook"] and a.visible is False
+    s.close()
+
+
+def _exposed(obj, base="", out=None, seen=None):
+    """pywebview 6.2's js_api walk (webview/util.py get_functions): every public method, recursing into
+    public non-callable attributes."""
+    import inspect
+    out = {} if out is None else out
+    seen = set() if seen is None else seen
+    if id(obj) in seen:
+        return out
+    seen.add(id(obj))
+    for name in dir(obj):
+        if name.startswith("_"):
+            continue
+        full = f"{base}.{name}" if base else name
+        try:
+            attr = getattr(obj, name)
+        except Exception:
+            continue
+        if inspect.ismethod(attr) or inspect.isfunction(attr):
+            out[full] = True
+        elif inspect.isclass(attr) or (not callable(attr) and hasattr(attr, "__module__")):
+            _exposed(attr, full, out, seen)
+    return out
+
+
+API_METHODS = {"download_model", "download_photo_model", "forget", "get_settings", "hardware", "heartbeat",
+               "here_folder", "hide", "learned_apps", "open", "page_visible", "path_of", "pause_for", "pick_folder",
+               "quit", "rescan", "reset_learned", "resume", "reveal", "search", "set_settings", "status", "thumbnail",
+               "use_instead_of_windows_search", "wipe", "wsearch_set", "wsearch_state"}
+
+
+def test_the_page_sees_only_the_api_methods(tmp_path):
+    """I-5: wired like app.py does, the page can reach the checked methods and nothing nested
+    (no store.q, store.wipe, governor.stop, settings.update, watchdog.check)."""
+    from nobadfind import bar
+    from nobadfind.appmemory import AppMemory
+    from nobadfind.governor import Governor
+    from nobadfind.watchdog import Watchdog
+    a, s = make(tmp_path)
+    act = Activity()
+    apps = AppMemory(s)
+    wd = Watchdog(act)
+    a._watchdog, a._governor, a._activity, a._apps = wd, Governor(a._settings, apps, act, watchdog=wd), act, apps
+    a.visible, a.here = True, r"C:\Users"
+    a._on_hide = lambda: None
+    assert set(_exposed(a)) == API_METHODS
+    b = bar.BarApi(a, bar.Bar(lambda: None, False), lambda text: None)
+    assert set(_exposed(b)) == {"blurred", "fit", "hide", "open", "reveal", "search", "to_main"}
     s.close()
