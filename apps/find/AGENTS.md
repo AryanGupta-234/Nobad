@@ -1,6 +1,11 @@
 # NOBAD Find: notes for AI assistants
 
-The repository rules in the root [`AGENTS.md`](../../AGENTS.md) apply. Specific to this app:
+The repository rules in the root [`AGENTS.md`](../../AGENTS.md) apply.
+
+**Start with [`ROADMAP.md`](ROADMAP.md):** the order of work (resources first, then stability, the Flutter UI,
+then features), the architecture, the feature inventory, and a status table to resume from.
+
+Specific to this app:
 
 - **Runs as the normal user, never as admin** (`app.py` refuses to start elevated). The only elevated code is
   `wsearch.helper_main`, which accepts the four words in `wsearch.STARTS` and runs `sc.exe` with a fixed argument
