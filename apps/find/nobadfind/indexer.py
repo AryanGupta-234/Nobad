@@ -15,6 +15,7 @@ import time
 import numpy as np
 
 from . import embed, extract, ocr, photo, winapi
+from .governor import FULL, PAUSED, workers_for
 from .kinds import READABLE_EXT, kind_of
 from .log import log
 from .walker import Walker, default_roots
@@ -54,8 +55,9 @@ def plan(settings, roots):
 
 
 class Indexer:
-    def __init__(self, store, settings, vindex=None):
+    def __init__(self, store, settings, vindex=None, governor=None):
         self.store = store
+        self.governor = governor
         self.settings = settings
         self.vindex = vindex
         self.embedder = None
@@ -63,6 +65,8 @@ class Indexer:
         self.wake = threading.Event()
         self.status = {"phase": "starting", "files": 0, "texts": 0, "vectors": 0, "paused": "", "rate": 0,
                        "errors": 0, "plan": {}, "last_scan": 0}
+        if governor is not None:
+            self.status.update(level=governor.decision.level, reason=governor.decision.reason)
         self._pending = {}
         self._plock = threading.Lock()
         self._watcher = None
@@ -107,6 +111,8 @@ class Indexer:
         return self.drive_list
 
     def _away(self):
+        if self.governor is not None:
+            return self.governor.decision.level == FULL
         return winapi.idle_seconds() >= IDLE_AFTER
 
     def start(self):
@@ -124,6 +130,9 @@ class Indexer:
         self.wake.set()
 
     def _pause_reason(self):
+        if self.governor is not None:
+            d = self.governor.decision
+            return d.reason if d.level == PAUSED else ""
         t, why = self._pause
         if time.monotonic() - t < PAUSE_CHECK_EVERY:
             return why
@@ -142,11 +151,14 @@ class Indexer:
 
     def _wait_while_paused(self):
         while not self.stop_ev.is_set():
+            if self.governor is not None:
+                d = self.governor.decision
+                self.status["level"], self.status["reason"] = d.level, d.reason
             why = self._pause_reason()
             self.status["paused"] = why
             if not why:
                 return True
-            self.stop_ev.wait(15)
+            self.stop_ev.wait(0.5 if self.governor is not None else 15)
         return False
 
     # ---------- main loop ----------
@@ -265,10 +277,17 @@ class Indexer:
                 if not self._wait_while_paused():
                     return
                 away = self._away()
-                self.status["speed"] = "full (you're away)" if away else "gentle (you're using the PC)"
+                if self.governor is not None:
+                    level = self.governor.decision.level
+                    self.status["speed"] = level
+                else:
+                    self.status["speed"] = "full (you're away)" if away else "gentle (you're using the PC)"
                 # after a reader crashed, the files that were being read run one at a time to find the culprit
                 careful = bool(self._suspects)
-                limit = 1 if careful else (full if away else gentle)
+                if self.governor is not None:
+                    limit = 1 if careful else max(1, workers_for(level, plan_))
+                else:
+                    limit = 1 if careful else (full if away else gentle)
                 if careful:
                     if not inflight:
                         queued = [self._suspects.pop(0)]

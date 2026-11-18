@@ -84,13 +84,20 @@ def main(argv=None):
     if not store.encrypted:
         log("SQLCipher missing: the index is NOT encrypted", "warn")
     vindex = embed.VectorIndex()
-    indexer = Indexer(store, settings, vindex)
+    from .activity import Activity
+    from .appmemory import AppMemory
+    from .governor import Governor
+    activity = Activity()
+    governor = Governor(settings, AppMemory(store), activity)
+    governor.start()
+    indexer = Indexer(store, settings, vindex, governor=governor)
     indexer.start()
 
     import webview
     from .api import Api
     holder = {}
     api = Api(store, settings, indexer, vindex, lambda: holder.get("w"))
+    api.governor, api.activity = governor, activity      # the status page reads these
     want_glass = settings.get("glass") and winapi.transparency_allowed()
     if want_glass:
         os.environ["WEBVIEW2_DEFAULT_BACKGROUND_COLOR"] = "00000000"     # let the acrylic show through the page
@@ -163,12 +170,14 @@ def main(argv=None):
             win.hide()
             return False
         indexer.stop()
+        governor.stop()
         hk.stop()
         return True
 
     win.events.closing += closing
     webview.start(started, http_server=True, private_mode=True)
     indexer.stop()
+    governor.stop()
     log("stopped")
     return 0
 

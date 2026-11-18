@@ -1,11 +1,19 @@
-"""The governor's brain: turns one sensor sample into a work level and a reason.
+"""The governor: turns sensor samples into a work level and a reason.
 
-Pure logic. No Windows calls, and time comes only from ``Sample.t`` (seconds;
-``Brain.pause_until`` is on the same clock and is shown as a wall-clock time,
-so callers should feed ``time.time()``).
+``Brain`` is pure logic: time comes only from ``Sample.t`` (seconds; ``Brain.pause_until`` is on the
+same clock and is shown as a wall-clock time, so callers feed ``time.time()``). ``Governor`` is the
+thread that reads the real sensors every couple of seconds, runs the brain and applies the result.
 """
 import datetime
+import os
+import threading
+import time
+from collections import deque
 from dataclasses import dataclass
+
+from . import jobs as _jobs
+from . import winapi
+from .log import log
 
 FULL, GENTLE, LIGHT, PAUSED = "full", "gentle", "light", "paused"
 ORDER = [PAUSED, LIGHT, GENTLE, FULL]
@@ -165,3 +173,102 @@ class Brain:
                 self._up_since = None
                 return Decision(wanted, reason)
         return Decision(self._level, _EASING[self._level])
+
+
+HISTORY = 150            # samples kept for the live chart (5 minutes at one every 2 s)
+SLOW_SENSE_EVERY = 15    # battery and call checks cost a registry walk
+
+
+class Governor(threading.Thread):
+    def __init__(self, settings, apps, activity, sense=None, every=2.0, jobs=None):
+        super().__init__(daemon=True, name="governor")
+        self.settings, self.apps, self.activity = settings, apps, activity
+        self.brain = Brain(settings, apps)
+        self.every = every
+        self.jobs = _jobs if jobs is None else jobs
+        self.decision = Decision(GENTLE, "Gentle: starting up")
+        self._history = deque(maxlen=HISTORY)
+        self._stop_ev = threading.Event()
+        self._applied = None
+        self._session = {"exe": "", "game": False, "lagged": False}
+        self._sense = sense or self._real_sense
+        self._cpu, self._gpu = None, None
+        self._slow = (0.0, False, False)         # (checked at, on battery, in call)
+        self._last_cpu_s = None                  # (wall time, Find's CPU seconds)
+
+    # ---------- control ----------
+    def pause_for(self, seconds):
+        self.brain.pause_until = time.time() + max(0, int(seconds))
+        self.activity.add("info", f"You paused NOBAD Find for {int(seconds) // 60} min")
+
+    def resume(self):
+        self.brain.pause_until = 0.0
+        self.activity.add("info", "You resumed NOBAD Find")
+
+    def stop(self):
+        self._stop_ev.set()
+
+    @property
+    def history(self):
+        return list(self._history)
+
+    def run(self):
+        while not self._stop_ev.is_set():
+            try:
+                self.tick()
+            except Exception as e:                  # a sensor hiccup must never stop the governor
+                log(f"governor tick failed: {type(e).__name__}", "warn")
+            self._stop_ev.wait(self.every)
+
+    # ---------- one step ----------
+    def tick(self):
+        s = self._sense()
+        d = self.brain.decide(s)
+        self._track_session(s)
+        outer = getattr(self.jobs, "OUTER", None)
+        find_mb = outer.usage()["memory_mb"] if outer is not None else 0
+        self._history.append({"t": s.t, "cpu": s.cpu, "gpu": s.gpu, "find_cpu": s.find_cpu,
+                              "find_mb": find_mb, "level": d.level})
+        if d.level != self._applied:
+            self._applied = d.level
+            workers = getattr(self.jobs, "WORKERS", None)
+            if workers is not None:
+                workers.set_cpu_cap(CPU_CAP[d.level])
+            self.activity.add("level", d.reason)
+        self.decision = d
+        return d
+
+    def _track_session(self, s):
+        cur = self._session
+        if s.foreground != cur["exe"]:
+            if cur["exe"] and cur["game"] and not cur["lagged"]:
+                self.apps.quiet_session(cur["exe"])
+            cur.update(exe=s.foreground, game=False, lagged=False)
+        if s.game:
+            cur["game"] = True
+        if self.brain._lag_recorded:
+            cur["lagged"] = True
+
+    # ---------- real sensors ----------
+    def _real_sense(self):
+        if self._cpu is None:
+            self._cpu, self._gpu = winapi.CpuSampler(), winapi.GpuSampler()
+        now = time.time()
+        if now - self._slow[0] >= SLOW_SENSE_EVERY:
+            self._slow = (now, winapi.on_battery(), winapi.in_call())
+        load, free = winapi.memory_status()
+        return Sample(t=now, cpu=self._cpu.percent(), gpu=self._gpu.percent(), mem_load=load, free_mb=free,
+                      find_cpu=self._find_cpu(now), foreground=winapi.foreground_exe(),
+                      game=winapi.fullscreen_game(), presentation=winapi.presentation_mode(),
+                      hung=winapi.foreground_hung(), battery=self._slow[1], call=self._slow[2],
+                      idle_s=winapi.idle_seconds())
+
+    def _find_cpu(self, now):
+        outer = getattr(self.jobs, "OUTER", None)
+        if outer is None:
+            return 0.0
+        secs = outer.usage()["cpu_seconds"]
+        last, self._last_cpu_s = self._last_cpu_s, (now, secs)
+        if last is None or now <= last[0]:
+            return 0.0
+        return max(0.0, min(100.0, (secs - last[1]) / (now - last[0]) / (os.cpu_count() or 1) * 100))

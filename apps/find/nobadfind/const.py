@@ -47,7 +47,11 @@ DEFAULTS = {
     "index_removable": False,       # USB sticks, SD cards and external drives while they're plugged in
     "index_network": False,         # mapped network drives (your own network; slow on big shares)
     "pause_on_battery": True,
-    "pause_fullscreen": True,
+    "pause_fullscreen": True,       # old: replaced by games_mode, kept so a downgrade still reads it
+    "games_mode": "smart",          # smart | always | off: what to do while a game is running
+    "keep_background": False,
+    "bar": True,
+    "bar_hotkey": "ctrl+alt+space",
     "pause_on_call": True,          # while the microphone or camera is in use
     "workers": 0,                   # 0 = pick from the CPU
     "hotkey": "win+shift+space",
