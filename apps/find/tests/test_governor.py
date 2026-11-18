@@ -179,3 +179,30 @@ def test_workers_for_levels():
     assert g.workers_for(g.GENTLE, plan) == 2
     assert g.workers_for(g.LIGHT, plan) == 1
     assert g.workers_for(g.PAUSED, plan) == 0
+
+
+def test_hot_timer_is_continuous_across_other_pauses():
+    apps = FakeApps()
+    b = brain(apps)
+    for t in range(0, 6):
+        b.decide(smp(t, cpu=92, foreground="game.exe", game=True))
+    for t in range(6, 126):
+        b.decide(smp(t, cpu=20, presentation=True, foreground="game.exe", game=True))
+    d = b.decide(smp(126, cpu=92, foreground="game.exe", game=True))
+    assert d.level != g.PAUSED or "busy" not in d.reason
+    assert apps.lags == []
+
+
+def test_unknown_cpu_never_gives_full():
+    assert brain().decide(smp(cpu=None, idle_s=300)).level == g.GENTLE
+
+
+def test_lag_recorded_when_app_becomes_known_mid_lag():
+    apps = FakeApps()
+    b = brain(apps)
+    b.decide(smp(0, free_mb=500))
+    assert apps.lags == []
+    b.decide(smp(1, free_mb=500, foreground="game.exe", game=True))
+    assert [e for e, _ in apps.lags] == ["game.exe"]
+    b.decide(smp(2, free_mb=500, foreground="game.exe", game=True))
+    assert len(apps.lags) == 1

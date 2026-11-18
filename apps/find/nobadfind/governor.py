@@ -82,7 +82,7 @@ class Brain:
         self._level = None       # level currently applied
         self._up_since = None    # when a higher level became continuously allowed
         self._hot_since = None   # when CPU/GPU became continuously hot
-        self._in_lag = False     # inside a lag/hot pause (for record_lag)
+        self._lag_recorded = False  # this lag episode already sent to record_lag
 
     def _games_mode(self):
         mode = self.settings.get("games_mode")
@@ -90,16 +90,6 @@ class Brain:
 
     def _wanted(self, s):
         """The level the sensors allow right now, with its reason."""
-        if s.t < self.pause_until:
-            until = datetime.datetime.fromtimestamp(self.pause_until).strftime("%H:%M")
-            return PAUSED, f"Paused: you asked for a break until {until}"
-        if s.presentation:
-            return PAUSED, "Paused: presentation or quiet time"
-        if self.settings.get("pause_on_battery") and s.battery:
-            return PAUSED, "Paused: on battery"
-        if self.settings.get("pause_on_call") and s.call:
-            return PAUSED, "Paused: microphone or camera in use"
-
         hot = ((s.cpu is not None and s.cpu >= LIMITS["HOT_CPU"])
                or (s.gpu is not None and s.gpu >= LIMITS["HOT_GPU"]))
         if not hot:
@@ -107,6 +97,20 @@ class Brain:
         elif self._hot_since is None:
             self._hot_since = s.t
         hot_long = hot and s.t - self._hot_since >= LIMITS["HOT_FOR"]
+
+        early = None
+        if s.t < self.pause_until:
+            until = datetime.datetime.fromtimestamp(self.pause_until).strftime("%H:%M")
+            early = f"Paused: you asked for a break until {until}"
+        elif s.presentation:
+            early = "Paused: presentation or quiet time"
+        elif self.settings.get("pause_on_battery") and s.battery:
+            early = "Paused: on battery"
+        elif self.settings.get("pause_on_call") and s.call:
+            early = "Paused: microphone or camera in use"
+        if early:
+            self._lag_recorded = False
+            return PAUSED, early
 
         lag = None
         if s.hung:
@@ -118,11 +122,11 @@ class Brain:
         elif s.free_mb < LIMITS["LOW_FREE_MB"]:
             lag = f"Paused: low on memory ({s.free_mb} MB free)"
         if lag:
-            if not self._in_lag and s.foreground:
+            if not self._lag_recorded and s.foreground:
                 self.apps.record_lag(s.foreground, s)
-            self._in_lag = True
+                self._lag_recorded = True
             return PAUSED, lag
-        self._in_lag = False
+        self._lag_recorded = False
 
         if s.game:
             mode = self._games_mode()
@@ -135,7 +139,8 @@ class Brain:
                                      f"make room for {_app(s.foreground)}")
                 return LIGHT, (f"Light: {_app(s.foreground)} is running, "
                                "so NOBAD Find uses 1 worker")
-        if s.idle_s >= LIMITS["IDLE_AFTER"] and (s.cpu or 0) < LIMITS["IDLE_CPU_MAX"]:
+        if (s.idle_s >= LIMITS["IDLE_AFTER"] and s.cpu is not None
+                and s.cpu < LIMITS["IDLE_CPU_MAX"]):
             return FULL, "Full: you're away"
         return GENTLE, "Gentle: you're using the PC"
 
