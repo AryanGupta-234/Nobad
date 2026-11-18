@@ -94,31 +94,10 @@ def main(argv=None):
     indexer = Indexer(store, settings, vindex, governor=governor)
     # Closing the window with background indexing off stops the indexer (lifecycle "hide_idle"); opening it
     # again starts it. Started hidden (with Windows), indexing follows the same setting.
-    life = {"want_idle": bool(args.background and not settings.get("keep_background")), "idle": False}
-    life_lock = threading.Lock()
+    win_life = lifecycle.Window(indexer, bool(args.background and not settings.get("keep_background")), log)
+    wanted = win_life.wanted
 
-    def settle():
-        """Bring the indexer to what the window wants: one change at a time, the latest wish wins."""
-        with life_lock:
-            if life["want_idle"] and not life["idle"]:
-                indexer.stop(keep_watching=True)    # the live watcher keeps noting changes: no worker, no CPU
-                if not indexer.join():
-                    log("indexing took long to stop", "warn")
-                indexer.release_models()
-                life["idle"] = True
-                left = len(jobs.WORKERS.pids()) if jobs.WORKERS else 0
-                log(f"window closed: indexing stopped, models released, {left} worker process(es) left")
-            elif not life["want_idle"] and life["idle"]:
-                if indexer.start():
-                    life["idle"] = False
-                    log("window opened: indexing resumes")
-
-    def wanted(idle):
-        life["want_idle"] = idle
-        threading.Thread(target=settle, daemon=True, name="lifecycle").start()
-
-    if life["want_idle"]:
-        life["idle"] = True
+    if win_life.want_idle:
         log("started in the background: indexing starts when the window opens")
     else:
         indexer.start()

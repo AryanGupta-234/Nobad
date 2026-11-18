@@ -214,3 +214,116 @@ def test_close_during_download_leaves_no_partial_model(tmp_path, monkeypatch):
     monkeypatch.setattr(embed.urllib.request, "urlopen", lambda *a, **k: _Resp(data))
     embed.download_model(d)
     assert os.listdir(d) == ["model.onnx"] and embed.model_ready(d)
+
+
+class _FakeIndexer:
+    """Stand-in indexer: the old thread keeps 'running' for `slow` joins after stop()."""
+
+    def __init__(self, slow=0):
+        self.running, self.slow, self.calls = True, slow, []
+
+    def stop(self, keep_watching=False):
+        self.calls.append("stop")
+        self._ending = self.slow
+
+    def join(self, timeout=10):
+        if self.running and self._ending <= 0:
+            self.running = False
+        self._ending -= 1
+        return not self.running
+
+    def start(self):
+        if self.running:
+            return False
+        self.running = True
+        self.calls.append("start")
+        return True
+
+    def release_models(self):
+        self.calls.append("release")
+
+
+def test_window_hide_then_show():
+    ix = _FakeIndexer()
+    w = lifecycle.Window(ix, False)
+    w.wanted(True).join(5)
+    assert ix.calls == ["stop", "release"] and w.idle and not ix.running
+    w.wanted(False).join(5)
+    assert ix.calls[-1] == "start" and ix.running and not w.idle
+
+
+def test_window_show_twice_quickly_starts_once():
+    ix = _FakeIndexer()
+    w = lifecycle.Window(ix, True)
+    ix.running = False                            # started hidden: no indexer yet
+    a, b = w.wanted(False), w.wanted(False)
+    a.join(5), b.join(5)
+    assert ix.calls.count("start") == 1 and ix.running
+
+
+def test_window_show_after_hide_whose_join_timed_out():
+    ix = _FakeIndexer(slow=3)                     # the old thread needs several joins to end
+    w = lifecycle.Window(ix, False, join_timeout=0.01)
+    # the hide times out once, then the window is shown again before the old thread has gone
+    ix.stop(); w.stopping = True
+    assert ix.join() is False
+    w.wanted(False).join(5)
+    assert ix.running and not w.idle and not w.stopping    # indexing is back on; no lost show
+    assert "release" not in ix.calls
+
+
+def test_window_latest_wish_wins():
+    ix = _FakeIndexer(slow=2)
+    w = lifecycle.Window(ix, False, join_timeout=0.01)
+    w.wanted(True)
+    t = w.wanted(False)
+    t.join(5)
+    time.sleep(0.2)
+    assert not w.want_idle and ix.running
+
+
+def _pool_with(fut_factory, monkeypatch):
+    class Pool:
+        def __init__(self, max_workers, initializer, initargs):
+            self.down = False
+
+        def submit(self, fn, texts):
+            return fut_factory()
+
+        def shutdown(self, wait=True, cancel_futures=False):
+            self.down = True
+
+    monkeypatch.setattr(indexer.cf, "ProcessPoolExecutor", Pool)
+    ix = indexer.Indexer(None, _S())
+    ix._vectors_in_worker = True
+    return ix
+
+
+def test_worker_failure_returns_none_and_next_batch_gets_a_new_pool(monkeypatch):
+    import concurrent.futures.process as cfp
+
+    def broken():
+        f = cf.Future()
+        f.set_exception(cfp.BrokenProcessPool("worker died"))
+        return f
+
+    ix = _pool_with(broken, monkeypatch)
+    assert ix._encode(["a"]) is None              # the indexer thread carries on, the batch is redone
+    assert ix._mpool is None
+    ok = []
+    ix2 = _pool_with(lambda: ok.append(1) or _done(), monkeypatch)
+    assert ix2._encode(["a"]) is not None
+
+
+def _done():
+    f = cf.Future()
+    f.set_result(np.zeros((1, embed.MODEL_DIM), np.float32).tobytes())
+    return f
+
+
+def test_hung_meaning_job_is_given_up(monkeypatch):
+    monkeypatch.setattr(indexer, "MEANING_TIMEOUT", 0.3)
+    ix = _pool_with(cf.Future, monkeypatch)       # a future that never completes
+    t0 = time.monotonic()
+    assert ix._encode(["a"]) is None
+    assert time.monotonic() - t0 < 5 and ix._mpool is None

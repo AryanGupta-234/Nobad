@@ -24,6 +24,7 @@ from .walker import Walker, default_roots
 RESCAN_EVERY = 6 * 3600
 DEBOUNCE = 2.0
 PHOTO_BATCH = 8                  # photos sent to the photo reader at a time
+MEANING_TIMEOUT = 120           # seconds one batch of meaning vectors may take before its worker is replaced
 JOB_TIMEOUT = 300                # seconds one file may take before its reader is stopped
 REMOVABLE_RESCAN = 1800          # USB drives aren't watched (that would block "safely remove"): re-walk them
 PAUSE_CHECK_EVERY = 5.0
@@ -445,9 +446,12 @@ class Indexer:
         texts = list(texts)
         try:
             fut = self._mpool.submit(embed.encode_job, texts)
+            started = time.monotonic()
             while not fut.done():
                 if self.stop_ev.is_set():
                     return None                     # stopping: _end_meaning_pool ends the worker now
+                if time.monotonic() - started > MEANING_TIMEOUT:
+                    raise TimeoutError("a batch took too long")
                 cf.wait([fut], timeout=0.5)
             data = fut.result()
         except Exception as e:
