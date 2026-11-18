@@ -78,9 +78,9 @@ def test_bar_html_csp_and_no_inline():
     csp = lambda h: re.search(r'Content-Security-Policy" content="([^"]+)"', h).group(1)
     assert csp(html).startswith("default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:")
     assert "unsafe" not in csp(html)
-    for m in re.finditer(r"<script\b([^>]*)>", html):
+    for m in re.finditer(r"<script\b([^>]*)>", html, re.IGNORECASE):
         assert "src=" in m.group(1)
-    assert not re.search(r"\son[a-z]+\s*=", html) and 'style="' not in html
+    assert not re.search(r"\son[a-z]+\s*=", html, re.IGNORECASE) and 'style="' not in html
     js = (UI / "bar.js").read_text(encoding="utf-8")
     assert "heartbeat" not in js and "page_visible" not in js      # the watchdog watches the main window only
     assert "innerHTML" not in js                                   # file names are untrusted: text nodes only

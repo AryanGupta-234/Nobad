@@ -22,9 +22,9 @@ def test_index_refresh_only_when_visible():
 
 
 def test_no_inline_scripts_or_handlers():
-    for m in re.finditer(r"<script\b([^>]*)>", HTML):
+    for m in re.finditer(r"<script\b([^>]*)>", HTML, re.IGNORECASE):
         assert "src=" in m.group(1)
-    assert not re.search(r"\son[a-z]+\s*=", HTML)
+    assert not re.search(r"\son[a-z]+\s*=", HTML, re.IGNORECASE)
     assert 'style="' not in HTML
 
 
