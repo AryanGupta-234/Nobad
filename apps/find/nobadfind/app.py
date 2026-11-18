@@ -6,7 +6,7 @@ import sys
 import threading
 import time
 
-from . import embed, winapi
+from . import embed, jobs, lifecycle, winapi
 from .const import APP_NAME, APP_VER, DATA_DIR, DB_PATH, KEY_PATH, LOG_PATH, SETTINGS_PATH
 from .log import init as init_log, log
 
@@ -72,6 +72,7 @@ def main(argv=None):
         if not args.background:
             winapi.ask_running_copy_to_show()
         return 0
+    jobs.setup()                    # before any worker or the window: nothing Find starts can outlive it
 
     os.makedirs(DATA_DIR, exist_ok=True)
     init_log(LOG_PATH)
@@ -91,7 +92,36 @@ def main(argv=None):
     governor = Governor(settings, AppMemory(store), activity)
     governor.start()
     indexer = Indexer(store, settings, vindex, governor=governor)
-    indexer.start()
+    # Closing the window with background indexing off stops the indexer (lifecycle "hide_idle"); opening it
+    # again starts it. Started hidden (with Windows), indexing follows the same setting.
+    life = {"want_idle": bool(args.background and not settings.get("keep_background")), "idle": False}
+    life_lock = threading.Lock()
+
+    def settle():
+        """Bring the indexer to what the window wants: one change at a time, the latest wish wins."""
+        with life_lock:
+            if life["want_idle"] and not life["idle"]:
+                indexer.stop(keep_watching=True)    # the live watcher keeps noting changes: no worker, no CPU
+                if not indexer.join():
+                    log("indexing took long to stop", "warn")
+                indexer.release_models()
+                life["idle"] = True
+                left = len(jobs.WORKERS.pids()) if jobs.WORKERS else 0
+                log(f"window closed: indexing stopped, models released, {left} worker process(es) left")
+            elif not life["want_idle"] and life["idle"]:
+                if indexer.start():
+                    life["idle"] = False
+                    log("window opened: indexing resumes")
+
+    def wanted(idle):
+        life["want_idle"] = idle
+        threading.Thread(target=settle, daemon=True, name="lifecycle").start()
+
+    if life["want_idle"]:
+        life["idle"] = True
+        log("started in the background: indexing starts when the window opens")
+    else:
+        indexer.start()
 
     import webview
     from .api import Api
@@ -109,6 +139,7 @@ def main(argv=None):
 
     def bring_up():
         front = winapi.foreground_window()          # before our window takes the front: where you were
+        wanted(False)
         if not front or winapi.window_pid(front) == os.getpid():
             win.show()                              # already in front: keep the folder it was opened from
             win.restore()
@@ -138,6 +169,7 @@ def main(argv=None):
         while not getattr(api, "_quitting", False):
             if winapi.wait_event(show_evt, 1000):
                 api.here = ""
+                wanted(False)
                 win.show()
                 win.restore()
                 win.evaluate_js("window.nfFocus && window.nfFocus()")
@@ -165,9 +197,13 @@ def main(argv=None):
                             "one in Settings.')")
 
     def closing():
-        # with the hotkey ready, closing the window keeps NOBAD Find in the background, like a launcher
-        if hk.ok and not getattr(api, "_quitting", False):
+        # with the hotkey ready, closing the window keeps NOBAD Find in the background, like a launcher;
+        # unless background indexing is on, everything but this one idle process stops (lifecycle.on_close)
+        mode = lifecycle.on_close(settings, hk.ok, getattr(api, "_quitting", False))
+        if mode != "quit":
             win.hide()
+            if mode == "hide_idle":
+                wanted(True)
             return False
         indexer.stop()
         governor.stop()

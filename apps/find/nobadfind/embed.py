@@ -79,36 +79,48 @@ def download_model(model_dir=MODEL_DIR, progress=None):
 
 
 def _fetch_verified(url, dest, size, sha, name, progress=None):
-    """One pinned model file: HTTPS only, never bigger than expected, SHA-256 checked before it's used."""
-    if os.path.isfile(dest) and os.path.getsize(dest) == size and _sha256(dest) == sha:
-        return
+    """One pinned model file: HTTPS only, never bigger than expected, SHA-256 checked before it's used.
+    It's written to <dest>.part and only renamed to its real name once checked, so a download cut short
+    (window closed, network gone) never leaves a file that looks like a model."""
+    if os.path.isfile(dest):
+        if os.path.getsize(dest) == size and _sha256(dest) == sha:
+            return
+        os.remove(dest)                          # not the pinned file: never keep it under the real name
     tmp = dest + ".part"
     h = hashlib.sha256()
     got = 0
     req = urllib.request.Request(url, headers={"User-Agent": "NOBAD-Find"})
-    with urllib.request.urlopen(req, timeout=60) as r, open(tmp, "wb") as f:
-        if not r.geturl().startswith("https://"):
-            raise IOError("model download left HTTPS")
-        while True:
-            b = r.read(1 << 16)
-            if not b:
-                break
-            got += len(b)
-            if got > size:
-                raise IOError(f"{name}: bigger than expected")
-            h.update(b)
-            f.write(b)
-            if progress:
-                progress(name, got, size)
-    if got != size or h.hexdigest() != sha:
-        os.remove(tmp)
-        raise IOError(f"{name}: checksum mismatch, download rejected")
-    os.replace(tmp, dest)
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r, open(tmp, "wb") as f:
+            if not r.geturl().startswith("https://"):
+                raise IOError("model download left HTTPS")
+            while True:
+                b = r.read(1 << 16)
+                if not b:
+                    break
+                got += len(b)
+                if got > size:
+                    raise IOError(f"{name}: bigger than expected")
+                h.update(b)
+                f.write(b)
+                if progress:
+                    progress(name, got, size)
+        if got != size or h.hexdigest() != sha:
+            raise IOError(f"{name}: checksum mismatch, download rejected")
+        os.replace(tmp, dest)
+    except BaseException:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+        raise
     log(f"model file {name} verified")
 
 
 class Embedder:
-    def __init__(self, model_dir=MODEL_DIR, threads=None):
+    """gpu=False: CPU only (the query encoder in the app; workers below Full). gpu=True: DirectML when there."""
+
+    def __init__(self, model_dir=MODEL_DIR, threads=None, gpu=True):
         if not model_ready(model_dir):
             raise RuntimeError("model not downloaded")
         import onnxruntime as ort
@@ -119,7 +131,8 @@ class Embedder:
         opts = ort.SessionOptions()
         opts.intra_op_num_threads = threads or max(1, (os.cpu_count() or 2) // 2)
         opts.log_severity_level = 3
-        providers = [p for p in ("DmlExecutionProvider", "CPUExecutionProvider") if p in ort.get_available_providers()]
+        wanted = ("DmlExecutionProvider", "CPUExecutionProvider") if gpu else ("CPUExecutionProvider",)
+        providers = [p for p in wanted if p in ort.get_available_providers()]
         self.sess = ort.InferenceSession(os.path.join(model_dir, "model.onnx"), opts, providers=providers)
         self.inputs = {i.name for i in self.sess.get_inputs()}
         self.device = "GPU" if providers and providers[0] == "DmlExecutionProvider" else "CPU"
@@ -149,6 +162,24 @@ class Embedder:
         m = mask[..., None].astype(np.float32)
         v = (out * m).sum(1) / np.maximum(m.sum(1), 1e-9)          # mean pooling
         return v / np.maximum(np.linalg.norm(v, axis=1, keepdims=True), 1e-9)
+
+
+# ---------- the meaning worker: a separate low-priority process that makes the index-time vectors ----------
+_worker = None
+
+
+def init_meaning_worker(model_dir, threads, gpu):
+    """Pool initializer: join Find's worker group (CPU-capped by the governor), background mode, own model."""
+    global _worker
+    from . import jobs, winapi
+    jobs.join_workers()
+    winapi.background_mode()
+    _worker = Embedder(model_dir, threads=threads, gpu=gpu)
+
+
+def encode_job(texts):
+    """Worker entry: texts -> float32 bytes, len(texts) rows of MODEL_DIM (rebuilt with np.frombuffer)."""
+    return np.ascontiguousarray(_worker.encode(texts), np.float32).tobytes()
 
 
 class Lazy:

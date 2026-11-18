@@ -138,7 +138,8 @@ def embed_photos(jobs, fast=False):
 
 
 def init_worker():
-    from . import winapi
+    from . import jobs, winapi
+    jobs.join_workers()            # into Find's worker group (CPU-capped, ends with the app)
     winapi.background_mode()
     # winrt carries an older C++ runtime; onnxruntime must be loaded first (see ocr._load)
     import importlib

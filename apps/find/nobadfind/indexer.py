@@ -1,6 +1,7 @@
 """The indexer: scan names, read text, compute meaning vectors, then keep everything fresh. Tuned to this PC.
 
-Phases:  names (parallel walk)  ->  text (worker processes)  ->  meaning (local model)  ->  watching
+Phases:  names (parallel walk)  ->  text (worker processes)  ->  meaning (local model, in a worker process)
+         ->  watching
 It steps aside for you: it pauses on battery, during full-screen games or presentations and during calls
 (settings), works gently while you use the PC and at full speed when you're away, and every worker process
 runs in Windows background mode (low CPU, disk and memory priority).
@@ -60,7 +61,9 @@ class Indexer:
         self.governor = governor
         self.settings = settings
         self.vindex = vindex
-        self.embedder = None
+        self.embedder = None             # the query encoder for live search (CPU, in this process)
+        self._vectors_in_worker = False  # index-time vectors come from the meaning worker (the real model)
+        self._mpool, self._mpool_gpu = None, None
         self.stop_ev = threading.Event()
         self.wake = threading.Event()
         self.status = {"phase": "starting", "files": 0, "texts": 0, "vectors": 0, "paused": "", "rate": 0,
@@ -116,14 +119,31 @@ class Indexer:
         return winapi.idle_seconds() >= IDLE_AFTER
 
     def start(self):
+        """Start (or start again after stop() + join()). False while the indexer is still running."""
+        if self._thread is not None and self._thread.is_alive():
+            return False
+        if self.stop_ev.is_set():
+            self.stop_ev = threading.Event()
+        self.wake.clear()
         self._thread = threading.Thread(target=self._run, daemon=True, name="indexer")
         self._thread.start()
+        return True
 
-    def stop(self):
+    def stop(self, keep_watching=False):
+        """keep_watching: the live watcher (threads in this process, no worker) keeps collecting changes, so
+        indexing picks them up when it starts again."""
         self.stop_ev.set()
         self.wake.set()
-        if self._watcher:
+        if self._watcher and not keep_watching:
             self._watcher.stop()
+            self._watcher = None
+
+    def join(self, timeout=10):
+        """Wait for the indexer (and its worker processes) to end. True when it has."""
+        t = self._thread
+        if t is not None:
+            t.join(timeout)
+        return t is None or not t.is_alive()
 
     def rescan(self):
         self.store.set_meta("last_scan", 0)
@@ -166,8 +186,10 @@ class Indexer:
         try:
             self.status["plan"] = plan(self.settings, self.roots())
             log(f"indexer plan {self.status['plan']}")
-            self._load_embedder()
-            self._load_photo()
+            if self.embedder is None:               # started again after a stop: already loaded
+                self._load_embedder()
+            if self.photo_text is None:
+                self._load_photo()
             self.known_drives()
             if time.time() - float(self.store.meta("last_scan", 0) or 0) <= RESCAN_EVERY:
                 self._start_watcher()               # a recent index: just keep it fresh from now on
@@ -329,6 +351,8 @@ class Indexer:
                     _kill_pool(pool)                # the other files in flight are simply read again
                     return
         finally:
+            if self.stop_ev.is_set():
+                _kill_pool(pool)                    # stopping: the files in flight are read again next time
             pool.shutdown(wait=True, cancel_futures=True)
 
     def _load_embedder(self):
@@ -336,7 +360,8 @@ class Indexer:
             try:
                 if not embed.model_ready():
                     raise RuntimeError("model not downloaded")
-                self.embedder = embed.Lazy(embed.Embedder, "meaning")
+                self.embedder = embed.Lazy(lambda: embed.Embedder(gpu=False), "meaning")    # live search only
+                self._vectors_in_worker = True
                 if self.store.meta("vec_version") != embed.VEC_VERSION:
                     log("meaning vectors are made a better way now; computing them again")
                     self.store.drop_vectors()
@@ -353,7 +378,13 @@ class Indexer:
         then for the text inside files, each piece with its file's name in front."""
         if not self.embedder:
             return
-        self._name_vectors()
+        try:
+            self._name_vectors()
+            self._chunk_vectors()
+        finally:
+            self._end_meaning_pool()                # the worker process ends when there's nothing to do
+
+    def _chunk_vectors(self):
         while not self.stop_ev.is_set():
             if not self._wait_while_paused():
                 return
@@ -362,7 +393,9 @@ class Indexer:
                 return
             self.status["phase"] = "meaning"
             titles = self.store.chunk_titles([r[0] for r in rows])
-            vecs = self.embedder.encode([embed.chunk_text(titles.get(r[0], ""), r[1]) for r in rows])
+            vecs = self._encode([embed.chunk_text(titles.get(r[0], ""), r[1]) for r in rows])
+            if vecs is None:
+                return
             self.store.add_vectors([(r[0], embed.to_blob(v)) for r, v in zip(rows, vecs)])
             if self.vindex is not None:
                 self.vindex.add([r[0] for r in rows], vecs)
@@ -380,13 +413,56 @@ class Indexer:
             texts = {fid: ("" if any(s in d.lower() for s in SKIP_NAME_DIRS) else embed.name_text(n, d))
                      for fid, n, d in rows}
             todo = [fid for fid, t in texts.items() if t]
-            vecs = self.embedder.encode([texts[f] for f in todo]) if todo else []
+            vecs = self._encode([texts[f] for f in todo]) if todo else []
+            if vecs is None:
+                return
             blobs = dict(zip(todo, (embed.to_blob(v) for v in vecs)))
             self.store.add_name_vectors([(fid, blobs.get(fid, b"")) for fid in texts])
             if self.vindex is not None and todo:
                 self.vindex.add([embed.name_key(f) for f in todo], vecs)
             self.status["vectors"] += len(todo)
             self._breathe()
+
+    def _encode(self, texts):
+        """Index-time vectors, float32 (n, MODEL_DIM), made in the meaning worker process (CPU-capped with the
+        other workers). GPU only at Full: when the level changes, the next batch gets a matching worker.
+        None when stopping or when the worker failed (the batch is done again next round)."""
+        if not self._vectors_in_worker:
+            return self.embedder.encode(texts)      # a stand-in model (tests): in this process
+        level = self.governor.decision.level if self.governor is not None else FULL
+        gpu = level == FULL
+        if self._mpool is not None and self._mpool_gpu != gpu:
+            self._end_meaning_pool()
+        if self._mpool is None:
+            plan_ = self.status.get("plan") or {}
+            most = max(1, (os.cpu_count() or 2) // 2)
+            threads = min(most, max(1, workers_for(level, plan_))) if plan_ else most
+            self._mpool = cf.ProcessPoolExecutor(max_workers=1, initializer=embed.init_meaning_worker,
+                                                 initargs=(embed.MODEL_DIR, threads, gpu))
+            self._mpool_gpu = gpu
+            log(f"meaning worker started ({'graphics card if there is one' if gpu else 'processor only'}, "
+                f"{threads} threads)")
+        texts = list(texts)
+        try:
+            fut = self._mpool.submit(embed.encode_job, texts)
+            while not fut.done():
+                if self.stop_ev.is_set():
+                    return None                     # stopping: _end_meaning_pool ends the worker now
+                cf.wait([fut], timeout=0.5)
+            data = fut.result()
+        except Exception as e:
+            log(f"meaning worker stopped ({type(e).__name__}); it starts again next round", "warn")
+            _kill_pool(self._mpool)
+            self._end_meaning_pool()
+            return None
+        return np.frombuffer(data, np.float32).reshape(len(texts), embed.MODEL_DIM)
+
+    def _end_meaning_pool(self):
+        pool, self._mpool, self._mpool_gpu = self._mpool, None, None
+        if pool is not None:
+            if self.stop_ev.is_set():
+                _kill_pool(pool)                    # stopping: don't wait for the batch in flight
+            pool.shutdown(wait=True, cancel_futures=True)
 
     # ---------- photo meaning ----------
     def _load_photo(self):
@@ -440,6 +516,8 @@ class Indexer:
                         self.stop_ev.wait(0.2)      # gently while you use the PC
                 self._photo_one_by_one = False      # the suspects were read one by one: back to batches
         finally:
+            if self.stop_ev.is_set():
+                _kill_pool(pool)                    # stopping: don't wait for the photos in flight
             pool.shutdown(wait=True, cancel_futures=True)
 
     def warm_models(self):
@@ -454,11 +532,15 @@ class Indexer:
     def models_loaded(self):
         return [m.name for m in (self.embedder, self.photo_text) if isinstance(m, embed.Lazy) and m.loaded]
 
-    def release_idle_models(self):
+    def release_idle_models(self, idle=None):
         """Light when idle: models leave memory a few minutes after the last search or indexing work."""
         for m in (self.embedder, self.photo_text):
             if isinstance(m, embed.Lazy):
-                m.release_if_idle()
+                m.release_if_idle(idle)
+
+    def release_models(self):
+        """Every model out of memory now (the window closed, or Find is using too much)."""
+        self.release_idle_models(0)
 
     def _tidy_vectors(self):
         """Vectors of text that changed or files that went stay in memory until the index is reloaded."""
