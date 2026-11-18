@@ -123,7 +123,8 @@ def main(argv=None):
     ui["indexer"] = indexer
     # Closing the window with background indexing off stops the indexer (lifecycle "hide_idle"); opening it
     # again starts it. Started hidden (with Windows), indexing follows the same setting.
-    win_life = lifecycle.Window(indexer, bool(args.background and not settings.get("keep_background")), log)
+    win_life = lifecycle.Window(indexer, bool(args.background and not settings.get("keep_background")), log,
+                                quitting=lambda: getattr(ui.get("api"), "_quitting", False))
     wanted = win_life.wanted
 
     if win_life.want_idle:
@@ -146,6 +147,8 @@ def main(argv=None):
                                 hidden=args.background,
                                 text_select=True)
     holder["w"] = win
+    # Esc / "Hide after opening" hide the window: with background indexing off that stops indexing too
+    api._on_hide = lambda: lifecycle.after_hide(win_life, settings, hk.ok, getattr(api, "_quitting", False))
     ui["win"] = win
     bar_ctl = bar_win = None
     if settings.get("bar"):
@@ -261,8 +264,16 @@ def main(argv=None):
     webview.start(started, http_server=True, private_mode=True)
     indexer.stop()
     governor.stop()
+    indexer.join(5)                     # its database writes are committed before the process ends
     log("stopped")
-    return 0
+    for f in (sys.stdout, sys.stderr):
+        try:
+            f.flush()
+        except Exception:
+            pass
+    # End now: a leftover thread (pythonnet/WinForms, the concurrent.futures exit join) can't keep the
+    # process alive, and ending it closes the job, which ends every worker and WebView2.
+    os._exit(0)
 
 
 if __name__ == "__main__":

@@ -15,14 +15,25 @@ def on_close(settings, hotkey_ok, quitting):
     return "hide" if settings.get("keep_background") else "hide_idle"
 
 
+def after_hide(window, settings, hotkey_ok, quitting):
+    """The window was hidden without closing it (Esc, "Hide after opening"): the same as closing it, so with
+    background indexing off everything but the idle main process stops. Returns the settling thread, or None
+    when indexing goes on (background indexing on) or there is no hotkey (just hidden, nothing stops)."""
+    if on_close(settings, hotkey_ok, quitting) == "hide_idle":
+        return window.wanted(True)
+    return None
+
+
 class Window:
     """Keeps the indexer matching the window: stopped (idle) while it's closed, running while it's open.
     wanted(idle) records the latest wish and settles it on a thread; settling re-reads the wish each round,
     so the latest wish wins, and a show that arrives while the old indexer thread is still ending keeps
-    retrying until it can start."""
+    retrying until it can start. Once NOBAD Find is quitting (quitting() true) it settles nothing: quit's
+    stop must be the last word, never followed by a start."""
 
-    def __init__(self, indexer, idle, log=lambda *a: None, join_timeout=10):
+    def __init__(self, indexer, idle, log=lambda *a: None, join_timeout=10, quitting=lambda: False):
         self.indexer, self.log, self.join_timeout = indexer, log, join_timeout
+        self.quitting = quitting
         self.want_idle = idle
         self.stopping = False       # stop() was asked and the indexer may not have ended yet
         self.idle = idle            # the indexer has ended and its models are released
@@ -37,6 +48,8 @@ class Window:
     def settle(self):
         with self._lock:
             while True:
+                if self.quitting():
+                    return
                 if self.want_idle and not self.idle:
                     if not self.stopping:
                         self.indexer.stop(keep_watching=True)   # the watcher keeps noting changes: no worker

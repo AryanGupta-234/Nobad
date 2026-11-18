@@ -327,3 +327,28 @@ def test_hung_meaning_job_is_given_up(monkeypatch):
     t0 = time.monotonic()
     assert ix._encode(["a"]) is None
     assert time.monotonic() - t0 < 5 and ix._mpool is None
+
+
+def test_settle_never_starts_the_indexer_while_quitting():
+    """I-1: a show that is still settling when Quit is chosen must not start indexing again after quit's stop."""
+    ix = _FakeIndexer()
+    quitting = [False]
+    w = lifecycle.Window(ix, True, quitting=lambda: quitting[0])
+    ix.running = False
+    quitting[0] = True
+    w.wanted(False).join(5)
+    assert "start" not in ix.calls and not ix.running
+
+
+def test_hiding_the_window_goes_idle_when_background_indexing_is_off():
+    """I-2: Esc / "Hide after opening" stop indexing and the workers like closing does (keep_background off)."""
+    ix = _FakeIndexer()
+    w = lifecycle.Window(ix, False)
+    t = lifecycle.after_hide(w, _S(keep_background=False), hotkey_ok=True, quitting=False)
+    t.join(5)
+    assert ix.calls == ["stop", "release"] and w.idle
+    ix2 = _FakeIndexer()
+    w2 = lifecycle.Window(ix2, False)
+    assert lifecycle.after_hide(w2, _S(keep_background=True), hotkey_ok=True, quitting=False) is None
+    assert lifecycle.after_hide(w2, _S(keep_background=False), hotkey_ok=False, quitting=False) is None
+    assert ix2.calls == [] and ix2.running            # background on, or no hotkey: just hidden

@@ -301,3 +301,66 @@ def test_open_outside_job_starts_explorer_with_breakaway(monkeypatch):
     argv, kw = calls[0]
     assert argv == [os.path.join("C:\Windows", "explorer.exe"), "C:\a, b & c\\u00e4.txt"]   # a list: no shell string
     assert kw["creationflags"] & winapi.CREATE_BREAKAWAY_FROM_JOB and not kw.get("shell")
+
+
+class _Timer:
+    made = []
+
+    def __init__(self, secs, fn):
+        self.secs, self.fn, self.daemon, self.started = secs, fn, False, False
+        _Timer.made.append(self)
+
+    def start(self):
+        self.started = True
+
+
+class _StopIx(Ix):
+    def __init__(self):
+        super().__init__()
+        self.calls = []
+
+    def stop(self, keep_watching=False):
+        self.calls.append("stop")
+
+    def join(self, timeout=10):
+        self.calls.append(("join", timeout))
+        return True
+
+
+def test_quit_arms_a_hard_exit_that_lets_the_indexer_finish_first(tmp_path):
+    """I-1: a hung window teardown can't keep NOBAD Find running; the indexer stops and is joined before the
+    process ends, so a SQLite write in progress is committed."""
+    a, s = make(tmp_path)
+    a._indexer = _StopIx()
+    exits, destroyed = [], []
+
+    class W:
+        def destroy(self):
+            destroyed.append(1)
+    a._win = lambda: W()
+    a._timer, a._exit = _Timer, exits.append
+    _Timer.made.clear()
+    assert a.quit() == {"ok": True}
+    t = _Timer.made[0]
+    assert t.secs == api_mod.QUIT_TIMEOUT == 15 and t.daemon and t.started and destroyed
+    assert exits == []                                # nothing happens unless the quit hangs
+    a._indexer.calls.clear()
+    t.fn()
+    assert a._indexer.calls == ["stop", ("join", 5)] and exits == [0]
+    s.close()
+
+
+def test_hide_tells_the_app(tmp_path):
+    """I-2: Api.hide calls the app's hook (app.py: lifecycle.after_hide) after hiding the window."""
+    a, s = make(tmp_path)
+    order = []
+
+    class W:
+        def hide(self):
+            order.append("hide")
+    a._win = lambda: W()
+    assert a.hide() == {"ok": True}                  # no hook set: just hides
+    a._on_hide = lambda: order.append("hook")
+    a.hide()
+    assert order == ["hide", "hide", "hook"] and a.visible is False
+    s.close()

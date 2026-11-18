@@ -22,6 +22,7 @@ MAX_QUERY = 500
 TOTALS_TTL = 10                  # seconds: the phase counts are COUNT queries, too heavy for every 2 s poll
 RATE_WINDOW = 15                 # status polls a progress rate is measured over (about 30 s)
 MAX_PAUSE_S = 24 * 3600
+QUIT_TIMEOUT = 15                # seconds a quit may take before the process ends anyway
 PHASES = (("names", "Finding file names"), ("text", "Reading documents"), ("ocr", "Reading words in pictures"),
           ("meaning", "Learning what files mean"), ("photos", "Looking at photos"), ("watching", "Watching for changes"))
 
@@ -49,6 +50,8 @@ class Api:
         self._pcpu = {}                   # pid -> (time, cpu_seconds)
         self._progress = {k: deque(maxlen=RATE_WINDOW) for k, _l in PHASES}
         self._dl = {}                     # model id -> (time, got bytes) for the download speed
+        self._on_hide = None              # app.py: what hiding the window means for indexing (lifecycle.after_hide)
+        self._timer, self._exit = threading.Timer, os._exit     # tests replace them
 
     # ---------- search ----------
     def search(self, text, filters=None):
@@ -475,15 +478,28 @@ class Api:
         w = self._win()
         if w:
             w.hide()
+        if self._on_hide is not None:
+            self._on_hide()
         return {"ok": True}
 
     def quit(self):
         self._quitting = True                  # app.py: closing now really quits instead of hiding
         self._indexer.stop()
+        # if closing the windows (WebView2, WinForms) or the exit hangs, end the process anyway; the job then
+        # ends every worker and WebView2 with it
+        t = self._timer(QUIT_TIMEOUT, self._hard_exit)
+        t.daemon = True
+        t.start()
         w = self._win()
         if w:
             w.destroy()
         return {"ok": True}
+
+    def _hard_exit(self):
+        log("quit took too long; exiting now", "warn")
+        self._indexer.stop()
+        self._indexer.join(5)                  # a database write in progress is committed first
+        self._exit(0)
 
 
 def reveal_in_explorer(path):
