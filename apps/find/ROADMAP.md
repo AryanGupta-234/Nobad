@@ -45,6 +45,7 @@ later phase while an earlier one has open work unless the status table says it w
 | 2026-11-18 | Replace the WebView UI with **Flutter** (Dart). Keep the **Python engine** | Best-looking custom UI of the options, GPU-drawn, ~60-100 MB in one process instead of ~425 MB in seven; the engine (indexer, governor, OCR, models, encryption, 284 tests) is tested and stays |
 | 2026-11-18 | UI and engine talk over a **private named pipe**, never HTTP | Removes the local-server/URL bug class (cause 3) |
 | 2026-11-18 | Prototype first, measure, then commit to the full move | A wrong platform choice is expensive; numbers decide |
+| 2026-11-18 | Maintainer: start the Flutter prototype now, before Phases 0-1 finish. Flutter SDK 3.50 at `E:\devlutter` (PUB_CACHE `E:\dev\pub-cache`), VS 2022 Build Tools (C++ only) at `E:\dev\VSBuildTools` | Maintainer's call; the prototype also gives the first UI measurements |
 
 Options considered for the UI and why they lost:
 
@@ -296,7 +297,7 @@ both; the release workflow (`find-release.yml`) builds and attests both; SHA-256
 | 1 | Event-driven governor inputs (power, foreground) | not started | | |
 | 2 | `rpc.py` named-pipe server + contract tests | not started | | |
 | 2 | `engine.py` headless with hotkeys; WebView UI on rpc handlers | not started | | |
-| 3 | Flutter prototype (Search + bar) and measurement | not started | | Fallback: Qt/QML with the same contract |
+| 3 | Flutter prototype (Search + bar) and measurement | in progress | find-flutter-prototype | Started ahead of 0-2 by the maintainer; minimal pipe server in the prototype. Fallback: Qt/QML |
 | 3 | Full Flutter UI, packaging, release workflow | not started | | |
 | 4 | 0.8.0 model tiers (multilingual, consent) | not started | | Spec §4 |
 | 5 | NOBAD VPN mini-window bug | waiting | | Needs the steps that trigger it from the maintainer |
