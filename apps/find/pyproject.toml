@@ -18,8 +18,8 @@ dependencies = [
   "sqlcipher3-wheels==0.5.7",
   "pypdf==6.21.4",
   "numpy==2.4.6",
-  "onnxruntime==1.27.0",
-  "tokenizers==0.23.2",
+  "onnxruntime==1.32.0",
+  "tokenizers==0.23.3",
   "winrt-runtime==3.2.1",
   "winrt-Windows.Media.Ocr==3.2.1",
   "winrt-Windows.Graphics.Imaging==3.2.1",
@@ -32,7 +32,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest==9.1.1", "pyflakes==4.1.0"]
+dev = ["pytest==9.2.0", "pyflakes==4.1.0"]
 
 [project.scripts]
 nobad-find = "nobadfind.app:main"
