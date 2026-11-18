@@ -1,5 +1,21 @@
 # NOBAD Find changelog
 
+## 0.6.1 · 2026-11-18
+
+### Fixed
+- Setup and uninstall no longer look stuck: stopping a running NOBAD Find took about 30 seconds per try
+  (up to 3 minutes for an uninstall). Now it takes a moment.
+- Opening NOBAD Find from the Start menu while it runs in the background now brings its window up. Before, nothing
+  happened, so it looked like the app wouldn't start.
+- You can now quit NOBAD Find completely: Settings → Launch → Quit. Closing the window still keeps it in the
+  background for the hotkey; Quit stops it, indexing included.
+- Started with "Run as administrator", it now says why it won't run instead of silently closing.
+- If setup itself was run as administrator, the "Start NOBAD Find" box at the end now starts it as you, not as
+  administrator.
+
+### Changed
+- New app icon: the NOBAD mark with a yellow "n", like every NOBAD app (each has its own colour).
+
 ## 0.6.0 · 2026-11-17
 
 The first release of NOBAD Find: private, offline search for your own files on Windows 10 and 11.

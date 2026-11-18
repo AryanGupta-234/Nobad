@@ -15,6 +15,47 @@ if WIN:
 
 INVALID_HANDLE = ctypes.c_void_p(-1).value
 
+SHOW_EVENT = "Local\\NOBAD-Find-Show"         # a second start asks the running copy to show its window
+
+
+def show_event():
+    """The running copy's auto-reset "show the window" event (None off Windows or on failure)."""
+    if not WIN:
+        return None
+    k32.CreateEventW.restype = ctypes.c_void_p
+    return k32.CreateEventW(None, False, False, SHOW_EVENT) or None
+
+
+def wait_event(handle, timeout_ms):
+    """True when the event was signalled within the timeout."""
+    k32.WaitForSingleObject.argtypes = [ctypes.c_void_p, wintypes.DWORD]
+    return k32.WaitForSingleObject(handle, timeout_ms) == 0          # WAIT_OBJECT_0
+
+
+def ask_running_copy_to_show():
+    """Signal the copy that is already running to bring its window up. True if it was reached."""
+    if not WIN:
+        return False
+    k32.OpenEventW.restype = ctypes.c_void_p
+    h = k32.OpenEventW(0x0002, False, SHOW_EVENT)                     # EVENT_MODIFY_STATE
+    if not h:
+        return False
+    try:
+        user32.AllowSetForegroundWindow(wintypes.DWORD(0xFFFFFFFF))  # ASFW_ANY: it may take the front
+        k32.SetEvent.argtypes = [ctypes.c_void_p]
+        return bool(k32.SetEvent(h))
+    finally:
+        k32.CloseHandle.argtypes = [ctypes.c_void_p]
+        k32.CloseHandle(h)
+
+
+def message(text, title="NOBAD Find"):
+    """A plain message box: the packaged app has no console, so print() would show nothing."""
+    if not WIN:
+        print(text)
+        return
+    user32.MessageBoxW(None, text, title, 0x40)                     # MB_ICONINFORMATION
+
 
 def is_admin():
     try:

@@ -5,6 +5,8 @@ Add to it when the maintainer decides something; delete lines that stop being tr
 (this repository is public): no keys, configs, personal data or private review notes.
 
 ## Standing decisions
+- 2026-11-18 Product icons: every NOBAD app uses the company mark (black tile, "n"); only the "n" colour changes:
+  NOBAD VPN orange, NOBAD File Bridge blue, NOBAD Find yellow (maintainer's choice).
 - 2026-11-17 GitHub organization `nobad-studio` (`nobad` is taken), Aryan Gupta the only owner. Repos: `nobad`
   (NOBAD VPN + NOBAD Find, transferred from AryanGupta-234/Nobad), `website` (own repo, same Cloudflare Worker and
   URL), `file-bridge` (own repo, history kept), `.github` (org profile + shared community files). Harsh is an

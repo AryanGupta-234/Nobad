@@ -225,6 +225,7 @@ const GROUPS = [
   ["Launch", [
     ["hotkey", "txt", "Hotkey", "For example win+shift+space or ctrl+alt+f. Takes effect at the next start."],
     ["autostart", "switch", "Start with Windows", "Starts hidden; the hotkey opens it."],
+    ["_quit", "quit", "Quit NOBAD Find", "Closing the window keeps NOBAD Find running in the background so the hotkey works. This stops it completely, indexing included, until you start it again."],
     ["glass", "switch", "See-through window", "Windows 11 acrylic behind the window. Follows Windows' own Transparency effects switch. Takes effect at the next start."],
   ]],
   ["Windows Search", [["_wsearch", "wsearch", "Use NOBAD Find instead of Windows Search", ""]]],
@@ -268,6 +269,7 @@ async function renderSettings() {
       }
     }
     if (type === "wipe") ctl = `<button class="btn danger" id="wipe">Delete index</button>`;
+    if (type === "quit") ctl = `<button class="btn ghost" id="quitApp">Quit</button>`;
     return `<div class="set"><label><b>${esc(label)}</b>${help ? `<small>${type === "wsearch" ? help : esc(help)}</small>` : ""}</label>${ctl}</div>`;
   }).join("")}</div>`).join("");
 }
@@ -302,6 +304,8 @@ settingsEl.addEventListener("click", async e => {
     const r = await api("use_instead_of_windows_search", t.dataset.off === "1");
     toast(r && r.ok ? "Done." : (r && r.error) || "No change.");
     renderSettings();
+  } else if (t.id === "quitApp") {
+    await api("quit");
   } else if (t.id === "wipe") {
     if (prompt('This deletes the whole index. Type DELETE to confirm.') === "DELETE") { await api("wipe", "DELETE"); toast("Index deleted. Rebuilding."); }
   }

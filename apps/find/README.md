@@ -36,6 +36,8 @@ they're about, and tells you why each result matched.
 - **Optional: turn off Windows Search indexing**, with one-click undo (see below).
 - Hotkey **Win+Shift+Space** from anywhere. ↑ ↓ to move, Enter to open, Ctrl+Enter to show in its folder, Ctrl+C
   to copy the path, Shift+Delete to forget a result.
+  Closing the window keeps NOBAD Find in the background for the hotkey; **Settings → Launch → Quit** stops it
+  completely.
 
 ## Privacy and security
 - **Nothing leaves your PC.** No account, no cloud, no telemetry.

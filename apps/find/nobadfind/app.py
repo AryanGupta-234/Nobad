@@ -65,9 +65,12 @@ def main(argv=None):
         return uninstall()
     if winapi.is_admin():
         # Everything NOBAD Find needs works as the normal user; running it as admin would index as admin.
-        print("NOBAD Find runs as your normal account. Start it without 'Run as administrator'.")
+        winapi.message("NOBAD Find runs as your normal account. Start it without 'Run as administrator'.")
         return 1
     if not single_instance():
+        # Already running (often hidden in the background): bring that window up instead of doing nothing.
+        if not args.background:
+            winapi.ask_running_copy_to_show()
         return 0
 
     os.makedirs(DATA_DIR, exist_ok=True)
@@ -121,6 +124,16 @@ def main(argv=None):
 
     from .hotkey import Hotkey
     hk = Hotkey(settings.get("hotkey"), bring_up)
+    show_evt = winapi.show_event()
+
+    def show_requests():
+        # Starting NOBAD Find again (Start menu, desktop) while it runs signals this event.
+        while not getattr(api, "_quitting", False):
+            if winapi.wait_event(show_evt, 1000):
+                api.here = ""
+                win.show()
+                win.restore()
+                win.evaluate_js("window.nfFocus && window.nfFocus()")
 
     def make_glass():
         hwnd = 0
@@ -136,6 +149,8 @@ def main(argv=None):
 
     def started():
         threading.Thread(target=make_glass, daemon=True, name="glass").start()
+        if show_evt:
+            threading.Thread(target=show_requests, daemon=True, name="show").start()
         if not args.background:
             threading.Thread(target=indexer.warm_models, daemon=True, name="warm").start()
         if not hk.start():

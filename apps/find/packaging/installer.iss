@@ -48,7 +48,7 @@ Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExe}"; AppUserModelID: "NO
 ; No "start with Windows" option here: NOBAD Find has its own setting for that.
 
 [Run]
-Filename: "{app}\{#MyAppExe}"; Description: "Start {#MyAppName}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#MyAppExe}"; Description: "Start {#MyAppName}"; Flags: nowait postinstall skipifsilent runasoriginaluser
 
 [UninstallRun]
 ; Runs after CurUninstallStepChanged(usUninstall) below has stopped NOBAD Find. It puts Windows Search back the way
@@ -66,21 +66,27 @@ const
 
 function GetFileAttributes(lpFileName: String): Cardinal;
   external 'GetFileAttributesW@kernel32.dll stdcall';
+function GetCurrentProcessId: Cardinal;
+  external 'GetCurrentProcessId@kernel32.dll stdcall';
+function ProcessIdToSessionId(dwProcessId: Cardinal; var pSessionId: Cardinal): BOOL;
+  external 'ProcessIdToSessionId@kernel32.dll stdcall';
 
 // ---------------------------------------------------------------- stop NOBAD Find (install, upgrade, uninstall)
-// Only this user's copies: the name filter is Windows' own user name (it can't contain a quote), and taskkill is
-// started directly, never through a shell. First a normal close request, then forced; /T takes the text-reading
-// worker processes with it. Run twice to catch a copy started meanwhile.
+// Only the copies in this Windows session (this signed-in user's desktop), filtered by session number. A
+// "USERNAME eq" filter makes taskkill look up the owner of every process and took about 30 s per call, which made
+// setup and uninstall look stuck. taskkill is started directly, never through a shell. First a normal close
+// request, then forced; /T takes the text-reading worker processes with it. Run twice to catch a copy started
+// meanwhile.
 procedure StopFind;
 var
   rc: Integer;
-  tk, user, args: String;
+  session: Cardinal;
+  tk, args: String;
 begin
-  user := GetUserNameString;
-  if (user = '') or (Pos('"', user) > 0) then
+  if not ProcessIdToSessionId(GetCurrentProcessId, session) then
     Exit;
   tk := ExpandConstant('{sys}\taskkill.exe');
-  args := '/IM {#MyAppExe} /T /FI "USERNAME eq ' + user + '"';
+  args := '/IM {#MyAppExe} /T /FI "SESSION eq ' + IntToStr(session) + '"';
   Exec(tk, args, '', SW_HIDE, ewWaitUntilTerminated, rc);
   Sleep(1200);
   Exec(tk, '/F ' + args, '', SW_HIDE, ewWaitUntilTerminated, rc);
