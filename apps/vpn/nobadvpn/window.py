@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 
 from .const import UI_DIR, WINDOW_TITLE
 from .ctx import ctx
-from .logbus import set_ui_visible
+from .logbus import log, set_ui_visible
 
 MIN_W, MIN_H = 1060, 700
 MINI_W, MINI_H = 340, 345   # inner content needs ~291 (+ title bar); measured with the real page
@@ -178,11 +178,12 @@ def guard_navigation(win, base_url, page):
     def attach():
         wv = getattr(getattr(win, "native", None), "webview", None)
         if wv is None:
+            log(f"window {page}: no WebView2 control found, navigation guard not active", "warn")
             return
         try:
             wv.NavigationStarting += on_start
-        except Exception:
-            pass
+        except Exception as e:
+            log(f"window {page}: navigation guard not active ({e})", "warn")
     try:
         win.events.before_show += attach
     except Exception:

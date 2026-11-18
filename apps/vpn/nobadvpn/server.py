@@ -110,11 +110,14 @@ def _read_ui(rel):
     return data
 
 
+_PRELOAD = (".html",) + tuple(CTYPES)     # every page and every type /static/ may serve
+
+
 def preload_ui():
     """Read every UI file once, in the background at start-up, so the first window paints from memory."""
     for dirpath, _dirs, files in os.walk(UI_DIR):
         for fn in files:
-            if fn.endswith((".html", ".js", ".css", ".png", ".ico", ".svg")):
+            if fn.endswith(_PRELOAD):
                 _read_ui(os.path.relpath(os.path.join(dirpath, fn), UI_DIR).replace(os.sep, "/"))
 
 
@@ -173,7 +176,10 @@ class Handler(BaseHTTPRequestHandler):
         """GET refused (403) or not found (404): {"ok": false} for API callers, a way back for a window."""
         if not self._wants_page():
             return self._send(code, {"ok": False})
-        home = "/mini" if urlparse(self.headers.get("Referer", "")).path == "/mini" else "/"
+        try:
+            home = "/mini" if urlparse(self.headers.get("Referer", "")).path == "/mini" else "/"
+        except ValueError:                          # e.g. "http://[": not worth more than the default
+            home = "/"
         return self._send(code, BACK_PAGE.replace("__HOME__", home), "text/html; charset=utf-8")
 
     def _unauthorized(self):

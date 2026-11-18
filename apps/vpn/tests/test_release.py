@@ -756,7 +756,7 @@ class _Flag:
         return self.on
 
 
-def test_windows_only_navigate_to_their_own_page():
+def test_windows_only_navigate_to_their_own_page(monkeypatch):
     """The quick view once showed Edge's JSON viewer: a WebView2 window navigates when something is dropped on it, and
     nothing stopped it from leaving NOBAD's page. NavigationStarting now cancels anything but the window's page."""
     from types import SimpleNamespace as NS
@@ -778,9 +778,21 @@ def test_windows_only_navigate_to_their_own_page():
         args = NS(Uri=uri, Cancel=False)
         nav[0](None, args)
         assert args.Cancel is cancel, uri
+    logged = []
+    monkeypatch.setattr(window, "log", lambda msg, level="info": logged.append(level))
     other = NS(events=NS(before_show=_Ev()), native=None)       # another backend: nothing to hook, no error
     window.guard_navigation(other, base, "/")
     other.events.before_show[0]()
+    assert logged == ["warn"]
+
+    class _Broken:
+        @property
+        def NavigationStarting(self):
+            raise RuntimeError("changed API")
+    broken = NS(events=NS(before_show=_Ev()), native=NS(webview=_Broken()))
+    window.guard_navigation(broken, base, "/")
+    broken.events.before_show[0]()                               # fails safe, and says so
+    assert logged == ["warn", "warn"]
 
 
 def test_window_that_left_its_page_reloads_a_signed_one(monkeypatch):

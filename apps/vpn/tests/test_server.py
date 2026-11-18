@@ -146,10 +146,13 @@ def test_ui_keeps_working_when_its_files_vanish_while_running(srv, monkeypatch, 
     from nobadvpn import const
     ui = tmp_path / "ui"
     shutil.copytree(const.UI_DIR, ui)
+    (ui / "vanish-test.json").write_text('{"a": 1}', encoding="utf-8")   # every type /static/ serves is covered
     monkeypatch.setattr(server, "UI_DIR", str(ui))
     monkeypatch.setattr(server, "_ui_cache", {})
     server.preload_ui()
     shutil.rmtree(ui)
+    st, h, body = req(srv, "GET", "/static/vanish-test.json", JAR)
+    assert st == 200 and json.loads(body) == {"a": 1}
     st, h, body = req(srv, "GET", "/mini", JAR)
     assert st == 200 and h["Content-Type"].startswith("text/html") and b'id="go"' in body
     assert req(srv, "GET", "/", JAR)[0] == 200
@@ -190,6 +193,8 @@ def test_page_navigation_to_a_non_page_gets_html_back_link(srv):
         assert server.TOKEN.encode() not in body and server.SESSION.encode() not in body
     st, h, body = req(srv, "GET", "/", dict(NAV, Host="evil.example"))      # DNS rebinding: still refused, no JSON
     assert st == 403 and h["Content-Type"].startswith("text/html") and b"Back to NOBAD VPN" in body
+    st, h, body = req(srv, "GET", "/nope", dict(JAR, **NAV, Referer="http://["))  # unparsable Referer: default link
+    assert st == 404 and b'href="/"' in body and b"Back to NOBAD VPN" in body
     st, h, body = req(srv, "GET", "/nope", dict(JAR, Accept="text/html"))     # old WebView without Sec-Fetch-*
     assert st == 404 and h["Content-Type"].startswith("text/html")
     st, h, body = req(srv, "GET", "/api/state", NAV)                          # not signed in: the locked page
