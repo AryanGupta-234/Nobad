@@ -144,6 +144,19 @@ class Api:
             self._transparency(st)
         return st
 
+    def status_brief(self):
+        """The few status fields a status line needs, cheap enough for every 2 s (the pipe's status event)."""
+        st = self._indexer.status
+        gov = self._governor
+        if gov is not None:
+            level, reason = gov.decision.level, gov.decision.reason
+        else:
+            level, reason = st.get("level", ""), st.get("reason", "")
+        files = st.get("files", 0)
+        return {"level": str(level or ""), "reason": str(reason or ""), "phase": str(st.get("phase") or ""),
+                "files": int(files) if isinstance(files, (int, float)) and not isinstance(files, bool) else 0,
+                "paused": str(st.get("paused") or "")}
+
     # ---------- transparency: what NOBAD Find is doing, what it uses, and why ----------
     def _transparency(self, st):
         now = self._clock()
