@@ -250,6 +250,15 @@ class Store:
         return self.one("SELECT count(*) FROM chunks c LEFT JOIN vecs v ON v.chunk_id=c.id "
                         "WHERE v.chunk_id IS NULL") or 0
 
+    def count_names(self, kinds):
+        marks = ",".join("?" * len(kinds))
+        return self.one(f"SELECT count(*) FROM files WHERE kind IN ({marks})", tuple(sorted(kinds))) or 0
+
+    def count_names_without_vectors(self, kinds):
+        marks = ",".join("?" * len(kinds))
+        return self.one(f"SELECT count(*) FROM files f LEFT JOIN nvecs v ON v.file_id=f.id "
+                        f"WHERE v.file_id IS NULL AND f.kind IN ({marks})", tuple(sorted(kinds))) or 0
+
     def count_photos(self, exts, min_bytes, max_bytes):
         marks = ",".join("?" * len(exts))
         return self.one(f"SELECT count(*) FROM files WHERE ext IN ({marks}) AND size BETWEEN ? AND ?",

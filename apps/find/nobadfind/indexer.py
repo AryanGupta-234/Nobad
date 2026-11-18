@@ -547,6 +547,12 @@ class Indexer:
             if isinstance(m, embed.Lazy):
                 m.release_if_idle(idle)
 
+    def meaning_device(self):
+        """'GPU' or 'CPU' for the running meaning worker, None when there is none."""
+        if self._mpool is None:
+            return None
+        return "GPU" if self._mpool_gpu else "CPU"
+
     def worker_names(self):
         """{pid: 'text reader' | 'meaning worker' | 'photo worker'} for the worker processes running now."""
         out = {}

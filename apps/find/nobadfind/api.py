@@ -13,6 +13,7 @@ from collections import deque
 from . import embed, jobs, ocr, photo, thumbs, wsearch, winapi
 from . import hardware as hw
 from .const import MODEL_FILES
+from .indexer import NAME_KINDS
 from .kinds import READABLE_EXT
 from .log import log
 from .search import search
@@ -42,6 +43,8 @@ class Api:
         self.apps = None
         self._slock = threading.Lock()
         self._totals = (0.0, None, {})    # (computed at, settings key, counts)
+        self._refresher = None
+        self._clock = time.monotonic      # tests replace it
         self._prev = None                 # (time, cpu_seconds, read_bytes) of the last status() call
         self._pcpu = {}                   # pid -> (time, cpu_seconds)
         self._progress = {k: deque(maxlen=RATE_WINDOW) for k, _l in PHASES}
@@ -132,7 +135,7 @@ class Api:
 
     # ---------- transparency: what NOBAD Find is doing, what it uses, and why ----------
     def _transparency(self, st):
-        now = time.monotonic()
+        now = self._clock()
         gov = self.governor
         if gov is not None:
             st["level"], st["reason"] = gov.decision.level, gov.decision.reason
@@ -142,7 +145,7 @@ class Api:
         history = st["history"]
         st["resources"] = self._resources(now, history[-1].get("gpu") if history else None)
         st["phases"] = self._phases(now, st)
-        st["models"] = self._models(now, st)
+        st["models"] = self._models(now, st, st["resources"]["processes"])
         st["activity"] = self.activity.recent(50) if self.activity is not None else []
 
     def _resources(self, now, gpu):
@@ -178,12 +181,18 @@ class Api:
 
     def _counts(self, now):
         """(total, still to do) for each phase that counts files (cached TOTALS_TTL seconds)."""
-        s = self._settings
-        key = (s.get("content_max_mb"), s.get("src_mail"))
+        key = (self._settings.get("content_max_mb"), self._settings.get("src_mail"))
         at, k, counts = self._totals
-        if counts and k == key and now - at < TOTALS_TTL:
-            return counts
-        st = self._store
+        if not counts:
+            return self._refresh(now, key)                  # the very first call computes inline
+        if (k != key or now - at >= TOTALS_TTL) and not (self._refresher and self._refresher.is_alive()):
+            self._refresher = threading.Thread(target=self._refresh, args=(now, key), daemon=True, name="counts")
+            self._refresher.start()                         # the COUNT queries never hold up a status poll
+        return counts
+
+    def _refresh(self, now, key):
+        s, st = self._settings, self._store
+        counts = self._totals[2]
         text_ext = set(READABLE_EXT)
         if not s.get("src_mail"):
             text_ext -= {".eml", ".mbox"}
@@ -192,7 +201,8 @@ class Api:
             counts = {"text": (st.count_readable(text_ext, mx), st.count_needs_text(text_ext, mx)),
                       "ocr": (st.count_readable(ocr.OCR_EXT, mx, ocr.MIN_IMAGE_BYTES),
                               st.count_needs_text(ocr.OCR_EXT, mx, ocr.MIN_IMAGE_BYTES)),
-                      "meaning": (st.one("SELECT count(*) FROM chunks") or 0, st.count_chunks_without_vectors()),
+                      "meaning": ((st.one("SELECT count(*) FROM chunks") or 0) + st.count_names(NAME_KINDS),
+                                  st.count_chunks_without_vectors() + st.count_names_without_vectors(NAME_KINDS)),
                       "photos": (st.count_photos(photo.PHOTO_EXT, photo.MIN_PHOTO_BYTES, photo.MAX_PHOTO_BYTES),
                                  st.count_photos_to_read(photo.PHOTO_EXT, photo.MIN_PHOTO_BYTES, photo.MAX_PHOTO_BYTES))}
         except Exception as e:
@@ -217,8 +227,6 @@ class Api:
                 total, remaining = counts[pid]
             done = max(0, total - remaining) if total is not None else (st.get("files", 0) if pid == "names" else 0)
             hist = self._progress[pid]
-            if pid in counter:
-                hist.append((now, st.get(counter[pid], 0)))
             if not on[pid]:
                 state = "off"
             elif cur == pid:
@@ -229,6 +237,10 @@ class Api:
                 state = "waiting"
             else:
                 state = "done" if not remaining else "waiting"
+            if state == "running" and pid in counter:
+                hist.append((now, st.get(counter[pid], 0)))
+            else:
+                hist.clear()                  # a rate only uses samples from while the phase ran
             rate = 0.0
             if state == "running" and len(hist) > 1 and hist[-1][0] > hist[0][0]:
                 rate = max(0.0, (hist[-1][1] - hist[0][1]) / (hist[-1][0] - hist[0][0]))
@@ -246,23 +258,34 @@ class Api:
         return {"got_mb": round(m["got"] / 1048576, 1), "size_mb": round(m["size"] / 1048576, 1),
                 "mb_s": round(speed, 2)}
 
-    def _models(self, now, st):
+    def _models(self, now, st, procs):
+        """Cards describe the model doing the work (its worker process), else the in-process query encoder."""
         ix = self._indexer
         emb, pho = getattr(ix, "embedder", None), getattr(ix, "photo_text", None)
+        worker = {p["name"]: p for p in procs}.get
+        mw, pw = worker("Meaning worker"), worker("Photo worker")
+        try:
+            mdev = ix.meaning_device()
+        except Exception:
+            mdev = None
+        mdev = mdev or ("GPU" if getattr(emb, "device", "CPU") == "GPU" else "CPU")
+        pdev = "GPU" if getattr(pho, "device", "CPU") == "GPU" else "CPU"
+        enc = [(emb, mw), (pho, pw)]
+        mem = [w["memory_mb"] if w else None for _e, w in enc]
         meaning_mb = sum(v[1] for v in MODEL_FILES.values()) / 1048576
         photo_mb = sum(v[1] for v in photo.PHOTO_FILES.values()) / 1048576
         ocr_total, ocr_left = self._counts(now).get("ocr", (0, 0))
         return [
             {"id": "meaning", "name": "Meaning search (all-MiniLM-L6-v2)", "license": "Apache-2.0",
              "size_mb": round(meaning_mb), "on_disk": bool(embed.model_ready()),
-             "loaded": bool(getattr(emb, "loaded", False)), "memory_mb": None,
-             "device": "GPU" if getattr(emb, "device", "CPU") == "GPU" else "CPU",
+             "loaded": bool(mw) or bool(getattr(emb, "loaded", False)), "memory_mb": mem[0],
+             "device": mdev,
              "items": int(st.get("vectors", 0)) + int(st.get("name_vectors", 0)),
              "download": self._download("meaning", self._model, now)},
             {"id": "photo", "name": "Photo search (SigLIP base)", "license": "Apache-2.0",
              "size_mb": round(photo_mb), "on_disk": bool(photo.model_ready()),
-             "loaded": bool(getattr(pho, "loaded", False)), "memory_mb": None,
-             "device": "GPU" if getattr(pho, "device", "CPU") == "GPU" else "CPU",
+             "loaded": bool(pw) or bool(getattr(pho, "loaded", False)), "memory_mb": mem[1],
+             "device": pdev,
              "items": int(st.get("photo_vectors", 0)),
              "download": self._download("photo", self._photo_model, now)},
             {"id": "ocr", "name": "Windows OCR", "license": "Windows", "size_mb": 0, "on_disk": bool(ocr.available()),

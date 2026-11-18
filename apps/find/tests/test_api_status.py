@@ -1,3 +1,5 @@
+import os
+
 import pytest
 
 from nobadfind import api as api_mod, hardware, settings, winapi
@@ -158,3 +160,99 @@ def test_hardware_scan_shape():
     assert isinstance(h["gpu"], str) and h["vram_gb"] >= 0 and isinstance(h["directml"], bool)
     assert h["disk_free_gb"] >= 0 and h["ssd"] in (True, False, None)
     assert hardware.scan() is h                                  # cached
+
+
+def _clock(a):
+    t = [0.0]
+    a._clock = lambda: t[0]
+    return t
+
+
+class FakeJob:
+    def __init__(self):
+        self.cpu, self.read = 0.0, 0
+
+    def pids(self):
+        return [os.getpid(), 999]
+
+    def usage(self):
+        return {"cpu_seconds": self.cpu, "read_bytes": self.read, "write_bytes": 0, "memory_mb": 0, "processes": 2}
+
+
+def test_resource_rates_are_deltas(tmp_path, monkeypatch):
+    a, s = make(tmp_path)
+    t = _clock(a)
+    job, secs = FakeJob(), {os.getpid(): 0.0, 999: 0.0}
+    monkeypatch.setattr(api_mod.jobs, "OUTER", job)
+    monkeypatch.setattr(api_mod.jobs, "process_info",
+                        lambda pid: {"pid": pid, "cpu_seconds": secs[pid], "memory_mb": 50 if pid == 999 else 100})
+    r = a.status()["resources"]
+    assert r["cpu"] == 0.0 and r["read_mb_s"] == 0.0 and r["memory_mb"] == 150          # first call: no rates
+    t[0] = 10.0
+    cores = os.cpu_count() or 1
+    job.cpu, job.read, secs[999] = 5.0, 20 * 1048576, 5.0
+    r = a.status()["resources"]
+    assert r["read_mb_s"] == 2.0
+    assert r["cpu"] == round(5.0 / 10 / cores * 100, 1)
+    proc = {p["pid"]: p for p in r["processes"]}
+    assert proc[os.getpid()]["name"] == "Main" and proc[999]["name"] == "Window (WebView2)"
+    assert proc[999]["cpu"] == round(5.0 / 10 / cores * 100, 1) and proc[os.getpid()]["cpu"] == 0.0
+    s.close()
+
+
+def test_model_cards_describe_the_worker(tmp_path, monkeypatch):
+    a, s = make(tmp_path)
+    a._indexer.worker_names = lambda: {999: "meaning worker"}
+    a._indexer.meaning_device = lambda: "GPU"
+    monkeypatch.setattr(api_mod.jobs, "OUTER", FakeJob())
+    monkeypatch.setattr(api_mod.jobs, "process_info", lambda pid: {"pid": pid, "cpu_seconds": 0.0, "memory_mb": 77})
+    m = {x["id"]: x for x in a.status()["models"]}
+    assert m["meaning"]["loaded"] and m["meaning"]["memory_mb"] == 77 and m["meaning"]["device"] == "GPU"
+    assert not m["photo"]["loaded"] and m["photo"]["memory_mb"] is None and m["photo"]["device"] == "CPU"
+    s.close()
+
+
+def test_eta_rate_window_and_reset(tmp_path):
+    a, s = make(tmp_path, "text")
+    t = _clock(a)
+    a._indexer.status["texts"] = 0
+    a.status()
+    t[0] = 10.0
+    a._indexer.status["texts"] = 20
+    ph = {p["id"]: p for p in a.status()["phases"]}["text"]
+    remaining = ph["total"] - ph["done"]
+    assert ph["rate"] == 2.0 and ph["eta_s"] == int(remaining / 2.0)
+    t[0] = 11.0
+    a._indexer.status["phase"] = "watching"
+    a.status()
+    t[0] = 12.0
+    a._indexer.status.update(phase="text", texts=40)
+    ph = {p["id"]: p for p in a.status()["phases"]}["text"]
+    assert ph["rate"] == 0.0 and ph["eta_s"] is None          # old samples were dropped when the phase stopped
+    s.close()
+
+
+def test_download_speed(tmp_path):
+    a, s = make(tmp_path)
+    t = _clock(a)
+    a._model.update(state="downloading", got=5 * 1048576, size=23 * 1048576)
+    assert a.status()["models"][0]["download"]["mb_s"] == 0.0
+    t[0] = 5.0
+    a._model["got"] = 15 * 1048576
+    assert a.status()["models"][0]["download"]["mb_s"] == 2.0
+    s.close()
+
+
+def test_counts_are_cached_and_refreshed_in_background(tmp_path):
+    a, s = make(tmp_path)
+    calls = []
+    real = s.count_needs_text
+    s.count_needs_text = lambda *x, **k: (calls.append(1), real(*x, **k))[1]
+    first = a._counts(0.0)
+    n = len(calls)
+    assert n > 0
+    assert a._counts(5.0) is first and len(calls) == n          # inside 10 s: no queries
+    assert a._counts(11.0) is first                              # stale: old values now, refresh in the background
+    a._refresher.join(5)
+    assert len(calls) > n and a._counts(12.0) is not first
+    s.close()
