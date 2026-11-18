@@ -4,6 +4,7 @@
 #include <windows.h>
 
 #include <algorithm>
+#include <cwchar>
 
 #include "flutter_window.h"
 #include "utils.h"
@@ -41,6 +42,16 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   ::CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
 
   flutter::DartProject project(L"data");
+  project.set_gpu_preference(flutter::GpuPreference::LowPowerPreference);
+
+  // Skia, not Impeller: on the reference PC (Intel Iris Xe) Skia starts in ~0.2 s instead of ~0.9 s and uses
+  // ~50 MB less (docs/measurements.md). NOBAD_FIND_RENDERER=impeller switches back, for measuring.
+  wchar_t renderer[16] = {};
+  const bool impeller =
+      GetEnvironmentVariableW(L"NOBAD_FIND_RENDERER", renderer, 16) > 0 &&
+      wcscmp(renderer, L"impeller") == 0;
+  project.set_impeller_switch(impeller ? flutter::ImpellerSwitch::Enabled
+                                       : flutter::ImpellerSwitch::Disabled);
 
   std::vector<std::string> command_line_arguments =
       GetCommandLineArguments();

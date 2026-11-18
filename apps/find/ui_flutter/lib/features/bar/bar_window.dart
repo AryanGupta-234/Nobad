@@ -12,13 +12,15 @@ import '../../app/theme/typography.dart';
 import '../../engine/events.dart';
 import '../../engine/models/result.dart';
 import '../../engine/rpc.dart';
+import '../../platform/demo.dart';
 import '../../platform/window.dart';
 import '../../state/search_controller.dart';
 import '../../widgets/common.dart';
 
 class BarWindow extends StatefulWidget {
-  const BarWindow({super.key, required this.engine, this.window = const NoWindow()});
+  const BarWindow({super.key, required this.engine, this.window = const NoWindow(), this.demo});
   final Engine engine;
+  final Demo? demo;
   final WindowControl window;
 
   @override
@@ -41,6 +43,7 @@ class _BarWindowState extends State<BarWindow> {
     _shows = widget.engine.events.listen((e) {
       if (e is ShowEvent && e.what == 'bar') show();
     });
+    widget.demo?.run(widget.engine, box, find, 'bar', after: hide);
   }
 
   /// Rows the window needs: the results, or one for "No match for …".

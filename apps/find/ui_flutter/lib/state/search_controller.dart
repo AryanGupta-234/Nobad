@@ -40,6 +40,10 @@ class FindController extends ChangeNotifier {
   String _askedFor = '';
   String get askedFor => _askedFor;
 
+  /// Milliseconds from asking the engine to having the answer (pipe + search), for the shown answer.
+  int _lastMs = 0;
+  int get lastMs => _lastMs;
+
   void setText(String t) {
     if (t == _text) return;
     _text = t;
@@ -63,6 +67,7 @@ class FindController extends ChangeNotifier {
     if (words.trim().isEmpty) return;
     _busy = true;
     notifyListeners();
+    final clock = Stopwatch()..start();
     SearchAnswer a;
     String notice = '';
     try {
@@ -81,6 +86,7 @@ class FindController extends ChangeNotifier {
             more: true, error: a.error)
         : a;
     _askedFor = words;
+    _lastMs = clock.elapsedMilliseconds;
     _selected = 0;
     _notice = notice.isNotEmpty ? notice : a.error;
     _busy = false;

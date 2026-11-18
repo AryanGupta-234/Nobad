@@ -6,6 +6,7 @@ import 'package:material_ui/material_ui.dart';
 import '../engine/rpc.dart';
 import '../features/bar/bar_window.dart';
 import '../features/search/search_screen.dart';
+import '../platform/demo.dart';
 import '../platform/window.dart';
 import 'theme/colors.dart';
 import 'theme/typography.dart';
@@ -15,8 +16,10 @@ enum AppMode { main, bar }
 const appVersion = '0.8.0-proto';
 
 class NobadFindApp extends StatelessWidget {
-  const NobadFindApp({super.key, required this.engine, this.mode = AppMode.main, this.window = const NoWindow()});
+  const NobadFindApp(
+      {super.key, required this.engine, this.mode = AppMode.main, this.window = const NoWindow(), this.demo});
   final Engine engine;
+  final Demo? demo;
   final AppMode mode;
   final WindowControl window;
 
@@ -43,11 +46,14 @@ class NobadFindApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         theme: theme(),
         color: Nb.orange,
-        home: Material(
-          type: MaterialType.transparency,
-          child: mode == AppMode.bar
-              ? BarWindow(engine: engine, window: window)
-              : SearchScreen(engine: engine, window: window, version: appVersion),
+        home: RepaintBoundary(
+          key: shotBoundary,
+          child: Material(
+            type: MaterialType.transparency,
+            child: mode == AppMode.bar
+                ? BarWindow(engine: engine, window: window, demo: demo)
+                : SearchScreen(engine: engine, window: window, version: appVersion, demo: demo),
+          ),
         ),
       );
 }

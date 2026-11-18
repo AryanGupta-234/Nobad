@@ -11,6 +11,7 @@ import '../../app/theme/colors.dart';
 import '../../app/theme/typography.dart';
 import '../../engine/events.dart';
 import '../../engine/rpc.dart';
+import '../../platform/demo.dart';
 import '../../platform/window.dart';
 import '../../state/search_controller.dart';
 import '../../state/status_controller.dart';
@@ -18,8 +19,9 @@ import '../../widgets/common.dart';
 import 'result_tile.dart';
 
 class SearchScreen extends StatefulWidget {
-  const SearchScreen({super.key, required this.engine, this.window = const NoWindow(), this.version = ''});
+  const SearchScreen({super.key, required this.engine, this.window = const NoWindow(), this.version = '', this.demo});
   final Engine engine;
+  final Demo? demo;
   final WindowControl window;
   final String version;
 
@@ -49,6 +51,7 @@ class _SearchScreenState extends State<SearchScreen> {
         box.selection = TextSelection(baseOffset: 0, extentOffset: box.text.length);
       }
     });
+    widget.demo?.run(widget.engine, box, find, 'main');
   }
 
   void _follow() {

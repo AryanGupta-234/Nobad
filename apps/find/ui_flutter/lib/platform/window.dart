@@ -6,6 +6,7 @@
 /// ShowWindowAsync) so the UI thread never waits on the window's thread.
 library;
 
+import 'dart:async';
 import 'dart:ffi';
 import 'dart:io' show Platform;
 
@@ -101,6 +102,9 @@ class Win32Window implements WindowControl {
       int Function(int, int, Pointer<Uint32>, Pointer<Uint32>)>('GetDpiForMonitor');
   static final _setForeground =
       _u32.lookupFunction<Int32 Function(IntPtr), int Function(int)>('SetForegroundWindow');
+  static final _currentProcess = _k32.lookupFunction<IntPtr Function(), int Function()>('GetCurrentProcess');
+  static final _emptyWorkingSet =
+      _k32.lookupFunction<Int32 Function(IntPtr), int Function(int)>('K32EmptyWorkingSet');
 
   static const _swHide = 0, _swRestore = 9;
   static const _noSize = 0x1, _noMove = 0x2, _noZOrder = 0x4, _noActivate = 0x10, _showWindow = 0x40;
@@ -133,9 +137,13 @@ class Win32Window implements WindowControl {
     return (dpi == 0 ? 96 : dpi) / 96;
   }
 
+  /// Hide, then hand this process's working set back to Windows: a hidden bar needs next to no RAM, and the
+  /// pages come back on their own when it's shown. Only ever this process.
   @override
   void hide() {
-    if (hwnd != 0) _showAsync(hwnd, _swHide);
+    if (hwnd == 0) return;
+    _showAsync(hwnd, _swHide);
+    Future<void>.delayed(const Duration(milliseconds: 300), () => _emptyWorkingSet(_currentProcess()));
   }
 
   @override
