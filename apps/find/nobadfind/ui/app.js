@@ -33,7 +33,7 @@ window.nfFocus = () => { tab("search"); const q = $("#q"); q.focus(); q.select()
 function tab(name) {
   document.querySelectorAll(".tab").forEach(b => b.classList.toggle("on", b.dataset.tab === name));
   document.querySelectorAll(".view").forEach(v => v.classList.toggle("on", v.id === "v-" + name));
-  if (name === "index") refreshStatus(true);
+  if (name === "index") { refreshStatus(true); ixTick(); }
   if (name === "settings") renderSettings();
 }
 document.querySelectorAll(".tab").forEach(b => b.addEventListener("click", () => tab(b.dataset.tab)));
@@ -164,6 +164,7 @@ async function refreshStatus(full) {
   const phase = s.paused ? "Paused · " + s.paused : (PHASE[s.phase] || s.phase);
   $("#railState").textContent = phase;
   if (!full && !$("#v-index").classList.contains("on")) return;
+  paintIndexPage(s);
   const card = (v, l, live) => `<div class="card${live ? " live" : ""}"><b>${esc(v)}</b><span>${esc(l)}</span></div>`;
   $("#cards").innerHTML = [
     card(phase, "Status", s.phase !== "watching"),
@@ -190,11 +191,154 @@ async function refreshStatus(full) {
     : "The index is NOT encrypted: SQLCipher isn't installed in this build. It stays in your own profile folder.";
 }
 $("#rescan").addEventListener("click", async () => { await api("rescan"); toast("Rescan started."); });
-setInterval(() => refreshStatus(false), 2500);
+// The Indexing page refreshes every 2 s, but only while it is the open tab AND the window is really on screen.
+// On other tabs the rail line just keeps itself current every 15 s.
+function ixTick() {
+  if (document.visibilityState === "visible" && $("#v-index").classList.contains("on")) refreshStatus(false);
+}
+setInterval(ixTick, 2000);
+setInterval(() => { if (document.visibilityState === "visible" && !$("#v-index").classList.contains("on")) refreshStatus(false); }, 15000);
+document.addEventListener("visibilitychange", ixTick);
 const reportVisible = () => api("page_visible", document.visibilityState === "visible");
 document.addEventListener("visibilitychange", reportVisible);
 reportVisible();
 setInterval(() => { if (document.visibilityState === "visible") api("heartbeat"); }, 5000);
+
+// ---------- Indexing page: what NOBAD Find is doing, what it costs, what it decided ----------
+const LEVEL = {
+  full: "Working at full speed", gentle: "Working gently",
+  light: "Working very lightly", paused: "Paused",
+};
+const STATE = { waiting: "Waiting", running: "Working", done: "Done", off: "Off" };
+const num = n => Number(n || 0).toLocaleString();
+const mb = n => n >= 1024 ? (n / 1024).toFixed(1) + " GB" : (n >= 100 ? Math.round(n) : Number(n).toFixed(n < 10 ? 1 : 0)) + " MB";
+function span(sec) {
+  sec = Math.max(0, Math.round(sec));
+  if (sec < 45) return "under a minute";
+  if (sec < 5400) return "about " + Math.max(1, Math.round(sec / 60)) + " min";
+  if (sec < 172800) return "about " + Math.round(sec / 3600) + " h";
+  return "about " + Math.round(sec / 86400) + " days";
+}
+function perTime(r, unit) {
+  if (!r || r <= 0) return "";
+  return r >= 1 ? `${r >= 10 ? Math.round(r) : r.toFixed(1)} ${unit} per second` : `${Math.max(1, Math.round(r * 60))} ${unit} per minute`;
+}
+const pct = v => (v == null ? "–" : Math.round(v) + "%");
+
+function paintNow(s) {
+  const lv = LEVEL[s.level] ? s.level : "light";
+  const el = $("#ixNow");
+  el.className = "now lv-" + lv;
+  el.innerHTML = `<span class="dot" aria-hidden="true"></span>
+    <div class="nowtext"><b>${esc(LEVEL[lv])}</b><p>${esc(s.reason || "")}</p></div>
+    <button class="btn${lv === "paused" ? "" : " ghost"}" id="ixPause" data-act="${lv === "paused" ? "resume" : "pause"}">${lv === "paused" ? "Resume" : "Pause for 1 hour"}</button>`;
+}
+// A <progress> element, not a styled <i>: the CSP forbids inline styles, and this needs none.
+const meter = (frac, busy) => `<progress class="meter" max="100"${busy ? "" : ` value="${Math.round(frac * 100)}"`}></progress>`;
+function paintPipeline(s) {
+  $("#ixPipeline").innerHTML = (s.phases || []).map(p => {
+    const total = p.total || 0, known = total > 0;
+    const frac = p.state === "done" ? 1 : known ? Math.min(1, p.done / total) : 0;
+    const count = p.state === "off" ? "" : known ? `${num(p.done)} / ${num(total)}` : p.done ? num(p.done) : "";
+    const extra = p.state === "running"
+      ? [perTime(p.rate, "files"), p.eta_s != null ? "done in " + span(p.eta_s) : ""].filter(Boolean).join(" · ") : "";
+    return `<div class="phase ${esc(p.state)}"><span class="pl">${esc(p.label)}</span><span class="ps">${esc(STATE[p.state] || p.state)}</span>
+      ${meter(frac, p.state === "running" && !known)}
+      <span class="pc">${esc(count)}</span><span class="pe">${esc(extra)}</span></div>`;
+  }).join("");
+}
+function paintResources(s) {
+  const r = s.resources || {};
+  const stat = (v, l) => `<div class="stat"><b>${esc(v)}</b><span>${esc(l)}</span></div>`;
+  $("#ixStats").innerHTML = stat(pct(r.cpu), "Processor") + stat(r.memory_mb != null ? mb(r.memory_mb) : "–", "Memory") +
+    stat(r.read_mb_s != null ? Number(r.read_mb_s).toFixed(r.read_mb_s < 10 ? 1 : 0) + " MB/s" : "–", "Disk reading") +
+    stat(r.gpu == null ? "Not used" : pct(r.gpu), "Graphics card");
+  const ps = r.processes || [];
+  $("#ixProcs").innerHTML = ps.length
+    ? `<thead><tr><th>Process</th><th>PID</th><th>Processor</th><th>Memory</th></tr></thead><tbody>` +
+      ps.map(p => `<tr><td>${esc(p.name)}</td><td>${esc(p.pid)}</td><td>${esc(pct(p.cpu))}</td><td>${esc(mb(p.memory_mb || 0))}</td></tr>`).join("") + "</tbody>"
+    : "";
+  drawSpark(s.history || []);
+}
+let sparkData = [], sparkHover = -1;
+function drawSpark(h) {
+  sparkData = h;
+  const c = $("#ixSpark"), dpr = window.devicePixelRatio || 1;
+  const w = c.clientWidth, ht = c.clientHeight;
+  if (!w || !ht) return;
+  if (c.width !== Math.round(w * dpr) || c.height !== Math.round(ht * dpr)) { c.width = Math.round(w * dpr); c.height = Math.round(ht * dpr); }
+  const g = c.getContext("2d");
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, w, ht);
+  const css = getComputedStyle(document.documentElement);
+  const col = n => css.getPropertyValue(n).trim() || "#888";
+  const padT = 8, padB = 6, H = ht - padT - padB, n = h.length;
+  const maxCpu = Math.max(10, Math.ceil(Math.max(0, ...h.map(x => x.find_cpu || 0)) / 10) * 10);
+  const maxMb = Math.max(1, ...h.map(x => x.find_mb || 0)) * 1.1;
+  const X = i => w - (n - 1 - i) / 149 * w;            // the newest sample is always at the right edge
+  const Y = (v, m) => padT + H - (v / m) * H;
+  g.strokeStyle = col("--line"); g.lineWidth = 1;
+  for (const f of [0, .5, 1]) { const y = Math.round(padT + H * f) + .5; g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); }
+  g.fillStyle = col("--dim"); g.font = "10px Consolas, monospace"; g.textBaseline = "top";
+  g.fillText(maxCpu + "%", 4, padT + 3);
+  if (n < 2) { $("#ixSparkCap").textContent = "Collecting the first readings…"; return; }
+  const line = (key, m, color, width, dash) => {
+    g.beginPath(); h.forEach((x, i) => g[i ? "lineTo" : "moveTo"](X(i), Y(x[key] || 0, m)));
+    g.setLineDash(dash); g.strokeStyle = color; g.lineWidth = width; g.lineJoin = "round"; g.stroke(); g.setLineDash([]);
+  };
+  line("find_mb", maxMb, col("--dim"), 1.25, [4, 3]);
+  g.beginPath(); h.forEach((x, i) => g[i ? "lineTo" : "moveTo"](X(i), Y(x.find_cpu || 0, maxCpu)));
+  g.lineTo(X(n - 1), padT + H); g.lineTo(X(0), padT + H); g.closePath();
+  const grad = g.createLinearGradient(0, padT, 0, padT + H);
+  grad.addColorStop(0, "rgba(" + col("--o-rgb") + ", .28)"); grad.addColorStop(1, "rgba(" + col("--o-rgb") + ", 0)");
+  g.fillStyle = grad; g.fill();
+  line("find_cpu", maxCpu, col("--o"), 1.75, []);
+  const i = sparkHover >= 0 ? Math.min(n - 1, sparkHover) : n - 1, x = h[i];
+  g.beginPath(); g.arc(X(i), Y(x.find_cpu || 0, maxCpu), 3.5, 0, 7); g.fillStyle = col("--o"); g.fill();
+  const when = i === n - 1 ? "now" : span((n - 1 - i) * 2).replace("about ", "") + " ago";
+  $("#ixSparkCap").innerHTML = `<span class="k cpu">Processor ${esc(pct(x.find_cpu || 0))}</span><span class="k mem">Memory ${esc(mb(x.find_mb || 0))}</span>` +
+    `<span class="when">${esc(when)} · last 5 minutes</span>`;
+}
+$("#ixSpark").addEventListener("mousemove", e => {
+  const c = e.currentTarget, n = sparkData.length;
+  if (n < 2) return;
+  sparkHover = Math.max(0, Math.min(n - 1, Math.round(e.offsetX / c.clientWidth * 149 - (150 - n))));
+  drawSpark(sparkData);
+});
+$("#ixSpark").addEventListener("mouseleave", () => { sparkHover = -1; drawSpark(sparkData); });
+
+function paintModels(s) {
+  $("#ixModels").innerHTML = (s.models || []).map(m => {
+    const dl = m.download;
+    const where = m.device ? " on " + (m.device === "Windows" ? "Windows" : m.device) : "";
+    const state = dl ? `Downloading ${mb(dl.got_mb)} of ${mb(dl.size_mb)}${dl.mb_s ? " at " + Number(dl.mb_s).toFixed(1) + " MB/s" : ""}`
+      : m.loaded ? "In use now" + where : m.on_disk ? "Ready, loads when needed" : "Not downloaded";
+    const bits = [m.size_mb ? mb(m.size_mb) + " download" : "Built into Windows", m.license,
+      m.loaded && m.memory_mb ? mb(m.memory_mb) + " of memory" : "", m.items ? num(m.items) + " items made" : ""].filter(Boolean);
+    return `<div class="model${m.loaded ? " live" : ""}"><div class="mh"><b>${esc(m.name)}</b><span class="ms">${esc(state)}</span></div>
+      <p>${esc(bits.join(" · "))}</p>${dl && dl.size_mb ? meter(Math.min(1, dl.got_mb / dl.size_mb)) : ""}</div>`;
+  }).join("");
+}
+function clock(t) {
+  const d = new Date(t < 1e11 ? t * 1000 : t);
+  return isNaN(d) ? "" : d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+function paintActivity(s) {
+  const a = s.activity || [];
+  $("#ixActivity").innerHTML = a.length ? a.map(x => `<li><time>${esc(clock(x.t))}</time><span>${esc(x.text)}</span></li>`).join("")
+    : `<li class="none">Nothing yet. NOBAD Find adds a line here whenever it changes pace, pauses or finishes something.</li>`;
+}
+function paintIndexPage(s) { paintNow(s); paintPipeline(s); paintResources(s); paintModels(s); paintActivity(s); }
+$("#ixNow").addEventListener("click", async e => {
+  const b = e.target.closest("#ixPause");
+  if (!b) return;
+  b.disabled = true;
+  if (b.dataset.act === "resume") await api("resume"); else await api("pause_for", 3600);
+  refreshStatus(true);
+});
+window.addEventListener("resize", () => { if ($("#v-index").classList.contains("on")) drawSpark(sparkData); });
+if (!localStorage.getItem("nf-bg-notice")) $("#bgNotice").hidden = false;
+$("#bgNoticeOk").addEventListener("click", () => { localStorage.setItem("nf-bg-notice", "1"); $("#bgNotice").hidden = true; });
 
 // ---------- settings ----------
 const GROUPS = [

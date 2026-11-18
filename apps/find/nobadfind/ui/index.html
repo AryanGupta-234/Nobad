@@ -64,6 +64,33 @@
 
     <section class="view" id="v-index">
       <h2>Index</h2>
+      <div class="notice" id="bgNotice" hidden>
+        <p>Closing the window now stops indexing. Turn on Keep indexing in the background in Settings → Performance to keep it going.</p>
+        <button class="btn ghost" id="bgNoticeOk">Got it</button>
+      </div>
+
+      <div class="now" id="ixNow" aria-live="polite"></div>
+
+      <h3>What it is doing</h3>
+      <div class="pipeline" id="ixPipeline"></div>
+
+      <h3>What NOBAD Find uses</h3>
+      <div id="ixResources">
+        <div class="stats" id="ixStats"></div>
+        <figure class="spark">
+          <canvas id="ixSpark" height="110" role="img" aria-label="NOBAD Find processor and memory use over the last 5 minutes"></canvas>
+          <figcaption id="ixSparkCap"></figcaption>
+        </figure>
+        <div class="tablewrap"><table class="procs" id="ixProcs"></table></div>
+      </div>
+
+      <h3>Models</h3>
+      <div class="models" id="ixModels"></div>
+
+      <h3>Recent decisions</h3>
+      <ul class="activity" id="ixActivity"></ul>
+
+      <h3>Index at a glance</h3>
       <div class="cards" id="cards"></div>
       <div class="row-actions"><button class="btn" id="rescan">Rescan now</button></div>
       <h3>Folders being searched</h3>
