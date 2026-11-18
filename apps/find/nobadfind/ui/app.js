@@ -132,7 +132,7 @@ function select(i) {
 async function act(kind, i = sel) {
   const x = results[i];
   if (!x) return;
-  if (kind === "open") { const r = await api("open", x.id); if (r && !r.ok) toast(r.error); else api("hide"); }
+  if (kind === "open") { const r = await api("open", x.id); if (r && !r.ok) toast(r.error); else if ((await api("get_settings") || {}).hide_after_open) api("hide"); }
   if (kind === "reveal") { const r = await api("reveal", x.id); if (r && !r.ok) toast("Couldn't show it in its folder."); }
   if (kind === "copy") { const r = await api("path_of", x.id); if (r && r.path) { await navigator.clipboard.writeText(r.path); toast("Path copied."); } }
   if (kind === "forget") {
@@ -225,6 +225,7 @@ const GROUPS = [
   ["Launch", [
     ["hotkey", "txt", "Hotkey", "For example win+shift+space or ctrl+alt+f. Takes effect at the next start."],
     ["autostart", "switch", "Start with Windows", "Starts hidden; the hotkey opens it."],
+    ["hide_after_open", "switch", "Hide after opening a file", "Off: the window stays up after Enter opens a file. On: it hides, like a launcher."],
     ["_quit", "quit", "Quit NOBAD Find", "Closing the window keeps NOBAD Find running in the background so the hotkey works. This stops it completely, indexing included, until you start it again."],
     ["glass", "switch", "See-through window", "Windows 11 acrylic behind the window. Follows Windows' own Transparency effects switch. Takes effect at the next start."],
   ]],

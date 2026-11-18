@@ -52,6 +52,7 @@ DEFAULTS = {
     "workers": 0,                   # 0 = pick from the CPU
     "hotkey": "win+shift+space",
     "autostart": False,
+    "hide_after_open": False,       # Enter opens the file and keeps the window up (on: hide it, like a launcher)
     "wsearch_prev": "",             # Windows Search start type saved before NOBAD Find turned it off
     "theme": "dark",
     "glass": True,                  # see-through acrylic window on Windows 11 (follows Windows' transparency switch)

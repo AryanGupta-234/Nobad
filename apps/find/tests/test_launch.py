@@ -59,3 +59,13 @@ def test_installer_stops_find_quickly_by_session_not_user_name():
     iss = ISS.read_text(encoding="utf-8")
     stop = iss[iss.index("procedure StopFind;"):iss.index("function PrepareToInstall")]
     assert '"SESSION eq ' in stop and "USERNAME eq" not in stop
+
+
+def test_enter_keeps_the_window_up_unless_asked():
+    # Enter used to open the file and hide the window, which looked like the app closing.
+    from nobadfind.const import DEFAULTS
+    js = UI.read_text(encoding="utf-8")
+    assert DEFAULTS["hide_after_open"] is False
+    assert '"hide_after_open", "switch"' in js
+    opener = js[js.index('if (kind === "open")'):].split("\n", 1)[0]
+    assert ".hide_after_open) api(\"hide\")" in opener

@@ -32,7 +32,10 @@ STOP = {"the", "a", "an", "my", "i", "me", "that", "this", "those", "these", "fi
         "every", "everything"}
 # Words that ask for something ("list all pdf"). Dropped when the question has something else to go on; kept
 # as words to look for when they're all there is ("list" alone finds list.txt).
-ASKING = {"list", "give", "get", "search", "inside", "folder", "folders", "located", "stored", "saved", "lying"}
+ASKING = {"list", "give", "get", "search", "inside", "folder", "folders", "located", "stored", "saved", "lying",
+          # linking words before what is inside: "pdf in downloads having appreciation"
+          "having", "containing", "contains", "contain", "mentioning", "mentions", "mention", "including",
+          "includes", "include", "says", "say", "saying", "regarding", "word", "words", "text", "content"}
 
 # The user's own folders: "in my downloads", "download folder pdf", "on the desktop", "in documents folder"
 _FOLDER_WORDS = {"download": "downloads", "downloads": "downloads", "desktop": "desktop", "documents": "documents",
@@ -193,6 +196,8 @@ def parse(text, now=None, labels=(), is_dir=None):
     s = re.sub(r'"[^"]*"', " ", s)
 
     low = " " + s.lower() + " "
+    # "the word appreciation" says what is inside the file; it doesn't ask for Word documents
+    low = re.sub(r" (?:the|a) (?:words?|phrase|term) ", " ", low)
 
     # "here", "this folder": the folder you were looking at in File Explorer
     # ("here" alone only at the end or after in/from/inside: "here comes the sun" is a song, not a folder)

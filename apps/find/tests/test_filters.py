@@ -146,3 +146,19 @@ def test_network_paths_never_touch_the_network(tmp_path, monkeypatch):
     r = search.search(s, r"pdf in \\evil-host\x", drives=drives)
     assert r["notes"] and touched == [r"C:\Users"]
     s.close()
+
+
+@pytest.mark.parametrize("text", [
+    "list all pdf in downloads folder having appreciation",
+    "pdf in downloads containing appreciation",
+    "pdf in downloads that contains appreciation",
+    "pdf in downloads mentioning appreciation",
+    "pdf in downloads which says appreciation",
+    "pdf in downloads including the word appreciation",
+    "pdf in downloads regarding appreciation",
+    "list all appreciation pdf in downloads folder",
+])
+def test_linking_words_before_what_is_inside(text):
+    # "having", "containing", "mentioning" ... say what is inside the file; they aren't words to look for
+    q = parse(text)
+    assert q.terms == ["appreciation"] and q.kinds == {"pdf"} and q.folder == "downloads"
