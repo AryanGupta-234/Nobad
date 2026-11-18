@@ -111,3 +111,55 @@ def test_join_workers_without_a_job_is_a_noop(procs):
     env = dict(os.environ, NOBAD_FIND_MAIN_PID="1999999")
     out = subprocess.run([sys.executable, "-c", code], env=env, capture_output=True, text=True, timeout=20)
     assert out.stdout.strip() == "ok"
+
+
+def _limit_flags(job):
+    from nobadfind import jobs
+    info = jobs._Extended()
+    assert jobs._k.QueryInformationJobObject(job.handle, jobs._CLS_EXTENDED, jobs.ctypes.byref(info),
+                                             jobs.ctypes.sizeof(info), None)
+    return info.Basic.LimitFlags
+
+
+def test_outer_job_lets_opened_files_break_away():
+    """C-1: the program a file opens in must not die with NOBAD Find, so OUTER allows breakaway
+    (asked for per process; never the silent kind, which would let workers escape too)."""
+    from nobadfind import jobs
+    job = jobs.Job(breakaway=True)
+    try:
+        flags = _limit_flags(job)
+        assert flags & jobs._KILL_ON_JOB_CLOSE and flags & jobs._BREAKAWAY_OK
+        assert not flags & 0x1000                      # JOB_OBJECT_LIMIT_SILENT_BREAKAWAY_OK
+    finally:
+        job.close()
+    plain = jobs.Job()
+    try:
+        assert not _limit_flags(plain) & jobs._BREAKAWAY_OK      # WORKERS keeps everything inside
+    finally:
+        plain.close()
+
+
+def test_a_breakaway_child_survives_closing_the_job(procs):
+    """A process in a breakaway-OK job starts a child with CREATE_BREAKAWAY_FROM_JOB: closing the job ends
+    the parent but not that child (what winapi.open_outside_job relies on)."""
+    from nobadfind import jobs, winapi
+    job = jobs.Job(breakaway=True)
+    code = ("import subprocess, sys; sys.stdin.readline(); "
+            f"c = subprocess.Popen({SLEEP!r}, creationflags={winapi.CREATE_BREAKAWAY_FROM_JOB}); "
+            "print(c.pid, flush=True); sys.stdin.readline()")
+    parent = spawn(procs, [SLEEP[0], "-c", code], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+    child = None
+    try:
+        assert job.assign(parent.pid)
+        parent.stdin.write("go\n")
+        parent.stdin.flush()
+        child = int(parent.stdout.readline())
+        assert child not in job.pids()
+        job.close()
+        parent.wait(timeout=10)
+        assert jobs.process_info(child)["memory_mb"] > 0          # still running
+    finally:
+        job.close()
+        if child:
+            from nobadfind.watchdog import kill_process
+            kill_process(child)                                    # the pid this test started

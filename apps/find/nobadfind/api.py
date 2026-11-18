@@ -79,6 +79,12 @@ class Api:
         if not p:
             return {"ok": False, "error": "That file isn't there any more."}
         try:
+            winapi.open_outside_job(p)    # the default program, outside Find's job: it survives Quit
+            return {"ok": True}
+        except OSError as e:
+            log(f"could not open the file outside NOBAD Find's process group (error {e.winerror or e.errno}); "
+                "opened it directly, so it closes if NOBAD Find quits", "warn")
+        try:
             os.startfile(p)               # noqa: the default program for this file, as the normal user
             return {"ok": True}
         except OSError as e:

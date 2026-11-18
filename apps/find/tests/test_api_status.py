@@ -266,3 +266,38 @@ def test_newest_first_listing_and_version_for_the_home_screen(tmp_path):
     assert a.search("", {})["results"] == []
     from nobadfind.const import APP_VER
     assert a.status()["version"] == APP_VER
+
+
+def test_open_starts_the_file_outside_finds_job(tmp_path, monkeypatch):
+    """C-1: Api.open goes through the breakaway launcher, so Quit never takes the opened app down."""
+    a, s = make(tmp_path)
+    f = tmp_path / "note.txt"
+    f.write_text("hi")
+    s.upsert_files([(str(f), "note.txt", str(tmp_path), ".txt", "text", 2, 1.0, 1.0, 1)])
+    fid = s.one("SELECT id FROM files WHERE path=?", (str(f),))
+    opened, started = [], []
+    monkeypatch.setattr(api_mod.winapi, "open_outside_job", lambda p: opened.append(p))
+    monkeypatch.setattr(api_mod.os, "startfile", lambda p: started.append(p), raising=False)
+    assert a.open(fid) == {"ok": True}
+    assert opened == [str(f)] and started == []
+
+    def refused(p):
+        raise PermissionError(5, "Access is denied")
+    monkeypatch.setattr(api_mod.winapi, "open_outside_job", refused)
+    assert a.open(fid) == {"ok": True}                  # breakaway refused: the old way, logged
+    assert started == [str(f)]
+    s.close()
+
+
+def test_open_outside_job_starts_explorer_with_breakaway(monkeypatch):
+    calls = []
+
+    class P:
+        def __init__(self, argv, **kw):
+            calls.append((argv, kw))
+    monkeypatch.setattr(winapi.subprocess, "Popen", P)
+    monkeypatch.setenv("WINDIR", "C:\Windows")
+    winapi.open_outside_job("C:\a, b & c\\u00e4.txt")
+    argv, kw = calls[0]
+    assert argv == [os.path.join("C:\Windows", "explorer.exe"), "C:\a, b & c\\u00e4.txt"]   # a list: no shell string
+    assert kw["creationflags"] & winapi.CREATE_BREAKAWAY_FROM_JOB and not kw.get("shell")

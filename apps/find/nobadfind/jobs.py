@@ -12,6 +12,7 @@ WORKERS_PREFIX = "Local\\NOBADFind-workers-"
 MAIN_PID_ENV = "NOBAD_FIND_MAIN_PID"
 
 _KILL_ON_JOB_CLOSE = 0x2000
+_BREAKAWAY_OK = 0x800          # JOB_OBJECT_LIMIT_BREAKAWAY_OK: a child that asks may start outside the job
 _CPU_ENABLE, _CPU_HARD_CAP = 0x1, 0x4
 _PROCESS_TERMINATE_SET_QUOTA = 0x0001 | 0x0100
 _QUERY_LIMITED = 0x1000
@@ -105,7 +106,9 @@ def process_info(pid):
 
 
 class Job:
-    def __init__(self, name=None, kill_on_close=True):
+    def __init__(self, name=None, kill_on_close=True, breakaway=False):
+        """breakaway: a process started with CREATE_BREAKAWAY_FROM_JOB may leave the job. Only OUTER has it, so
+        the program a file opens in outlives Find. Never the silent kind: workers and WebView2 stay inside."""
         self.handle = None
         if not winapi.WIN:
             return
@@ -116,7 +119,7 @@ class Job:
         self.handle = h
         if kill_on_close:
             info = _Extended()
-            info.Basic.LimitFlags = _KILL_ON_JOB_CLOSE
+            info.Basic.LimitFlags = _KILL_ON_JOB_CLOSE | (_BREAKAWAY_OK if breakaway else 0)
             if not _k.SetInformationJobObject(h, _CLS_EXTENDED, ctypes.byref(info), ctypes.sizeof(info)):
                 log("could not set close-with-app on a process group (error %d)" % ctypes.get_last_error())
 
@@ -199,7 +202,7 @@ def setup():
     if not winapi.WIN or OUTER is not None:
         return
     os.environ[MAIN_PID_ENV] = str(os.getpid())
-    OUTER = Job()
+    OUTER = Job(breakaway=True)         # files opened from Find start outside it (winapi.open_outside_job)
     OUTER.assign_self()
     WORKERS = Job(WORKERS_PREFIX + str(os.getpid()))
 

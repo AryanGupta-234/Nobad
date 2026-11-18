@@ -109,6 +109,19 @@ def self_command(*args):
     return [sys.executable, "-I", "-m", "nobadfind", *args]
 
 
+CREATE_BREAKAWAY_FROM_JOB = 0x01000000
+
+
+def open_outside_job(path):
+    """Open a file in its default program, from outside NOBAD Find's job: the program (and its unsaved work)
+    must keep running when Find quits or crashes, and must not count as Find's own use. explorer.exe starts
+    with CREATE_BREAKAWAY_FROM_JOB and an argument list (no shell string) and hands the file to the running
+    desktop shell, so the program gets the shell's environment, not Find's. Raises OSError when Windows
+    refuses the breakaway (the caller falls back to os.startfile)."""
+    explorer = os.path.join(os.environ.get("WINDIR") or "C:\\Windows", "explorer.exe")
+    return subprocess.Popen([explorer, path], creationflags=CREATE_BREAKAWAY_FROM_JOB, close_fds=True)
+
+
 def run_elevated(argv, wait=True, timeout_ms=10 * 60 * 1000):
     """Start argv elevated (UAC). Returns the exit code, or None if the user said no."""
     sei = _SEI()
