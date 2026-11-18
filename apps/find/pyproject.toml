@@ -24,7 +24,7 @@ dependencies = [
   "winrt-Windows.Media.Ocr==3.2.1",
   "winrt-Windows.Graphics.Imaging==3.2.1",
   "winrt-Windows.Storage.Streams==3.2.1",
-  "winrt-Windows.Globalization==4!10.0.28000.2957",
+  "winrt-Windows.Globalization==3.2.1",
   "winrt-Windows.Foundation==3.2.1",
   "winrt-Windows.Foundation.Collections==3.2.1",
   "winrt-Windows.Storage==3.2.1",
