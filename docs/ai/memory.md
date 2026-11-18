@@ -5,6 +5,8 @@ Add to it when the maintainer decides something; delete lines that stop being tr
 (this repository is public): no keys, configs, personal data or private review notes.
 
 ## Standing decisions
+- 2026-11-18 Product icons: every NOBAD app uses the company mark (black tile, "n"); only the "n" colour changes:
+  NOBAD VPN orange, NOBAD File Bridge blue, NOBAD Find yellow (maintainer's choice).
 - 2026-11-18 NOBAD File Bridge lives only in nobad-studio/file-bridge; its copy in this repo was removed (its open review
   fixes are tracked there). `file-bridge-ci.yml` is a stub that keeps the ruleset's required check green until it's dropped.
 - 2026-11-17 GitHub organization `nobad-studio` (`nobad` is taken), Aryan Gupta the only owner. Repos: `Nobad-VPN`
