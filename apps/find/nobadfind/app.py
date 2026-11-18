@@ -95,7 +95,8 @@ def main(argv=None):
                         reload_ui=lambda: ui["win"].evaluate_js("location.reload()"),
                         quit_app=lambda: ui["api"].quit(), visible=lambda: ui["api"].visible,
                         names=lambda: ui["indexer"].worker_names())
-    governor = Governor(settings, AppMemory(store), activity, watchdog=watchdog)
+    apps = AppMemory(store)
+    governor = Governor(settings, apps, activity, watchdog=watchdog)
     governor.start()
     indexer = Indexer(store, settings, vindex, governor=governor)
     ui["indexer"] = indexer
@@ -115,7 +116,7 @@ def main(argv=None):
     api = Api(store, settings, indexer, vindex, lambda: holder.get("w"))
     api.watchdog, api.visible = watchdog, not args.background
     ui["api"] = api
-    api.governor, api.activity = governor, activity      # the status page reads these
+    api.governor, api.activity, api.apps = governor, activity, apps      # the status page reads these
     want_glass = settings.get("glass") and winapi.transparency_allowed()
     if want_glass:
         os.environ["WEBVIEW2_DEFAULT_BACKGROUND_COLOR"] = "00000000"     # let the acrylic show through the page

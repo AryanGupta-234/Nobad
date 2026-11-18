@@ -7,12 +7,22 @@ import os
 import subprocess
 import sys
 import threading
+import time
+from collections import deque
 
-from . import embed, ocr, photo, thumbs, wsearch, winapi
+from . import embed, jobs, ocr, photo, thumbs, wsearch, winapi
+from . import hardware as hw
+from .const import MODEL_FILES
+from .kinds import READABLE_EXT
 from .log import log
 from .search import search
 
 MAX_QUERY = 500
+TOTALS_TTL = 10                  # seconds: the phase counts are COUNT queries, too heavy for every 2 s poll
+RATE_WINDOW = 15                 # status polls a progress rate is measured over (about 30 s)
+MAX_PAUSE_S = 24 * 3600
+PHASES = (("names", "Finding file names"), ("text", "Reading documents"), ("ocr", "Reading words in pictures"),
+          ("meaning", "Learning what files mean"), ("photos", "Looking at photos"), ("watching", "Watching for changes"))
 
 
 class Api:
@@ -27,6 +37,15 @@ class Api:
         self.here = ""                    # the Explorer folder the hotkey was pressed in (see app.bring_up)
         self._model = {"state": "ready" if embed.model_ready() else "missing", "got": 0, "size": 0, "error": ""}
         self._photo_model = {"state": "ready" if photo.model_ready() else "missing", "got": 0, "size": 0, "error": ""}
+        self.governor = None              # set by app.py (the status page reads the governor, the activity log,
+        self.activity = None              # and what was learned about apps); None in tests
+        self.apps = None
+        self._slock = threading.Lock()
+        self._totals = (0.0, None, {})    # (computed at, settings key, counts)
+        self._prev = None                 # (time, cpu_seconds, read_bytes) of the last status() call
+        self._pcpu = {}                   # pid -> (time, cpu_seconds)
+        self._progress = {k: deque(maxlen=RATE_WINDOW) for k, _l in PHASES}
+        self._dl = {}                     # model id -> (time, got bytes) for the download speed
 
     # ---------- search ----------
     def search(self, text, filters=None):
@@ -107,7 +126,174 @@ class Api:
         st["roots"] = self._indexer.roots()
         st["ocr"] = ocr.available() or ocr.why_missing()
         st["drives"] = self._indexer.drive_list
+        with self._slock:
+            self._transparency(st)
         return st
+
+    # ---------- transparency: what NOBAD Find is doing, what it uses, and why ----------
+    def _transparency(self, st):
+        now = time.monotonic()
+        gov = self.governor
+        if gov is not None:
+            st["level"], st["reason"] = gov.decision.level, gov.decision.reason
+            st["history"] = gov.history
+        else:
+            st["level"], st["reason"], st["history"] = st.get("level", ""), st.get("reason", ""), []
+        history = st["history"]
+        st["resources"] = self._resources(now, history[-1].get("gpu") if history else None)
+        st["phases"] = self._phases(now, st)
+        st["models"] = self._models(now, st)
+        st["activity"] = self.activity.recent(50) if self.activity is not None else []
+
+    def _resources(self, now, gpu):
+        names = {os.getpid(): "Main"}
+        labels = {"text reader": "Text reader", "meaning worker": "Meaning worker", "photo worker": "Photo worker"}
+        try:
+            names.update({pid: labels.get(n, n) for pid, n in self._indexer.worker_names().items()})
+        except Exception:
+            pass
+        pids = jobs.OUTER.pids() if jobs.OUTER is not None else []
+        if os.getpid() not in pids:
+            pids = [os.getpid()] + pids
+        cores = os.cpu_count() or 1
+        procs, seen = [], {}
+        for pid in pids:
+            info = jobs.process_info(pid)
+            last = self._pcpu.get(pid)
+            cpu = 0.0
+            if last and now > last[0]:
+                cpu = max(0.0, min(100.0, (info["cpu_seconds"] - last[1]) / (now - last[0]) / cores * 100))
+            seen[pid] = (now, info["cpu_seconds"])
+            procs.append({"name": names.get(pid, "Window (WebView2)"), "pid": int(pid), "cpu": round(cpu, 1),
+                          "memory_mb": int(info["memory_mb"])})
+        self._pcpu = seen
+        use = jobs.OUTER.usage() if jobs.OUTER is not None else {"cpu_seconds": 0.0, "read_bytes": 0}
+        prev, self._prev = self._prev, (now, use["cpu_seconds"], use["read_bytes"])
+        cpu, read = 0.0, 0.0
+        if prev and now > prev[0]:
+            cpu = max(0.0, min(100.0, (use["cpu_seconds"] - prev[1]) / (now - prev[0]) / cores * 100))
+            read = max(0.0, (use["read_bytes"] - prev[2]) / (now - prev[0]) / 1048576)
+        return {"cpu": round(cpu, 1), "memory_mb": sum(p["memory_mb"] for p in procs), "read_mb_s": round(read, 2),
+                "gpu": gpu, "processes": procs}
+
+    def _counts(self, now):
+        """(total, still to do) for each phase that counts files (cached TOTALS_TTL seconds)."""
+        s = self._settings
+        key = (s.get("content_max_mb"), s.get("src_mail"))
+        at, k, counts = self._totals
+        if counts and k == key and now - at < TOTALS_TTL:
+            return counts
+        st = self._store
+        text_ext = set(READABLE_EXT)
+        if not s.get("src_mail"):
+            text_ext -= {".eml", ".mbox"}
+        mx = s.get("content_max_mb") * 1024 * 1024
+        try:
+            counts = {"text": (st.count_readable(text_ext, mx), st.count_needs_text(text_ext, mx)),
+                      "ocr": (st.count_readable(ocr.OCR_EXT, mx, ocr.MIN_IMAGE_BYTES),
+                              st.count_needs_text(ocr.OCR_EXT, mx, ocr.MIN_IMAGE_BYTES)),
+                      "meaning": (st.one("SELECT count(*) FROM chunks") or 0, st.count_chunks_without_vectors()),
+                      "photos": (st.count_photos(photo.PHOTO_EXT, photo.MIN_PHOTO_BYTES, photo.MAX_PHOTO_BYTES),
+                                 st.count_photos_to_read(photo.PHOTO_EXT, photo.MIN_PHOTO_BYTES, photo.MAX_PHOTO_BYTES))}
+        except Exception as e:
+            log(f"status counts failed: {type(e).__name__}", "warn")
+            counts = counts or {p: (0, 0) for p in ("text", "ocr", "meaning", "photos")}
+        self._totals = (now, key, counts)
+        return counts
+
+    def _phases(self, now, st):
+        s = self._settings
+        counts = self._counts(now)
+        cur = {"images": "ocr"}.get(st.get("phase"), st.get("phase"))
+        content = bool(s.get("content"))
+        on = {"names": True, "text": content, "ocr": content and bool(s.get("ocr")) and bool(ocr.available()),
+              "meaning": bool(s.get("semantic")) and embed.model_ready(),
+              "photos": bool(s.get("photo_meaning")) and photo.model_ready(), "watching": True}
+        counter = {"text": "texts", "ocr": "texts", "meaning": "vectors", "photos": "photos"}
+        out = []
+        for pid, label in PHASES:
+            total = remaining = None
+            if pid in counts:
+                total, remaining = counts[pid]
+            done = max(0, total - remaining) if total is not None else (st.get("files", 0) if pid == "names" else 0)
+            hist = self._progress[pid]
+            if pid in counter:
+                hist.append((now, st.get(counter[pid], 0)))
+            if not on[pid]:
+                state = "off"
+            elif cur == pid:
+                state = "running"
+            elif pid == "names":
+                state = "waiting" if cur in ("starting", "error", None) else "done"
+            elif pid == "watching":
+                state = "waiting"
+            else:
+                state = "done" if not remaining else "waiting"
+            rate = 0.0
+            if state == "running" and len(hist) > 1 and hist[-1][0] > hist[0][0]:
+                rate = max(0.0, (hist[-1][1] - hist[0][1]) / (hist[-1][0] - hist[0][0]))
+            eta = int(remaining / rate) if rate > 0 and remaining else None
+            out.append({"id": pid, "label": label, "state": state, "done": int(done),
+                        "total": int(total) if total is not None else None, "rate": round(rate, 2), "eta_s": eta})
+        return out
+
+    def _download(self, mid, m, now):
+        if m["state"] != "downloading":
+            self._dl.pop(mid, None)
+            return None
+        prev, self._dl[mid] = self._dl.get(mid), (now, m["got"])
+        speed = max(0.0, (m["got"] - prev[1]) / (now - prev[0]) / 1048576) if prev and now > prev[0] else 0.0
+        return {"got_mb": round(m["got"] / 1048576, 1), "size_mb": round(m["size"] / 1048576, 1),
+                "mb_s": round(speed, 2)}
+
+    def _models(self, now, st):
+        ix = self._indexer
+        emb, pho = getattr(ix, "embedder", None), getattr(ix, "photo_text", None)
+        meaning_mb = sum(v[1] for v in MODEL_FILES.values()) / 1048576
+        photo_mb = sum(v[1] for v in photo.PHOTO_FILES.values()) / 1048576
+        ocr_total, ocr_left = self._counts(now).get("ocr", (0, 0))
+        return [
+            {"id": "meaning", "name": "Meaning search (all-MiniLM-L6-v2)", "license": "Apache-2.0",
+             "size_mb": round(meaning_mb), "on_disk": bool(embed.model_ready()),
+             "loaded": bool(getattr(emb, "loaded", False)), "memory_mb": None,
+             "device": "GPU" if getattr(emb, "device", "CPU") == "GPU" else "CPU",
+             "items": int(st.get("vectors", 0)) + int(st.get("name_vectors", 0)),
+             "download": self._download("meaning", self._model, now)},
+            {"id": "photo", "name": "Photo search (SigLIP base)", "license": "Apache-2.0",
+             "size_mb": round(photo_mb), "on_disk": bool(photo.model_ready()),
+             "loaded": bool(getattr(pho, "loaded", False)), "memory_mb": None,
+             "device": "GPU" if getattr(pho, "device", "CPU") == "GPU" else "CPU",
+             "items": int(st.get("photo_vectors", 0)),
+             "download": self._download("photo", self._photo_model, now)},
+            {"id": "ocr", "name": "Windows OCR", "license": "Windows", "size_mb": 0, "on_disk": bool(ocr.available()),
+             "loaded": False, "memory_mb": None, "device": "Windows", "items": max(0, ocr_total - ocr_left),
+             "download": None},
+        ]
+
+    # ---------- governor controls ----------
+    def pause_for(self, seconds):
+        if self.governor is None or not isinstance(seconds, int) or isinstance(seconds, bool) or seconds <= 0:
+            return {"ok": False}
+        self.governor.pause_for(min(seconds, MAX_PAUSE_S))
+        return {"ok": True}
+
+    def resume(self):
+        if self.governor is None:
+            return {"ok": False}
+        self.governor.resume()
+        return {"ok": True}
+
+    def learned_apps(self):
+        return self.apps.list() if self.apps is not None else []
+
+    def reset_learned(self, exe=None):
+        if self.apps is None or not (exe is None or isinstance(exe, str)):
+            return {"ok": False}
+        self.apps.reset(exe)
+        return {"ok": True}
+
+    def hardware(self):
+        return hw.scan()
 
     def get_settings(self):
         return self._settings.all()

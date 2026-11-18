@@ -234,6 +234,34 @@ class Store:
                       f"AND (p.file_id IS NULL OR p.mtime IS NOT f.mtime) ORDER BY f.mtime DESC LIMIT ?",
                       (*sorted(exts), min_bytes, max_bytes, limit))
 
+    def count_readable(self, kinds_ext, max_bytes, min_bytes=0):
+        """How many files the text reader is meant to read (same filter as needs_text)."""
+        marks = ",".join("?" * len(kinds_ext))
+        return self.one(f"SELECT count(*) FROM files WHERE ext IN ({marks}) AND size <= ? AND size >= ?",
+                        (*sorted(kinds_ext), max_bytes, min_bytes)) or 0
+
+    def count_needs_text(self, kinds_ext, max_bytes, min_bytes=0):
+        marks = ",".join("?" * len(kinds_ext))
+        return self.one(f"SELECT count(*) FROM files WHERE ext IN ({marks}) AND size <= ? AND size >= ? "
+                        "AND (text_mtime IS NULL OR text_mtime <> mtime)",
+                        (*sorted(kinds_ext), max_bytes, min_bytes)) or 0
+
+    def count_chunks_without_vectors(self):
+        return self.one("SELECT count(*) FROM chunks c LEFT JOIN vecs v ON v.chunk_id=c.id "
+                        "WHERE v.chunk_id IS NULL") or 0
+
+    def count_photos(self, exts, min_bytes, max_bytes):
+        marks = ",".join("?" * len(exts))
+        return self.one(f"SELECT count(*) FROM files WHERE ext IN ({marks}) AND size BETWEEN ? AND ?",
+                        (*sorted(exts), min_bytes, max_bytes)) or 0
+
+    def count_photos_to_read(self, exts, min_bytes, max_bytes):
+        marks = ",".join("?" * len(exts))
+        return self.one(f"SELECT count(*) FROM files f LEFT JOIN pvecs p ON p.file_id = f.id "
+                        f"WHERE f.ext IN ({marks}) AND f.size BETWEEN ? AND ? "
+                        f"AND (p.file_id IS NULL OR p.mtime IS NOT f.mtime)",
+                        (*sorted(exts), min_bytes, max_bytes)) or 0
+
     def set_photo_vector(self, file_id, mtime, blob, err=None):
         with self.wlock:
             self.db.execute("INSERT OR REPLACE INTO pvecs(file_id, mtime, v, err) VALUES(?,?,?,?)",
