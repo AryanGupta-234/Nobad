@@ -146,17 +146,32 @@ def on_battery():
     return bool(k32.GetSystemPowerStatus(ctypes.byref(s))) and s.ACLineStatus == 0
 
 
-def busy_fullscreen():
-    """True during a full-screen game, a presentation or 'quiet time'."""
+def _notification_state():
+    """SHQueryUserNotificationState as an int, or None when Windows can't say."""
     if not WIN:
-        return False
+        return None
     state = ctypes.c_int()
     try:
         if shell32.SHQueryUserNotificationState(ctypes.byref(state)) != 0:
-            return False
+            return None
     except Exception:
-        return False
-    return state.value in (2, 3, 4)      # QUNS_BUSY, QUNS_RUNNING_D3D_FULL_SCREEN, QUNS_PRESENTATION_MODE
+        return None
+    return state.value
+
+
+def presentation_mode():
+    """True during a presentation or 'busy' quiet time (QUNS_PRESENTATION_MODE, QUNS_BUSY)."""
+    return _notification_state() in (2, 4)
+
+
+def fullscreen_game():
+    """True while a full-screen Direct3D program runs (QUNS_RUNNING_D3D_FULL_SCREEN)."""
+    return _notification_state() == 3
+
+
+def busy_fullscreen():
+    """True during a full-screen game, a presentation or 'quiet time'."""
+    return presentation_mode() or fullscreen_game()
 
 
 class _LII(ctypes.Structure):
@@ -515,6 +530,190 @@ def is_ssd(root):
         return (not out.IncursSeekPenalty) if ok else None
     finally:
         k32.CloseHandle(wintypes.HANDLE(h))
+
+
+# ---------- sensors ----------
+class _FILETIME(ctypes.Structure):
+    _fields_ = [("lo", wintypes.DWORD), ("hi", wintypes.DWORD)]
+
+    def value(self):
+        return (self.hi << 32) | self.lo
+
+
+class CpuSampler:
+    """System-wide CPU use since the previous call (GetSystemTimes). The first call has nothing to compare."""
+
+    def __init__(self):
+        self._last = None
+
+    def percent(self):
+        if not WIN:
+            return None
+        idle, kern, user = _FILETIME(), _FILETIME(), _FILETIME()
+        try:
+            if not k32.GetSystemTimes(ctypes.byref(idle), ctypes.byref(kern), ctypes.byref(user)):
+                return None
+        except Exception:
+            return None
+        now = (idle.value(), kern.value() + user.value())      # kernel time already includes idle time
+        last, self._last = self._last, now
+        if last is None:
+            return None
+        total = now[1] - last[1]
+        if total <= 0:
+            return None
+        return max(0.0, min(100.0, 100.0 * (total - (now[0] - last[0])) / total))
+
+
+class _MEMSTATUS(ctypes.Structure):
+    _fields_ = [("dwLength", wintypes.DWORD), ("dwMemoryLoad", wintypes.DWORD), ("ullTotalPhys", ctypes.c_uint64),
+                ("ullAvailPhys", ctypes.c_uint64), ("ullTotalPageFile", ctypes.c_uint64),
+                ("ullAvailPageFile", ctypes.c_uint64), ("ullTotalVirtual", ctypes.c_uint64),
+                ("ullAvailVirtual", ctypes.c_uint64), ("ullAvailExtendedVirtual", ctypes.c_uint64)]
+
+
+def memory_status():
+    """(memory load in percent, free physical memory in MB); (0, 0) if Windows can't say."""
+    if not WIN:
+        return (0, 0)
+    m = _MEMSTATUS()
+    m.dwLength = ctypes.sizeof(m)
+    try:
+        if not k32.GlobalMemoryStatusEx(ctypes.byref(m)):
+            return (0, 0)
+    except Exception:
+        return (0, 0)
+    return (int(m.dwMemoryLoad), int(m.ullAvailPhys // 1048576))
+
+
+class _PDH_VALUE(ctypes.Structure):
+    _fields_ = [("CStatus", wintypes.DWORD), ("doubleValue", ctypes.c_double)]
+
+
+class _PDH_ITEM(ctypes.Structure):
+    _fields_ = [("szName", ctypes.c_void_p), ("FmtValue", _PDH_VALUE)]
+
+
+_PDH_GPU_PATH = "\\GPU Engine(*engtype_3D)\\Utilization Percentage"
+_PDH_MORE_DATA = 0x800007D2
+_PDH_FMT_DOUBLE = 0x200
+
+
+class GpuSampler:
+    """Busiest 3D engine's utilisation in percent (Windows performance counters); None if unavailable.
+
+    Like CpuSampler, the first call only starts the measurement."""
+
+    def __init__(self):
+        self._query = None
+        self._counter = None
+        self._pdh = None
+        if not WIN:
+            return
+        try:
+            pdh = ctypes.WinDLL("pdh")
+            pdh.PdhOpenQueryW.argtypes = [wintypes.LPCWSTR, ctypes.c_void_p, ctypes.POINTER(ctypes.c_void_p)]
+            pdh.PdhAddEnglishCounterW.argtypes = [ctypes.c_void_p, wintypes.LPCWSTR, ctypes.c_void_p,
+                                                  ctypes.POINTER(ctypes.c_void_p)]
+            pdh.PdhCollectQueryData.argtypes = [ctypes.c_void_p]
+            pdh.PdhGetFormattedCounterArrayW.argtypes = [ctypes.c_void_p, wintypes.DWORD,
+                                                         ctypes.POINTER(wintypes.DWORD),
+                                                         ctypes.POINTER(wintypes.DWORD), ctypes.c_void_p]
+            pdh.PdhCloseQuery.argtypes = [ctypes.c_void_p]
+            q, c = ctypes.c_void_p(), ctypes.c_void_p()
+            if pdh.PdhOpenQueryW(None, None, ctypes.byref(q)) != 0:
+                return
+            if pdh.PdhAddEnglishCounterW(q, _PDH_GPU_PATH, None, ctypes.byref(c)) != 0:
+                pdh.PdhCloseQuery(q)
+                return
+            self._pdh, self._query, self._counter = pdh, q, c
+            pdh.PdhCollectQueryData(q)
+        except Exception:
+            self._pdh = self._query = self._counter = None
+
+    def percent(self):
+        pdh = self._pdh
+        if not WIN or pdh is None:
+            return None
+        try:
+            if pdh.PdhCollectQueryData(self._query) != 0:
+                return None
+            size, count = wintypes.DWORD(0), wintypes.DWORD(0)
+            r = pdh.PdhGetFormattedCounterArrayW(self._counter, _PDH_FMT_DOUBLE, ctypes.byref(size),
+                                                 ctypes.byref(count), None)
+            if (r & 0xFFFFFFFF) != _PDH_MORE_DATA or not size.value:
+                return None
+            buf = ctypes.create_string_buffer(size.value)
+            if pdh.PdhGetFormattedCounterArrayW(self._counter, _PDH_FMT_DOUBLE, ctypes.byref(size),
+                                                ctypes.byref(count), buf) != 0:
+                return None
+            items = ctypes.cast(buf, ctypes.POINTER(_PDH_ITEM))
+            vals = [items[i].FmtValue.doubleValue for i in range(count.value)
+                    if items[i].FmtValue.CStatus in (0, 1)]          # valid data / new data
+        except Exception:
+            return None
+        return max(0.0, min(100.0, max(vals))) if vals else None
+
+    def __del__(self):
+        try:
+            if self._pdh is not None and self._query is not None:
+                self._pdh.PdhCloseQuery(self._query)
+        except Exception:
+            pass
+
+
+def foreground_exe():
+    """Lower-case exe file name of the foreground window's program ('' if unknown)."""
+    if not WIN:
+        return ""
+    hwnd = foreground_window()
+    if not hwnd:
+        return ""
+    try:
+        pid = window_pid(hwnd)
+        if not pid:
+            return ""
+        k32.OpenProcess.restype = wintypes.HANDLE
+        k32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+        k32.QueryFullProcessImageNameW.argtypes = [wintypes.HANDLE, wintypes.DWORD, wintypes.LPWSTR,
+                                                   ctypes.POINTER(wintypes.DWORD)]
+        h = k32.OpenProcess(0x1000, False, pid)            # PROCESS_QUERY_LIMITED_INFORMATION
+        if not h:
+            return ""
+        try:
+            buf = ctypes.create_unicode_buffer(1024)
+            n = wintypes.DWORD(1024)
+            if not k32.QueryFullProcessImageNameW(h, 0, buf, ctypes.byref(n)):
+                return ""
+            return buf.value.rsplit("\\", 1)[-1].lower()
+        finally:
+            k32.CloseHandle(h)
+    except Exception:
+        return ""
+
+
+def foreground_hung(timeout_ms=250):
+    """True when the foreground window's program isn't answering (hung, or no reply within timeout_ms)."""
+    if not WIN:
+        return False
+    hwnd = foreground_window()
+    if not hwnd:
+        return False
+    try:
+        user32.IsHungAppWindow.argtypes = [wintypes.HWND]
+        if user32.IsHungAppWindow(hwnd):
+            return True
+        user32.SendMessageTimeoutW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM,
+                                               wintypes.UINT, wintypes.UINT, ctypes.POINTER(ctypes.c_size_t)]
+        user32.SendMessageTimeoutW.restype = ctypes.c_ssize_t
+        out = ctypes.c_size_t()
+        ctypes.set_last_error(0)
+        # WM_NULL with SMTO_ABORTIFHUNG: 0 means no answer; ERROR_TIMEOUT tells a hang from a vanished window
+        if user32.SendMessageTimeoutW(hwnd, 0, 0, 0, 0x0002, int(timeout_ms), ctypes.byref(out)) == 0:
+            return ctypes.get_last_error() == 1460
+        return False
+    except Exception:
+        return False
 
 
 k32_types_set = False
