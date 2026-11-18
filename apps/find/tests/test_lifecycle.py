@@ -352,3 +352,17 @@ def test_hiding_the_window_goes_idle_when_background_indexing_is_off():
     assert lifecycle.after_hide(w2, _S(keep_background=True), hotkey_ok=True, quitting=False) is None
     assert lifecycle.after_hide(w2, _S(keep_background=False), hotkey_ok=False, quitting=False) is None
     assert ix2.calls == [] and ix2.running            # background on, or no hotkey: just hidden
+
+
+def test_release_if_idle_never_waits_for_a_model_load():
+    """Re-review: the governor calls release_if_idle every tick; a load holding the lock must not stall it."""
+    m = embed.Lazy(lambda: None, "meaning")
+    m._model, m._used = object(), 0.0
+    m._lock.acquire()                              # a load in progress on another thread
+    try:
+        t0 = time.monotonic()
+        assert m.release_if_idle(0) is False and time.monotonic() - t0 < 0.5
+        assert m._model is not None
+    finally:
+        m._lock.release()
+    assert m.release_if_idle(0) is True and m._model is None

@@ -28,7 +28,7 @@ LIMITS = {
     "STEP_UP_AFTER": 30,
     "IDLE_AFTER": 120,
     "IDLE_CPU_MAX": 50,
-    "LAG_FIND_CPU": 5,       # NOBAD Find counts as working (so a lag may be learned) from this CPU share
+    "LAG_FIND_CORES": 0.5,   # NOBAD Find counts as working (so a lag may be learned) from half a core
 }
 
 _EASING = {
@@ -85,9 +85,10 @@ def _prefix(level):
 
 
 class Brain:
-    def __init__(self, settings, apps):
+    def __init__(self, settings, apps, cpu_count=None):
         self.settings = settings
         self.apps = apps
+        self.cpu_count = cpu_count or os.cpu_count() or 1     # find_cpu is a percent of all of them
         self.pause_until = 0.0
         self._level = None       # level currently applied
         self._up_since = None    # when a higher level became continuously allowed
@@ -135,7 +136,8 @@ class Brain:
             lag = f"Paused: low on memory ({s.free_mb} MB free)"
         if lag:
             # learned only while Find is working, and never about Find's own window (still paused either way)
-            working = (s.find_cpu or 0.0) >= LIMITS["LAG_FIND_CPU"]
+            # in cores, not a share of all CPUs: one Light worker on a 32-thread PC is only about 3%
+            working = (s.find_cpu or 0.0) * self.cpu_count / 100 >= LIMITS["LAG_FIND_CORES"]
             if not self._lag_recorded and s.foreground and working and not s.foreground_is_self:
                 self.apps.record_lag(s.foreground, s)
                 self._lag_recorded = True

@@ -485,15 +485,20 @@ class Api:
     def quit(self):
         self._quitting = True                  # app.py: closing now really quits instead of hiding
         self._indexer.stop()
-        # if closing the windows (WebView2, WinForms) or the exit hangs, end the process anyway; the job then
-        # ends every worker and WebView2 with it
-        t = self._timer(QUIT_TIMEOUT, self._hard_exit)
-        t.daemon = True
-        t.start()
+        self._arm_hard_exit()
         w = self._win()
         if w:
             w.destroy()
         return {"ok": True}
+
+    def _arm_hard_exit(self):
+        """If closing the windows (WebView2, WinForms) or the exit hangs, end the process anyway; the job then
+        ends every worker and WebView2 with it. Used by Quit and by closing the window when that quits."""
+        if getattr(self, "_hard_exit_timer", None) is not None:
+            return
+        t = self._hard_exit_timer = self._timer(QUIT_TIMEOUT, self._hard_exit)
+        t.daemon = True
+        t.start()
 
     def _hard_exit(self):
         log("quit took too long; exiting now", "warn")

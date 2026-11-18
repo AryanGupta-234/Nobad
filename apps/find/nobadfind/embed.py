@@ -216,12 +216,16 @@ class Lazy:
     def release_if_idle(self, idle=None):
         import gc
         import time
-        with self._lock:
+        if not self._lock.acquire(blocking=False):
+            return False                    # a load or search holds it: it isn't idle, and the caller can't wait
+        try:
             if self._model is not None and time.monotonic() - self._used > (self.IDLE if idle is None else idle):
                 self._model = None
                 gc.collect()
                 log(f"{self.name} model released (not used for a while)")
                 return True
+        finally:
+            self._lock.release()
         return False
 
 

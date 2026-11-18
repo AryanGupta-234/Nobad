@@ -113,7 +113,7 @@ def test_quiet_game_session_is_reported_once_it_ends():
 def test_laggy_game_session_is_not_quiet():
     """M-6 (restored): a session in which the game lagged while NOBAD Find worked never counts as quiet."""
     apps = Apps()
-    gv, _ = gov([smp(t=1.0, hung=True, find_cpu=10.0, **GAME), smp(t=2.0, **GAME),
+    gv, _ = gov([smp(t=1.0, hung=True, find_cpu=100.0, **GAME), smp(t=2.0, **GAME),
                  smp(t=3.0, foreground="code.exe"), smp(t=400.0, foreground="code.exe")], apps=apps)
     for _ in range(4):
         gv.tick()
@@ -140,7 +140,7 @@ class Boom:
 
 def test_failing_app_memory_does_not_stop_the_decision():
     jobs = FakeJobs()
-    gv, act = gov([smp(t=1.0, hung=True, find_cpu=10.0, **GAME), smp(t=2.0, **GAME),
+    gv, act = gov([smp(t=1.0, hung=True, find_cpu=100.0, **GAME), smp(t=2.0, **GAME),
                    smp(t=500.0, foreground="code.exe")], jobs=jobs, apps=Boom())
     for _ in range(3):
         gv.tick()

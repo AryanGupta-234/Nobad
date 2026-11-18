@@ -143,3 +143,24 @@ def test_logging_starts_before_the_job_setup():
     src = (pathlib.Path(__file__).resolve().parent.parent / "nobadfind" / "app.py").read_text(encoding="utf-8")
     body = src[src.index("def main("):]
     assert body.index("init_log(LOG_PATH)") < body.index("jobs.setup()")
+
+
+def test_closing_quit_path_arms_the_hard_exit():
+    """Re-review: closing with no hotkey quits through closing(); a hung WebView2 teardown must still end."""
+    armed, stopped = [], []
+
+    class Api:
+        def _arm_hard_exit(self):
+            armed.append(1)
+
+    class Stops:
+        def __init__(self, name):
+            self.name = name
+
+        def stop(self):
+            stopped.append(self.name)
+
+        close = stop
+    app.quit_teardown(Api(), Stops("indexer"), Stops("governor"), Stops("hotkey"), [Stops("bar hotkey")],
+                      Stops("bar"))
+    assert armed == [1] and stopped == ["indexer", "governor", "hotkey", "bar hotkey", "bar"]

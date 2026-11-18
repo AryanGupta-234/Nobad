@@ -85,6 +85,18 @@ def ui_hooks(ui):
             "visible": on("api", lambda a: bool(a.visible), False)}
 
 
+def quit_teardown(api, indexer, governor, hk, bar_hk, bar_ctl):
+    """Closing the window really quits (Quit was chosen, or there is no hotkey to open it again)."""
+    api._arm_hard_exit()                # a hung WebView2 teardown can't keep the process alive
+    indexer.stop()
+    governor.stop()
+    hk.stop()
+    for k in bar_hk:
+        k.stop()
+    if bar_ctl:
+        bar_ctl.close()                 # else the hidden bar would keep the app alive
+
+
 def main(argv=None):
     args = parse_args(argv)
     if args.version or args.wsearch or args.uninstall:
@@ -266,13 +278,7 @@ def main(argv=None):
             if mode == "hide_idle":
                 wanted(True)
             return False
-        indexer.stop()
-        governor.stop()
-        hk.stop()
-        for k in bar_hk:
-            k.stop()
-        if bar_ctl:
-            bar_ctl.close()                         # else the hidden bar would keep the app alive
+        quit_teardown(api, indexer, governor, hk, bar_hk, bar_ctl)
         return True
 
     win.events.closing += closing

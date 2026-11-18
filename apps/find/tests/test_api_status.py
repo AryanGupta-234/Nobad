@@ -415,3 +415,13 @@ def test_the_page_sees_only_the_api_methods(tmp_path):
     b = bar.BarApi(a, bar.Bar(lambda: None, False), lambda text: None)
     assert set(_exposed(b)) == {"blurred", "fit", "hide", "open", "reveal", "search", "to_main"}
     s.close()
+
+
+def test_hard_exit_is_armed_once(tmp_path):
+    a, s = make(tmp_path)
+    a._timer = _Timer
+    _Timer.made.clear()
+    a._arm_hard_exit()
+    a._arm_hard_exit()
+    assert len(_Timer.made) == 1 and _Timer.made[0].daemon and _Timer.made[0].started
+    s.close()

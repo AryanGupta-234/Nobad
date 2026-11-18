@@ -32,8 +32,8 @@ def smp(t=0.0, **kw):
     return Sample(**base)
 
 
-def brain(apps=None, **settings):
-    return Brain(FakeSettings(**settings), apps or FakeApps())
+def brain(apps=None, cpu_count=8, **settings):
+    return Brain(FakeSettings(**settings), apps or FakeApps(), cpu_count=cpu_count)
 
 
 GAME = dict(foreground="forzahorizon5.exe", game=True)
@@ -247,3 +247,15 @@ def test_unknown_app_is_an_app_unless_it_is_a_game():
     assert brain().decide(smp(hung=True)).reason == "Paused: an app isn't responding"
     assert brain(games_mode="always").decide(smp(game=True)).reason == "Paused: a game is running"
     assert brain().decide(smp(game=True)).reason.startswith("Light: a game is running")
+
+
+def test_working_is_measured_in_cores_not_a_share_of_all_cpus():
+    """Re-review: at Light (1 worker) on a 32-thread PC Find uses about 3% of all CPUs; that is one busy core, so
+    a game that lags then is still learned. Half a core is the line."""
+    apps = FakeApps()
+    b = brain(apps, cpu_count=32)
+    assert b.decide(smp(0, hung=True, find_cpu=3.2, **GAME)).level == g.PAUSED
+    assert [e for e, _ in apps.lags] == ["forzahorizon5.exe"]
+    idle = FakeApps()
+    brain(idle, cpu_count=32).decide(smp(0, hung=True, find_cpu=0.5, **GAME))
+    assert idle.lags == []
