@@ -1,5 +1,14 @@
 # NOBAD Find changelog
 
+## 0.6.2 · 2026-11-18
+
+### Fixed
+- "List all pdf in downloads having appreciation" now finds the PDFs with "appreciation" inside. Words like having,
+  containing, mentioning, says, regarding and "the word" only say what's inside the file; before, NOBAD Find also
+  looked for the word "having" itself and found nothing. "The word …" no longer limits the results to Word files.
+- Enter opens the file and leaves NOBAD Find's window up. Before, the window hid, so it looked like the app closed.
+  If you liked that, turn on Settings → Launch → Hide after opening a file.
+
 ## 0.6.1 · 2026-11-18
 
 ### Fixed

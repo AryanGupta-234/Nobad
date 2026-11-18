@@ -2,7 +2,7 @@
 import os
 
 APP_NAME = "NOBAD Find"
-APP_VER = "0.6.1"
+APP_VER = "0.6.2"
 
 # NOBAD Find runs as the normal user, so its data lives in the user's own profile (not readable by other users).
 DATA_DIR = os.environ.get("NOBAD_FIND_DATA_DIR") or os.path.join(
@@ -52,6 +52,7 @@ DEFAULTS = {
     "workers": 0,                   # 0 = pick from the CPU
     "hotkey": "win+shift+space",
     "autostart": False,
+    "hide_after_open": False,       # Enter opens the file and keeps the window up (on: hide it, like a launcher)
     "wsearch_prev": "",             # Windows Search start type saved before NOBAD Find turned it off
     "theme": "dark",
     "glass": True,                  # see-through acrylic window on Windows 11 (follows Windows' transparency switch)
