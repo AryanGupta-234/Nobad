@@ -191,6 +191,9 @@ async function refreshStatus(full) {
 }
 $("#rescan").addEventListener("click", async () => { await api("rescan"); toast("Rescan started."); });
 setInterval(() => refreshStatus(false), 2500);
+const reportVisible = () => api("page_visible", document.visibilityState === "visible");
+document.addEventListener("visibilitychange", reportVisible);
+reportVisible();
 setInterval(() => { if (document.visibilityState === "visible") api("heartbeat"); }, 5000);
 
 // ---------- settings ----------

@@ -248,6 +248,11 @@ class Api:
             self.watchdog.beat()
         return {"ok": True}
 
+    def page_visible(self, on):
+        if self.watchdog is not None:
+            self.watchdog.page_visible(bool(on))
+        return {"ok": True}
+
     def hide(self):
         self.visible = False
         w = self._win()

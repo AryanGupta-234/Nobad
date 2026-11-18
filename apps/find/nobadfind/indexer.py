@@ -65,6 +65,7 @@ class Indexer:
         self.embedder = None             # the query encoder for live search (CPU, in this process)
         self._vectors_in_worker = False  # index-time vectors come from the meaning worker (the real model)
         self._mpool, self._mpool_gpu = None, None
+        self._text_pool, self._photo_pool = None, None   # for worker_names (the watchdog's messages)
         self.stop_ev = threading.Event()
         self.wake = threading.Event()
         self.status = {"phase": "starting", "files": 0, "texts": 0, "vectors": 0, "paused": "", "rate": 0,
@@ -295,6 +296,7 @@ class Indexer:
         gentle, full = plan_.get("text_workers", 2), plan_.get("text_workers_idle", 2)
         inflight, queued = {}, []                    # future -> (job, started)
         pool = cf.ProcessPoolExecutor(max_workers=max(gentle, full), initializer=extract.init_worker)
+        self._text_pool = pool
         try:
             while not self.stop_ev.is_set():
                 if not self._wait_while_paused():
@@ -355,6 +357,7 @@ class Indexer:
             if self.stop_ev.is_set():
                 _kill_pool(pool)                    # stopping: the files in flight are read again next time
             pool.shutdown(wait=True, cancel_futures=True)
+            self._text_pool = None
 
     def _load_embedder(self):
         if self.settings.get("semantic") and embed.model_ready():
@@ -484,6 +487,7 @@ class Indexer:
         if not self.photo_text or not self.settings.get("photo_meaning"):
             return
         pool = cf.ProcessPoolExecutor(max_workers=1, initializer=photo.init_worker)
+        self._photo_pool = pool
         try:
             while not self.stop_ev.is_set():
                 if not self._wait_while_paused():
@@ -523,6 +527,7 @@ class Indexer:
             if self.stop_ev.is_set():
                 _kill_pool(pool)                    # stopping: don't wait for the photos in flight
             pool.shutdown(wait=True, cancel_futures=True)
+            self._photo_pool = None
 
     def warm_models(self):
         """The window just opened: load the models now, so the first search is quick (released again when idle)."""
@@ -541,6 +546,15 @@ class Indexer:
         for m in (self.embedder, self.photo_text):
             if isinstance(m, embed.Lazy):
                 m.release_if_idle(idle)
+
+    def worker_names(self):
+        """{pid: 'text reader' | 'meaning worker' | 'photo worker'} for the worker processes running now."""
+        out = {}
+        for pool, name in ((self._text_pool, "text reader"), (self._mpool, "meaning worker"),
+                           (self._photo_pool, "photo worker")):
+            for pid in list(getattr(pool, "_processes", None) or {}):
+                out[pid] = name
+        return out
 
     def release_models(self):
         """Every model out of memory now (the window closed, or Find is using too much)."""

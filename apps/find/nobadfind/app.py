@@ -93,7 +93,8 @@ def main(argv=None):
     ui = {}      # the pieces the watchdog reaches later: window, api, indexer
     watchdog = Watchdog(activity, release=lambda: ui["indexer"].release_models(),
                         reload_ui=lambda: ui["win"].evaluate_js("location.reload()"),
-                        quit_app=lambda: ui["api"].quit(), visible=lambda: ui["api"].visible)
+                        quit_app=lambda: ui["api"].quit(), visible=lambda: ui["api"].visible,
+                        names=lambda: ui["indexer"].worker_names())
     governor = Governor(settings, AppMemory(store), activity, watchdog=watchdog)
     governor.start()
     indexer = Indexer(store, settings, vindex, governor=governor)
