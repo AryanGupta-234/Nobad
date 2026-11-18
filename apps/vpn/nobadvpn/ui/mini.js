@@ -24,6 +24,9 @@ $("#fast").onclick=()=>api("fastest",{});$("#open").onclick=()=>{api("window",{d
 $("#ks").onchange=e=>api("settings",{key:"kill_switch",value:e.target.checked});
 addEventListener("blur",()=>setTimeout(()=>{if(!document.hasFocus())api("window",{do:"hide_mini"})},200));
 addEventListener("keydown",e=>{if(e.key==="Escape")api("window",{do:"hide_mini"})});
+// a file or link dropped here must not navigate the window away from this page
+document.addEventListener("dragover",e=>{e.preventDefault();if(e.dataTransfer)e.dataTransfer.dropEffect="none"});
+document.addEventListener("drop",e=>e.preventDefault());
 function sse(){const es=new EventSource("/events");es.onmessage=e=>{try{const m=JSON.parse(e.data);
  if(m.type==="state"){S=m.payload;draw()}else if(m.type==="traffic"){$("#rx").textContent="↓ "+rate(m.payload.rx_bps);$("#tx").textContent="↑ "+rate(m.payload.tx_bps)}}catch(_){}};
  es.onopen=()=>api("state").then(s=>{if(s&&s.regions){S=s;draw()}});es.onerror=()=>{$("#sub").textContent=T("app offline")}}

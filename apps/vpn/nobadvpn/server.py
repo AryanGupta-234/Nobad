@@ -57,6 +57,22 @@ font:15px/1.6 system-ui,Segoe UI,sans-serif}main{max-width:420px;padding:24px;te
 h1{font-size:20px;margin:0 0 8px}p{color:#9aa3b2;margin:0}</style></head><body><main><h1>NOBAD VPN</h1>
 <p>This page only opens from NOBAD VPN itself. Open NOBAD VPN from the Start menu or the tray icon.</p>
 </main></body></html>"""
+# A window's top-level page that isn't one of NOBAD's pages (a link or image dropped onto it, a typed URL) gets this
+# instead of Edge's JSON viewer showing {"ok": false}. API callers (fetch, EventSource, images) still get JSON.
+BACK_PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8"><title>NOBAD VPN</title>
+<style>body{margin:0;display:grid;place-items:center;min-height:100vh;background:#07090d;color:#e8eaf0;
+font:15px/1.6 system-ui,Segoe UI,sans-serif}main{max-width:420px;padding:24px;text-align:center}
+h1{font-size:20px;margin:0 0 8px}p{color:#9aa3b2;margin:0 0 16px}a{color:#ff8a4c}</style></head><body><main>
+<h1>NOBAD VPN</h1><p>This isn't a NOBAD VPN page.</p><p><a href="__HOME__">Back to NOBAD VPN</a></p>
+</main></body></html>"""
+# The page's file can't be read and was never cached: the program folder is damaged or was removed (uninstalled or
+# half-updated while NOBAD kept running).
+MISSING_PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8"><title>NOBAD VPN</title>
+<style>body{margin:0;display:grid;place-items:center;min-height:100vh;background:#07090d;color:#e8eaf0;
+font:15px/1.6 system-ui,Segoe UI,sans-serif}main{max-width:420px;padding:24px;text-align:center}
+h1{font-size:20px;margin:0 0 8px}p{color:#9aa3b2;margin:0}</style></head><body><main><h1>NOBAD VPN</h1>
+<p>NOBAD VPN's program files are missing or damaged, so this window can't be shown. Quit NOBAD VPN from the tray
+icon and reinstall it.</p></main></body></html>"""
 _STATIC_OK = re.compile(r"^[A-Za-z0-9_\-]+(/[A-Za-z0-9_\-]+)*\.(js|css|json|svg|png|ico)$")
 # No inline scripts (#7): an injected <script> or on*= handler can't run, so an XSS can't drive the API through
 # the session cookie. Inline styles stay allowed (style attributes); they can't run code.
@@ -78,25 +94,30 @@ def _read_ui(rel):
     path = os.path.normpath(os.path.join(UI_DIR, rel))
     if not path.startswith(os.path.normpath(UI_DIR) + os.sep):
         return None
+    hit = _ui_cache.get(rel)
     try:
         mtime = os.stat(path).st_mtime_ns
-        hit = _ui_cache.get(rel)
         if hit and hit[0] == mtime:
             return hit[1]
         with open(path, "rb") as f:
             data = f.read()
     except OSError:
-        return None
+        # Gone or locked (NOBAD uninstalled or being updated while it runs): keep serving the copy read at start-up,
+        # so the windows (and the Disconnect button) keep working until NOBAD is restarted.
+        return hit[1] if hit else None
     with _ui_lock:
         _ui_cache[rel] = (mtime, data)
     return data
+
+
+_PRELOAD = (".html",) + tuple(CTYPES)     # every page and every type /static/ may serve
 
 
 def preload_ui():
     """Read every UI file once, in the background at start-up, so the first window paints from memory."""
     for dirpath, _dirs, files in os.walk(UI_DIR):
         for fn in files:
-            if fn.endswith((".html", ".js", ".css", ".png", ".ico", ".svg")):
+            if fn.endswith(_PRELOAD):
                 _read_ui(os.path.relpath(os.path.join(dirpath, fn), UI_DIR).replace(os.sep, "/"))
 
 
@@ -144,6 +165,28 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _wants_page(self):
+        """True for a window's top-level navigation, False for fetch/EventSource/image requests from a page."""
+        dest = self.headers.get("Sec-Fetch-Dest")
+        if dest:
+            return dest == "document"
+        return "text/html" in self.headers.get("Accept", "")
+
+    def _fail(self, code):
+        """GET refused (403) or not found (404): {"ok": false} for API callers, a way back for a window."""
+        if not self._wants_page():
+            return self._send(code, {"ok": False})
+        try:
+            home = "/mini" if urlparse(self.headers.get("Referer", "")).path == "/mini" else "/"
+        except ValueError:                          # e.g. "http://[": not worth more than the default
+            home = "/"
+        return self._send(code, BACK_PAGE.replace("__HOME__", home), "text/html; charset=utf-8")
+
+    def _unauthorized(self):
+        if self._wants_page():                      # a window or browser tab without the session: the locked page
+            return self._send(401, LOCKED_PAGE, "text/html; charset=utf-8")
+        return self._send(401, {"ok": False, "error": "auth"})
+
     def _page(self, name, path, qs):
         code = qs.get("k", [""])[0]
         if code:
@@ -160,7 +203,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(403, LOCKED_PAGE, "text/html; charset=utf-8")
         raw = _read_ui(name)
         if raw is None:
-            return self._send(404, {"ok": False})
+            return self._send(404, MISSING_PAGE, "text/html; charset=utf-8")
         html = raw.decode("utf-8").replace("__VER__", APP_VER)
         self._send(200, html, "text/html; charset=utf-8")
 
@@ -168,25 +211,25 @@ class Handler(BaseHTTPRequestHandler):
         u = urlparse(self.path)
         qs = parse_qs(u.query)
         if not self._origin_ok():
-            return self._send(403, {"ok": False})
+            return self._fail(403)
         if u.path == "/":
             return self._page("index.html", "/", qs)
         if u.path == "/mini":
             return self._page("mini.html", "/mini", qs)
         if u.path == "/favicon.ico":
             raw = _read_ui("brand/nobad.ico")
-            return self._send(200, raw, "image/x-icon") if raw else self._send(404, {"ok": False})
+            return self._send(200, raw, "image/x-icon") if raw else self._fail(404)
         if u.path.startswith("/static/"):
             rel = u.path[len("/static/"):]
             if not _STATIC_OK.match(rel):
-                return self._send(404, {"ok": False})
+                return self._fail(404)
             raw = _read_ui(rel)
             if raw is None:
-                return self._send(404, {"ok": False})
+                return self._fail(404)
             return self._send(200, raw, CTYPES.get(os.path.splitext(rel)[1].lower(), "application/octet-stream"))
         if u.path.startswith("/si/img/"):          # TMDB posters/logos via a validating, caching proxy (CSP stays 'self')
             if not self._auth():                   # only NOBAD's own windows: no fetching or disk-filling for others
-                return self._send(401, {"ok": False, "error": "auth"})
+                return self._unauthorized()
             parts = u.path.split("/")
             if len(parts) == 5:
                 from .streamintel.api_handlers import get as _si
@@ -194,16 +237,16 @@ class Handler(BaseHTTPRequestHandler):
                 if data:
                     ctype = "image/png" if data[:8].startswith(bytes([0x89]) + b"PNG") else "image/svg+xml" if b"<svg" in data[:200] else "image/jpeg"
                     return self._send(200, data, ctype)
-            return self._send(404, {"ok": False})
+            return self._fail(404)
         if u.path == "/api/ping":
             return self._send(200, {"app": "nobad-vpn", "ver": APP_VER})
         if not self._auth(qs):
-            return self._send(401, {"ok": False, "error": "auth"})
+            return self._unauthorized()
         if u.path == "/api/state":
             return self._send(200, ctx.tunnel.state())
         if u.path == "/events":
             return self._sse()
-        self._send(404, {"ok": False})
+        self._fail(404)
 
     def _sse(self):
         q = logbus.subscribe()
