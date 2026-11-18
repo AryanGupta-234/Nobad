@@ -60,4 +60,5 @@ DEFAULTS = {
     "wsearch_prev": "",             # Windows Search start type saved before NOBAD Find turned it off
     "theme": "dark",
     "glass": True,                  # see-through acrylic window on Windows 11 (follows Windows' transparency switch)
+    "bg_notice_seen": False,        # the one-time "closing keeps NOBAD Find ready" notice was dismissed
 }

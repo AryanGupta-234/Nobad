@@ -18,7 +18,7 @@ def test_index_refresh_only_when_visible():
     guard = re.search(r"function ixTick\(\)\s*\{[^}]*visibilityState", JS)
     assert guard, "the 2 s timer must check visibility"
     assert "2000" in JS
-    assert "nf-bg-notice" in JS
+    assert "bg_notice_seen" in JS
 
 
 def test_no_inline_scripts_or_handlers():
@@ -43,7 +43,7 @@ def test_settings_pages_exist():
 
 def test_every_setting_key_has_a_control():
     from nobadfind.const import DEFAULTS
-    internal = {"wsearch_prev", "pause_fullscreen"}          # old/internal: no control
+    internal = {"wsearch_prev", "pause_fullscreen", "bg_notice_seen"}     # old/internal: no control
     for key in set(DEFAULTS) - internal:
         assert f'"{key}"' in JS, f"no control for setting {key}"
     for label in ("Smart (recommended)", "Always pause", "Don't change"):
@@ -58,3 +58,23 @@ def test_home_sections_exist():
 
 def test_theme_setting_is_applied():
     assert "dataset.theme" in JS
+
+
+def test_native_dialogs_pause_the_heartbeat_check():
+    """I-6: confirm()/prompt() stop the page's timers; each goes through ask(), which tells the watchdog the page
+    is not on screen first, so a slow answer is never taken for a hung window (reload, then quit)."""
+    helper = re.search(r"async function ask\(fn, \.\.\.a\) \{(.*?)\n\}", JS, re.S)
+    assert helper and 'api("page_visible", false)' in helper.group(1) and "finally" in helper.group(1)
+    bare = re.findall(r"(?<![\w.])(confirm|prompt)\(", JS)
+    assert bare == [], "a native dialog outside ask()"
+    assert JS.count("ask(confirm,") == 2 and JS.count("ask(prompt,") == 1
+
+
+def test_background_notice_is_remembered_in_settings():
+    """I-7: the WebView runs InPrivate, so localStorage is gone every start; the notice's "seen" is a setting."""
+    from nobadfind import settings
+    from nobadfind.const import DEFAULTS
+    assert DEFAULTS["bg_notice_seen"] is False
+    assert settings.coerce("bg_notice_seen", "yes") is False and settings.coerce("bg_notice_seen", True) is True
+    assert "nf-bg-notice" not in JS
+    assert 'set_settings", { bg_notice_seen: true }' in JS

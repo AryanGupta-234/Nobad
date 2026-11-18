@@ -133,6 +133,13 @@ function select(i) {
   if (el) el.scrollIntoView({ block: "nearest" });
 }
 
+// A native dialog stops every timer on the page, heartbeat included: tell the watchdog the page is off screen
+// while it is up, so a slow answer is never taken for a hung window (reload, then quit).
+async function ask(fn, ...a) {
+  await api("page_visible", false);
+  try { return fn(...a); } finally { reportVisible(); }
+}
+
 async function act(kind, i = sel) {
   const x = results[i];
   if (!x) return;
@@ -140,7 +147,7 @@ async function act(kind, i = sel) {
   if (kind === "reveal") { const r = await api("reveal", x.id); if (r && !r.ok) toast("Couldn't show it in its folder."); }
   if (kind === "copy") { const r = await api("path_of", x.id); if (r && r.path) { await navigator.clipboard.writeText(r.path); toast("Path copied."); } }
   if (kind === "forget") {
-    if (!confirm(`Forget "${x.name}" and keep it out of the index from now on?`)) return;
+    if (!await ask(confirm, `Forget "${x.name}" and keep it out of the index from now on?`)) return;
     const r = await api("forget", x.id);
     if (r && r.ok) { toast("Forgotten. Undo it in Settings → Never search."); run(); }
   }
@@ -351,8 +358,8 @@ $("#ixNow").addEventListener("click", async e => {
   refreshStatus(true);
 });
 window.addEventListener("resize", () => { if ($("#v-index").classList.contains("on")) drawSpark(sparkData); });
-if (!localStorage.getItem("nf-bg-notice")) $("#bgNotice").hidden = false;
-$("#bgNoticeOk").addEventListener("click", () => { localStorage.setItem("nf-bg-notice", "1"); $("#bgNotice").hidden = true; });
+// The one-time notice: remembered in Settings (the window runs InPrivate, so page storage is gone every start).
+$("#bgNoticeOk").addEventListener("click", () => { api("set_settings", { bg_notice_seen: true }); $("#bgNotice").hidden = true; });
 
 // ---------- home: shown while the search box and filters are empty ----------
 const EXAMPLES = ["rent pdf from last week", "beach photos in march", "budget.xlsx", "newest in my downloads", "video bigger than 100 mb"];
@@ -590,7 +597,7 @@ settingsEl.addEventListener("click", async e => {
   } else if (t.dataset.reset) {
     await api("reset_learned", t.dataset.reset); toast("Forgotten."); renderSettings();
   } else if (t.id === "resetAll") {
-    if (confirm("Forget every app NOBAD Find has learned?")) { await api("reset_learned", null); toast("Forgotten."); renderSettings(); }
+    if (await ask(confirm, "Forget every app NOBAD Find has learned?")) { await api("reset_learned", null); toast("Forgotten."); renderSettings(); }
   } else if (t.id === "copyLink") {
     try { await navigator.clipboard.writeText("https://" + SP_LINK); toast("Link copied."); } catch (err) { toast("Couldn't copy the link."); }
   } else if (t.id === "getPhotoModel") {
@@ -607,13 +614,14 @@ settingsEl.addEventListener("click", async e => {
   } else if (t.id === "quitApp") {
     await api("quit");
   } else if (t.id === "wipe") {
-    if (prompt('This deletes the whole index. Type DELETE to confirm.') === "DELETE") { await api("wipe", "DELETE"); toast("Index deleted. Rebuilding."); }
+    if (await ask(prompt, "This deletes the whole index. Type DELETE to confirm.") === "DELETE") { await api("wipe", "DELETE"); toast("Index deleted. Rebuilding."); }
   }
 });
 
 window.addEventListener("pywebviewready", async () => {
   const s = await api("get_settings");
   if (s) applyTheme(s.theme);
+  if (s && !s.bg_notice_seen) $("#bgNotice").hidden = false;
   refreshStatus(false); loadRecent(); $("#q").focus();
 });
 $("#q").focus();
