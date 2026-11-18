@@ -203,9 +203,23 @@ Use the frontend-design skill; stay within the NOBAD look (one NOBAD orange, dar
 - Search results: the fixes from 2026-11-18 (linking words, Enter keeps the window) are already on branch
   `find-0.6.2`.
 
+### 6. Quick find bar (widget)
+
+A small floating search bar for quick access, like a launcher (maintainer, 2026-11-18):
+
+- Its own shortcut, set in Settings → General (default `ctrl+alt+space`; the existing `win+shift+space` keeps
+  opening the full window). Both use the existing hotkey code (`hotkey.py`) and the same validation.
+- A second pywebview window: borderless, always on top, centered in the upper third of the active monitor,
+  about 640 px wide, glass like the main window. Starts hidden and is created once (fast to show).
+- Type → up to 8 results under the bar (same `Api.search`, same filters understood from the words), with
+  icon, name and folder. ↑/↓ move, Enter opens, Ctrl+Enter shows in folder, Esc or clicking elsewhere hides it.
+  "Open in NOBAD Find" (Alt+Enter) moves the query into the full window.
+- Works whenever the hotkey process is alive (see the close behaviour above). Uses no extra process.
+- Setting to turn the bar off.
+
 ## Releases
 
-1. **0.7.0:** query fixes (done), governor + per-app memory, job object + watchdog + close behaviour,
+1. **0.7.0:** query fixes (done), quick find bar, governor + per-app memory, job object + watchdog + close behaviour,
    transparency on Indexing, splash, home, Settings reorganisation, hardware scan shown as info.
 2. **0.8.0:** model tiers, consent dialogs, auto-configure, vector rebuild.
 
@@ -220,6 +234,7 @@ Each ships through the release playbook (CI tag, website product page and releas
 - Detect lag/crashes of Find's own work and kill it automatically.
 - Use subagents and the UI/UX (frontend-design) skill to build it.
 - Closing with background indexing off: hotkey stays, everything else stops.
+- A quick find bar widget with its own Windows shortcut (0.7.0).
 - Bigger text models are multilingual (Hindi and mixed Hindi/English included).
 
 ## Calls made by the designer (correctable)
