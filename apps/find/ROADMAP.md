@@ -2,7 +2,8 @@
 
 **Read this first if you are picking NOBAD Find up, human or AI, even in the middle of a phase.**
 It records where the app is, why it is about to change, the exact order of work, and how to resume.
-Update the [status table](#status) at the end of every step you finish. Rules in [`AGENTS.md`](AGENTS.md) and the
+Update the [status table](#status) at the end of every step you finish. Where each file goes after the move:
+[`docs/STRUCTURE.md`](docs/STRUCTURE.md). Rules in [`AGENTS.md`](AGENTS.md) and the
 root [`AGENTS.md`](../../AGENTS.md) still apply and win over anything here.
 
 Written 2026-11-18, after NOBAD Find 0.7.0 shipped (CI tag `find-v0.7.0`, main `c47df03`).
