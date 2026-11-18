@@ -70,7 +70,7 @@ def close_splash():
 
 def main(argv=None):
     args = parse_args(argv)
-    if args.background or args.version or args.wsearch or args.uninstall:
+    if args.version or args.wsearch or args.uninstall:
         close_splash()                              # no window to wait for
     if args.version:
         print(f"{APP_NAME} {APP_VER}")
@@ -95,6 +95,8 @@ def main(argv=None):
 
     os.makedirs(DATA_DIR, exist_ok=True)
     init_log(LOG_PATH)
+    if args.background:
+        close_splash()                              # hidden start: there is no window to wait for
     log(f"{APP_NAME} {APP_VER} starting")
     from .indexer import Indexer
     from .settings import Settings
@@ -222,7 +224,9 @@ def main(argv=None):
     def started():
         if not args.background:
             win.events.loaded += close_splash       # the page is up: the start-up picture can go
-            threading.Timer(12, close_splash).start()   # in case the page never reports loading
+            late = threading.Timer(12, close_splash)    # in case the page never reports loading
+            late.daemon = True
+            late.start()
         threading.Thread(target=make_glass, daemon=True, name="glass").start()
         if show_evt:
             threading.Thread(target=show_requests, daemon=True, name="show").start()
