@@ -16,7 +16,7 @@ rulesets or bypass lists yourself.
 3. **Docs.** `apps/vpn/docs/FEATURES.md`, and `SYSTEM-INTEGRATION.md` for any new outbound connection or system
    change. User-visible features also go on `site-pages/products/vpn/index.html`. Add a line to `docs/ai/memory.md`.
 4. **Check.** In `apps/vpn`: `python -m pytest -q` and `python -m pyflakes nobadvpn tests` must both be clean.
-5. **Commit and push `main`.** Stage only the files you changed (never `apps/Sentinal/` or other people's
+5. **Commit and push `main`.** Stage only the files you changed (never other people's
    uncommitted work without asking). `git push origin main`.
 6. **Tag. CI builds and publishes. Never `gh release create`.**
    `git tag -a vpn-vX.Y.Z -m "NOBAD VPN X.Y.Z" && git push origin vpn-vX.Y.Z`, then

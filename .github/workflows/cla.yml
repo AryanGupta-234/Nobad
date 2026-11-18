@@ -10,16 +10,17 @@ on:
   pull_request_target:
     types: [opened, closed, synchronize]
 
-permissions:
-  actions: write
-  contents: write          # only to write the signatures file on the cla-signatures branch
-  pull-requests: write
-  statuses: write
+permissions: {}
 
 jobs:
   cla:
     name: cla
     runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: write        # only to write the signatures file on the cla-signatures branch
+      pull-requests: write
+      statuses: write
     if: >-
       github.event_name == 'pull_request_target' ||
       (github.event.issue.pull_request &&

@@ -16,13 +16,12 @@ Add to it when the maintainer decides something; delete lines that stop being tr
   (`CLA.md`, rights to Aryan Gupta and any future NOBAD company, bot in `cla.yml`); the brand is protected by
   `TRADEMARKS.md` (published forks use their own name; only official CI builds are "NOBAD …").
 - 2026-11-17 One NOBAD orange on every product page (no per-product accent colours).
-- 2026-11-16 Auto-approve for NOBAD File Bridge: PRs that change only `apps/file-bridge/` need no review (the folder has no CODEOWNERS owner; the ruleset requires 0 approvals but code-owner review) and merge once `file-bridge-tests` + `site-build` pass. Everything else needs @AryanGupta-234. No AI bot gets approval rights.
 - 2026-11-16 Website style: premium, precise cybersecurity look; every product page uses the shared component system
   (`site-pages/assets/product.css`) in NOBAD orange. Always full product names ("NOBAD VPN", "NOBAD File
   Bridge"). Product pages say what users get and why to trust it: no author names, tech stack or build-process detail.
   Credits and collaboration live in one "Built in the open" section on the home page, driven by a list in `assets/home.js`.
 - 2026-11-16 Brand: NOBAD is a studio with several products; motto "Software with a point of view." used verbatim everywhere (site titles/meta/footer, READMEs, repo description). The home page is the studio; each product has its own page under /products/ (vpn, file-bridge).
-- 2026-11-16 The remote file manager app is named NOBAD File Bridge (`apps/file-bridge/`), a plain name non-technical users understand. On-disk/keyring ids stay `remote-file-manager` so existing data keeps working.
+- 2026-11-16 The remote file manager app is named NOBAD File Bridge (now nobad-studio/file-bridge), a plain name non-technical users understand. On-disk/keyring ids stay `remote-file-manager` so existing data keeps working.
 - 2026-11-16 No built-in servers. The free-server path is the default onboarding: highlight it in the app (empty Servers tab), README, user manual and the VPN page (#free-servers).
 - 2026-11-16 Release "everywhere" every time: version, changelog, docs, site, `main`, CI release (playbook `release.md`).
 - 2026-11-16 Releases come only from CI (tag → `vpn-release.yml`, attested, immutable). Never create one by hand.
