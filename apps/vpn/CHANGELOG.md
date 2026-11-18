@@ -2,6 +2,17 @@
 
 All notable changes to NOBAD VPN. Versions follow [semantic versioning](https://semver.org/).
 
+## 1.6.2 · 2026-11-18
+
+### Fixed
+- **The quick view could show `{"ok": false}` instead of NOBAD VPN.** If NOBAD VPN's program files were removed or
+  replaced while it was still running (for example during an uninstall or an upgrade), the quick view opened from
+  the tray showed a raw error. NOBAD now keeps a copy of its screens from start-up, so both windows keep working
+  until you restart it, and says plainly if the program files are missing.
+- **Dropping a file or link onto a NOBAD window no longer navigates it away.** Both windows now stay on their own
+  page; a window that ever ends up elsewhere reloads itself when shown.
+- Opening one of NOBAD's internal addresses as a page shows a "Back to NOBAD VPN" page instead of raw data.
+
 ## 1.6.1 · 2026-11-16
 
 ### Fixed

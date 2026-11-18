@@ -41,6 +41,8 @@ Add to it when the maintainer decides something; delete lines that stop being tr
   the app still never runs elevated. Kernel drivers are out (signing, crash risk, no accuracy gain).
 - 2026-11-17 NOBAD Find has its own packaging in `apps/find/packaging/` (maintainer: never reuse the VPN's).
   Per-user Inno Setup installer, no admin; CI job `find-build` checks every PR; releases via `find-release.yml`.
+- 2026-11-18 NOBAD VPN 1.6.2: quick view {"ok": false} after the install was removed under a running app (UI now cached
+  at start-up), drops can't navigate windows (WebView2 NavigationStarting guard), HTML fallback for page navigations.
 - 2026-11-18 NOBAD Find roadmap (`apps/find/ROADMAP.md`): maintainer's aim is RAM/CPU/GPU first, then features.
   Measured 0.7.0: WebView2 425 MB in 7 processes; engine 549 MB working / 3.98 GB committed. Plan: measure →
   engine diet → named-pipe engine service → Flutter UI (Qt fallback) → 0.8.0 models. Status table in the roadmap.
