@@ -3,16 +3,16 @@ pywebview==6.2.1           # the window (Edge WebView2)
 sqlcipher3-wheels==0.5.7   # the encrypted index (SQLCipher with FTS5)
 pypdf==6.21.4              # text inside PDFs
 numpy==2.4.6               # meaning-search vectors
-onnxruntime==1.32.0        # runs the local meaning-search model
-tokenizers==0.23.3         # splits text for the model
+onnxruntime==1.27.0        # runs the local meaning-search model
+tokenizers==0.23.2         # splits text for the model
 # Words in photos and scanned PDFs: the OCR built into Windows, through its WinRT API (no model, no download)
 winrt-runtime==3.2.1
 winrt-Windows.Media.Ocr==3.2.1
 winrt-Windows.Graphics.Imaging==3.2.1
 winrt-Windows.Storage.Streams==3.2.1
-winrt-Windows.Globalization==4!10.0.28000.2957
+winrt-Windows.Globalization==3.2.1
 winrt-Windows.Foundation==3.2.1
 winrt-Windows.Foundation.Collections==3.2.1
 # Result previews: Windows' own thumbnails (the cache Explorer uses)
 winrt-Windows.Storage==3.2.1
-winrt-Windows.Storage.FileProperties==4!10.0.28000.2957
+winrt-Windows.Storage.FileProperties==3.2.1

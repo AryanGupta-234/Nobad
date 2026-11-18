@@ -29,5 +29,10 @@ updates:
     groups:
       find-minor:
         update-types: [minor, patch]
+    ignore:
+      # winrt-* must all move together on one version (apps/find/AGENTS.md); the 4!10.x line is a different
+      # package family and broke the install when bumped one by one (2026-11-18). Upgrade them by hand, tested.
+      - dependency-name: "winrt-*"
+        versions: [">=4"]
 
   # NOBAD File Bridge (pyproject.toml)
