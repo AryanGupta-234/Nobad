@@ -117,7 +117,8 @@ def main(argv=None):
                         quit_app=lambda: ui["api"].quit(), visible=lambda: ui["api"].visible,
                         names=lambda: ui["indexer"].worker_names())
     apps = AppMemory(store)
-    governor = Governor(settings, apps, activity, watchdog=watchdog)
+    governor = Governor(settings, apps, activity, watchdog=watchdog,
+                        release_idle=lambda: ui["indexer"].release_idle_models() if "indexer" in ui else None)
     governor.start()
     indexer = Indexer(store, settings, vindex, governor=governor)
     ui["indexer"] = indexer

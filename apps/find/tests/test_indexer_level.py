@@ -109,6 +109,16 @@ def test_quiet_game_session_is_reported_once_it_ends():
     assert apps.quiet == ["forza.exe", "forza.exe"]    # another game came to the front
 
 
+def test_laggy_game_session_is_not_quiet():
+    """M-6 (restored): a session in which the game lagged while NOBAD Find worked never counts as quiet."""
+    apps = Apps()
+    gv, _ = gov([smp(t=1.0, hung=True, find_cpu=10.0, **GAME), smp(t=2.0, **GAME),
+                 smp(t=3.0, foreground="code.exe"), smp(t=400.0, foreground="code.exe")], apps=apps)
+    for _ in range(4):
+        gv.tick()
+    assert apps.lags == ["forza.exe"] and apps.quiet == []
+
+
 def test_alt_tab_is_not_a_session_end():
     apps = Apps()
     gv, _ = gov([smp(t=1.0, **GAME), smp(t=100.0, foreground="code.exe"), smp(t=200.0, **GAME),
@@ -129,8 +139,8 @@ class Boom:
 
 def test_failing_app_memory_does_not_stop_the_decision():
     jobs = FakeJobs()
-    gv, act = gov([smp(t=1.0, hung=True, **GAME), smp(t=2.0, **GAME), smp(t=500.0, foreground="code.exe")],
-                  jobs=jobs, apps=Boom())
+    gv, act = gov([smp(t=1.0, hung=True, find_cpu=10.0, **GAME), smp(t=2.0, **GAME),
+                   smp(t=500.0, foreground="code.exe")], jobs=jobs, apps=Boom())
     for _ in range(3):
         gv.tick()
     assert jobs.WORKERS.caps[0] == 5 and gv.decision.level in (g.PAUSED, g.LIGHT, g.GENTLE)
@@ -276,3 +286,18 @@ def test_breathe_only_skips_at_full(monkeypatch):
     fg.decision = g.Decision(g.GENTLE, "")
     ix._breathe()
     assert waits == [0.25]
+
+
+def test_every_tick_lets_idle_models_go():
+    """I-11: with the window closed the indexer loop doesn't run, so the governor releases idle models."""
+    calls = []
+    it = iter([smp(t=1.0), smp(t=2.0)])
+    gv = Governor(S(), Apps(), Activity(), sense=lambda: next(it), jobs=FakeJobs(),
+                  release_idle=lambda: calls.append(1))
+    gv.tick()
+
+    def boom():
+        raise RuntimeError("model busy")
+    gv.release_idle = boom
+    assert gv.tick().level                          # a failing release never stops the governor
+    assert calls == [1]

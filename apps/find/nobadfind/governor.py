@@ -28,6 +28,7 @@ LIMITS = {
     "STEP_UP_AFTER": 30,
     "IDLE_AFTER": 120,
     "IDLE_CPU_MAX": 50,
+    "LAG_FIND_CPU": 5,       # NOBAD Find counts as working (so a lag may be learned) from this CPU share
 }
 
 _EASING = {
@@ -53,6 +54,7 @@ class Sample:
     battery: bool
     call: bool
     idle_s: float
+    foreground_is_self: bool = False     # the window in front is NOBAD Find's own (main window or bar)
 
 
 @dataclass
@@ -97,8 +99,10 @@ class Brain:
         return mode if mode in ("always", "smart", "off") else "smart"
 
     def _wanted(self, s):
-        """The level the sensors allow right now, with its reason."""
-        hot = ((s.cpu is not None and s.cpu >= LIMITS["HOT_CPU"])
+        """The level the sensors allow right now, with its reason. CPU is what the other apps use: Find's own
+        work must not count as you using the PC (Full would never hold while you're away)."""
+        others = None if s.cpu is None else max(0.0, s.cpu - (s.find_cpu or 0.0))
+        hot = ((others is not None and others >= LIMITS["HOT_CPU"])
                or (s.gpu is not None and s.gpu >= LIMITS["HOT_GPU"]))
         if not hot:
             self._hot_since = None
@@ -124,13 +128,15 @@ class Brain:
         if s.hung:
             lag = f"Paused: {_app(s.foreground)} isn't responding"
         elif hot_long:
-            lag = f"Paused: the PC is busy (CPU {round(s.cpu)}%)" if (
-                s.cpu is not None and s.cpu >= LIMITS["HOT_CPU"]
+            lag = f"Paused: the PC is busy (CPU {round(others)}%)" if (
+                others is not None and others >= LIMITS["HOT_CPU"]
             ) else f"Paused: the PC is busy (graphics {round(s.gpu)}%)"
         elif s.free_mb < LIMITS["LOW_FREE_MB"]:
             lag = f"Paused: low on memory ({s.free_mb} MB free)"
         if lag:
-            if not self._lag_recorded and s.foreground:
+            # learned only while Find is working, and never about Find's own window (still paused either way)
+            working = (s.find_cpu or 0.0) >= LIMITS["LAG_FIND_CPU"]
+            if not self._lag_recorded and s.foreground and working and not s.foreground_is_self:
                 self.apps.record_lag(s.foreground, s)
                 self._lag_recorded = True
             return PAUSED, lag
@@ -147,8 +153,8 @@ class Brain:
                                      f"make room for {_app(s.foreground)}")
                 return LIGHT, (f"Light: {_app(s.foreground)} is running, "
                                "so NOBAD Find uses 1 worker")
-        if (s.idle_s >= LIMITS["IDLE_AFTER"] and s.cpu is not None
-                and s.cpu < LIMITS["IDLE_CPU_MAX"]):
+        if (s.idle_s >= LIMITS["IDLE_AFTER"] and others is not None
+                and others < LIMITS["IDLE_CPU_MAX"]):
             return FULL, "Full: you're away"
         return GENTLE, "Gentle: you're using the PC"
 
@@ -207,7 +213,8 @@ class _SafeApps:
 
 
 class Governor(threading.Thread):
-    def __init__(self, settings, apps, activity, sense=None, every=2.0, jobs=None, watchdog=None):
+    def __init__(self, settings, apps, activity, sense=None, every=2.0, jobs=None, watchdog=None,
+                 release_idle=None):
         super().__init__(daemon=True, name="governor")
         self.settings, self.activity = settings, activity
         self.apps = _SafeApps(apps)                 # a store error must never stop the governor
@@ -215,6 +222,7 @@ class Governor(threading.Thread):
         self.every = every
         self.jobs = _jobs if jobs is None else jobs
         self.watchdog = watchdog
+        self.release_idle = release_idle            # models idle for a few minutes leave memory (window closed too)
         self.decision = Decision(GENTLE, "Gentle: starting up")
         self._history = deque(maxlen=HISTORY)
         self._stop_ev = threading.Event()
@@ -273,6 +281,11 @@ class Governor(threading.Thread):
                 self.watchdog.check()
         except Exception as e:
             log(f"watchdog failed: {type(e).__name__}", "warn")
+        try:
+            if self.release_idle is not None:
+                self.release_idle()
+        except Exception as e:
+            log(f"releasing idle models failed: {type(e).__name__}", "warn")
         return d
 
     def _read_usage(self):
@@ -313,7 +326,12 @@ class Governor(threading.Thread):
                       find_cpu=self._find_cpu(now), foreground=winapi.foreground_exe(),
                       game=winapi.fullscreen_game(), presentation=winapi.presentation_mode(),
                       hung=winapi.foreground_hung(), battery=self._slow[1], call=self._slow[2],
-                      idle_s=winapi.idle_seconds())
+                      idle_s=winapi.idle_seconds(), foreground_is_self=self._front_is_self())
+
+    @staticmethod
+    def _front_is_self():
+        hwnd = winapi.foreground_window()
+        return bool(hwnd) and winapi.window_pid(hwnd) == os.getpid()
 
     def _find_cpu(self, now):
         secs = self._usage["cpu_seconds"]

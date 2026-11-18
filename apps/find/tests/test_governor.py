@@ -139,14 +139,15 @@ def test_low_memory_pauses():
 def test_hung_foreground_records_lag_once():
     apps = FakeApps()
     b = brain(apps)
-    d = b.decide(smp(0, hung=True, foreground="game.exe", game=True))
+    w = dict(foreground="game.exe", game=True, find_cpu=10.0)      # NOBAD Find is working
+    d = b.decide(smp(0, hung=True, **w))
     assert d.level == g.PAUSED
     assert d.reason == "Paused: game isn't responding"
-    b.decide(smp(1, hung=True, foreground="game.exe", game=True))
+    b.decide(smp(1, hung=True, **w))
     assert len(apps.lags) == 1
     assert apps.lags[0][0] == "game.exe"
-    b.decide(smp(2, foreground="game.exe", game=True))
-    b.decide(smp(3, hung=True, foreground="game.exe", game=True))
+    b.decide(smp(2, **w))
+    b.decide(smp(3, hung=True, **w))
     assert len(apps.lags) == 2
 
 
@@ -200,9 +201,42 @@ def test_unknown_cpu_never_gives_full():
 def test_lag_recorded_when_app_becomes_known_mid_lag():
     apps = FakeApps()
     b = brain(apps)
-    b.decide(smp(0, free_mb=500))
+    b.decide(smp(0, free_mb=500, find_cpu=10.0))
     assert apps.lags == []
-    b.decide(smp(1, free_mb=500, foreground="game.exe", game=True))
+    b.decide(smp(1, free_mb=500, foreground="game.exe", game=True, find_cpu=10.0))
     assert [e for e, _ in apps.lags] == ["game.exe"]
-    b.decide(smp(2, free_mb=500, foreground="game.exe", game=True))
+    b.decide(smp(2, free_mb=500, foreground="game.exe", game=True, find_cpu=10.0))
     assert len(apps.lags) == 1
+
+
+def test_finds_own_cpu_does_not_count_as_you_using_the_pc():
+    """I-3: away, the PC at 85% of which NOBAD Find itself is 80%: Full holds (no flapping, no busy pause)."""
+    apps = FakeApps()
+    b = brain(apps)
+    levels = {b.decide(smp(t, cpu=85.0, find_cpu=80.0, idle_s=300 + t, foreground="code.exe")).level
+              for t in range(0, 62, 2)}
+    assert levels == {g.FULL} and apps.lags == []
+
+
+def test_busy_reason_shows_the_cpu_other_apps_use():
+    b = brain()
+    for t in range(0, 11):
+        d = b.decide(smp(t, cpu=95.0, find_cpu=5.0))
+    assert d.level == g.PAUSED and d.reason == "Paused: the PC is busy (CPU 90%)"
+
+
+def test_no_lag_is_learned_while_find_is_not_working():
+    """I-4: Find idle (window closed, nothing running): a hung app is not blamed on NOBAD Find."""
+    apps = FakeApps()
+    d = brain(apps).decide(smp(0, hung=True, foreground="word.exe", find_cpu=0.5))
+    assert d.level == g.PAUSED and apps.lags == []            # still paused, just not learned
+
+
+def test_no_lag_is_learned_about_finds_own_window():
+    apps = FakeApps()
+    b = brain(apps)
+    d = b.decide(smp(0, hung=True, foreground="nobadfind.exe", foreground_is_self=True, find_cpu=40.0))
+    assert d.level == g.PAUSED and apps.lags == []
+    b.decide(smp(1, foreground="word.exe", find_cpu=40.0))
+    b.decide(smp(2, hung=True, foreground="word.exe", find_cpu=40.0))
+    assert [e for e, _ in apps.lags] == ["word.exe"]
