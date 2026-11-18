@@ -1,0 +1,45 @@
+name: Bug report (NOBAD Find)
+description: Something in NOBAD Find doesn't work as expected
+labels: ["bug", "area:find"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping! For **security problems**, please don't use this form; see SECURITY.md (private reporting).
+        Please don't paste file names, paths or text from your own files unless you're happy for them to be public.
+  - type: input
+    id: version
+    attributes:
+      label: NOBAD Find version
+      description: Windows Settings → Apps → Installed apps → NOBAD Find (e.g. 0.6.0)
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      description: e.g. Windows 11 24H2 x64, Windows 10 22H2
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+      description: For a search problem, the question you typed and what you expected to find (describe the file, no need to share it).
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. ...\n2. ...\n3. ..."
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: [Search results / ranking, Plain-language questions, Meaning search, Photos / OCR, Filters and previews, Indexing / drives, Hotkey / "here", Windows Search switch, Installer / update, Window / UI, Other]
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: The log is at %LOCALAPPDATA%\NOBAD\Find\find.log. It can contain file names from your PC, so check it first and paste only the relevant lines.
