@@ -33,7 +33,7 @@ window.nfFocus = () => { tab("search"); const q = $("#q"); q.focus(); q.select()
 function tab(name) {
   document.querySelectorAll(".tab").forEach(b => b.classList.toggle("on", b.dataset.tab === name));
   document.querySelectorAll(".view").forEach(v => v.classList.toggle("on", v.id === "v-" + name));
-  if (name === "index") { refreshStatus(true); ixTick(); }
+  if (name === "index") refreshStatus(true);
   if (name === "settings") renderSettings();
 }
 document.querySelectorAll(".tab").forEach(b => b.addEventListener("click", () => tab(b.dataset.tab)));
@@ -198,7 +198,7 @@ function ixTick() {
 }
 setInterval(ixTick, 2000);
 setInterval(() => { if (document.visibilityState === "visible" && !$("#v-index").classList.contains("on")) refreshStatus(false); }, 15000);
-document.addEventListener("visibilitychange", ixTick);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") refreshStatus(false); });
 const reportVisible = () => api("page_visible", document.visibilityState === "visible");
 document.addEventListener("visibilitychange", reportVisible);
 reportVisible();
@@ -210,8 +210,9 @@ const LEVEL = {
   light: "Working very lightly", paused: "Paused",
 };
 const STATE = { waiting: "Waiting", running: "Working", done: "Done", off: "Off" };
-const num = n => Number(n || 0).toLocaleString();
-const mb = n => n >= 1024 ? (n / 1024).toFixed(1) + " GB" : (n >= 100 ? Math.round(n) : Number(n).toFixed(n < 10 ? 1 : 0)) + " MB";
+const fin = n => (Number.isFinite(Number(n)) ? Number(n) : 0);
+const num = n => fin(n).toLocaleString();
+const mb = v => { const n = fin(v); return n >= 1024 ? (n / 1024).toFixed(1) + " GB" : (n >= 100 ? Math.round(n) : n.toFixed(n < 10 ? 1 : 0)) + " MB"; };
 function span(sec) {
   sec = Math.max(0, Math.round(sec));
   if (sec < 45) return "under a minute";
@@ -225,21 +226,29 @@ function perTime(r, unit) {
 }
 const pct = v => (v == null ? "–" : Math.round(v) + "%");
 
+// The Now panel is built once (index.html) and updated in place, so the button keeps keyboard focus and the
+// live region only changes (and is only announced) when the level or the reason really changes.
 function paintNow(s) {
-  const lv = LEVEL[s.level] ? s.level : "light";
-  const el = $("#ixNow");
-  el.className = "now lv-" + lv;
-  el.innerHTML = `<span class="dot" aria-hidden="true"></span>
-    <div class="nowtext"><b>${esc(LEVEL[lv])}</b><p>${esc(s.reason || "")}</p></div>
-    <button class="btn${lv === "paused" ? "" : " ghost"}" id="ixPause" data-act="${lv === "paused" ? "resume" : "pause"}">${lv === "paused" ? "Resume" : "Pause for 1 hour"}</button>`;
+  const lv = LEVEL[s.level] ? s.level : "light", paused = lv === "paused";
+  $("#ixNow").className = "now lv-" + lv;
+  const lvEl = $("#ixLevel"), rsEl = $("#ixReason"), reason = s.reason || "";
+  if (lvEl.textContent !== LEVEL[lv]) lvEl.textContent = LEVEL[lv];
+  if (rsEl.textContent !== reason) rsEl.textContent = reason;
+  const b = $("#ixPause"), act = paused ? "resume" : "pause";
+  if (b.dataset.act !== act) {
+    b.dataset.act = act;
+    b.textContent = paused ? "Resume" : "Pause for 1 hour";
+    b.classList.toggle("ghost", !paused);
+  }
+  b.disabled = false;
 }
 // A <progress> element, not a styled <i>: the CSP forbids inline styles, and this needs none.
 const meter = (frac, busy) => `<progress class="meter" max="100"${busy ? "" : ` value="${Math.round(frac * 100)}"`}></progress>`;
 function paintPipeline(s) {
   $("#ixPipeline").innerHTML = (s.phases || []).map(p => {
-    const total = p.total || 0, known = total > 0;
-    const frac = p.state === "done" ? 1 : known ? Math.min(1, p.done / total) : 0;
-    const count = p.state === "off" ? "" : known ? `${num(p.done)} / ${num(total)}` : p.done ? num(p.done) : "";
+    const total = fin(p.total), done = fin(p.done), known = total > 0;
+    const frac = p.state === "done" ? 1 : known ? Math.min(1, done / total) : 0;
+    const count = p.state === "off" ? "" : known ? `${num(done)} / ${num(total)}` : done ? num(done) : "";
     const extra = p.state === "running"
       ? [perTime(p.rate, "files"), p.eta_s != null ? "done in " + span(p.eta_s) : ""].filter(Boolean).join(" · ") : "";
     return `<div class="phase ${esc(p.state)}"><span class="pl">${esc(p.label)}</span><span class="ps">${esc(STATE[p.state] || p.state)}</span>
@@ -251,7 +260,7 @@ function paintResources(s) {
   const r = s.resources || {};
   const stat = (v, l) => `<div class="stat"><b>${esc(v)}</b><span>${esc(l)}</span></div>`;
   $("#ixStats").innerHTML = stat(pct(r.cpu), "Processor") + stat(r.memory_mb != null ? mb(r.memory_mb) : "–", "Memory") +
-    stat(r.read_mb_s != null ? Number(r.read_mb_s).toFixed(r.read_mb_s < 10 ? 1 : 0) + " MB/s" : "–", "Disk reading") +
+    stat(r.read_mb_s != null ? fin(r.read_mb_s).toFixed(fin(r.read_mb_s) < 10 ? 1 : 0) + " MB/s" : "–", "Disk reading") +
     stat(r.gpu == null ? "Not used" : pct(r.gpu), "Graphics card");
   const ps = r.processes || [];
   $("#ixProcs").innerHTML = ps.length
@@ -311,12 +320,12 @@ function paintModels(s) {
   $("#ixModels").innerHTML = (s.models || []).map(m => {
     const dl = m.download;
     const where = m.device ? " on " + (m.device === "Windows" ? "Windows" : m.device) : "";
-    const state = dl ? `Downloading ${mb(dl.got_mb)} of ${mb(dl.size_mb)}${dl.mb_s ? " at " + Number(dl.mb_s).toFixed(1) + " MB/s" : ""}`
+    const state = dl ? `Downloading ${mb(dl.got_mb)} of ${mb(dl.size_mb)}${fin(dl.mb_s) ? " at " + fin(dl.mb_s).toFixed(1) + " MB/s" : ""}`
       : m.loaded ? "In use now" + where : m.on_disk ? "Ready, loads when needed" : "Not downloaded";
     const bits = [m.size_mb ? mb(m.size_mb) + " download" : "Built into Windows", m.license,
       m.loaded && m.memory_mb ? mb(m.memory_mb) + " of memory" : "", m.items ? num(m.items) + " items made" : ""].filter(Boolean);
     return `<div class="model${m.loaded ? " live" : ""}"><div class="mh"><b>${esc(m.name)}</b><span class="ms">${esc(state)}</span></div>
-      <p>${esc(bits.join(" · "))}</p>${dl && dl.size_mb ? meter(Math.min(1, dl.got_mb / dl.size_mb)) : ""}</div>`;
+      <p>${esc(bits.join(" · "))}</p>${dl && fin(dl.size_mb) > 0 ? meter(Math.min(1, fin(dl.got_mb) / fin(dl.size_mb))) : ""}</div>`;
   }).join("");
 }
 function clock(t) {

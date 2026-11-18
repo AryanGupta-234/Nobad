@@ -69,7 +69,11 @@
         <button class="btn ghost" id="bgNoticeOk">Got it</button>
       </div>
 
-      <div class="now" id="ixNow" aria-live="polite"></div>
+      <div class="now" id="ixNow">
+        <span class="dot" aria-hidden="true"></span>
+        <div class="nowtext" id="ixNowText" aria-live="polite"><b id="ixLevel"></b><p id="ixReason"></p></div>
+        <button class="btn ghost" id="ixPause" data-act="pause">Pause for 1 hour</button>
+      </div>
 
       <h3>What it is doing</h3>
       <div class="pipeline" id="ixPipeline"></div>

@@ -26,3 +26,11 @@ def test_no_inline_scripts_or_handlers():
         assert "src=" in m.group(1)
     assert not re.search(r"\son[a-z]+\s*=", HTML)
     assert 'style="' not in HTML
+
+
+def test_now_panel_is_built_once_and_updated_in_place():
+    body = JS.split("function paintNow(s) {", 1)[1].split("\n}\n", 1)[0]
+    assert "innerHTML" not in body, "paintNow must not rebuild the button/live region every tick"
+    assert 'id="ixPause"' in HTML and 'id="ixNowText"' in HTML
+    assert 'aria-live="polite"' in HTML.split('id="ixNowText"')[0].rsplit("<", 1)[1] + HTML.split('id="ixNowText"')[1].split(">")[0]
+    assert 'tab("index")' not in JS and "ixTick();" not in JS.split("function tab(name)")[1].split("}\n", 1)[0]
