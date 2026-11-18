@@ -1,12 +1,13 @@
 """Start NOBAD Find: one copy per user, the index, the indexer, the hotkey and the window."""
 import argparse
 import ctypes
+import json
 import os
 import sys
 import threading
 import time
 
-from . import embed, jobs, lifecycle, winapi
+from . import bar as quickbar, embed, jobs, lifecycle, winapi
 from .const import APP_NAME, APP_VER, DATA_DIR, DB_PATH, KEY_PATH, LOG_PATH, SETTINGS_PATH
 from .log import init as init_log, log
 
@@ -126,6 +127,16 @@ def main(argv=None):
                                 text_select=True)
     holder["w"] = win
     ui["win"] = win
+    bar_ctl = bar_win = None
+    if settings.get("bar"):
+        # The quick find bar: a second, small window that starts hidden; its own hotkey shows it.
+        bar_ctl = quickbar.Bar(lambda: bar_win, want_glass)
+        bar_api = quickbar.BarApi(api, bar_ctl, lambda text: to_main(text))
+        bar_win = webview.create_window(quickbar.TITLE, os.path.join(UI_DIR, "bar.html"), js_api=bar_api,
+                                        width=quickbar.WIDTH, height=quickbar.HEIGHT, min_size=(320, 40),
+                                        frameless=True, on_top=True, easy_drag=False, resizable=False, hidden=True,
+                                        background_color="#000000" if want_glass else "#07080a")
+        bar_win.events.closing += bar_ctl.closing
 
     def bring_up():
         api.visible = True
@@ -152,9 +163,19 @@ def main(argv=None):
         win.restore()
         win.evaluate_js("window.nfFocus && window.nfFocus()")
 
+    def to_main(text):
+        """The bar's Alt+Enter: the same way up as the hotkey (indexing restarts, the watchdog is told), then the
+        words are typed into the search box. The text goes in as JSON, never pasted into the script."""
+        bring_up()
+        win.evaluate_js("window.nfQuery && window.nfQuery(" + json.dumps(text) + ")")
+
+    def notice(text):
+        win.evaluate_js("window.nfNotice && window.nfNotice(" + json.dumps(text) + ")")
+
     from .hotkey import Hotkey
     hk = Hotkey(settings.get("hotkey"), bring_up)
     show_evt = winapi.show_event()
+    bar_hk = []
 
     def show_requests():
         # Starting NOBAD Find again (Start menu, desktop) while it runs signals this event.
@@ -187,8 +208,10 @@ def main(argv=None):
         if not args.background:
             threading.Thread(target=indexer.warm_models, daemon=True, name="warm").start()
         if not hk.start():
-            win.evaluate_js("window.nfNotice && window.nfNotice('The hotkey is used by another app. Pick another "
-                            "one in Settings.')")
+            notice("The hotkey is used by another app. Pick another one in Settings.")
+        if bar_ctl:
+            threading.Thread(target=bar_ctl.make_glass, daemon=True, name="barglass").start()
+            bar_hk.append(quickbar.start_hotkey(settings.get("bar_hotkey"), bar_ctl.toggle, notice))
 
     def closing():
         # with the hotkey ready, closing the window keeps NOBAD Find in the background, like a launcher;
@@ -203,6 +226,10 @@ def main(argv=None):
         indexer.stop()
         governor.stop()
         hk.stop()
+        for k in bar_hk:
+            k.stop()
+        if bar_ctl:
+            bar_ctl.close()                         # else the hidden bar would keep the app alive
         return True
 
     win.events.closing += closing

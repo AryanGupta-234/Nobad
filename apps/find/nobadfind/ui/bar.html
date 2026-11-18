@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'">
+<title>NOBAD Find bar</title>
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="bar.css">
+</head>
+<body>
+<div class="shell">
+  <div class="field">
+    <img class="mark" src="brand/nobad-mark.png" alt="">
+    <input id="q" type="text" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false"
+           aria-controls="list" aria-label="Find a file" placeholder="Find a file">
+    <span class="keys" id="keys" hidden>Enter opens · Ctrl+Enter shows in folder · Alt+Enter continues in Find</span>
+  </div>
+  <ul id="list" role="listbox" aria-label="Results"></ul>
+</div>
+<script src="bar.js"></script>
+</body>
+</html>

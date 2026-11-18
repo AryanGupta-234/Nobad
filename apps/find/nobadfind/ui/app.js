@@ -67,6 +67,9 @@ $("#fHere").addEventListener("click", () => { filters.folder = hereFolder; paint
 $("#fClear").addEventListener("click", () => { Object.keys(filters).forEach(k => filters[k] = ""); paintFilters(); run(); $("#q").focus(); });
 window.nfHere = async () => { const r = await api("here_folder"); hereFolder = (r && r.path) || ""; paintFilters(); if ($("#q").value.trim()) run(); };
 
+// The quick find bar hands its words over (Alt+Enter): type them here and search.
+window.nfQuery = text => { tab("search"); const q = $("#q"); q.value = String(text || ""); q.focus(); run(); };
+
 async function run() {
   const text = $("#q").value;
   const my = ++seq;
@@ -381,6 +384,8 @@ const GROUPS = [
   ]],
   ["Launch", [
     ["hotkey", "txt", "Hotkey", "For example win+shift+space or ctrl+alt+f. Takes effect at the next start."],
+    ["bar", "switch", "Quick find bar", "A small search box on its own shortcut that shows over whatever you are doing. Takes effect at the next start."],
+    ["bar_hotkey", "txt", "Quick find bar shortcut", "For example ctrl+alt+space or win+alt+f. Takes effect at the next start."],
     ["autostart", "switch", "Start with Windows", "Starts hidden; the hotkey opens it."],
     ["hide_after_open", "switch", "Hide after opening a file", "Off: the window stays up after Enter opens a file. On: it hides, like a launcher."],
     ["_quit", "quit", "Quit NOBAD Find", "Closing the window keeps NOBAD Find running in the background so the hotkey works. This stops it completely, indexing included, until you start it again."],
