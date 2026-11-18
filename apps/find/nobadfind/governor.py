@@ -73,11 +73,11 @@ def workers_for(level, plan):
     return 0
 
 
-def _app(exe):
+def _app(exe, unknown="an app"):
     name = (exe or "").lower()
     if name.endswith(".exe"):
         name = name[:-4]
-    return name or "a game"
+    return name or unknown
 
 
 def _prefix(level):
@@ -145,13 +145,13 @@ class Brain:
         if s.game:
             mode = self._games_mode()
             if mode == "always":
-                return PAUSED, f"Paused: {_app(s.foreground)} is running"
+                return PAUSED, f"Paused: {_app(s.foreground, 'a game')} is running"
             if mode == "smart":
                 learned = self.apps.start_level(s.foreground) if s.foreground else None
                 if learned in ORDER and ORDER.index(learned) < ORDER.index(LIGHT):
                     return learned, (f"{_prefix(learned)}: NOBAD Find learned to "
-                                     f"make room for {_app(s.foreground)}")
-                return LIGHT, (f"Light: {_app(s.foreground)} is running, "
+                                     f"make room for {_app(s.foreground, 'a game')}")
+                return LIGHT, (f"Light: {_app(s.foreground, 'a game')} is running, "
                                "so NOBAD Find uses 1 worker")
         if (s.idle_s >= LIMITS["IDLE_AFTER"] and others is not None
                 and others < LIMITS["IDLE_CPU_MAX"]):

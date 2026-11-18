@@ -77,3 +77,69 @@ def test_splash_closed_in_app():
     assert "pyi_splash" in src and ".close()" in src and "except ImportError" in src
     assert "Splash(" in (root / "packaging" / "nobadfind.spec").read_text(encoding="utf-8")
     assert (root / "nobadfind" / "ui" / "brand" / "splash.png").exists()
+
+
+def _launch_module(monkeypatch):
+    import importlib.util
+    monkeypatch.setenv("PYINSTALLER_SUPPRESS_SPLASH_SCREEN", "0")     # put back after the test
+    path = pathlib.Path(__file__).resolve().parent.parent / "packaging" / "launch.py"
+    spec = importlib.util.spec_from_file_location("nf_launch_under_test", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)                 # no pyi_splash here: nothing is closed on import
+    import os
+    assert os.environ["PYINSTALLER_SUPPRESS_SPLASH_SCREEN"] == "1"    # workers started later never show it
+    return mod
+
+
+def test_no_splash_for_starts_without_a_window(monkeypatch):
+    """M-1: --background (Windows login), --version, --wsearch, --uninstall, worker processes and a second start
+    close the start-up picture before the heavy imports; a normal first start keeps it until the page loads."""
+    import types
+    launch = _launch_module(monkeypatch)
+    closed = []
+    monkeypatch.setitem(sys.modules, "pyi_splash", types.SimpleNamespace(close=lambda: closed.append(1)))
+    monkeypatch.setattr(launch, "already_running", lambda: False)
+    for argv in (["x", "--background"], ["x", "--version"], ["x", "--wsearch", "auto"], ["x", "--wsearch=demand"],
+                 ["x", "--uninstall"], ["x", "--multiprocessing-fork", "parent_pid=1", "pipe_handle=2"]):
+        assert launch.close_splash_early(argv) is True, argv
+    assert launch.close_splash_early(["x"]) is False and len(closed) == 6
+    monkeypatch.setattr(launch, "already_running", lambda: True)
+    assert launch.close_splash_early(["x"]) is True
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows mutex")
+def test_already_running_sees_the_app_mutex(monkeypatch):
+    import ctypes
+    launch = _launch_module(monkeypatch)
+    assert launch.already_running() is False
+    k = ctypes.WinDLL("kernel32", use_last_error=True)
+    k.CreateMutexW.restype = ctypes.c_void_p
+    k.CreateMutexW.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_wchar_p]
+    k.CloseHandle.argtypes = [ctypes.c_void_p]
+    h = k.CreateMutexW(None, False, launch.MUTEX)
+    try:
+        assert launch.already_running() is True
+    finally:
+        k.CloseHandle(h)
+
+
+def test_watchdog_hooks_are_safe_before_the_pieces_exist():
+    """M-3: the governor (and its watchdog) start before the indexer, api and window: no KeyError every 2 s."""
+    ui = {}
+    hooks = app.ui_hooks(ui)
+    assert hooks["visible"]() is False and hooks["names"]() == {}
+    for k in ("release", "recycle", "release_idle", "reload_ui", "quit_app"):
+        assert hooks[k]() is None
+
+    class Ix:
+        def worker_names(self):
+            return {7: "text reader"}
+    ui["indexer"] = Ix()
+    assert hooks["names"]() == {7: "text reader"}
+
+
+def test_logging_starts_before_the_job_setup():
+    """M-2: jobs.setup() logs its failures, so the log must be open first."""
+    src = (pathlib.Path(__file__).resolve().parent.parent / "nobadfind" / "app.py").read_text(encoding="utf-8")
+    body = src[src.index("def main("):]
+    assert body.index("init_log(LOG_PATH)") < body.index("jobs.setup()")

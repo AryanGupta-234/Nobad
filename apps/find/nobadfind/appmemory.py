@@ -27,7 +27,7 @@ def _reason(level, lags):
     if level is None:
         return "No recent lag, so NOBAD Find works normally while it runs."
     if level == g.PAUSED:
-        n = "twice" if lags == 2 else f"{lags} times"
+        n = {1: "once", 2: "twice"}.get(lags, f"{lags} times")
         return f"Lagged {n} in the last {WINDOW_DAYS} days, so NOBAD Find pauses while it runs."
     if lags <= 1:
         return "Lagged once, so NOBAD Find works with 1 worker while it runs."

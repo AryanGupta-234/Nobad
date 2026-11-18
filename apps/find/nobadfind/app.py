@@ -68,6 +68,23 @@ def close_splash():
         log(f"start-up picture: {type(e).__name__}", "warn")
 
 
+def ui_hooks(ui):
+    """What the watchdog and the governor reach through ui, which fills up as the pieces are made. The governor
+    starts first, so each hook is a no-op (or a safe default) until its piece exists."""
+    def on(key, fn, default=None):
+        def call():
+            obj = ui.get(key)
+            return default if obj is None else fn(obj)
+        return call
+    return {"release": on("indexer", lambda i: i.release_models()),
+            "recycle": on("indexer", lambda i: i.recycle_workers()),
+            "release_idle": on("indexer", lambda i: i.release_idle_models()),
+            "names": on("indexer", lambda i: i.worker_names(), {}),
+            "reload_ui": on("win", lambda w: w.evaluate_js("location.reload()")),
+            "quit_app": on("api", lambda a: a.quit()),
+            "visible": on("api", lambda a: bool(a.visible), False)}
+
+
 def main(argv=None):
     args = parse_args(argv)
     if args.version or args.wsearch or args.uninstall:
@@ -91,10 +108,9 @@ def main(argv=None):
         if not args.background:
             winapi.ask_running_copy_to_show()
         return 0
-    jobs.setup()                    # before any worker or the window: nothing Find starts can outlive it
-
     os.makedirs(DATA_DIR, exist_ok=True)
-    init_log(LOG_PATH)
+    init_log(LOG_PATH)              # first, so a job-setup failure is logged
+    jobs.setup()                    # before any worker or the window: nothing Find starts can outlive it
     if args.background:
         close_splash()                              # hidden start: there is no window to wait for
     log(f"{APP_NAME} {APP_VER} starting")
@@ -112,14 +128,11 @@ def main(argv=None):
     activity = Activity()
     from .watchdog import Watchdog
     ui = {}      # the pieces the watchdog reaches later: window, api, indexer
-    watchdog = Watchdog(activity, release=lambda: ui["indexer"].release_models(),
-                        recycle=lambda: ui["indexer"].recycle_workers(),
-                        reload_ui=lambda: ui["win"].evaluate_js("location.reload()"),
-                        quit_app=lambda: ui["api"].quit(), visible=lambda: ui["api"].visible,
-                        names=lambda: ui["indexer"].worker_names())
+    hooks = ui_hooks(ui)
+    watchdog = Watchdog(activity, **{k: hooks[k] for k in ("release", "recycle", "reload_ui", "quit_app",
+                                                           "visible", "names")})
     apps = AppMemory(store)
-    governor = Governor(settings, apps, activity, watchdog=watchdog,
-                        release_idle=lambda: ui["indexer"].release_idle_models() if "indexer" in ui else None)
+    governor = Governor(settings, apps, activity, watchdog=watchdog, release_idle=hooks["release_idle"])
     governor.start()
     indexer = Indexer(store, settings, vindex, governor=governor, activity=activity)
     ui["indexer"] = indexer

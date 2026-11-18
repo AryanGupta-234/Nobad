@@ -240,3 +240,10 @@ def test_no_lag_is_learned_about_finds_own_window():
     b.decide(smp(1, foreground="word.exe", find_cpu=40.0))
     b.decide(smp(2, hung=True, foreground="word.exe", find_cpu=40.0))
     assert [e for e, _ in apps.lags] == ["word.exe"]
+
+
+def test_unknown_app_is_an_app_unless_it_is_a_game():
+    """M-7: with no exe name, a non-game reason says "an app"; game reasons keep "a game"."""
+    assert brain().decide(smp(hung=True)).reason == "Paused: an app isn't responding"
+    assert brain(games_mode="always").decide(smp(game=True)).reason == "Paused: a game is running"
+    assert brain().decide(smp(game=True)).reason.startswith("Light: a game is running")

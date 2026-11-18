@@ -108,3 +108,10 @@ def test_activity_keeps_50_newest():
     assert len(r) == 50 and r[0]["text"] == "n59" and r[-1]["text"] == "n10"
     assert set(r[0]) == {"t", "kind", "text"}
     assert [x["text"] for x in a.recent(2)] == ["n59", "n58"]
+
+
+def test_paused_reason_after_pruning_to_one_lag_says_once():
+    """M-7: an app kept at PAUSED whose old lags aged out reads "Lagged once", never "Lagged 1 times"."""
+    from nobadfind.appmemory import _reason
+    assert _reason(g.PAUSED, 1).startswith("Lagged once in the last 30 days")
+    assert _reason(g.PAUSED, 2).startswith("Lagged twice") and _reason(g.PAUSED, 3).startswith("Lagged 3 times")
