@@ -89,9 +89,15 @@ def main(argv=None):
     from .appmemory import AppMemory
     from .governor import Governor
     activity = Activity()
-    governor = Governor(settings, AppMemory(store), activity)
+    from .watchdog import Watchdog
+    ui = {}      # the pieces the watchdog reaches later: window, api, indexer
+    watchdog = Watchdog(activity, release=lambda: ui["indexer"].release_models(),
+                        reload_ui=lambda: ui["win"].evaluate_js("location.reload()"),
+                        quit_app=lambda: ui["api"].quit(), visible=lambda: ui["api"].visible)
+    governor = Governor(settings, AppMemory(store), activity, watchdog=watchdog)
     governor.start()
     indexer = Indexer(store, settings, vindex, governor=governor)
+    ui["indexer"] = indexer
     # Closing the window with background indexing off stops the indexer (lifecycle "hide_idle"); opening it
     # again starts it. Started hidden (with Windows), indexing follows the same setting.
     win_life = lifecycle.Window(indexer, bool(args.background and not settings.get("keep_background")), log)
@@ -106,6 +112,8 @@ def main(argv=None):
     from .api import Api
     holder = {}
     api = Api(store, settings, indexer, vindex, lambda: holder.get("w"))
+    api.watchdog, api.visible = watchdog, not args.background
+    ui["api"] = api
     api.governor, api.activity = governor, activity      # the status page reads these
     want_glass = settings.get("glass") and winapi.transparency_allowed()
     if want_glass:
@@ -115,8 +123,11 @@ def main(argv=None):
                                 hidden=args.background,
                                 text_select=True)
     holder["w"] = win
+    ui["win"] = win
 
     def bring_up():
+        api.visible = True
+        watchdog.window_shown()
         front = winapi.foreground_window()          # before our window takes the front: where you were
         wanted(False)
         if not front or winapi.window_pid(front) == os.getpid():
@@ -148,6 +159,8 @@ def main(argv=None):
         while not getattr(api, "_quitting", False):
             if winapi.wait_event(show_evt, 1000):
                 api.here = ""
+                api.visible = True
+                watchdog.window_shown()
                 wanted(False)
                 win.show()
                 win.restore()
@@ -180,6 +193,7 @@ def main(argv=None):
         # unless background indexing is on, everything but this one idle process stops (lifecycle.on_close)
         mode = lifecycle.on_close(settings, hk.ok, getattr(api, "_quitting", False))
         if mode != "quit":
+            api.visible = False
             win.hide()
             if mode == "hide_idle":
                 wanted(True)

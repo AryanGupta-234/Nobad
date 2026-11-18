@@ -22,6 +22,8 @@ class Api:
         self._indexer = indexer
         self._vindex = vindex
         self._win = window_ref            # callable returning the pywebview window (or None)
+        self.watchdog = None              # set by app.py
+        self.visible = True               # the main window is shown (the watchdog expects heartbeats)
         self.here = ""                    # the Explorer folder the hotkey was pressed in (see app.bring_up)
         self._model = {"state": "ready" if embed.model_ready() else "missing", "got": 0, "size": 0, "error": ""}
         self._photo_model = {"state": "ready" if photo.model_ready() else "missing", "got": 0, "size": 0, "error": ""}
@@ -241,7 +243,13 @@ class Api:
         return r
 
     # ---------- window ----------
+    def heartbeat(self):
+        if self.watchdog is not None:
+            self.watchdog.beat()
+        return {"ok": True}
+
     def hide(self):
+        self.visible = False
         w = self._win()
         if w:
             w.hide()

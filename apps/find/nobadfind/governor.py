@@ -207,13 +207,14 @@ class _SafeApps:
 
 
 class Governor(threading.Thread):
-    def __init__(self, settings, apps, activity, sense=None, every=2.0, jobs=None):
+    def __init__(self, settings, apps, activity, sense=None, every=2.0, jobs=None, watchdog=None):
         super().__init__(daemon=True, name="governor")
         self.settings, self.activity = settings, activity
         self.apps = _SafeApps(apps)                 # a store error must never stop the governor
         self.brain = Brain(settings, self.apps)
         self.every = every
         self.jobs = _jobs if jobs is None else jobs
+        self.watchdog = watchdog
         self.decision = Decision(GENTLE, "Gentle: starting up")
         self._history = deque(maxlen=HISTORY)
         self._stop_ev = threading.Event()
@@ -267,6 +268,11 @@ class Governor(threading.Thread):
             self._track_session(s)
         except Exception as e:
             log(f"governor session tracking failed: {type(e).__name__}", "warn")
+        try:
+            if self.watchdog is not None:
+                self.watchdog.check()
+        except Exception as e:
+            log(f"watchdog failed: {type(e).__name__}", "warn")
         return d
 
     def _read_usage(self):
