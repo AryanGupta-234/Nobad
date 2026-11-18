@@ -134,8 +134,11 @@ bool Win32Window::Create(const std::wstring& title,
   UINT dpi = FlutterDesktopGetDpiForMonitor(monitor);
   double scale_factor = dpi / 96.0;
 
-  HWND window = CreateWindow(
-      window_class, title.c_str(), WS_OVERLAPPEDWINDOW,
+  // The quick find bar is a frameless tool window on top (no taskbar button, no Alt+Tab entry).
+  const DWORD style = popup_ ? WS_POPUP : WS_OVERLAPPEDWINDOW;
+  const DWORD ex_style = popup_ ? (WS_EX_TOOLWINDOW | WS_EX_TOPMOST) : 0;
+  HWND window = CreateWindowEx(
+      ex_style, window_class, title.c_str(), style,
       Scale(origin.x, scale_factor), Scale(origin.y, scale_factor),
       Scale(size.width, scale_factor), Scale(size.height, scale_factor),
       nullptr, nullptr, GetModuleHandle(nullptr), this);
@@ -145,11 +148,20 @@ bool Win32Window::Create(const std::wstring& title,
   }
 
   UpdateTheme(window);
+  if (popup_) {
+    const DWORD corner = 2;  // DWMWA_WINDOW_CORNER_PREFERENCE = DWMWCP_ROUND (Windows 11)
+    DwmSetWindowAttribute(window, 33, &corner, sizeof(corner));
+  }
 
   return OnCreate();
 }
 
 bool Win32Window::Show() {
+  if (popup_) {
+    const bool shown = ShowWindow(window_handle_, SW_SHOW);
+    SetForegroundWindow(window_handle_);
+    return shown;
+  }
   return ShowWindow(window_handle_, SW_SHOWNORMAL);
 }
 
@@ -280,8 +292,9 @@ void Win32Window::UpdateTheme(HWND const window) {
                                RRF_RT_REG_DWORD, nullptr, &light_mode,
                                &light_mode_size);
 
-  if (result == ERROR_SUCCESS) {
-    BOOL enable_dark_mode = light_mode == 0;
+  (void)result;
+  {
+    BOOL enable_dark_mode = TRUE;  // NOBAD Find is dark first
     DwmSetWindowAttribute(window, DWMWA_USE_IMMERSIVE_DARK_MODE,
                           &enable_dark_mode, sizeof(enable_dark_mode));
   }

@@ -49,6 +49,9 @@ class Win32Window {
   // window properties. Returns nullptr if the window has been destroyed.
   HWND GetHandle();
 
+  // NOBAD Find quick find bar: a frameless, always-on-top tool window (call before Create).
+  void SetPopup(bool popup) { popup_ = popup; }
+
   // If true, closing this window will quit the application.
   void SetQuitOnClose(bool quit_on_close);
 
@@ -73,6 +76,8 @@ class Win32Window {
 
  private:
   friend class WindowClassRegistrar;
+
+  bool popup_ = false;
 
   // OS callback called by message pump. Handles the WM_NCCREATE message which
   // is passed when the non-client area is being created and enables automatic

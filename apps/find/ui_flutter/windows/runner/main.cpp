@@ -1,9 +1,32 @@
 #include <flutter/dart_project.h>
 #include <flutter/flutter_view_controller.h>
+#include <flutter_windows.h>
 #include <windows.h>
+
+#include <algorithm>
 
 #include "flutter_window.h"
 #include "utils.h"
+
+// The quick find bar: 640 x 64 (logical) on the monitor with the mouse, centered,
+// a third of the way down its work area (the same rule as nobadfind/bar.py).
+static void PlaceBar(HWND hwnd) {
+  POINT pt{};
+  GetCursorPos(&pt);
+  HMONITOR monitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
+  MONITORINFO info{};
+  info.cbSize = sizeof(info);
+  if (!GetMonitorInfo(monitor, &info)) {
+    return;
+  }
+  const double scale = FlutterDesktopGetDpiForMonitor(monitor) / 96.0;
+  const RECT& r = info.rcWork;
+  const int w = static_cast<int>(640 * scale + 0.5);
+  const int h = static_cast<int>(64 * scale + 0.5);
+  const int x = r.left + (r.right - r.left - w) / 2;
+  const int y = r.top + (r.bottom - r.top) / 3 - h / 2;
+  SetWindowPos(hwnd, HWND_TOPMOST, x, y, w, h, SWP_NOACTIVATE);
+}
 
 int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
                       _In_ wchar_t *command_line, _In_ int show_command) {
@@ -22,13 +45,22 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   std::vector<std::string> command_line_arguments =
       GetCommandLineArguments();
 
+  const bool bar = std::find(command_line_arguments.begin(),
+                             command_line_arguments.end(),
+                             "--bar") != command_line_arguments.end();
+
   project.set_dart_entrypoint_arguments(std::move(command_line_arguments));
 
   FlutterWindow window(project);
-  Win32Window::Point origin(10, 10);
-  Win32Window::Size size(1280, 720);
-  if (!window.Create(L"nobad_find", origin, size)) {
+  window.SetPopup(bar);
+  Win32Window::Point origin(80, 60);
+  Win32Window::Size size = bar ? Win32Window::Size(640, 64)
+                               : Win32Window::Size(1080, 720);
+  if (!window.Create(bar ? L"NOBAD Find bar" : L"NOBAD Find", origin, size)) {
     return EXIT_FAILURE;
+  }
+  if (bar) {
+    PlaceBar(window.GetHandle());  // before the first frame shows it
   }
   window.SetQuitOnClose(true);
 
