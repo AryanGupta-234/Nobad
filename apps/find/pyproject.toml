@@ -28,7 +28,7 @@ dependencies = [
   "winrt-Windows.Foundation==3.2.1",
   "winrt-Windows.Foundation.Collections==3.2.1",
   "winrt-Windows.Storage==3.2.1",
-  "winrt-Windows.Storage.FileProperties==4!10.0.28000.2957",
+  "winrt-Windows.Storage.FileProperties==3.2.1",
 ]
 
 [project.optional-dependencies]
