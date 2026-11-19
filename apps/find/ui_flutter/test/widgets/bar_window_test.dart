@@ -38,7 +38,7 @@ void main() {
     await type(tester, 'report');
     expect(find.textContaining('report '), findsNWidgets(8));
     expect(w.fits.last, 8);
-    expect(find.text('Enter opens · Ctrl+Enter shows in folder · Esc hides'), findsOneWidget);
+    expect(find.text('Enter opens · Ctrl+Enter shows in folder · Alt+Enter full window · Esc hides'), findsOneWidget);
 
     await type(tester, '');
     expect(w.fits.last, 0);
@@ -59,15 +59,28 @@ void main() {
     await type(tester, 'tax');
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200)); // the bar fades, then hides
     expect(engine.opened, [2]);
     expect(w.calls, ['hide']);
 
     await type(tester, 'tax');
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
     expect(w.calls, ['hide', 'hide']);
     expect(engine.opened, [2]);
+  });
+
+  testWidgets('Alt+Enter hands the words to the main window and hides', (tester) async {
+    final engine = FakeEngine();
+    final w = await pumpBar(tester, engine);
+    await type(tester, 'tax pdf');
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(engine.calls, contains('to_main'));
+    expect(w.calls, ['hide']);
+    expect(engine.opened, isEmpty);
   });
 
   testWidgets('a file that is gone keeps the bar up', (tester) async {
@@ -77,6 +90,7 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pump();
     expect(w.calls, isEmpty);
+    expect(find.text("That file isn't there any more."), findsOneWidget);
   });
 
   testWidgets('the bar hotkey shows it, empty and focused', (tester) async {

@@ -635,13 +635,14 @@
         "wsearch_prev": {"enum": ["", "auto", "delayed-auto", "demand", "disabled"], "description": "Read-only: set_settings ignores it."},
         "theme": {"enum": ["dark", "light"]},
         "glass": {"type": "boolean"},
-        "bg_notice_seen": {"type": "boolean"}
+        "bg_notice_seen": {"type": "boolean"},
+        "welcome_seen": {"type": "boolean"}
       },
       "required": ["roots", "exclude", "content", "content_max_mb", "semantic", "photo_meaning",
                    "allow_photo_model_download", "allow_model_download", "src_mail", "ocr", "index_removable",
                    "index_network", "pause_on_battery", "pause_fullscreen", "games_mode", "keep_background", "bar",
                    "bar_hotkey", "pause_on_call", "workers", "hotkey", "autostart", "hide_after_open", "wsearch_prev",
-                   "theme", "glass", "bg_notice_seen"],
+                   "theme", "glass", "bg_notice_seen", "welcome_seen"],
       "additionalProperties": false
     },
     "settings_changes": {
@@ -673,7 +674,8 @@
         "hide_after_open": {"type": "boolean"},
         "theme": {"enum": ["dark", "light"]},
         "glass": {"type": "boolean"},
-        "bg_notice_seen": {"type": "boolean"}
+        "bg_notice_seen": {"type": "boolean"},
+        "welcome_seen": {"type": "boolean"}
       },
       "additionalProperties": false
     }

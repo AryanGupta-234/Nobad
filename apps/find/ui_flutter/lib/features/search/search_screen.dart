@@ -1,4 +1,7 @@
-/// The main window's search screen: rail, search box, what the question was understood as, results, status line.
+/// Search: the box, the filter bar, what the question was understood as, the results (or Home), the status line.
+///
+/// Keys (0.7.0): ↑/↓ choose, Enter opens, Ctrl+Enter shows in folder, Ctrl+C copies the path (when no text is
+/// selected in the box), Shift+Delete forgets, Esc clears the box and, when it's empty, hides the window.
 library;
 
 import 'dart:async';
@@ -7,56 +10,87 @@ import 'package:flutter/rendering.dart' show RenderAbstractViewport;
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../app/scope.dart';
 import '../../app/theme/colors.dart';
+import '../../app/theme/tokens.dart';
 import '../../app/theme/typography.dart';
+import '../../engine/engine_api.dart' show maxTextLength;
 import '../../engine/events.dart';
-import '../../engine/rpc.dart';
-import '../../platform/demo.dart';
-import '../../platform/window.dart';
+import '../../engine/models/result.dart';
 import '../../state/search_controller.dart';
-import '../../state/status_controller.dart';
-import '../../widgets/common.dart';
+import '../../platform/demo.dart';
+import '../../widgets/dialogs.dart';
+import '../../widgets/glass.dart';
+import '../../widgets/icons.dart';
+import '../../widgets/motion.dart';
+import '../../widgets/pressable.dart';
+import 'filter_bar.dart';
+import 'home_view.dart';
 import 'result_tile.dart';
+import 'status_line.dart';
 
 class SearchScreen extends StatefulWidget {
-  const SearchScreen({super.key, required this.engine, this.window = const NoWindow(), this.version = '', this.demo});
-  final Engine engine;
-  final Demo? demo;
-  final WindowControl window;
-  final String version;
+  const SearchScreen({super.key});
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
 }
 
 class _SearchScreenState extends State<SearchScreen> {
-  late final FindController find = FindController(widget.engine);
-  late final StatusController status = StatusController(widget.engine);
-  final box = TextEditingController();
+  late AppScope s;
+  late final box = TextEditingController(text: AppScope.of(context).find.text);
   final focus = FocusNode(debugLabel: 'search box');
   final scroll = ScrollController();
-  final _selKey = GlobalKey();
-  late final StreamSubscription<EngineEvent> _shows;
+
+  /// One key per row for the answer on screen, so the selected row can be scrolled to without rebuilding rows.
+  final _rowKeys = <int, GlobalKey>{};
+  int _keysFor = -1;
+
+  /// List or cards (cards: a grid of 1 to 4 columns as the window allows).
+  bool _cards = false;
+  StreamSubscription<EngineEvent>? _shows;
   int _lastSel = -1;
+  bool _wired = false;
 
   @override
-  void initState() {
-    super.initState();
-    box.addListener(() => find.setText(box.text));
-    find.addListener(_follow);
-    _shows = widget.engine.events.listen((e) {
-      if (e is ShowEvent && e.what == 'main') {
-        widget.window.front();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    s = AppScope.of(context);
+    if (_wired) return;
+    _wired = true;
+    Demo.mainBox = box;
+    box.addListener(() => s.find.setText(box.text));
+    s.find.addListener(_follow);
+    s.find.addListener(_takeHandOver);
+    _takeHandOver();
+    _shows = s.engine.events.listen((e) {
+      if (e is ShowEvent && e.what == 'main' && e.text == null) {
         focus.requestFocus();
         box.selection = TextSelection(baseOffset: 0, extentOffset: box.text.length);
       }
     });
-    widget.demo?.run(widget.engine, box, find, 'main');
+  }
+
+  /// The bar's words (Alt+Enter), held by the controller until this screen is there to take them.
+  void _takeHandOver() {
+    final t = s.find.takeHandOver();
+    if (t == null) return;
+    box.text = t;
+    box.selection = TextSelection.collapsed(offset: t.length);
+    focus.requestFocus();
+  }
+
+  GlobalKey rowKey(int id) {
+    if (_keysFor != s.find.serial) {
+      _keysFor = s.find.serial;
+      _rowKeys.clear();
+    }
+    return _rowKeys.putIfAbsent(id, GlobalKey.new);
   }
 
   void _follow() {
-    if (find.selected == _lastSel) return;
-    _lastSel = find.selected;
+    if (s.find.selected == _lastSel) return;
+    _lastSel = s.find.selected;
     WidgetsBinding.instance.addPostFrameCallback((_) => _reveal(retry: true));
   }
 
@@ -64,86 +98,209 @@ class _SearchScreenState extends State<SearchScreen> {
   /// jumped far, e.g. wrapping from the first to the last) is first reached by an estimate, then aligned.
   void _reveal({required bool retry}) {
     if (!mounted) return;
-    final ctx = _selKey.currentContext;
+    final cur = s.find.current;
+    final ctx = cur == null ? null : _rowKeys[cur.id]?.currentContext;
     if (ctx != null && ctx.mounted) {
       final ro = ctx.findRenderObject();
       final viewport = ro == null ? null : RenderAbstractViewport.maybeOf(ro);
-      final above = viewport != null && scroll.hasClients &&
+      final above =
+          viewport != null &&
+          scroll.hasClients &&
           viewport.getOffsetToReveal(ro!, 0).offset < scroll.offset; // the row starts above the top edge
-      Scrollable.ensureVisible(ctx, duration: const Duration(milliseconds: 120),
-          alignmentPolicy: find.selected == 0 || above
-              ? ScrollPositionAlignmentPolicy.keepVisibleAtStart
-              : ScrollPositionAlignmentPolicy.keepVisibleAtEnd);
+      Scrollable.ensureVisible(
+        ctx,
+        duration: NbMotion.of(context, NbMotion.fast),
+        alignmentPolicy: s.find.selected == 0 || above
+            ? ScrollPositionAlignmentPolicy.keepVisibleAtStart
+            : ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+      );
       return;
     }
-    if (!retry || !scroll.hasClients || find.results.isEmpty) return;
+    if (!retry || !scroll.hasClients || s.find.results.isEmpty) return;
     final p = scroll.position;
-    p.jumpTo((p.maxScrollExtent * find.selected / find.results.length).clamp(0, p.maxScrollExtent));
+    p.jumpTo((p.maxScrollExtent * s.find.selected / s.find.results.length).clamp(0, p.maxScrollExtent));
     WidgetsBinding.instance.addPostFrameCallback((_) => _reveal(retry: false));
     WidgetsBinding.instance.scheduleFrame();
   }
 
   @override
   void dispose() {
-    _shows.cancel();
-    find.dispose();
-    status.dispose();
+    if (identical(Demo.mainBox, box)) Demo.mainBox = null;
+    _shows?.cancel();
+    s.find.removeListener(_follow);
+    s.find.removeListener(_takeHandOver);
     box.dispose();
     focus.dispose();
     scroll.dispose();
     super.dispose();
   }
 
-  void _open({bool reveal = false}) => reveal ? find.revealSelected() : find.openSelected();
+  Future<void> _open({bool reveal = false}) async {
+    if (reveal) {
+      await s.find.revealSelected();
+      return;
+    }
+    final ok = await s.find.openSelected();
+    if (ok && s.settings.settings.flag('hide_after_open')) {
+      s.window.hide();
+      unawaited(s.engine.uiHidden('main').catchError((Object _) {}));
+    }
+  }
+
+  void _copy() {
+    final sel = box.selection;
+    if (sel.isValid && !sel.isCollapsed) {
+      // text selected in the box: a normal copy
+      Clipboard.setData(ClipboardData(text: sel.textInside(box.text)));
+      return;
+    }
+    unawaited(s.find.copySelected());
+  }
+
+  Future<void> _forget() async {
+    await s.find.forgetSelected(
+      (q) => confirmDialog(context, title: 'Forget this file?', question: q, yes: 'Forget', danger: true),
+    );
+    if (mounted) focus.requestFocus();
+  }
+
+  /// Esc clears the words, then the filters, and only then hides the window.
+  void _escape() {
+    if (box.text.isNotEmpty) {
+      box.clear();
+      return;
+    }
+    if (s.find.clearOne()) return;
+    s.window.hide();
+    unawaited(s.engine.uiHidden('main').catchError((Object _) {}));
+  }
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
-      color: Nb.bg,
-      child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        _Rail(status: status, version: widget.version),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(28, 22, 28, 0),
-              child: CallbackShortcuts(
-                bindings: {
-                  const SingleActivator(LogicalKeyboardKey.arrowDown): () => find.move(1),
-                  const SingleActivator(LogicalKeyboardKey.arrowUp): () => find.move(-1),
-                  const SingleActivator(LogicalKeyboardKey.enter): _open,
-                  const SingleActivator(LogicalKeyboardKey.numpadEnter): _open,
-                  const SingleActivator(LogicalKeyboardKey.enter, control: true): () => _open(reveal: true),
-                  const SingleActivator(LogicalKeyboardKey.escape): box.clear,
-                },
-                child: _SearchBox(controller: box, focus: focus),
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.arrowDown): () => s.find.move(1),
+        const SingleActivator(LogicalKeyboardKey.arrowUp): () => s.find.move(-1),
+        const SingleActivator(LogicalKeyboardKey.enter): _open,
+        const SingleActivator(LogicalKeyboardKey.numpadEnter): _open,
+        const SingleActivator(LogicalKeyboardKey.enter, control: true): () => _open(reveal: true),
+        const SingleActivator(LogicalKeyboardKey.keyC, control: true): _copy,
+        const SingleActivator(LogicalKeyboardKey.delete, shift: true): _forget,
+        const SingleActivator(LogicalKeyboardKey.escape): _escape,
+      },
+      child: LayoutBuilder(
+        builder: (context, box2) {
+          final wide = box2.maxWidth >= NbSpace.wide;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // the command palette: centred, floating, the one blurred layer always on screen
+              Padding(
+                padding: EdgeInsets.fromLTRB(NbSpace.x5, box2.maxHeight > 760 ? 28 : 18, NbSpace.x5, NbSpace.x3),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 920),
+                    child: _SearchBox(
+                      controller: box,
+                      focus: focus,
+                      filters: FilterBar(onDone: focus.requestFocus),
+                    ),
+                  ),
+                ),
               ),
-            ),
-            ListenableBuilder(listenable: find, builder: (context, _) => _Meta(find: find)),
-            Expanded(
-              child: ListenableBuilder(
-                listenable: find,
-                builder: (context, _) => find.text.trim().isEmpty
-                    ? const _Home()
-                    : _Results(find: find, engine: widget.engine, scroll: scroll, selKey: _selKey,
-                        onTap: (i, reveal) {
-                          find.select(i);
-                          _open(reveal: reveal);
-                          focus.requestFocus();
-                        }),
+              ListenableBuilder(
+                listenable: s.find,
+                builder: (context, _) => _Meta(find: s.find, cards: _cards, onCards: (v) => setState(() => _cards = v)),
               ),
-            ),
-            ListenableBuilder(listenable: status, builder: (context, _) => _StatusLine(status: status)),
-          ]),
-        ),
-      ]),
+              Expanded(
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: NbSpace.maxContent),
+                    child: ListenableBuilder(
+                      listenable: s.find,
+                      builder: (context, _) => AnimatedSwitcher(
+                        duration: NbMotion.of(context, NbMotion.fast),
+                        layoutBuilder: (current, previous) =>
+                            Stack(alignment: Alignment.topCenter, children: [...previous, ?current]),
+                        child: s.find.showingResults && s.find.busy && s.find.results.isEmpty && s.find.notice.isEmpty
+                            ? const Align(
+                                key: ValueKey('loading'),
+                                alignment: Alignment.topCenter,
+                                child: Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: NbSpace.x5),
+                                  child: SkeletonResults(),
+                                ),
+                              )
+                            : !s.find.showingResults
+                            ? HomeView(
+                                key: const ValueKey('home'),
+                                onExample: (t) {
+                                  box.text = t;
+                                  box.selection = TextSelection.collapsed(offset: t.length);
+                                  focus.requestFocus();
+                                },
+                                onTile: (words, f) {
+                                  s.find.setFilters(f);
+                                  box.text = words;
+                                  focus.requestFocus();
+                                },
+                              )
+                            : Row(
+                                key: const ValueKey('results'),
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Expanded(
+                                    child: _Results(
+                                      scroll: scroll,
+                                      rowKey: rowKey,
+                                      cards: _cards,
+                                      onTap: (i, reveal) {
+                                        s.find.select(i);
+                                        _open(reveal: reveal);
+                                        focus.requestFocus();
+                                      },
+                                      onSecondary: (i) {
+                                        s.find.select(i);
+                                        _open(reveal: true);
+                                      },
+                                    ),
+                                  ),
+                                  if (wide && s.find.results.isNotEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.fromLTRB(4, 4, NbSpace.x5, NbSpace.x5),
+                                      child: SizedBox(
+                                        width: box2.maxWidth >= 1700 ? 460 : 400,
+                                        child: DetailPane(
+                                          engine: s.engine,
+                                          result: s.find.current,
+                                          onOpen: _open,
+                                          onReveal: () => _open(reveal: true),
+                                          onCopy: _copy,
+                                          onForget: _forget,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const StatusLine(),
+            ],
+          );
+        },
+      ),
     );
   }
 }
 
 class _SearchBox extends StatefulWidget {
-  const _SearchBox({required this.controller, required this.focus});
+  const _SearchBox({required this.controller, required this.focus, required this.filters});
   final TextEditingController controller;
   final FocusNode focus;
+  final Widget filters;
 
   @override
   State<_SearchBox> createState() => _SearchBoxState();
@@ -166,31 +323,76 @@ class _SearchBoxState extends State<_SearchBox> {
 
   @override
   Widget build(BuildContext context) {
+    final c = NbColors.of(context);
     final on = widget.focus.hasFocus;
-    OutlineInputBorder border(Color c) =>
-        OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: c));
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [if (on) BoxShadow(color: Nb.orangeA(.12), spreadRadius: 4)],
+    // the palette settles in on a spring when the window opens
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: reduceMotion(context) ? 1 : 0, end: 1),
+      duration: NbMotion.of(context, const Duration(milliseconds: 700)),
+      curve: const SpringCurve(damping: .68),
+      builder: (context, t, child) => Opacity(
+        opacity: t.clamp(0, 1).toDouble(),
+        child: Transform.translate(offset: Offset(0, 14 * (1 - t)), child: child),
       ),
-      child: TextField(
-        controller: widget.controller,
-        focusNode: widget.focus,
-        autofocus: true,
-        cursorColor: Nb.orange,
-        style: NbType.text(18),
-        textInputAction: TextInputAction.search,
-        decoration: InputDecoration(
-          isDense: true,
-          filled: true,
-          fillColor: Nb.bg2,
-          hintText: 'Describe it: “rent pdf from last week”, “beach photos in march”, “budget.xlsx”',
-          hintStyle: NbType.text(18, color: Nb.dim),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-          enabledBorder: border(Nb.line2),
-          focusedBorder: border(Nb.orangeA(.7)),
+      child: Glass(
+        level: GlassLevel.panel,
+        radius: 26,
+        rim: on ? c.orangeA(.5) : null,
+        padding: const EdgeInsets.fromLTRB(6, 6, 6, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // its own layer: the blinking caret repaints only the field, not the glass around it
+            RepaintBoundary(
+              child: TextField(
+                controller: widget.controller,
+                focusNode: widget.focus,
+                autofocus: true,
+                cursorColor: c.orange,
+                inputFormatters: [LengthLimitingTextInputFormatter(maxTextLength)],
+                style: NbType.display(26, c.text, weight: 330),
+                textInputAction: TextInputAction.search,
+                decoration: InputDecoration(
+                  isDense: true,
+                  border: InputBorder.none,
+                  hintText: 'Describe it: “rent pdf from last week”, “beach photos in march”, “budget.xlsx”',
+                  hintStyle: NbType.display(26, c.dim, weight: 300),
+                  prefixIcon: Padding(
+                    padding: const EdgeInsets.only(left: 18, right: 12),
+                    child: NbIcon(NbGlyph.search, size: 22, color: on ? c.orange : c.dim),
+                  ),
+                  prefixIconConstraints: const BoxConstraints(minWidth: 52, minHeight: 22),
+                  // a way to clear the box with the mouse; Esc does the same
+                  suffixIcon: ListenableBuilder(
+                    listenable: widget.controller,
+                    builder: (context, _) => widget.controller.text.isEmpty
+                        ? const SizedBox(width: 8)
+                        : Padding(
+                            padding: const EdgeInsets.only(right: 10),
+                            child: Pressable(
+                              onTap: () {
+                                widget.controller.clear();
+                                widget.focus.requestFocus();
+                              },
+                              semanticLabel: 'Clear',
+                              tooltip: 'Clear (Esc)',
+                              canRequestFocus: false,
+                              ringRadius: NbRadius.pillAll,
+                              builder: (context, p) => Container(
+                                padding: const EdgeInsets.all(7),
+                                decoration: BoxDecoration(color: p.lit ? c.cardHover : null, shape: BoxShape.circle),
+                                child: NbIcon(NbGlyph.close, size: 15, color: p.lit ? c.text : c.dim),
+                              ),
+                            ),
+                          ),
+                  ),
+                  contentPadding: const EdgeInsets.fromLTRB(0, 16, 12, 14),
+                ),
+              ),
+            ),
+            Container(height: 1, margin: const EdgeInsets.fromLTRB(14, 0, 14, 10), color: c.line),
+            Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: widget.filters),
+          ],
         ),
       ),
     );
@@ -198,193 +400,194 @@ class _SearchBoxState extends State<_SearchBox> {
 }
 
 class _Meta extends StatelessWidget {
-  const _Meta({required this.find});
+  const _Meta({required this.find, required this.cards, required this.onCards});
   final FindController find;
+  final bool cards;
+  final ValueChanged<bool> onCards;
 
   @override
   Widget build(BuildContext context) {
-    final a = find.answer;
-    final q = find.text.trim();
-    final chips = [
-      for (final u in a.understood)
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: Nb.orangeA(.07),
-            border: Border.all(color: Nb.orangeA(.5)),
-            borderRadius: BorderRadius.circular(999),
-          ),
-          child: Text(u.toUpperCase(), style: NbType.label(10.5, weight: FontWeight.w700, color: Nb.orange, spacing: .6)),
-        ),
-    ];
+    final c = NbColors.of(context);
+    final f = find;
+    final a = f.answer;
+    if (!f.showingResults) return const SizedBox(height: NbSpace.x1);
     final spans = <InlineSpan>[];
-    if (q.isNotEmpty && find.askedFor.isNotEmpty) {
-      if (find.notice.isNotEmpty) {
-        spans.add(TextSpan(text: find.notice, style: NbType.text(12, color: Nb.warn)));
-      } else {
-        spans.add(TextSpan(
-            text: a.results.isEmpty
-                ? 'Nothing found. Try fewer or other words, or fewer filters.'
-                : '${a.results.length}${a.more ? '+' : ''} results · ${a.ms} ms'));
-        for (final n in a.notes) {
-          spans.add(TextSpan(text: ' · $n', style: NbType.text(12, color: Nb.warn)));
-        }
+    if (f.notice.isNotEmpty) {
+      spans.add(TextSpan(text: f.notice, style: NbType.text(NbSize.small, c.warn)));
+    } else if (f.askedFor.isNotEmpty || f.filters.narrows) {
+      spans.add(
+        TextSpan(
+          text: a.results.isEmpty
+              ? 'Nothing found. Try fewer or other words, or fewer filters.'
+              : '${a.results.length}${a.more ? '+' : ''} ${a.results.length == 1 && !a.more ? 'result' : 'results'} · ${a.ms} ms',
+        ),
+      );
+      for (final n in a.notes) {
+        spans.add(TextSpan(text: ' · $n', style: NbType.text(NbSize.small, c.warn)));
       }
-    } else if (q.isNotEmpty && find.notice.isNotEmpty) {
-      spans.add(TextSpan(text: find.notice, style: NbType.text(12, color: Nb.warn)));
     }
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(30, 8, 30, 8),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        if (chips.isNotEmpty) Padding(padding: const EdgeInsets.only(bottom: 8), child: Wrap(spacing: 6, runSpacing: 6, children: chips)),
-        Text.rich(TextSpan(children: spans), style: NbType.label(11)),
-      ]),
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: NbSpace.maxContent),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(NbSpace.x6, 0, NbSpace.x5, NbSpace.x2),
+          child: Row(
+            children: [
+              Expanded(
+                child: Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    for (final u in a.understood)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: c.orangeA(.07),
+                          border: Border.all(color: c.orangeA(.5)),
+                          borderRadius: NbRadius.pillAll,
+                        ),
+                        child: Text(
+                          u,
+                          style: NbType.text(NbSize.small, c.orange, weight: FontWeight.w600, height: 1.3),
+                        ),
+                      ),
+                    if (spans.isNotEmpty)
+                      Padding(
+                        padding: EdgeInsets.only(left: a.understood.isEmpty ? 0 : 6),
+                        child: Text.rich(TextSpan(children: spans), style: NbType.data(NbSize.caption, c.dim)),
+                      ),
+                  ],
+                ),
+              ),
+              if (a.results.isNotEmpty) _ViewSwitch(cards: cards, onChanged: onCards),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// List or cards: a two-segment switch, the lit segment a small glass pill.
+class _ViewSwitch extends StatelessWidget {
+  const _ViewSwitch({required this.cards, required this.onChanged});
+  final bool cards;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = NbColors.of(context);
+    Widget seg(String label, bool on, VoidCallback tap) => Pressable(
+      onTap: tap,
+      selected: on,
+      semanticLabel: label,
+      ringRadius: NbRadius.pillAll,
+      builder: (context, p) => AnimatedContainer(
+        duration: NbMotion.of(context, NbMotion.base),
+        curve: NbMotion.curve,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        decoration: BoxDecoration(color: on ? c.cardHover : null, borderRadius: NbRadius.pillAll),
+        child: Text(
+          label,
+          style: NbType.text(
+            NbSize.small,
+            on ? c.text : (p.lit ? c.muted : c.dim),
+            weight: on ? FontWeight.w600 : FontWeight.w500,
+            height: 1.2,
+          ),
+        ),
+      ),
+    );
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: c.card,
+        border: Border.all(color: c.line),
+        borderRadius: NbRadius.pillAll,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [seg('List', !cards, () => onChanged(false)), seg('Cards', cards, () => onChanged(true))],
+      ),
     );
   }
 }
 
 class _Results extends StatelessWidget {
-  const _Results({required this.find, required this.engine, required this.scroll, required this.selKey,
-      required this.onTap});
-  final FindController find;
-  final Engine engine;
+  const _Results({
+    required this.scroll,
+    required this.rowKey,
+    required this.cards,
+    required this.onTap,
+    required this.onSecondary,
+  });
   final ScrollController scroll;
-  final GlobalKey selKey;
+  final GlobalKey Function(int id) rowKey;
+  final bool cards;
   final void Function(int index, bool reveal) onTap;
+  final void Function(int index) onSecondary;
 
   @override
   Widget build(BuildContext context) {
-    final rows = find.results;
+    final s = AppScope.of(context);
+    final List<FileResult> rows = s.find.results;
     final firstWeak = rows.indexWhere((r) => r.weak);
     final divider = firstWeak > 0;
-    return ListView.builder(
+    if (cards) {
+      // 1 to 4 (or more) columns of cards, as wide as the space allows
+      return Scrollbar(
+        controller: scroll,
+        child: GridView.builder(
+          controller: scroll,
+          padding: const EdgeInsets.fromLTRB(NbSpace.x5, 4, NbSpace.x4, NbSpace.x6),
+          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 300,
+            mainAxisExtent: ResultCard.height,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+          ),
+          itemCount: rows.length,
+          itemBuilder: (context, i) => Appear(
+            key: ValueKey((s.find.serial, rows[i].id)),
+            delay: Appear.stagger(i),
+            child: ResultCard(
+              key: rowKey(rows[i].id),
+              engine: s.engine,
+              result: rows[i],
+              selected: i == s.find.selected,
+              onTap: (reveal) => onTap(i, reveal),
+              onSecondary: () => onSecondary(i),
+            ),
+          ),
+        ),
+      );
+    }
+    return Scrollbar(
       controller: scroll,
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-      itemCount: rows.length + (divider ? 1 : 0),
-      itemBuilder: (context, i) {
-        if (divider && i == firstWeak) return const LessSure();
-        final idx = divider && i > firstWeak ? i - 1 : i;
-        final sel = idx == find.selected;
-        return ResultTile(
-          key: sel ? selKey : ValueKey(rows[idx].id),
-          engine: engine,
-          result: rows[idx],
-          selected: sel,
-          onTap: (reveal) => onTap(idx, reveal),
-        );
-      },
-    );
-  }
-}
-
-class _Home extends StatelessWidget {
-  const _Home();
-
-  @override
-  Widget build(BuildContext context) => SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(30, 36, 30, 28),
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 780),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('FIND ANYTHING ON THIS PC.', style: NbType.heading(40)),
-              const SizedBox(height: 16),
-              Container(width: 46, height: 3, decoration: BoxDecoration(color: Nb.orange,
-                  boxShadow: [BoxShadow(color: Nb.orange, blurRadius: 16)])),
-              const SizedBox(height: 16),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 560),
-                child: Text(
-                    'Search by name, by the words inside a file, or by what it was about. Add a kind, a time, a '
-                    'folder or a size to the words.',
-                    style: NbType.text(14, color: Nb.muted, height: 1.5)),
-              ),
-              const SizedBox(height: 22),
-              Wrap(crossAxisAlignment: WrapCrossAlignment.center, spacing: 6, runSpacing: 8, children: [
-                const Kbd('↑'), const Kbd('↓'), Text('choose  ', style: NbType.label(11)),
-                const Kbd('Enter'), Text('opens  ', style: NbType.label(11)),
-                const Kbd('Ctrl+Enter'), Text('shows in folder  ', style: NbType.label(11)),
-                const Kbd('Esc'), Text('clears', style: NbType.label(11)),
-              ]),
-            ]),
-          ),
-        ),
-      );
-}
-
-class _Rail extends StatelessWidget {
-  const _Rail({required this.status, required this.version});
-  final StatusController status;
-  final String version;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        width: 92,
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-        decoration: const BoxDecoration(color: Nb.bg2, border: Border(right: BorderSide(color: Nb.line))),
-        child: Column(children: [
-          const NbMark(size: 38),
-          const SizedBox(height: 20),
-          Container(
-            width: 72,
-            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-            decoration: BoxDecoration(
-              color: Nb.orangeA(.08),
-              border: Border.all(color: Nb.orangeA(.45)),
-              borderRadius: BorderRadius.circular(12),
+      child: ListView.builder(
+        controller: scroll,
+        padding: const EdgeInsets.fromLTRB(NbSpace.x5, 0, NbSpace.x4, NbSpace.x6),
+        itemCount: rows.length + (divider ? 1 : 0),
+        itemBuilder: (context, i) {
+          if (divider && i == firstWeak) return const LessSure();
+          final idx = divider && i > firstWeak ? i - 1 : i;
+          final sel = idx == s.find.selected;
+          // each new answer comes in as a short cascade; moving the selection doesn't replay it
+          return Appear(
+            key: ValueKey((s.find.serial, rows[idx].id)),
+            delay: Appear.stagger(i),
+            child: ResultTile(
+              key: rowKey(rows[idx].id), // stable: moving the selection only repaints two rows
+              engine: s.engine,
+              result: rows[idx],
+              selected: sel,
+              onTap: (reveal) => onTap(idx, reveal),
+              onSecondary: () => onSecondary(idx),
             ),
-            child: Column(children: [
-              Text('⌕', style: NbType.text(18, color: Nb.orange, height: 1.2)),
-              Text('SEARCH', style: NbType.label(10, weight: FontWeight.w700, color: Nb.orange, spacing: .8)),
-            ]),
-          ),
-          const Spacer(),
-          ListenableBuilder(
-            listenable: status,
-            builder: (context, _) => Text(
-              (status.link == Link.connected ? (status.status?.phaseLabel ?? '') : 'offline').toUpperCase(),
-              textAlign: TextAlign.center,
-              style: NbType.label(10, spacing: .6, height: 1.4),
-            ),
-          ),
-          if (version.isNotEmpty) Text(version, style: NbType.label(9.5, height: 1.6)),
-        ]),
-      );
-}
-
-class _StatusLine extends StatelessWidget {
-  const _StatusLine({required this.status});
-  final StatusController status;
-
-  @override
-  Widget build(BuildContext context) {
-    final s = status.status;
-    final ok = status.link == Link.connected;
-    final reason = ok ? (s?.reason ?? '') : '';
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 9),
-      decoration: const BoxDecoration(border: Border(top: BorderSide(color: Nb.line))),
-      child: Row(children: [
-        Container(
-          width: 7,
-          height: 7,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: ok && s?.level != 'paused' ? Nb.orange : Nb.dim,
-            boxShadow: [if (ok) BoxShadow(color: Nb.orangeA(.6), blurRadius: 8)],
-          ),
-        ),
-        const SizedBox(width: 10),
-        Flexible(child: Text(status.line, style: NbType.label(12, color: Nb.muted), maxLines: 1,
-            overflow: TextOverflow.ellipsis)),
-        if (reason.isNotEmpty) ...[
-          const SizedBox(width: 14),
-          Expanded(child: Text(reason, style: NbType.label(11), maxLines: 1, overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.right)),
-        ] else
-          const Spacer(),
-      ]),
+          );
+        },
+      ),
     );
   }
 }

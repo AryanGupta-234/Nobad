@@ -61,4 +61,5 @@ DEFAULTS = {
     "theme": "dark",
     "glass": True,                  # see-through acrylic window on Windows 11 (follows Windows' transparency switch)
     "bg_notice_seen": False,        # the one-time "closing keeps NOBAD Find ready" notice was dismissed
+    "welcome_seen": False,          # the Flutter UI's first-run welcome was dismissed (Start searching)
 }
