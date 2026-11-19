@@ -49,5 +49,5 @@ asks whether to delete the search index and settings in `%LOCALAPPDATA%\NOBAD\Fi
 touched.
 
 CI (`.github/workflows/find-ci.yml`, job `find-build`) runs the same script, with the Flutter SDK from
-`subosito/flutter-action` (pinned by commit, Flutter 3.50.0), and keeps the installer as a workflow artifact.
+Flutter 3.50.0 cloned from flutter/flutter and checked against its commit (no third-party action: the org pins every action, and flutter-action pulls actions/cache by tag), and keeps the installer as a workflow artifact.
 Releases are built the same way by `find-release.yml` from a `find-v*` tag.

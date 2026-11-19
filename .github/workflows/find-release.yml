@@ -34,12 +34,20 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install the Flutter SDK (pinned; builds the window, apps/find/ui_flutter)
-        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
-        with:
-          channel: stable
-          flutter-version: "3.50.0"
-          cache: false
+      - name: Install the Flutter SDK (3.50.0, checked by commit; no third-party action)
+        shell: pwsh
+        run: |
+          # The org requires every action pinned to a commit, including the ones an action uses inside
+          # (subosito/flutter-action pulls actions/cache by tag), so Flutter comes straight from its repo.
+          $sdk = Join-Path $env:RUNNER_TEMP 'flutter'
+          git clone --quiet --branch 3.50.0 --depth 1 https://github.com/flutter/flutter.git $sdk
+          if ($LASTEXITCODE) { throw 'cloning Flutter failed' }
+          $rev = git -C $sdk rev-parse HEAD
+          if ($rev -ne 'ab2912035e160d9cad6306df307576da6128ebdb') { throw "Flutter 3.50.0 is $rev, not the pinned commit" }
+          Join-Path $sdk 'bin' | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+          & (Join-Path $sdk 'bin\flutter.bat') config --no-analytics
+          & (Join-Path $sdk 'bin\flutter.bat') --version
+          if ($LASTEXITCODE) { throw 'flutter --version failed' }
 
       - name: Install Inno Setup (pinned)
         run: choco install innosetup --version 6.7.1 --no-progress -y
