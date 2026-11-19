@@ -56,7 +56,7 @@ class _ResourcesChartState extends State<ResourcesChart> {
               child: TweenAnimationBuilder<double>(
                 key: ValueKey(n == 0 ? 0.0 : h.last.t),
                 tween: Tween(begin: reduceMotion(context) || n < 2 ? 0 : 1, end: 0),
-                duration: const Duration(milliseconds: 650),
+                duration: const Duration(milliseconds: 400),
                 curve: Curves.easeOutCubic,
                 builder: (context, shift, _) =>
                     CustomPaint(painter: _ChartPainter(h, i, c, NbType.data(10, c.dim), shift), size: Size.infinite),

@@ -196,9 +196,9 @@ void main() {
       final c = SettingsController(e, toasts: toasts);
       await c.load();
       expect(c.settings.dark, isTrue);
-      await c.set('theme', 'light');
-      expect(c.settings.dark, isFalse);
-      expect(e.settingsSet.last, {'theme': 'light'});
+      await c.set('glass', false);
+      expect(c.settings.dark, isTrue); // 0.8.5 is dark only
+      expect(e.settingsSet.last, {'glass': false});
       await c.set('workers', -3);
       expect(toasts.message, "That value wasn't accepted.");
       expect(c.settings.number('workers'), 0);

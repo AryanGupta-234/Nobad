@@ -23,7 +23,7 @@ Future<void> shoot(WidgetTester tester, String name) async {
 void main() {
   setUpAll(loadWindowsFonts);
 
-  for (final theme in ['dark', 'light']) {
+  for (final theme in ['dark']) { // 0.8.5 is dark only
     group(theme, () {
       testWidgets('suggestions while typing', (tester) async {
         await pumpApp(tester, smartEngine(theme), size: const Size(1180, 760));

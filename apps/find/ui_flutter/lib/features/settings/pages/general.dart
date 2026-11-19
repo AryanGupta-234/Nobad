@@ -15,7 +15,6 @@ class GeneralPage extends StatelessWidget {
       SettingsGroup(
         'Look',
         rows: [
-          ChoiceSetting('theme', 'Theme', 'Dark or light. Applies right away.', [('dark', 'Dark'), ('light', 'Light')]),
           SwitchSetting(
             'glass',
             'See-through window',

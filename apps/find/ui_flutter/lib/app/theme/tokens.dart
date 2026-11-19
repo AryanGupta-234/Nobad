@@ -22,7 +22,7 @@ abstract final class NbSpace {
   static const column = 760.0;
 
   /// The widest the results area gets.
-  static const maxContent = 1240.0;
+  static const maxContent = 1040.0; // 0.8.5: the search bar and results never stretch very wide
 
   /// Every page's left and right gutter: its header, toolbar and content start on the same line.
   static const gutter = 20.0;
@@ -52,9 +52,9 @@ abstract final class NbRadius {
 abstract final class NbMotion {
   /// app.css cubic-bezier(.2, .7, .2, 1): quick out, long settle.
   static const curve = Cubic(.2, .7, .2, 1);
-  static const fast = Duration(milliseconds: 120);
-  static const base = Duration(milliseconds: 200);
-  static const slow = Duration(milliseconds: 320);
+  static const fast = Duration(milliseconds: 90);
+  static const base = Duration(milliseconds: 150);
+  static const slow = Duration(milliseconds: 220);
 
   /// [d], or zero when Windows' "Animation effects" is off.
   static Duration of(BuildContext context, Duration d) =>
