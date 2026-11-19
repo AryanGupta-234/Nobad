@@ -99,3 +99,38 @@ def test_worker_priority_back_to_normal():
     out = py("import psutil; from nobadfind import winapi; winapi.worker_priority(True); winapi.worker_priority(False); "
              "p = psutil.Process(); print(p.nice() == psutil.NORMAL_PRIORITY_CLASS, int(p.ionice()))")
     assert out == "True 2"
+
+
+def test_launch_imports_the_app_only_after_freeze_support():
+    """NobadFind.exe: a frozen worker runs launch.py as __main__ and freeze_support() takes over (and exits) there,
+    so nothing above it may import the app. Checked on the source, since a test can't be a frozen worker."""
+    import ast
+    tree = ast.parse(open(os.path.join(APP, "packaging", "launch.py"), encoding="utf-8").read())
+
+    def imports_app(node):
+        return any(isinstance(n, (ast.Import, ast.ImportFrom)) and "nobadfind" in (
+            getattr(n, "module", "") or "".join(a.name for a in n.names)) for n in ast.walk(node))
+    top = [n for n in tree.body if not (isinstance(n, ast.If) and "__main__" in ast.unparse(n.test))]
+    assert not any(imports_app(n) for n in top)
+    main = next(n for n in tree.body if isinstance(n, ast.If) and "__main__" in ast.unparse(n.test))
+    calls = [ast.unparse(n) for n in main.body]
+    first_import = next(i for i, n in enumerate(main.body) if imports_app(n))
+    assert any("freeze_support()" in c for c in calls[:first_import])
+
+
+def test_numpy_is_loaded_with_one_blas_thread(tmp_path):
+    """Whatever the PC's thread count: a stand-in numpy records OPENBLAS_NUM_THREADS at the moment it loads."""
+    (tmp_path / "numpy.py").write_text("import os\nSEEN = os.environ.get('OPENBLAS_NUM_THREADS')\n")
+    out = py("import os, sys, nobadfind, numpy; print(numpy.SEEN, os.environ.get('OPENBLAS_NUM_THREADS'))",
+             env={"PYTHONPATH": f"{tmp_path}{os.pathsep}{APP}"})
+    assert out == "1 None"
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows jobs")
+def test_eco_qos_refuses_a_process_outside_the_job():
+    from nobadfind import jobs, winapi
+    job = jobs.Job()
+    try:
+        assert winapi.eco_qos(True, pid=os.getpid(), job=job.handle) is False     # this process isn't in it
+    finally:
+        job.close()

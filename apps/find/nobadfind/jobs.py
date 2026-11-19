@@ -160,6 +160,15 @@ class Job:
             return False
         return True
 
+    def memory_peak_mb(self):
+        """The most memory the whole group has committed at once, in MB (0 if unknown)."""
+        if not self.handle:
+            return 0
+        info = _Extended()
+        if not _k.QueryInformationJobObject(self.handle, _CLS_EXTENDED, ctypes.byref(info), ctypes.sizeof(info), None):
+            return 0
+        return int(info.PeakJobMemory // 1048576)
+
     def set_cpu_cap(self, percent):
         """Hard-cap the whole group at percent of all CPU time; None lifts the cap. True on success."""
         if not self.handle:
@@ -213,9 +222,12 @@ class Job:
 
 
 def worker_memory_limit_mb(total_mb):
-    """The worker group's hard memory limit: a quarter of the PC's memory, 1-4 GB. A backstop above the watchdog
-    (watchdog.JOB_MB, working set) for a reader or model gone wrong; normal work commits far less
-    (docs/measurements.md)."""
+    """The worker group's hard memory limit: a quarter of the PC's memory, 1-4 GB, for a reader or model gone wrong;
+    normal work commits far less (docs/measurements.md). It counts committed memory of the workers only, after
+    they join the group (what a worker commits while Python starts, before its initializer, isn't counted). The
+    watchdog is the soft step before it: it acts on the working set of all of Find (watchdog.JOB_MB, 3 GB) and
+    of one reader (WORKER_MB). On a PC with less than 12 GB this limit is below JOB_MB and comes first. A worker
+    over it gets MemoryError: the file is read again alone (extract.OUT_OF_MEMORY) and the indexer says so once."""
     return max(1024, min(4096, int(total_mb) // 4))
 
 

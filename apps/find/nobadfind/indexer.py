@@ -24,6 +24,7 @@ from .walker import Walker, default_roots
 RESCAN_EVERY = 6 * 3600
 DEBOUNCE = 2.0
 PHOTO_BATCH = 8                  # photos sent to the photo reader at a time
+MEANING_BACKOFF = (30, 1800)     # seconds before trying a failed meaning worker again: doubling, capped
 MEANING_TIMEOUT = 120           # seconds one batch of meaning vectors may take before its worker is replaced
 JOB_TIMEOUT = 300                # seconds one file may take before its reader is stopped
 REMOVABLE_RESCAN = 1800          # USB drives aren't watched (that would block "safely remove"): re-walk them
@@ -91,6 +92,8 @@ class Indexer:
         self._walked = {}                # removable root -> when it was last walked
         self.drive_list = []
         self._photo_one_by_one = False   # after a photo stopped the reader: find which one
+        self._meaning_fails, self._meaning_retry_at = 0, 0.0     # meaning workers that failed in a row
+        self._memory_noted = None        # when the workers' memory limit was last reported
         self.photo_text = None           # the photo model's text half, for questions (when photo meaning is on)
         self.pindex = embed.VectorIndex(photo.PHOTO_DIM, ("SELECT file_id, v FROM pvecs WHERE length(v) > 0",))             # known_drives(), refreshed by the indexer loop (searches read it)
 
@@ -238,6 +241,20 @@ class Indexer:
             except Exception:
                 pass
 
+    MEMORY_NOTE_EVERY = 1800
+
+    def _memory_limit_hit(self, what):
+        """A worker's allocation failed: the worker group reached its memory limit (jobs.worker_memory_limit_mb).
+        Logged and listed once in a while, not per file."""
+        now = self._clock()
+        if self._memory_noted is not None and now - self._memory_noted < self.MEMORY_NOTE_EVERY:
+            return
+        self._memory_noted = now
+        from . import jobs
+        peak = jobs.WORKERS.memory_peak_mb() if jobs.WORKERS is not None else 0
+        self._note(f"NOBAD Find's {what} reached their memory limit"
+                   + (f" ({peak} MB)" if peak else "") + "; the files they were reading are read again one at a time")
+
     def recycle_workers(self):
         """The watchdog: Find uses too much memory. The worker processes end at their next safe point (the
         work in flight is done again) and fresh ones start."""
@@ -375,9 +392,15 @@ class Indexer:
         plan_ = self.status["plan"]
         gentle, full = plan_.get("text_workers", 2), plan_.get("text_workers_idle", 2)
         inflight, queued = {}, []                    # future -> (job, started)
-        pool = cf.ProcessPoolExecutor(max_workers=max(gentle, full), initializer=extract.init_worker,
-                                      max_tasks_per_child=READER_TASKS)
-        self._text_pool = pool
+        alone = set()                                # file ids sent while nothing else was being read
+        size = max(gentle, full)
+
+        def new_pool():
+            # Not max_tasks_per_child: on Python 3.11 each replacement grows the pool to max_workers (8 readers
+            # at Light). A fresh pool every READER_TASKS files per reader keeps readers to what the level allows.
+            self._text_pool = cf.ProcessPoolExecutor(max_workers=size, initializer=extract.init_worker)
+            return self._text_pool
+        pool, sent = new_pool(), 0
         try:
             while not self.stop_ev.is_set():
                 go = self._wait_while_paused(max_wait=RECYCLE_AFTER)
@@ -411,8 +434,15 @@ class Indexer:
                 if not queued and not inflight:
                     return
                 self.status["phase"] = phase
-                while queued and len(inflight) < limit:
+                budget = READER_TASKS * max(1, limit)
+                if sent >= budget and not inflight:
+                    pool.shutdown(wait=True)        # these readers have done their share: fresh ones
+                    pool, sent = new_pool(), 0
+                while queued and len(inflight) < limit and sent < budget:
+                    sent += 1
                     job = queued.pop(0)
+                    if careful:
+                        alone.add(job[0])
                     inflight[pool.submit(extract.work, job)] = (job, self._clock())
                 done, _ = cf.wait(list(inflight), timeout=5, return_when=cf.FIRST_COMPLETED)
                 for f in done:
@@ -431,6 +461,13 @@ class Indexer:
                     except Exception as e:
                         log(f"text worker failed: {type(e).__name__}", "warn")
                         fid, mtime, chunks, err = job[0], job[3], [], "reader failed"
+                    if err == extract.OUT_OF_MEMORY:
+                        self._memory_limit_hit("text readers")
+                        if job[0] not in alone:
+                            self._suspects.append(job)  # read again on its own, not written off
+                            continue
+                        err = "too big"                 # out of memory with nothing else running: as before
+                    alone.discard(job[0])
                     self.store.set_text(fid, mtime, chunks, err)
                     self.status["texts"] += 1
                 stuck = [(f, j) for f, (j, t) in inflight.items() if self._clock() - t > JOB_TIMEOUT]
@@ -471,6 +508,8 @@ class Indexer:
         then for the text inside files, each piece with its file's name in front."""
         if not self.embedder:
             return
+        if self._vectors_in_worker and self._clock() < self._meaning_retry_at:
+            return                                  # the worker kept failing: wait (MEANING_BACKOFF)
         try:
             self._name_vectors()
             if not self._recycled:
@@ -556,14 +595,21 @@ class Indexer:
                 self._end_meaning_pool()
                 return None
         except Exception as e:
-            if isinstance(e, cf.TimeoutError):
-                self._note(f"Restarted the meaning worker: a batch took longer than {MEANING_TIMEOUT // 60} minutes")
-            else:
-                log(f"meaning worker failed: {type(e).__name__}", "warn")
-                self._note("Restarted the meaning worker after it stopped unexpectedly")
+            self._meaning_fails += 1
+            wait = min(MEANING_BACKOFF[1], MEANING_BACKOFF[0] * 2 ** (self._meaning_fails - 1))
+            self._meaning_retry_at = self._clock() + wait
+            log(f"meaning worker failed ({type(e).__name__}, {self._meaning_fails} in a row); next try in {wait} s",
+                "warn")
+            if self._meaning_fails == 1:            # once per run of failures, not every 30 s
+                if isinstance(e, cf.TimeoutError):
+                    self._note(f"Restarted the meaning worker: a batch took longer than "
+                               f"{MEANING_TIMEOUT // 60} minutes")
+                else:
+                    self._note("Restarted the meaning worker after it stopped unexpectedly")
             _kill_pool(self._mpool)
             self._end_meaning_pool()
             return None
+        self._meaning_fails = 0
         return np.frombuffer(data, np.float32).reshape(len(texts), embed.MODEL_DIM)
 
     def _end_meaning_pool(self):
@@ -630,11 +676,21 @@ class Indexer:
                     if results is RECYCLE:
                         self._recycle(pool, "photo reader")     # these photos are read again later
                         return
+                    retry = False
                     for fid, mtime, blob, err in results:
+                        if err == photo.OUT_OF_MEMORY:
+                            self._memory_limit_hit("photo reader")
+                            if len(batch) > 1:
+                                retry = True            # read again one by one next round, not written off
+                                continue
+                            err = "too big"
                         self.store.set_photo_vector(fid, mtime, blob, err)
                         if blob:
                             self.pindex.add([fid], np.frombuffer(blob, np.float16)[None])
                             self.status["photos"] = self.status.get("photos", 0) + 1
+                    if retry:
+                        self._photo_one_by_one = True
+                        break                           # (skips the reset to batches below)
                     if not away:
                         self.stop_ev.wait(0.2)      # gently while you use the PC
                 else:

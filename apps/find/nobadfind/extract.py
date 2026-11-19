@@ -16,6 +16,7 @@ MAX_CHARS = 2_000_000         # text kept per file
 MAX_ZIP_MEMBER = 64 * 1024 * 1024
 MAX_ZIP_TOTAL = 256 * 1024 * 1024
 MAX_ZIP_RATIO = 200            # uncompressed / compressed
+OUT_OF_MEMORY = "out of memory"   # a worker's allocation failed (the worker job's limit): read again, not "too big"
 CHUNK = 900
 OVERLAP = 120
 
@@ -75,6 +76,8 @@ def html_text(s):
     try:
         p.feed(s)
         p.close()
+    except MemoryError:
+        raise
     except Exception:
         pass
     return "".join(p.out)
@@ -199,6 +202,8 @@ def pdf_text(path, max_pages=400, ocr=False):
                 break
             try:
                 out.append(page.extract_text() or "")
+            except MemoryError:
+                raise
             except Exception:
                 continue
         text = "\n".join(out)
@@ -207,7 +212,7 @@ def pdf_text(path, max_pages=400, ocr=False):
             from . import ocr as _ocr
             text += "\n" + _ocr.pdf_pages_text(r)
         return text
-    except SkipFile:
+    except (SkipFile, MemoryError):
         raise
     except Exception as e:
         raise SkipFile(f"unreadable PDF: {type(e).__name__}")
@@ -352,8 +357,8 @@ def work(job):
         return file_id, mtime, chunks(extract(path, ext, max_bytes, ocr)), None
     except SkipFile as e:
         return file_id, mtime, [], str(e)[:200]
-    except MemoryError:
-        return file_id, mtime, [], "too big"
+    except MemoryError:             # the indexer reads it again alone; "too big" only if it fails alone too
+        return file_id, mtime, [], OUT_OF_MEMORY
     except Exception as e:          # one bad file must never stop the indexer
         return file_id, mtime, [], f"error: {type(e).__name__}"
 

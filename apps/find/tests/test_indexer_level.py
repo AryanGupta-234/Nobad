@@ -529,7 +529,7 @@ def test_workers_run_in_efficiency_mode_at_light_and_paused():
     calls = []
     it = iter([smp(t=time.time()), smp(t=time.time() + 1), smp(t=time.time() + 2)])
     gv = Governor(S(), Apps(), Activity(), sense=lambda: next(it), jobs=jobs,
-                  eco=lambda on, pid: calls.append((pid, on)) or True)
+                  eco=lambda on, pid, job=None: calls.append((pid, on)) or True)
     gv.brain.fixed = g.LIGHT
     gv.tick()
     assert sorted(calls) == [(11, True), (12, True)]
@@ -549,25 +549,47 @@ def test_efficiency_mode_never_touches_the_main_process():
     jobs.WORKERS = WorkerGroup([os.getpid(), 21])
     calls = []
     gv = Governor(S(), Apps(), Activity(), sense=lambda: smp(t=time.time()), jobs=jobs,
-                  eco=lambda on, pid: calls.append(pid) or True)
+                  eco=lambda on, pid, job=None: calls.append(pid) or True)
     gv.brain.fixed = g.PAUSED
     gv.tick()
     assert calls == [21]
 
 
 def test_text_readers_are_recycled_after_a_number_of_files(tmp_path, monkeypatch):
-    """Each reader process ends after READER_TASKS files and a fresh one takes over: what pdf/zip parsing leaves
-    fragmented in a reader goes back to Windows. Every file is still read once."""
-    fg = FakeGov(g.GENTLE)
+    """Readers are replaced after READER_TASKS files each (what pdf/zip parsing leaves fragmented goes back to
+    Windows), by starting a fresh pool, never with more readers than the level allows: Python 3.11's
+    max_tasks_per_child grew the pool to max_workers on each replacement (8 readers at Light). Every file is read."""
+    fg = FakeGov(g.LIGHT)
     ix, s, act = _text_ix(tmp_path, fg, n=12)
-    made, real = [], cf.ProcessPoolExecutor
+    ix.status["plan"] = {"text_workers": 8, "text_workers_idle": 15}
+    made, alive, real_wait = [], [], cf.wait
 
-    class Pool(real):
+    class Pool(cf.ProcessPoolExecutor):
         def __init__(self, *a, **k):
             made.append(k)
             super().__init__(*a, **k)
+
+    def wait(fs, **k):
+        alive.append(len(ix._text_pool._processes or {}))
+        return real_wait(fs, **k)
     monkeypatch.setattr(indexer.cf, "ProcessPoolExecutor", Pool)
+    monkeypatch.setattr(indexer.cf, "wait", wait)
     monkeypatch.setattr(indexer, "READER_TASKS", 3)
     ix._read_texts()
-    assert made and made[0].get("max_tasks_per_child") == 3
     assert s.needs_text({".txt"}, 1 << 20) == [] and ix.status["texts"] == 12
+    assert max(alive) == 1                                 # Light: one reader, however often it is replaced
+    assert len(made) == 4 and all("max_tasks_per_child" not in k for k in made)
+
+
+def test_efficiency_mode_only_for_pids_still_in_the_worker_job():
+    """A worker that ended may have its pid reused by another program: the job handle goes with every call, so
+    winapi.eco_qos can check the process is still in Find's worker job."""
+    jobs = FakeJobs()
+    jobs.WORKERS = WorkerGroup([31])
+    jobs.WORKERS.handle = "job-handle"
+    calls = []
+    gv = Governor(S(), Apps(), Activity(), sense=lambda: smp(t=time.time()), jobs=jobs,
+                  eco=lambda on, pid, job=None: calls.append((pid, job)) or True)
+    gv.brain.fixed = g.LIGHT
+    gv.tick()
+    assert calls == [(31, "job-handle")]

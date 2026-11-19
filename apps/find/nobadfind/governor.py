@@ -240,7 +240,7 @@ class Governor(threading.Thread):
         self._cpu, self._gpu = None, None
         self._slow = (0.0, False, False)         # (checked at, on battery, in call)
         self._last_cpu_s = None                  # (wall time, Find's CPU seconds)
-        self._eco = eco if eco is not None else (lambda on, pid: winapi.eco_qos(on, pid=pid))
+        self._eco = eco if eco is not None else (lambda on, pid, job=None: winapi.eco_qos(on, pid=pid, job=job))
         self._eco_set = {}                       # worker pid -> EcoQoS on/off as last applied
 
     # ---------- control ----------
@@ -303,8 +303,9 @@ class Governor(threading.Thread):
 
     def _eco_workers(self, level):
         """Efficiency mode (EcoQoS) for Find's worker processes at Light and Paused (a game, a call, a busy PC):
-        Windows keeps them on efficiency cores at low clocks. Not at Gentle or Full: measured 3.8x slower indexing
-        (docs/measurements.md). Only pids in the worker job, never this process; each set once per change."""
+        Windows keeps them on efficiency cores at low clocks. Not at Gentle or Full, where indexing should keep its
+        speed: in one test a reader ran 1.6x slower under EcoQoS (docs/measurements.md). Only pids still in the
+        worker job, never this process; each set once per change."""
         workers = getattr(self.jobs, "WORKERS", None)
         if workers is None or not hasattr(workers, "pids"):
             return
@@ -312,7 +313,7 @@ class Governor(threading.Thread):
         pids = [p for p in workers.pids() if p != me]
         self._eco_set = {p: v for p, v in self._eco_set.items() if p in pids}
         for pid in pids:
-            if self._eco_set.get(pid) is not want and self._eco(want, pid):
+            if self._eco_set.get(pid) is not want and self._eco(want, pid, getattr(workers, "handle", None)):
                 self._eco_set[pid] = want
 
     def _read_usage(self):

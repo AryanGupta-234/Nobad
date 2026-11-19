@@ -890,6 +890,7 @@ def _own_dll():
         k.CloseHandle.argtypes = [wintypes.HANDLE]
         k.SetProcessInformation.argtypes = [wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD]
         k.SetPriorityClass.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+        k.IsProcessInJob.argtypes = [wintypes.HANDLE, wintypes.HANDLE, ctypes.POINTER(wintypes.BOOL)]
         ps.EmptyWorkingSet.argtypes = [wintypes.HANDLE]
         _own = (k, ps)
     return _own
@@ -911,13 +912,18 @@ def _with_process(pid, fn):
         k.CloseHandle(h)
 
 
-def eco_qos(on=True, pid=None):
+def eco_qos(on=True, pid=None, job=None):
     """EcoQoS ("efficiency mode", Task Manager's leaf): Windows runs the process on efficiency cores at low clocks.
-    Only for Find's worker processes (the governor turns it off at Full, when you're away). True if applied."""
+    Only for Find's worker processes (the governor, at Light and Paused). job: the worker job's handle; the process
+    must still be in it (a worker that ended may have its pid reused by another program). True if applied."""
     st = _PowerThrottling(1, _THROTTLE_EXECUTION_SPEED, _THROTTLE_EXECUTION_SPEED if on else 0)
 
     def apply(h):
         k, _ps = _own_dll()
+        if job is not None:
+            inside = wintypes.BOOL()
+            if not k.IsProcessInJob(h, job, ctypes.byref(inside)) or not inside.value:
+                return False
         return k.SetProcessInformation(h, _PROCESS_POWER_THROTTLING, ctypes.byref(st), ctypes.sizeof(st))
     try:
         return _with_process(pid, apply)

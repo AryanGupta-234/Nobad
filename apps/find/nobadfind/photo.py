@@ -31,6 +31,7 @@ PHOTO_DIM = 768
 SIDE = 224
 TEXT_LEN = 64
 EOS = 1                                   # "</s>": SigLIP pads with it too
+OUT_OF_MEMORY = "out of memory"           # the worker job's limit: read again (as extract.OUT_OF_MEMORY)
 MAX_PHOTO_BYTES = 60 * 1024 * 1024
 MIN_PHOTO_BYTES = 12 * 1024               # smaller files are icons, buttons and thumbnails
 MAX_PIXELS = 80_000_000                   # a small file may claim a huge picture: not decoded
@@ -119,7 +120,7 @@ def embed_photo(job):
         out = _vision_session(model_dir).run(["pooler_output"], {"pixel_values": pixels[None]})[0]
         return file_id, mtime, _unit(out[0]).astype(np.float16).tobytes(), None
     except MemoryError:
-        return file_id, mtime, b"", "too big"
+        return file_id, mtime, b"", OUT_OF_MEMORY
     except Exception as e:                            # one bad photo never stops the others
         return file_id, mtime, b"", f"unreadable ({type(e).__name__})"
 

@@ -24,11 +24,16 @@ from .log import init as init_log, log
 DEFAULT_DATA_DIR = os.path.join(os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"), "NOBAD", "Find")
 
 
+def _canon(path):
+    """One spelling per folder: junctions, symbolic links and 8.3 short names resolved, case folded."""
+    return os.path.normcase(os.path.realpath(os.path.abspath(path)))
+
+
 def lock_name(data_dir=DATA_DIR, default=DEFAULT_DATA_DIR):
     """The single-instance mutex: the app's own for the default index, a separate one for another data folder."""
-    if os.path.normcase(os.path.abspath(data_dir)) == os.path.normcase(os.path.abspath(default)):
+    if _canon(data_dir) == _canon(default):
         return "Local\\NOBAD-Find"
-    digest = hashlib.sha256(os.path.normcase(os.path.abspath(data_dir)).encode("utf-8")).hexdigest()[:16]
+    digest = hashlib.sha256(_canon(data_dir).encode("utf-8")).hexdigest()[:16]
     return "Local\\NOBAD-Find-engine-" + digest
 
 
@@ -75,7 +80,7 @@ def measure_overrides(env, data_dir=DATA_DIR, default=DEFAULT_DATA_DIR, base=Non
     its own pipe (NOBAD_FIND_MEASURE_PIPE, letters/digits/dashes) so it runs next to another engine, and keep one
     work level (NOBAD_FIND_MEASURE_LEVEL). Ignored with the real index. {"level", "pipe"}, None = not asked."""
     out = {"level": None, "pipe": None}
-    if os.path.normcase(os.path.abspath(data_dir)) == os.path.normcase(os.path.abspath(default)):
+    if _canon(data_dir) == _canon(default):
         return out
     level = env.get("NOBAD_FIND_MEASURE_LEVEL", "")
     if level in MEASURE_LEVELS:

@@ -186,3 +186,18 @@ def test_measure_overrides_refuse_odd_values():
     env = {"NOBAD_FIND_MEASURE_LEVEL": "turbo", "NOBAD_FIND_MEASURE_PIPE": "../x"}
     assert engine.measure_overrides(env, r"C:/tmp/m", r"C:/D", base="p") == {"level": None, "pipe": None}
     assert engine.measure_overrides({}, r"C:/tmp/m", r"C:/D", base="p") == {"level": None, "pipe": None}
+
+
+def test_the_real_index_is_recognised_under_another_spelling(tmp_path):
+    """An 8.3 short name (or a junction) for the default folder is still the real index: no dev switches, and the
+    app's own lock."""
+    import ctypes
+    import pytest
+    real = tmp_path / "Real Index Folder"
+    real.mkdir()
+    buf = ctypes.create_unicode_buffer(1024)
+    if not ctypes.windll.kernel32.GetShortPathNameW(str(real), buf, 1024) or buf.value.lower() == str(real).lower():
+        pytest.skip("no 8.3 names on this drive")
+    env = {"NOBAD_FIND_MEASURE_LEVEL": "light", "NOBAD_FIND_MEASURE_PIPE": "x"}
+    assert engine.measure_overrides(env, buf.value, str(real), base="p") == {"level": None, "pipe": None}
+    assert engine.lock_name(buf.value, str(real)) == "Local\\NOBAD-Find"
