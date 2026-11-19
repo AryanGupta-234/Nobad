@@ -4,6 +4,7 @@ library;
 
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
+import 'package:material_ui/material_ui.dart' show Tooltip;
 
 import '../../app/theme/colors.dart';
 import '../../app/theme/tokens.dart';
@@ -61,7 +62,16 @@ class _ResultTileState extends State<ResultTile> {
                 if (r.dir.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
-                    child: Text(r.dir, style: NbType.data(NbSize.caption, c.dim, height: 1.35)),
+                    // one line; a long folder keeps its end (the part that tells folders apart)
+                    child: Tooltip(
+                      message: r.dir,
+                      waitDuration: const Duration(milliseconds: 700),
+                      child: TailText(
+                        r.dir,
+                        textAlign: TextAlign.left,
+                        style: NbType.data(NbSize.caption, c.dim, height: 1.35),
+                      ),
+                    ),
                   ),
                 if (r.snippet.isNotEmpty)
                   Padding(
@@ -98,10 +108,8 @@ class _ResultTileState extends State<ResultTile> {
       decoration: BoxDecoration(
         borderRadius: NbRadius.rowAll,
         border: Border.all(color: sel ? c.orangeA(.45) : const Color(0x00000000)),
-        gradient: LinearGradient(
-          colors: [c.orangeA(sel ? (c.isDark ? .13 : .09) : (_hover ? .06 : 0)), c.orangeA(0)],
-          stops: const [0, .72],
-        ),
+        // a flat tint (a faint gradient bands on light backgrounds)
+        color: sel ? c.orangeA(c.isDark ? .09 : .06) : (_hover ? (c.isDark ? c.line : const Color(0x08000000)) : null),
       ),
       child: Stack(
         children: [

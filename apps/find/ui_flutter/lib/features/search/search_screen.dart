@@ -21,6 +21,7 @@ import '../../state/search_controller.dart';
 import '../../widgets/dialogs.dart';
 import '../../widgets/icons.dart';
 import '../../widgets/motion.dart';
+import '../../widgets/pressable.dart';
 import 'filter_bar.dart';
 import 'home_view.dart';
 import 'result_tile.dart';
@@ -287,6 +288,34 @@ class _SearchBoxState extends State<_SearchBox> {
             child: NbIcon(NbGlyph.search, size: 20, color: on ? c.orange : c.dim),
           ),
           prefixIconConstraints: const BoxConstraints(minWidth: 46, minHeight: 20),
+          // a way to clear the box with the mouse; Esc does the same
+          suffixIcon: ListenableBuilder(
+            listenable: widget.controller,
+            builder: (context, _) => AnimatedOpacity(
+              opacity: widget.controller.text.isEmpty ? 0 : 1,
+              duration: NbMotion.of(context, NbMotion.fast),
+              child: widget.controller.text.isEmpty
+                  ? const SizedBox(width: 8)
+                  : Padding(
+                      padding: const EdgeInsets.only(right: 10),
+                      child: Pressable(
+                        onTap: () {
+                          widget.controller.clear();
+                          widget.focus.requestFocus();
+                        },
+                        semanticLabel: 'Clear',
+                        tooltip: 'Clear (Esc)',
+                        canRequestFocus: false,
+                        ringRadius: NbRadius.pillAll,
+                        builder: (context, p) => Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(color: p.lit ? c.line : null, shape: BoxShape.circle),
+                          child: NbIcon(NbGlyph.close, size: 15, color: p.lit ? c.text : c.dim),
+                        ),
+                      ),
+                    ),
+            ),
+          ),
           contentPadding: const EdgeInsets.fromLTRB(0, 17, 18, 17),
           enabledBorder: border(c.line2),
           focusedBorder: border(c.orangeA(.75)),

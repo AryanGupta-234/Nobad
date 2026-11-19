@@ -180,7 +180,7 @@ class TailText extends StatelessWidget {
           maxLines: 1,
           textScaler: scaler,
         )..layout();
-        final ok = tp.width <= c.maxWidth;
+        final ok = tp.width <= c.maxWidth - 2; // a little room: the painted width can round up
         tp.dispose();
         return ok;
       }
