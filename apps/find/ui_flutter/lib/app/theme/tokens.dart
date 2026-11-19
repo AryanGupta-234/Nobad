@@ -59,4 +59,10 @@ abstract final class NbMotion {
   /// [d], or zero when Windows' "Animation effects" is off.
   static Duration of(BuildContext context, Duration d) =>
       MediaQuery.maybeDisableAnimationsOf(context) ?? false ? Duration.zero : d;
+
+  /// For AnimatedSize: never zero. A zero-length AnimatedSize finishes inside its own layout and Flutter asserts
+  /// ("mutated in its own performLayout"); with Windows' Animation effects off it takes 1 ms instead, which looks
+  /// the same as no animation. Found on CI (Windows Server runs with animations off).
+  static Duration size(BuildContext context, Duration d) =>
+      MediaQuery.maybeDisableAnimationsOf(context) ?? false ? const Duration(milliseconds: 1) : d;
 }

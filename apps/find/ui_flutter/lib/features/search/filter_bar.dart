@@ -33,7 +33,7 @@ class FilterBar extends StatelessWidget {
         }
 
         return AnimatedSize(
-          duration: NbMotion.of(context, NbMotion.base),
+          duration: NbMotion.size(context, NbMotion.base),
           curve: NbMotion.curve,
           alignment: Alignment.topLeft,
           child: Wrap(

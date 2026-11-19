@@ -40,13 +40,17 @@ Future<FakeWindow> pumpApp(
   FakeEngine engine, {
   FakeWindow? window,
   Size size = const Size(1080, 720),
+  bool? reduceMotion,
 }) async {
   debugWindowsLanguageFocus = () => 'english'; // the same on every PC
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   final w = window ?? FakeWindow();
-  await tester.pumpWidget(NobadFindApp(engine: engine, window: w, splash: false));
+  // the same motion on every PC (CI's Windows Server has animations off); NOBAD_FIND_TEST_MOTION=off runs the
+  // whole suite with animations off, as on a PC with Windows' Animation effects switched off
+  final off = reduceMotion ?? (Platform.environment['NOBAD_FIND_TEST_MOTION'] == 'off');
+  await tester.pumpWidget(NobadFindApp(engine: engine, window: w, splash: false, reduceMotion: off));
   await tester.pump();
   await tester.pump();
   return w;

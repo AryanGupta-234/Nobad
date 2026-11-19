@@ -209,7 +209,7 @@ class _NbSelectState extends State<NbSelect> {
               borderRadius: NbRadius.controlAll,
             ),
             child: AnimatedSize(
-              duration: NbMotion.of(context, NbMotion.base),
+              duration: NbMotion.size(context, NbMotion.base),
               curve: NbMotion.curve,
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -277,7 +277,7 @@ class NbChipButton extends StatelessWidget {
             ? _DashedBorder(color: s.lit ? c.orangeA(.7) : c.line2, radius: NbRadius.control)
             : null,
         child: AnimatedSize(
-          duration: NbMotion.of(context, NbMotion.base),
+          duration: NbMotion.size(context, NbMotion.base),
           curve: NbMotion.curve,
           child: Row(
             mainAxisSize: MainAxisSize.min,

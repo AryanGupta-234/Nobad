@@ -260,9 +260,14 @@ void allowSetForeground(int pid) {
   }
 }
 
+/// Tests: the same answer on every PC (test/flutter_test_config.dart), instead of this PC's Windows setting.
+bool? debugAnimationsOff;
+
 /// Windows' Settings > Accessibility > Visual effects > "Animation effects" (SPI_GETCLIENTAREAANIMATION): true when
 /// it is off, so the UI shows changes at once. False off Windows or if Windows can't say.
 bool systemAnimationsOff() {
+  final forced = debugAnimationsOff;
+  if (forced != null) return forced;
   if (!Platform.isWindows) return false;
   try {
     final u32 = DynamicLibrary.open('user32.dll');
