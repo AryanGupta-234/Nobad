@@ -237,7 +237,7 @@ def real(tmp_path, monkeypatch):
     s.upsert_files([("C:/p/a.docx", "a.docx", "C:/p", ".docx", "document", 10, 1.0, 1.0, 1),
                     ("C:/p/c.jpg", "c.jpg", "C:/p", ".jpg", "image", 50000, 1.0, 1.0, 1)])
     st = settings_mod.Settings(str(tmp_path / "s.json"))
-    a = api_mod.Api(s, st, Ix(), None, lambda: None)
+    a = api_mod.Api(s, st, Ix(), None)
     a._governor, a._activity, a._apps = Gov(), Activity(), Apps()
     a._timer = lambda secs, fn: type("T", (), {"daemon": False, "start": lambda self: None})()
     a._exit = lambda code: None

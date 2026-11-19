@@ -25,7 +25,7 @@ def test_a_text_reader_does_not_load_numpy():
     """What a text reader imports itself (python -m nobadfind: multiprocessing doesn't run a package's __main__
     again in workers, so this is all of it)."""
     out = py(f"import sys; {WORKER_ARGV}; from nobadfind import extract; extract.init_worker(); "
-             "print(sorted(m for m in ('numpy', 'nobadfind.app', 'nobadfind.embed', 'onnxruntime', 'webview') "
+             "print(sorted(m for m in ('numpy', 'nobadfind.app', 'nobadfind.embed', 'onnxruntime', 'nobadfind.engine') "
              "if m in sys.modules))")
     assert out == "[]"
 

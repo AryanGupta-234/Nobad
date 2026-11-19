@@ -73,18 +73,28 @@ Turning Windows Search indexing off frees CPU and disk, but the Start menu, Expl
 files by their content. It's off by default. When you turn it off, NOBAD Find saves the start type Windows had
 and puts it back when you turn it on again, or when you uninstall NOBAD Find.
 
+## How it's built
+Two programs: the engine, `NobadFind.exe` (Python 3.11: the encrypted index, the indexer, the hotkeys, the
+notification-area icon), and the window, `nobad_find.exe` (Flutter, in [`ui_flutter/`](ui_flutter)). The engine
+starts the window; they talk only over a private named pipe that only your Windows account can open
+([`contract/`](contract)). Closing the window ends its process; the engine stays, idle, for the hotkey.
+
 ## Run from source
 ```
 cd apps/find
 python -m pip install --require-hashes -r requirements-lock.txt
-python -m nobadfind              # or: python -m nobadfind --background
+cd ui_flutter && flutter build windows --release && cd ..   # the window, once (needs the Flutter SDK)
+python -m nobadfind              # the engine + the window; --page settings|index, --bar, --background, --engine
 ```
-Windows 10 (1809+) or 11, Python 3.11. Data lives in `%LOCALAPPDATA%\NOBAD\Find`.
+Windows 10 (1809+) or 11, Python 3.11. From source the engine starts the window from
+`ui_flutter\build\windows\x64\runner\Release\nobad_find.exe` (or `NOBAD_FIND_UI_EXE`). Data lives in
+`%LOCALAPPDATA%\NOBAD\Find`.
 
 ## Develop
 ```
 python -m pytest -q tests
 python -m pyflakes nobadfind tests
+cd ui_flutter && flutter analyze && flutter test
 ```
 
 ## Build the installer

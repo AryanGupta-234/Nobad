@@ -1,5 +1,9 @@
-# Build NOBAD Find: fresh venv -> hash-pinned dependencies -> tests -> lint -> PyInstaller -> sign -> installer -> sign.
+# Build NOBAD Find: fresh venv -> hash-pinned dependencies -> tests -> lint -> Flutter UI tests + release build ->
+# PyInstaller (engine) -> UI copied next to the engine -> sign -> installer -> sign.
 # The deliverable is ONE file: dist-installer\NobadFind-Setup-<version>.exe (per-user, no admin rights needed).
+#
+# The UI (ui_flutter) needs the Flutter SDK and Visual Studio's C++ build tools. The flutter command comes from
+# $env:NOBAD_FLUTTER (flutter.bat, or the SDK's bin folder) or else from PATH.
 #
 #   powershell -ExecutionPolicy Bypass -File packaging\build.ps1                 app + installer
 #   powershell -ExecutionPolicy Bypass -File packaging\build.ps1 -InstallTools   also installs Inno Setup via winget
@@ -30,6 +34,17 @@ function Find-Iscc {
   return @("${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe", "$env:ProgramFiles\Inno Setup 6\ISCC.exe",
            "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
 }
+function Find-Flutter {
+  if ($env:NOBAD_FLUTTER) {
+    foreach ($p in @($env:NOBAD_FLUTTER, (Join-Path $env:NOBAD_FLUTTER "flutter.bat"), (Join-Path $env:NOBAD_FLUTTER "bin\flutter.bat"))) {
+      if (Test-Path $p -PathType Leaf) { return (Resolve-Path $p).Path }
+    }
+    throw "NOBAD_FLUTTER is set but no flutter.bat was found there: $env:NOBAD_FLUTTER"
+  }
+  $c = (Get-Command flutter -ErrorAction SilentlyContinue)
+  if ($c) { return $c.Source }
+  return $null
+}
 function Find-Signtool {
   $c = (Get-Command signtool -ErrorAction SilentlyContinue)
   if ($c) { return $c.Source }
@@ -38,6 +53,11 @@ function Find-Signtool {
   if ($k) { return $k.FullName }
   return $null
 }
+$flutter = Find-Flutter
+if (-not $flutter) {
+  throw "The Flutter SDK is required to build NOBAD Find's window (ui_flutter). Put flutter on PATH or set NOBAD_FLUTTER to flutter.bat (or the SDK's bin folder)."
+}
+Write-Host "Flutter: $flutter"
 $iscc = $null
 if (-not $AppOnly) {
   $iscc = Find-Iscc
@@ -68,9 +88,28 @@ if ($LASTEXITCODE) { throw "pip install (packaging\requirements-build.txt) faile
 # ---------------------------------------------------------------- tests + lint + app
 python -m pytest -q tests; if ($LASTEXITCODE) { throw "tests failed" }
 python -m pyflakes nobadfind tests; if ($LASTEXITCODE) { throw "pyflakes failed" }
+
+# ---------------------------------------------------------------- the window: Flutter UI tests + release build
+$env:FLUTTER_SUPPRESS_ANALYTICS = "true"
+Push-Location ui_flutter
+try {
+  & $flutter --no-version-check test; if ($LASTEXITCODE) { throw "flutter test failed" }
+  & $flutter --no-version-check build windows --release --build-name $ver; if ($LASTEXITCODE) { throw "flutter build windows failed" }
+} finally { Pop-Location }
+$uiBuild = "ui_flutter\build\windows\x64\runner\Release"
+if (-not (Test-Path "$uiBuild\nobad_find.exe")) { throw "The Flutter build has no $uiBuild\nobad_find.exe" }
+
+# ---------------------------------------------------------------- the engine (PyInstaller), then the UI next to it
 python packaging\make_version_info.py $ver packaging\version_info.txt; if ($LASTEXITCODE) { throw "version info failed" }
 python -m PyInstaller --noconfirm --clean --distpath dist --workpath build packaging\nobadfind.spec
 if ($LASTEXITCODE) { throw "PyInstaller failed" }
+# nobad_find.exe, flutter_windows.dll and data\ (the app's code, assets, ICU data) beside NobadFind.exe, where
+# nobadfind/uilaunch.py looks for the UI.
+Copy-Item -Path "$uiBuild\*" -Destination "dist\NobadFind" -Recurse -Force
+if (-not (Test-Path "dist\NobadFind\nobad_find.exe")) { throw "nobad_find.exe was not copied into dist\NobadFind" }
+# The old WebView window is gone: nothing of pywebview, pythonnet or WebView2 may be in the app folder.
+$web = Get-ChildItem -Recurse "dist\NobadFind" | Where-Object { $_.Name -match 'webview|pythonnet|clr_loader|Python\.Runtime' }
+if ($web) { throw ("WebView files in dist\NobadFind: " + (($web | ForEach-Object { $_.FullName }) -join ", ")) }
 
 # ---------------------------------------------------------------- signing setup
 $signArgs = @()
@@ -97,8 +136,9 @@ function Sign($file) {
   }
 }
 Sign "dist\NobadFind\NobadFind.exe"
+Sign "dist\NobadFind\nobad_find.exe"
 if ($AppOnly) {
-  Write-Host "App built: dist\NobadFind\NobadFind.exe (no installer: -AppOnly)"
+  Write-Host "App built: dist\NobadFind\NobadFind.exe + nobad_find.exe (no installer: -AppOnly)"
   exit 0
 }
 

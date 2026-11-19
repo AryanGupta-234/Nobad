@@ -1,5 +1,5 @@
 /// Settings: eight pages, each a sidebar entry (General, Search, What to index, Models & languages, Performance,
-/// Privacy & data, Shortcuts, About); the rows' wording is 0.7.0's (ui/app.js PAGES) where 0.7.0 had them.
+/// Privacy & data, Shortcuts, About); the rows' wording is the 0.7.0 page's where 0.7.0 had them.
 library;
 
 import 'dart:async';

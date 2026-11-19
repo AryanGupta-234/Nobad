@@ -1,15 +1,16 @@
-"""`python -m nobadfind --engine`: NOBAD Find without a window, serving the UI over the private pipe (nobadfind.rpc).
+"""NOBAD Find's engine: the encrypted index, the indexer, the governor, the watchdog, the hotkeys, the tray icon and
+the private pipe (nobadfind.rpc) the Flutter UI talks to (apps/find/contract).
 
-The engine for the Flutter UI (ROADMAP Phase 2). It builds the same pieces as app.py (settings, encrypted store,
-governor, watchdog, indexer, Api) but no WebView, and serves the whole contract (apps/find/contract). The hotkeys
-push `show` events (the main one also `here`, the File Explorer folder it was pressed in); the UI reports its window
-with ui_shown / ui_hidden (or by its pipe closing), and indexing follows lifecycle's rules as in the app.
+NobadFind.exe runs it (app.py) and starts the UI (nobad_find.exe, uilaunch) on the page asked for; with --background
+(Start with Windows) or --engine (development, measurements) it starts without a window. The hotkeys and the tray
+open the UI later: a `show` event when one is connected, else uilaunch starts it. The UI reports its window with
+ui_shown / ui_hidden (or by its pipe closing), and indexing follows lifecycle's rules.
 
-Running next to the WebView app:
-- With the default data folder the engine takes the same single-instance lock as the app, so the two can't run
-  at the same time (they would share one index). Quit the app first.
-- With NOBAD_FIND_DATA_DIR set (a separate index, used for measurements) the engine takes a lock of its own and can
-  run next to the app; the app keeps the hotkeys then (the engine logs that they're taken).
+One engine per index:
+- With the default data folder the lock is "Local\\NOBAD-Find": a second NobadFind.exe asks this one to show its
+  window (one show event per page, winapi.SHOW_WHAT) and ends.
+- With NOBAD_FIND_DATA_DIR set (a separate index, used for measurements) the engine takes a lock (and show events)
+  of its own and can run next to the real one; the real one keeps the hotkeys then (this one logs that they're taken).
 - Only one engine per user can serve the pipe; a second one exits with an error.
 """
 import ctypes
@@ -95,6 +96,51 @@ def measure_overrides(env, data_dir=DATA_DIR, default=DEFAULT_DATA_DIR, base=Non
 
 
 MAIN_TAKEN = "The hotkey is used by another app. Pick another one in Settings."
+BAR_TAKEN = "The quick find bar shortcut is used by another app. Pick another one in Settings."
+
+
+def show_base(lock):
+    """The show events' name for this lock: "Local\\NOBAD-Find-Show" (winapi.SHOW_EVENT) for the real index."""
+    return lock + "-Show"
+
+
+def worker_hooks(pieces):
+    """What the watchdog and the governor reach through pieces, which fills up as the pieces are made. The governor
+    starts first, so each hook is a no-op (or a safe default) until its piece exists."""
+    def on(key, fn, default=None):
+        def call():
+            obj = pieces.get(key)
+            return default if obj is None else fn(obj)
+        return call
+    return {"release": on("indexer", lambda i: i.release_models()),
+            "recycle": on("indexer", lambda i: i.recycle_workers()),
+            "release_idle": on("indexer", lambda i: i.release_idle_models()),
+            "names": on("indexer", lambda i: i.worker_names(), {})}
+
+
+def show_requests(base, show, stop, make=winapi.show_event, wait=winapi.wait_any, spawn=None):
+    """A second start of NobadFind.exe (Start menu, desktop, --page / --bar) signals one of the show events:
+    show(what) for it until stop is set. Returns True while it listens, None when no event could be made."""
+    names, handles = [], []
+    for what in winapi.SHOW_WHAT:
+        h = make(what, base)
+        if h:
+            names.append(what)
+            handles.append(h)
+    if not handles:
+        log("no show events: a second start can't bring the window up", "warn")
+        return None
+
+    def loop():
+        while not stop.is_set():
+            i = wait(handles, 500)
+            if i is not None and not stop.is_set():
+                try:
+                    show(names[i])
+                except Exception as e:
+                    log(f"show request failed: {type(e).__name__}", "warn")
+    spawn = spawn or (lambda fn: threading.Thread(target=fn, daemon=True, name="show").start())
+    return spawn(loop) or True
 
 
 class Wiring:
@@ -140,6 +186,12 @@ class Wiring:
 
     PAUSE_S = 3600
 
+    def show_request(self, what):
+        """A second start asked for a window (show_requests): like the tray, "here" starts empty."""
+        if what == "main":
+            self.api.here = ""
+        self.ui.show(what)
+
     def tray_action(self, action):
         """A tray menu item (tray.MENU) or a left click ("open")."""
         pages = {"open": "main", "bar": "bar", "settings": "settings", "index": "index"}
@@ -155,7 +207,6 @@ class Wiring:
 
     def start(self):
         """Indexing (only with background indexing on) and the hotkeys. Returns the hotkeys."""
-        from .bar import TAKEN as BAR_TAKEN
         make = self.make_hotkey
         if make is None:
             from .hotkey import Hotkey as make
@@ -189,20 +240,30 @@ def start_tray(settings, api, governor, wiring):
 
 
 def main(stop=None):
-    """Run until `stop` (a threading.Event) is set or the process is ended. Returns the exit code."""
+    """`NobadFind.exe --engine` / `python -m nobadfind --engine`: no window until a UI connects or a hotkey asks for
+    one. Run until `stop` (a threading.Event) is set or the process is ended. Returns the exit code."""
     if winapi.is_admin():
         print("NOBAD Find runs as your normal account. Start it without 'Run as administrator'.")
         return 1
-    if not _single(lock_name()):
+    lock = lock_name()
+    if not _single(lock):
         print("NOBAD Find is already running with this index. Quit it first.")
         return 1
+    return run(stop, lock=lock)
+
+
+def run(stop=None, open_ui=None, lock=None):
+    """The engine, once the caller holds the single-instance lock (main, app.main). open_ui: the window to start
+    the UI on ("main", "settings", "index", "bar"), or None to start without one. Returns the exit code."""
+    lock = lock or lock_name()
     os.makedirs(DATA_DIR, exist_ok=True)
     init_log(LOG_PATH)
     jobs.setup()                    # nothing the engine starts can outlive it
     log(f"{APP_NAME} {APP_VER} engine starting")
+    from . import uilaunch
+    first_ui = uilaunch.start_now(open_ui) if open_ui else None     # first, so the window is up while we load
     from .activity import Activity
     from .api import Api
-    from .app import ui_hooks
     from .appmemory import AppMemory
     from .governor import Governor
     from .indexer import Indexer
@@ -217,10 +278,9 @@ def main(stop=None):
         log("SQLCipher missing: the index is NOT encrypted", "warn")
     vindex = embed.VectorIndex()
     activity = Activity()
-    ui = {}
-    hooks = ui_hooks(ui)            # "reload_ui" finds no window here and does nothing
-    watchdog = Watchdog(activity, **{k: hooks[k] for k in ("release", "recycle", "reload_ui", "quit_app",
-                                                           "visible", "names")})
+    pieces = {}
+    hooks = worker_hooks(pieces)
+    watchdog = Watchdog(activity, **{k: hooks[k] for k in ("release", "recycle", "names")})
     apps = AppMemory(store)
     governor = Governor(settings, apps, activity, watchdog=watchdog, release_idle=hooks["release_idle"])
     measure = measure_overrides(os.environ)
@@ -229,24 +289,25 @@ def main(stop=None):
         log(f"engine: level fixed at {measure['level']} for a measurement", "warn")
     governor.start()
     indexer = Indexer(store, settings, vindex, governor=governor, activity=activity)
-    ui["indexer"] = indexer
+    pieces["indexer"] = indexer
     from .turbo import Turbo
     turbo = Turbo(settings, store, indexer)         # the optional elevated NTFS reader; off unless turned on
     indexer.turbo = turbo
     stop = stop or threading.Event()
-    api = Api(store, settings, indexer, vindex, lambda: None)
-    api._watchdog, api.visible = watchdog, False          # no page heartbeats: the pipe closing tells instead
+    api = Api(store, settings, indexer, vindex)
     api._governor, api._activity, api._apps = governor, activity, apps
     api._turbo = turbo
-    ui["api"] = api
     rpc = Rpc(api, name=measure["pipe"], activity=activity)
     turbo._push = rpc.events.turbo
     wiring = Wiring(api, settings, indexer, rpc.events, stop, rpc.ui_pids)
+    if first_ui is not None:
+        wiring.ui.started(first_ui)             # a hotkey right now doesn't start a second one
     if not rpc.start():
         print("The NOBAD Find pipe is in use: another engine is running for this user.")
         governor.stop()
         return 1
     keys = wiring.start()
+    show_requests(show_base(lock), wiring.show_request, stop)
     tray_box = {"icon": start_tray(settings, api, governor, wiring)}
 
     def on_tray(on):                                      # Settings: the icon comes and goes at once

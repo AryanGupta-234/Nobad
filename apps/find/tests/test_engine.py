@@ -70,8 +70,7 @@ def make(tmp_path, **changes):
     st = settings_mod.Settings(str(tmp_path / "s.json"))
     st.update(dict({"hotkey": "ctrl+alt+shift+f11", "bar_hotkey": "ctrl+alt+shift+f12"}, **changes))
     ix = Ix()
-    api = Api(None, st, ix, None, lambda: None)
-    api.visible = False
+    api = Api(None, st, ix, None)
     conn = Conn()
     conn.events.update({"quitting", "notice", "show"})
     ev = Events(lambda: [conn], lambda c: None, api)
@@ -219,7 +218,7 @@ def test_hotkeys_with_no_ui_go_through_the_launcher(tmp_path):
     st = settings_mod.Settings(str(tmp_path / "s.json"))
     st.update({"hotkey": "ctrl+alt+shift+f11", "bar_hotkey": "ctrl+alt+shift+f12"})
     ix, ui = Ix(), FakeUi()
-    api = Api(None, st, ix, None, lambda: None)
+    api = Api(None, st, ix, None)
     ev = Events(lambda: [], lambda c: None, api)
     w = engine.Wiring(api, st, ix, ev, threading.Event(), ui_pids=lambda: set(), make_hotkey=Key,
                       dialog=lambda: "x", trim=lambda: None, launcher=lambda events: ui)
@@ -232,7 +231,7 @@ def test_hotkeys_with_no_ui_go_through_the_launcher(tmp_path):
 def test_tray_actions(tmp_path):
     st = settings_mod.Settings(str(tmp_path / "s.json"))
     ix, ui = Ix(), FakeUi()
-    api = Api(None, st, ix, None, lambda: None)
+    api = Api(None, st, ix, None)
     paused = []
     api.pause_for = lambda s: paused.append(s) or {"ok": True}
     api.resume = lambda: paused.append("resume") or {"ok": True}

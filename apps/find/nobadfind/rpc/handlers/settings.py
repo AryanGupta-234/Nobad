@@ -1,6 +1,6 @@
 """get_settings, set_settings, pick_folder, rescan, wipe, scope_info, turbo_state, turbo_set.
 
-Every value goes through settings.coerce inside Api.set_settings, exactly as for the WebView page. pick_folder shows
+Every value goes through settings.coerce inside Api.set_settings. pick_folder shows
 Windows' folder dialog from the engine, so the UI never hands the engine a folder path of its own."""
 import threading
 

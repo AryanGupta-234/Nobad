@@ -48,7 +48,7 @@ def make(tmp_path, phase="text", **changes):
     st = settings.Settings(str(tmp_path / "s.json"))
     if changes:
         st.update(changes)
-    a = api_mod.Api(s, st, Ix(phase), None, lambda: None)
+    a = api_mod.Api(s, st, Ix(phase), None)
     a._governor, a._activity = Gov(), Activity()
     return a, s
 
@@ -195,7 +195,7 @@ def test_resource_rates_are_deltas(tmp_path, monkeypatch):
     assert r["read_mb_s"] == 2.0
     assert r["cpu"] == round(5.0 / 10 / cores * 100, 1)
     proc = {p["pid"]: p for p in r["processes"]}
-    assert proc[os.getpid()]["name"] == "Main" and proc[999]["name"] == "Window (WebView2)"
+    assert proc[os.getpid()]["name"] == "Main" and proc[999]["name"] == "Helper"
     assert proc[999]["cpu"] == round(5.0 / 10 / cores * 100, 1) and proc[os.getpid()]["cpu"] == 0.0
     s.close()
 
@@ -329,21 +329,16 @@ class _StopIx(Ix):
 
 
 def test_quit_arms_a_hard_exit_that_lets_the_indexer_finish_first(tmp_path):
-    """I-1: a hung window teardown can't keep NOBAD Find running; the indexer stops and is joined before the
-    process ends, so a SQLite write in progress is committed."""
+    """I-1: a hung exit can't keep NOBAD Find running; the indexer stops and is joined before the process ends,
+    so a SQLite write in progress is committed."""
     a, s = make(tmp_path)
     a._indexer = _StopIx()
-    exits, destroyed = [], []
-
-    class W:
-        def destroy(self):
-            destroyed.append(1)
-    a._win = lambda: W()
+    exits = []
     a._timer, a._exit = _Timer, exits.append
     _Timer.made.clear()
     assert a.quit() == {"ok": True}
     t = _Timer.made[0]
-    assert t.secs == api_mod.QUIT_TIMEOUT == 15 and t.daemon and t.started and destroyed
+    assert t.secs == api_mod.QUIT_TIMEOUT == 15 and t.daemon and t.started
     assert exits == []                                # nothing happens unless the quit hangs
     a._indexer.calls.clear()
     t.fn()
@@ -351,73 +346,14 @@ def test_quit_arms_a_hard_exit_that_lets_the_indexer_finish_first(tmp_path):
     s.close()
 
 
-def test_hide_tells_the_app(tmp_path):
-    """I-2: Api.hide calls the app's hook (app.py: lifecycle.after_hide) after hiding the window."""
+def test_hide_tells_the_engine(tmp_path):
+    """I-2: Api.hide (ui_hidden, or the UI's pipe closing) calls the engine's hook (lifecycle.after_hide)."""
     a, s = make(tmp_path)
     order = []
-
-    class W:
-        def hide(self):
-            order.append("hide")
-    a._win = lambda: W()
-    assert a.hide() == {"ok": True}                  # no hook set: just hides
+    assert a.hide() == {"ok": True}                  # no hook set: nothing happens
     a._on_hide = lambda: order.append("hook")
     a.hide()
-    assert order == ["hide", "hide", "hook"] and a.visible is False
-    s.close()
-
-
-def _exposed(obj, base="", out=None, seen=None):
-    """pywebview 6.2's js_api walk (webview/util.py get_functions): every public method, recursing into
-    public non-callable attributes."""
-    import inspect
-    out = {} if out is None else out
-    seen = set() if seen is None else seen
-    if id(obj) in seen:
-        return out
-    seen.add(id(obj))
-    for name in dir(obj):
-        if name.startswith("_"):
-            continue
-        full = f"{base}.{name}" if base else name
-        try:
-            attr = getattr(obj, name)
-        except Exception:
-            continue
-        if inspect.ismethod(attr) or inspect.isfunction(attr):
-            out[full] = True
-        elif inspect.isclass(attr) or (not callable(attr) and hasattr(attr, "__module__")):
-            _exposed(attr, full, out, seen)
-    return out
-
-
-API_METHODS = {"download_model", "download_photo_model", "downloads", "forget", "get_settings", "hardware", "heartbeat",
-               "here_folder", "hide", "learned_apps", "open", "page_visible", "path_of", "pause_for", "pick_folder",
-               "quit", "rescan", "reset_learned", "resume", "reveal", "search", "set_settings", "status",
-               "status_brief", "thumbnail", "ui_shown", "scope_info", "turbo_state", "turbo_set",
-               "use_instead_of_windows_search", "wipe", "wsearch_set", "wsearch_state",
-               # 0.8.0: Open with and the model tiers (the WebView page may call them like any Api method)
-               "open_with", "models", "model_use", "model_download", "model_remove", "auto_configure",
-               "model_language"}
-
-
-def test_the_page_sees_only_the_api_methods(tmp_path):
-    """I-5: wired like app.py does, the page can reach the checked methods and nothing nested
-    (no store.q, store.wipe, governor.stop, settings.update, watchdog.check)."""
-    from nobadfind import bar
-    from nobadfind.appmemory import AppMemory
-    from nobadfind.governor import Governor
-    from nobadfind.watchdog import Watchdog
-    a, s = make(tmp_path)
-    act = Activity()
-    apps = AppMemory(s)
-    wd = Watchdog(act)
-    a._watchdog, a._governor, a._activity, a._apps = wd, Governor(a._settings, apps, act, watchdog=wd), act, apps
-    a.visible, a.here = True, r"C:\Users"
-    a._on_hide = lambda: None
-    assert set(_exposed(a)) == API_METHODS
-    b = bar.BarApi(a, bar.Bar(lambda: None, False), lambda text: None)
-    assert set(_exposed(b)) == {"blurred", "fit", "hide", "open", "reveal", "search", "to_main"}
+    assert order == ["hook"]
     s.close()
 
 

@@ -36,6 +36,23 @@ def argv_for(exe, what):
     return [exe, "--bar"] if what == "bar" else [exe, "--page", PAGES.get(what, "search")]
 
 
+def start_now(what, exe=ui_exe, start=None, clock=time.monotonic):
+    """Start the UI on that page without waiting for the engine (NobadFind.exe's first start: the window comes up
+    while the engine loads, and connects when the pipe is ready). The start time, or None if it didn't start."""
+    from . import winapi
+    path = exe()
+    if not path:
+        log("no UI to start (nobad_find.exe not found)", "warn")
+        return None
+    try:
+        (start or winapi.start_outside_job)(argv_for(path, what))
+    except OSError as e:
+        log(f"could not start the UI (error {e.winerror or e.errno})", "warn")
+        return None
+    log(f"started the UI ({PAGES.get(what, what)})")
+    return clock()
+
+
 class Launcher:
     """show(what): the `show` event when a UI is connected, else start one on that page (once per STARTING)."""
 
@@ -46,6 +63,10 @@ class Launcher:
         self.note = note or (lambda text: None)
         self._started_at = None
         self._told = False
+
+    def started(self, at):
+        """A UI was started at `at` (start_now): within STARTING, show() waits for it instead of starting another."""
+        self._started_at = at
 
     def here(self, path):
         return self.events.here(path)

@@ -2,7 +2,7 @@
 
     python packaging/make_icon.py
 
-Every NOBAD app uses the company mark (the black tile with the "n", nobadfind/ui/brand/nobad-mark.png); only the
+Every NOBAD app uses the company mark (the black tile with the "n", ui_flutter/assets/nobad-mark.png); only the
 colour of the "n" changes per product. NOBAD VPN is orange, NOBAD File Bridge blue, NOBAD Find yellow.
 This recolours the orange "n" of the mark, keeping its anti-aliased edges (each pixel is the orange times a
 brightness, so it becomes the yellow times the same brightness).
@@ -13,7 +13,7 @@ import os
 from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-MARK = os.path.join(HERE, "..", "nobadfind", "ui", "brand", "nobad-mark.png")
+MARK = os.path.join(HERE, "..", "ui_flutter", "assets", "nobad-mark.png")
 OUT = os.path.join(HERE, "nobadfind.ico")
 PNG = os.path.join(HERE, "nobadfind-icon.png")
 SIZES = [(16, 16), (20, 20), (24, 24), (32, 32), (40, 40), (48, 48), (64, 64), (128, 128), (256, 256)]
