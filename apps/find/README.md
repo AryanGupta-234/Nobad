@@ -61,9 +61,11 @@ they're about, and tells you why each result matched.
 - **Files are untrusted.** Office files are checked for zip bombs, XML is parsed without external entities,
   files are size-limited and read in separate low-priority processes, images are decoded only by Windows' own
   decoders, and nothing is ever run.
-- **Its only connections:** two optional one-time model downloads from Hugging Face, each off until you allow it
-  in Settings, pinned to one revision and checked against its SHA-256 before use: the meaning-search model
-  (23 MB, all-MiniLM-L6-v2) and the photo model (about 211 MB, SigLIP base by Google, Apache-2.0). (Network drives, if you turn them on, are read over your
+- **Its only connections:** optional one-time model downloads from Hugging Face, each only when you say Download
+  in Settings → Models, pinned to one revision and checked against its SHA-256 before use. The meaning-search
+  models are all-MiniLM-L6-v2 (23 MB), GTE small (33 MB), BGE base (106 MB) and multilingual-e5 small and base
+  (129 / 282 MB); all MIT or Apache-2.0. The photo models are SigLIP base (211 MB) and SigLIP 2 base (393 MB), by
+  Google, Apache-2.0. (Network drives, if you turn them on, are read over your
   own network like any other program opening files there.)
 
 ## Windows Search switch

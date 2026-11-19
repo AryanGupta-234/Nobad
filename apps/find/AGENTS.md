@@ -23,11 +23,15 @@ Specific to this app:
 - Call detection (`winapi.in_call`) reads the user's own CapabilityAccessManager records; stale records from
   crashed apps must not pause indexing forever (age limit + process check).
 - `--uninstall` (run by the installer's uninstaller) only undoes what the app changed outside its data folder.
-- The index is SQLCipher with a DPAPI-protected key. The only outbound connections are the two optional model
-  downloads, both through `embed._fetch_verified` (HTTPS, exact size, SHA-256): the text model
-  (`const.MODEL_FILES`, gated by `allow_model_download`) and the photo model (`photo.PHOTO_FILES`, SigLIP base,
-  Apache-2.0, gated by `allow_photo_model_download`). Keep model licences permissive for shipping (OpenAI CLIP's
-  model card rules out deployment, so it isn't used).
+- The index is SQLCipher with a DPAPI-protected key. The only outbound connections are the optional model
+  downloads, all through `embed._fetch_verified` (HTTPS, exact size, SHA-256) from the pinned entries in
+  `models.CATALOG`, each only after the user's consent (`model_download` with `consent: "DOWNLOAD"`, stored as
+  `allow_model_download` / `allow_photo_model_download`). A new model needs a catalog entry with its revision, file
+  sizes and SHA-256s, a measured row in `docs/measurements.md` (`tools/eval_text.py`) and a permissive licence
+  (OpenAI CLIP's model card rules out deployment, so it isn't used).
+- Vectors carry their model's id (`meta vec_model`, `pvec_model`); a search never compares vectors from two models
+  (`search._meaning_hits` / `_photo_hits` check it). A text-model switch rebuilds beside the old vectors
+  (`vecs_next`) and swaps them in one transaction.
 - Photos for photo meaning are decoded only by Windows' decoders in the one photo worker process (`photo.py`).
   Result previews come from Windows' thumbnail cache (`thumbs.py`), asked for by result id, never a page path.
 - Models are `embed.Lazy`: loaded on use, released when idle. Don't hold a model outside that wrapper.
