@@ -25,6 +25,7 @@ class FakeEngine implements EngineApi {
     Link link = Link.connected,
     Map<String, Object?> settings = const {'welcome_seen': true, 'bg_notice_seen': true},
     this.live = false,
+    this.suggestions = false,
     DateTime Function()? clock,
   }) : files = files ?? sampleFiles(),
        _clock = clock ?? (() => DateTime(2026, 11, 19, 14, 30)) {
@@ -46,6 +47,9 @@ class FakeEngine implements EngineApi {
 
   final List<FileResult> files;
   final bool live;
+
+  /// Answer `suggest` (0.8.5). Off: like an engine without autocomplete (the older tests count rows and texts).
+  final bool suggestions;
   final DateTime Function() _clock;
   final _link = ValueNotifier(Link.connected);
   final _events = StreamController<EngineEvent>.broadcast(sync: true);
@@ -139,9 +143,18 @@ class FakeEngine implements EngineApi {
         if (filters.sort == 'name') rows.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
         if (filters.sort == 'largest') rows.sort((a, b) => (b.size ?? 0).compareTo(a.size ?? 0));
         if (t.isEmpty) rows = rows.where((r) => !r.weak).toList();
+        final parts = fakeParts(text);
+        // the best guess: an exact name, or the only match (the engine's rules, simplified)
+        final exact = rows.where((r) => r.name.toLowerCase() == t || r.name.toLowerCase().split('.').first == t);
+        final guess = exact.length == 1
+            ? (exact.first, 'Exact name')
+            : (rows.length == 1 && t.isNotEmpty ? (rows.first, 'The only match') : null);
+        if (guess != null) rows = [guess.$1, ...rows.where((r) => r.id != guess.$1.id)];
         return SearchAnswer(
           results: rows,
           ms: 4,
+          parts: parts,
+          best: guess == null ? null : BestGuess(guess.$1.id, guess.$2),
           understood: [
             if (t.contains('pdf')) 'pdf',
             if (t.contains('last week')) 'changed in the last 7 days',
@@ -155,6 +168,154 @@ class FakeEngine implements EngineApi {
       });
 
   static const _stop = {'from', 'in', 'my', 'the', 'last', 'week', 'photos', 'photo', 'pdf'};
+
+  /// How the fake reads a question into chips (the real engine: nobadfind/understand.py). Enough for the goldens
+  /// and tests: folders, kinds and times it knows, the rest is what it's about.
+  static List<QueryPart> fakeParts(String text) {
+    var rest = ' ${text.trim()} ';
+    final out = <QueryPart>[];
+    String cut(String phrase) {
+      final i = rest.toLowerCase().indexOf(' $phrase ');
+      if (i < 0) return '';
+      final found = rest.substring(i + 1, i + 1 + phrase.length);
+      rest = '${rest.substring(0, i)} ${rest.substring(i + 1 + phrase.length)}';
+      return found;
+    }
+
+    String without(String phrase) =>
+        text.replaceFirst(RegExp('\\s*${RegExp.escape(phrase)}', caseSensitive: false), '').trim();
+    for (final (phrase, kind, label) in _fakeVocab) {
+      final found = cut(phrase);
+      if (found.isNotEmpty) out.add(QueryPart(kind: kind, label: label, without: without(found)));
+    }
+    final about = rest
+        .trim()
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .replaceAll(RegExp(r'^(an?|the|of) |( an?| the| of)$'), '');
+    if (out.isNotEmpty && about.isNotEmpty) {
+      var only = text;
+      for (final w in about.split(' ')) {
+        only = only.replaceFirst(RegExp('\\b${RegExp.escape(w)}\\b\\s*', caseSensitive: false), '');
+      }
+      out.add(QueryPart(kind: 'meaning', label: about, without: only.trim()));
+    }
+    return out;
+  }
+
+  static const _fakeVocab = [
+    ('in downloads', 'folder', 'Downloads'),
+    ('on desktop', 'folder', 'Desktop'),
+    ('in documents', 'folder', 'Documents'),
+    ('in an image', 'kind', 'Images'),
+    ('photos', 'kind', 'Images'),
+    ('photo', 'kind', 'Images'),
+    ('pdf', 'kind', 'PDFs'),
+    ('last week', 'time', 'Last week'),
+    ('yesterday', 'time', 'Yesterday'),
+  ];
+
+  // ---------- 0.8.5: autocomplete and the user's own search history ----------
+  /// Kept questions, newest first (the engine keeps them in the encrypted index; here in memory).
+  final history = <String>[];
+  final suggested = <String>[];
+  bool historyOn() => _settings['search_history'] != false;
+
+  static const _phrases = [
+    ('in downloads', 'folder'),
+    ('in documents', 'folder'),
+    ('on desktop', 'folder'),
+    ('images', 'kind'),
+    ('pdf', 'kind'),
+    ('last week', 'time'),
+    ('last month', 'time'),
+    ('yesterday', 'time'),
+  ];
+
+  @override
+  Future<Suggestions> suggest(String text, {String channel = 'main'}) => _answer('suggest', () {
+    suggested.add(text);
+    if (!suggestions) return Suggestions.none;
+    final low = text.toLowerCase();
+    final items = <Suggestion>[];
+    if (historyOn()) {
+      for (final h in history) {
+        if (h.toLowerCase().startsWith(low) && h.toLowerCase() != low.trim()) {
+          items.add(Suggestion(text: h, kind: 'history', label: h));
+        }
+        if (items.length >= 4) break;
+      }
+    }
+    if (low.trim().isNotEmpty && !low.endsWith(' ')) {
+      final words = low.split(' ');
+      for (final n in [2, 1]) {
+        if (words.length < n) continue;
+        final tail = words.sublist(words.length - n).join(' ');
+        if (tail.length < 2) continue;
+        final before = text.substring(0, text.length - tail.length);
+        final hits = [
+          for (final (p, k) in _phrases)
+            if (p.startsWith(tail) && p != tail) Suggestion(text: '$before$p', kind: 'filter', label: p, detail: k),
+        ];
+        if (hits.isNotEmpty) {
+          items.addAll(hits.take(3));
+          break;
+        }
+      }
+      final last = words.last;
+      if (last.length >= 2) {
+        final before = text.substring(0, text.length - last.length);
+        // the name alone when it has the earlier words too ("tax no" -> "tax notes.txt")
+        final earlier = before.toLowerCase().split(' ').where((w) => w.length >= 2);
+        for (final f in files) {
+          if (f.name.toLowerCase().split(RegExp(r'[\s._-]+')).any((w) => w.startsWith(last))) {
+            items.add(
+              Suggestion(
+                text: earlier.every(f.name.toLowerCase().contains) ? f.name : '$before${f.name}',
+                kind: f.kind == 'folder' ? 'folder' : 'file',
+                label: f.name,
+                detail: f.dir,
+                id: f.id,
+              ),
+            );
+          }
+          if (items.length >= 8) break;
+        }
+      }
+    }
+    final seen = <String>{};
+    final out = [
+      for (final i in items)
+        if (seen.add(i.text.toLowerCase())) i,
+    ].take(channel == 'bar' ? 5 : 8).toList();
+    final first = out.where((i) => i.text.length > text.length && i.text.toLowerCase().startsWith(low)).firstOrNull;
+    return Suggestions(
+      items: out,
+      complete: first == null || low.trim().isEmpty ? '' : text + first.text.substring(text.length),
+    );
+  });
+
+  @override
+  Future<bool> historyAdd(String text) => _answer('history_add', () {
+    final t = text.trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (!historyOn() || t.length < 2) return false;
+    history.removeWhere((h) => h.toLowerCase() == t.toLowerCase());
+    history.insert(0, t);
+    if (history.length > 200) history.removeLast();
+    return true;
+  });
+
+  @override
+  Future<ActionResult> historyForget(String text) => _answer('history_forget', () {
+    final n = history.length;
+    history.removeWhere((h) => h.toLowerCase() == text.trim().toLowerCase());
+    return ActionResult(history.length < n);
+  });
+
+  @override
+  Future<ActionResult> historyClear() => _answer('history_clear', () {
+    history.clear();
+    return _ok;
+  });
 
   @override
   Future<ActionResult> open(int id) => _answer('open', () {

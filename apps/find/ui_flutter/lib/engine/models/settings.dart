@@ -41,6 +41,7 @@ class Settings {
     'glass': true,
     'bg_notice_seen': false,
     'welcome_seen': false,
+    'search_history': true,
   };
 
   static const initial = Settings(defaults);

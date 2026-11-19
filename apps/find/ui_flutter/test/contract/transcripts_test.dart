@@ -91,6 +91,19 @@ void main() {
           for (final x in a.results) {
             expect(x.path, isNotEmpty);
           }
+          // 0.8.5: every part has a label; the best guess is the first row
+          for (final p in a.parts) {
+            expect(p.label, isNotEmpty);
+          }
+          if (a.best != null) expect(a.hasGuess, isTrue);
+        case 'suggest':
+          final sg = Suggestions.fromJson(r);
+          expect(sg.items.length, (((r as Map)['items']) as List).length); // every row the engine sends is read
+          for (final i in sg.items) {
+            expect(i.text, isNotEmpty);
+          }
+        case 'history_forget' || 'history_clear':
+          expect(ActionResult.fromJson(r).error, isA<String>());
         case 'status':
           expect(EngineStatus.fromJson(r).levelLabel, isNotEmpty);
         case 'status_full':
@@ -135,6 +148,25 @@ void main() {
         default:
       }
     }
+  });
+
+  test('smart search (0.8.5): parts, the best guess and suggestions read as the engine sent them', () {
+    final lines = readTranscript('07-smart-search.jsonl');
+    final search = SearchAnswer.fromJson(((lines[2]['recv'] as Map)['result']));
+    expect(search.parts.map((p) => (p.kind, p.label, p.without)), [('kind', 'PDFs', 'tax'), ('words', 'tax', 'pdf')]);
+    expect(search.best!.reason, 'The only match');
+    expect(search.hasGuess, isTrue);
+    final sug = [
+      for (final l in lines)
+        if (l['recv'] is Map &&
+            ((l['recv'] as Map)['result'] as Object?) is Map &&
+            (((l['recv'] as Map)['result']) as Map).containsKey('complete'))
+          Suggestions.fromJson((l['recv'] as Map)['result']),
+    ];
+    expect(sug.first.items, isEmpty);
+    expect(sug[1].items.first.isHistory, isTrue);
+    expect(sug[1].items[1].id, 7);
+    expect(sug[1].complete, 'tax pdf');
   });
 
   test('the pipe client asks the way the contract says and reads what comes back', () async {

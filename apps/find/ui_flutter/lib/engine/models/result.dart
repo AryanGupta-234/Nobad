@@ -71,6 +71,92 @@ class FileResult {
   }
 }
 
+/// One part of how the question was understood (contract `Part`, 0.8.5): a removable chip.
+class QueryPart {
+  const QueryPart({required this.kind, required this.label, this.without = ''});
+
+  /// folder | drive | kind | time | size | sort | meaning | words.
+  final String kind;
+
+  /// The chip's text, plain (it may be the user's own words or a folder name from the index).
+  final String label;
+
+  /// The question with this part taken out: removing the chip searches this.
+  final String without;
+
+  bool get isMeaning => kind == 'meaning' || kind == 'words';
+
+  static QueryPart? fromJson(Object? json) {
+    if (json is! Map) return null;
+    final label = _str(json['label']);
+    if (label.isEmpty) return null;
+    return QueryPart(kind: _str(json['kind']), label: label, without: _str(json['without']));
+  }
+}
+
+/// The best guess (contract `BestGuess`): the one result the engine is sure of; always `results[0]`.
+class BestGuess {
+  const BestGuess(this.id, this.reason);
+  final int id;
+  final String reason;
+
+  static BestGuess? fromJson(Object? json) {
+    if (json is! Map || json['id'] is! int) return null;
+    return BestGuess(json['id'] as int, _str(json['reason']));
+  }
+}
+
+/// One autocomplete suggestion (contract `Suggestion`, `suggest`).
+class Suggestion {
+  const Suggestion({required this.text, required this.kind, required this.label, this.detail = '', this.id});
+
+  /// The whole question to search when it's picked.
+  final String text;
+
+  /// history | filter | file | folder.
+  final String kind;
+  final String label;
+  final String detail;
+  final int? id;
+
+  bool get isHistory => kind == 'history';
+
+  static Suggestion? fromJson(Object? json) {
+    if (json is! Map) return null;
+    final text = _str(json['text']);
+    final kind = _str(json['kind']);
+    if (text.isEmpty || !const {'history', 'filter', 'file', 'folder'}.contains(kind)) return null;
+    final id = json['id'];
+    return Suggestion(
+      text: text,
+      kind: kind,
+      label: _str(json['label']).isEmpty ? text : _str(json['label']),
+      detail: _str(json['detail']),
+      id: id is int ? id : null,
+    );
+  }
+}
+
+/// `suggest`'s answer: the list and the inline (ghost) completion of what's typed.
+class Suggestions {
+  const Suggestions({this.items = const [], this.complete = ''});
+  final List<Suggestion> items;
+
+  /// Starts with exactly the typed text, or ''.
+  final String complete;
+
+  static const none = Suggestions();
+
+  static Suggestions fromJson(Object? json) {
+    if (json is! Map) return none;
+    final rows = json['items'];
+    return Suggestions(
+      items: rows is List ? [for (final r in rows) ?Suggestion.fromJson(r)] : const [],
+      complete: _str(json['complete']),
+    );
+  }
+}
+
 class SearchAnswer {
   const SearchAnswer({
     this.results = const [],
@@ -81,7 +167,31 @@ class SearchAnswer {
     this.more = false,
     this.error = '',
     this.cancelled = false,
+    this.parts = const [],
+    this.best,
   });
+
+  /// How the question was understood, as removable chips (0.8.5; an older engine: empty, see [understood]).
+  final List<QueryPart> parts;
+
+  /// The best guess, or null when the engine isn't sure. When set it is `results[0]`.
+  final BestGuess? best;
+
+  /// [best] when it really is the first row shown.
+  bool get hasGuess => best != null && results.isNotEmpty && results.first.id == best!.id;
+
+  SearchAnswer copyWith({List<FileResult>? results, bool? more}) => SearchAnswer(
+    results: results ?? this.results,
+    ms: ms,
+    understood: understood,
+    terms: terms,
+    notes: notes,
+    more: more ?? this.more,
+    error: error,
+    cancelled: cancelled,
+    parts: parts,
+    best: best,
+  );
 
   /// A newer search on the same channel replaced this one: ignore the answer (no message, no empty state).
   final bool cancelled;
@@ -110,6 +220,8 @@ class SearchAnswer {
       more: json['more'] == true,
       error: _str(json['error']),
       cancelled: json['cancelled'] == true,
+      parts: json['parts'] is List ? [for (final p in json['parts'] as List) ?QueryPart.fromJson(p)] : const [],
+      best: BestGuess.fromJson(json['best']),
     );
   }
 }

@@ -1,6 +1,10 @@
 /// The quick find bar (`--bar`): frameless, on top, 640 px wide, a third of the way down the monitor with the
 /// mouse; up to 8 results; Enter opens, Ctrl+Enter shows in folder, Alt+Enter hands the words to the main window,
 /// Esc hides. The engine's bar hotkey shows it.
+///
+/// 0.8.5 smart search, as in the main window: up to 3 suggestions above the results (↑ from the first result goes
+/// up into them, Enter takes one), the dim inline completion (Tab or → takes it), and the best guess marked on the
+/// first row (Enter opens it).
 library;
 
 import 'dart:async';
@@ -20,6 +24,8 @@ import '../../state/search_controller.dart';
 import '../../widgets/common.dart';
 import '../../widgets/pressable.dart';
 import '../search/result_actions.dart';
+import '../search/smart_search.dart';
+import '../../state/suggest_controller.dart';
 import '../../widgets/glass.dart';
 import '../../widgets/motion.dart';
 
@@ -39,15 +45,30 @@ class _BarWindowState extends State<BarWindow> {
     limit: BarSize.maxRows,
     debounce: const Duration(milliseconds: 90),
   );
-  final box = TextEditingController();
+  final box = GhostTextController();
+  late final SuggestController sug = SuggestController(widget.engine, channel: 'bar');
   final focus = FocusNode(debugLabel: 'bar box');
+
+  /// Suggestion rows shown above the results (the bar's window only has room for 8 rows in all).
+  static const maxSuggestions = 3;
+  bool _quiet = false;
   late final StreamSubscription<EngineEvent> _shows;
   int _rows = -1;
 
   @override
   void initState() {
     super.initState();
-    box.addListener(() => find.setText(box.text));
+    box.addListener(() {
+      final changed = box.text != find.text;
+      find.setText(box.text);
+      if (changed && !_quiet) sug.typed(box.text);
+      box.ghost = sug.ghostFor(box.text);
+    });
+    sug.addListener(() {
+      box.ghost = sug.ghostFor(box.text);
+      _fit();
+    });
+    find.addListener(() => sug.exclude = {for (final r in find.results.take(BarSize.maxRows)) r.id});
     find.addListener(_fit);
     _shows = widget.engine.events.listen((e) {
       if (e is ShowEvent && e.what == 'bar') show();
@@ -57,10 +78,61 @@ class _BarWindowState extends State<BarWindow> {
     _life; // start listening
   }
 
-  /// Rows the window needs: the results, or one for "No match for …" or a failed open.
+  /// Suggestion rows on show now.
+  int get suggestionRows => sug.isOpen && find.text.trim().isNotEmpty ? sug.items.length.clamp(0, maxSuggestions) : 0;
+
+  /// Result rows on show now (the suggestions take their room first).
+  int get resultRows => find.results.length.clamp(0, BarSize.maxRows - suggestionRows);
+
+  /// Rows the window needs: suggestions and results, or one for "No match for …" or a failed open.
   int get rowsNeeded {
-    if (find.text.trim().isEmpty || find.askedFor.isEmpty) return 0;
-    return find.results.isEmpty ? 1 : find.results.length;
+    if (find.text.trim().isEmpty) return 0;
+    final ns = suggestionRows;
+    if (find.askedFor.isEmpty) return ns;
+    return ns + (find.results.isEmpty ? 1 : resultRows);
+  }
+
+  void _down() {
+    if (sug.down(noResults: find.results.isEmpty)) return;
+    find.move(1);
+  }
+
+  void _up() {
+    if (sug.up(atTop: find.results.isEmpty || find.selected == 0)) return;
+    find.move(-1);
+  }
+
+  void _enter() {
+    final x = sug.current;
+    if (x == null) {
+      sug.close();
+      unawaited(_act());
+      return;
+    }
+    _quiet = true;
+    box.value = TextEditingValue(
+      text: x.text,
+      selection: TextSelection.collapsed(offset: x.text.length),
+    );
+    _quiet = false;
+    sug.close();
+    find.remember(x.text);
+  }
+
+  void _escape() {
+    if (sug.close()) return;
+    hide();
+  }
+
+  /// Tab, or → with the caret at the end: the inline completion.
+  KeyEventResult _ghostKeys(FocusNode node, KeyEvent e) {
+    if (e is KeyDownEvent &&
+        (e.logicalKey == LogicalKeyboardKey.tab ||
+            e.logicalKey == LogicalKeyboardKey.arrowRight && box.atEnd && box.ghost.isNotEmpty) &&
+        box.acceptGhost()) {
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
   }
 
   void _fit() {
@@ -152,7 +224,10 @@ class _BarWindowState extends State<BarWindow> {
     _settling = true;
     _settle?.cancel();
     _settle = Timer(const Duration(milliseconds: 400), () => _settling = false);
+    _quiet = true;
     box.clear();
+    _quiet = false;
+    sug.close();
     setState(() => _open = false);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) setState(() => _open = true);
@@ -176,7 +251,10 @@ class _BarWindowState extends State<BarWindow> {
 
   void _gone() {
     widget.window.hide();
+    _quiet = true;
     box.clear();
+    _quiet = false;
+    sug.close();
     if (mounted) setState(() => _open = true);
   }
 
@@ -207,6 +285,7 @@ class _BarWindowState extends State<BarWindow> {
     _life.dispose();
     _settle?.cancel();
     find.dispose();
+    sug.dispose();
     box.dispose();
     focus.dispose();
     super.dispose();
@@ -243,57 +322,79 @@ class _BarWindowState extends State<BarWindow> {
             bindings: {
               const SingleActivator(LogicalKeyboardKey.enter, control: true, shift: true): () =>
                   _rowAction(ResultAction.openWith),
-              const SingleActivator(LogicalKeyboardKey.arrowDown): () => find.move(1),
-              const SingleActivator(LogicalKeyboardKey.arrowUp): () => find.move(-1),
-              const SingleActivator(LogicalKeyboardKey.enter): _act,
-              const SingleActivator(LogicalKeyboardKey.numpadEnter): _act,
+              const SingleActivator(LogicalKeyboardKey.arrowDown): _down,
+              const SingleActivator(LogicalKeyboardKey.arrowUp): _up,
+              const SingleActivator(LogicalKeyboardKey.enter): _enter,
+              const SingleActivator(LogicalKeyboardKey.numpadEnter): _enter,
               const SingleActivator(LogicalKeyboardKey.enter, control: true): () => _act(reveal: true),
               const SingleActivator(LogicalKeyboardKey.enter, alt: true): _toMain,
-              const SingleActivator(LogicalKeyboardKey.escape): hide,
+              const SingleActivator(LogicalKeyboardKey.escape): _escape,
             },
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 SizedBox(
                   height: BarSize.field - 2,
-                  child: _Field(box: box, focus: focus, find: find, onMark: (pos) => _openMenu(_appMenu(), pos)),
+                  child: Focus(
+                    canRequestFocus: false,
+                    skipTraversal: true,
+                    onKeyEvent: _ghostKeys,
+                    child: _Field(box: box, focus: focus, find: find, onMark: (pos) => _openMenu(_appMenu(), pos)),
+                  ),
                 ),
                 Expanded(
                   child: ListenableBuilder(
-                    listenable: find,
+                    listenable: Listenable.merge([find, sug]),
                     builder: (context, _) {
                       if (rowsNeeded == 0) return const SizedBox.shrink();
+                      final ns = suggestionRows;
+                      final best = find.answer.hasGuess ? find.answer.best : null;
                       return Container(
                         decoration: BoxDecoration(
                           border: Border(top: BorderSide(color: c.line)),
                         ),
-                        child: find.results.isEmpty
-                            ? _NoMatch(
+                        child: Column(
+                          children: [
+                            for (var i = 0; i < ns; i++)
+                              SuggestionRow(
+                                s: sug.items[i],
+                                typed: sug.askedFor,
+                                lit: i == sug.highlighted,
+                                dense: true,
+                                onTap: () {
+                                  sug.hover(i);
+                                  _enter();
+                                },
+                                onHover: () => sug.hover(i),
+                                onForget: sug.items[i].isHistory ? () => sug.forget(sug.items[i]) : null,
+                              ),
+                            if (find.askedFor.isNotEmpty && find.results.isEmpty)
+                              _NoMatch(
                                 find.notice.isNotEmpty ? find.notice : find.askedFor.trim(),
                                 isError: find.notice.isNotEmpty,
                               )
-                            : Column(
-                                children: [
-                                  for (var i = 0; i < find.results.length; i++)
-                                    Appear(
-                                      key: ValueKey((find.serial, find.results[i].id)),
-                                      delay: Appear.stagger(i),
-                                      lift: 3,
-                                      child: _Row(
-                                        result: find.results[i],
-                                        selected: i == find.selected,
-                                        onSecondary: (pos) {
-                                          find.select(i);
-                                          _openMenu(_rowMenu(), pos);
-                                        },
-                                        onTap: (reveal) {
-                                          find.select(i);
-                                          _act(reveal: reveal);
-                                        },
-                                      ),
-                                    ),
-                                ],
-                              ),
+                            else
+                              for (var i = 0; i < resultRows; i++)
+                                Appear(
+                                  key: ValueKey((find.serial, find.results[i].id)),
+                                  delay: Appear.stagger(i),
+                                  lift: 3,
+                                  child: _Row(
+                                    result: find.results[i],
+                                    guess: i == 0 && best != null ? best.reason : null,
+                                    selected: i == find.selected && sug.highlighted < 0,
+                                    onSecondary: (pos) {
+                                      find.select(i);
+                                      _openMenu(_rowMenu(), pos);
+                                    },
+                                    onTap: (reveal) {
+                                      find.select(i);
+                                      _act(reveal: reveal);
+                                    },
+                                  ),
+                                ),
+                          ],
+                        ),
                       );
                     },
                   ),
@@ -425,8 +526,17 @@ class _FieldState extends State<_Field> {
 }
 
 class _Row extends StatefulWidget {
-  const _Row({required this.result, required this.selected, required this.onTap, required this.onSecondary});
+  const _Row({
+    required this.result,
+    required this.selected,
+    required this.onTap,
+    required this.onSecondary,
+    this.guess,
+  });
   final FileResult result;
+
+  /// The best guess's reason when this row is it (a "Best guess" pill in place of the folder's start).
+  final String? guess;
   final bool selected;
   final void Function(bool reveal) onTap;
   final void Function(Offset globalPosition) onSecondary;
@@ -511,6 +621,20 @@ class _RowState extends State<_Row> {
                         ),
                       ),
                       const SizedBox(width: 12),
+                      if (widget.guess != null) ...[
+                        Tooltip(
+                          message: widget.guess!,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
+                            decoration: BoxDecoration(color: c.orange, borderRadius: NbRadius.pillAll),
+                            child: Text(
+                              'Best guess',
+                              style: NbType.text(NbSize.micro - 1, c.onOrange, weight: FontWeight.w700, height: 1.3),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
                       Expanded(flex: 4, child: TailText(widget.result.dir, style: NbType.data(11, c.dim))),
                     ],
                   ),

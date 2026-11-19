@@ -102,12 +102,15 @@ def _name_items(store, text, limit):
     else:
         return []
     out, seen = [], set()
+    earlier = [w for w in re.findall(r"[\wऀ-ॿ]+", before.lower()) if len(w) >= 2]
     for fid, name, folder, kind in rows:
         key = name.lower()
         if key in seen:
             continue
         seen.add(key)
-        out.append({"text": before + name, "kind": "folder" if kind == "folder" else "file", "label": name,
+        # "tax no" -> "tax notes.txt", not "tax tax notes.txt": the name alone when it has the earlier words too
+        text = name if all(w in key for w in earlier) else before + name
+        out.append({"text": text, "kind": "folder" if kind == "folder" else "file", "label": name,
                     "detail": folder, "id": fid})
         if len(out) >= limit:
             break

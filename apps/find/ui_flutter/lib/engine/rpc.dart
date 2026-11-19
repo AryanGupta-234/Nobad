@@ -312,6 +312,13 @@ class EngineClient {
   Future<String> hereFolder() async => jStr(jMap(await call('here_folder'))['path']);
   Future<void> toMain(String text) => call('to_main', {'text': _cap(text)});
 
+  // ---- 0.8.5 smart search ----
+  Future<Suggestions> suggest(String text, {String channel = 'main'}) async =>
+      Suggestions.fromJson(await call('suggest', {'text': _cap(text), 'channel': channel}));
+  Future<bool> historyAdd(String text) async => jMap(await call('history_add', {'text': _cap(text)}))['saved'] == true;
+  Future<ActionResult> historyForget(String text) => _ok('history_forget', {'text': _cap(text)});
+  Future<ActionResult> historyClear() => _ok('history_clear');
+
   /// The engine refuses longer text (-32602): cut it, never at half a character.
   static String _cap(String s) {
     if (s.length <= maxTextLength) return s;
