@@ -1,13 +1,15 @@
-/// One row of the search results (app.css .res): preview or kind, name, folder, snippet, why chips, age and size.
+/// One search result: preview or kind, name, folder, the words around the match, why it matched, age and size.
+/// The selected row carries the signal: an orange bar at its left edge and a warm wash fading to the right.
 library;
 
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../app/theme/colors.dart';
+import '../../app/theme/tokens.dart';
 import '../../app/theme/typography.dart';
+import '../../engine/engine_api.dart';
 import '../../engine/models/result.dart';
-import '../../engine/rpc.dart';
 import '../../widgets/common.dart';
 
 class ResultTile extends StatefulWidget {
@@ -17,14 +19,18 @@ class ResultTile extends StatefulWidget {
     required this.result,
     required this.selected,
     required this.onTap,
+    this.onSecondary,
   });
 
-  final Engine engine;
+  final EngineApi engine;
   final FileResult result;
   final bool selected;
 
   /// [reveal] is true for Ctrl+click.
   final void Function(bool reveal) onTap;
+
+  /// Right-click: show in folder (0.7.0).
+  final VoidCallback? onSecondary;
 
   @override
   State<ResultTile> createState() => _ResultTileState();
@@ -35,45 +41,72 @@ class _ResultTileState extends State<ResultTile> {
 
   @override
   Widget build(BuildContext context) {
+    final c = NbColors.of(context);
     final r = widget.result;
-    final lit = widget.selected || _hover;
-    final side = [r.ago, humanSize(r.size)].where((s) => s.isNotEmpty).join('\n');
-    Widget tile = AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOutCubic,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: widget.selected ? Nb.orangeA(.5) : const Color(0x00000000)),
-        gradient: LinearGradient(
-          colors: [Nb.orangeA(lit ? .14 : 0), Nb.orangeA(0)],
-          stops: const [0, .7],
-        ),
-      ),
+    final sel = widget.selected;
+    final lit = sel || _hover;
+    final d = NbMotion.of(context, NbMotion.base);
+    Widget body = Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         ResultThumb(engine: widget.engine, result: r),
-        const SizedBox(width: 12),
+        const SizedBox(width: 14),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(r.name, style: NbType.text(15, weight: FontWeight.w600)),
-            if (r.dir.isNotEmpty) Text(r.dir, style: NbType.label(11.5)),
+            Text(r.name, style: NbType.text(15, c.text, weight: FontWeight.w600, height: 1.3)),
+            if (r.dir.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(r.dir, style: NbType.data(NbSize.caption, c.dim, height: 1.35)),
+              ),
             if (r.snippet.isNotEmpty)
               Padding(
-                padding: const EdgeInsets.only(top: 5),
-                child: Text.rich(TextSpan(children: snippetSpans(r.snippet, NbType.text(13, color: Nb.muted, height: 1.55))),
-                    maxLines: 3, overflow: TextOverflow.ellipsis),
+                padding: const EdgeInsets.only(top: 6),
+                child: Text.rich(
+                    TextSpan(children: snippetSpans(r.snippet, NbType.text(13, c.muted, height: 1.55), c)),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis),
               ),
             if (r.why.isNotEmpty)
               Padding(
-                padding: const EdgeInsets.only(top: 6),
+                padding: const EdgeInsets.only(top: 7),
                 child: Wrap(spacing: 5, runSpacing: 5, children: [for (final w in r.why) _Why(w)]),
               ),
           ]),
         ),
-        if (side.isNotEmpty) ...[
-          const SizedBox(width: 12),
-          Text(side, textAlign: TextAlign.right, style: NbType.label(11, height: 1.6)),
-        ],
+        const SizedBox(width: 14),
+        Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+          if (r.ago.isNotEmpty) Text(r.ago, style: NbType.data(NbSize.caption, lit ? c.muted : c.dim, height: 1.6)),
+          if (humanSize(r.size).isNotEmpty)
+            Text(humanSize(r.size), style: NbType.data(NbSize.caption, c.dim, height: 1.6)),
+        ]),
+      ]),
+    );
+    Widget tile = AnimatedContainer(
+      duration: d,
+      curve: NbMotion.curve,
+      decoration: BoxDecoration(
+        borderRadius: NbRadius.rowAll,
+        border: Border.all(color: sel ? c.orangeA(.45) : const Color(0x00000000)),
+        gradient: LinearGradient(
+          colors: [c.orangeA(sel ? (c.isDark ? .13 : .09) : (_hover ? .06 : 0)), c.orangeA(0)],
+          stops: const [0, .72],
+        ),
+      ),
+      child: Stack(children: [
+        body,
+        Positioned(
+          left: 0,
+          top: 12,
+          bottom: 12,
+          child: AnimatedContainer(
+            duration: d,
+            curve: NbMotion.curve,
+            width: sel ? 3 : 0,
+            decoration: BoxDecoration(
+                color: c.orange, borderRadius: const BorderRadius.horizontal(right: Radius.circular(3))),
+          ),
+        ),
       ]),
     );
     if (r.weak && !lit) tile = Opacity(opacity: .62, child: tile);
@@ -84,7 +117,8 @@ class _ResultTileState extends State<ResultTile> {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () => widget.onTap(HardwareKeyboard.instance.isControlPressed),
-        child: Semantics(selected: widget.selected, button: true, label: r.name, child: tile),
+        onSecondaryTap: widget.onSecondary,
+        child: Semantics(selected: sel, button: true, label: r.name, child: tile),
       ),
     );
   }
@@ -95,11 +129,14 @@ class _Why extends StatelessWidget {
   final String text;
 
   @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        decoration: BoxDecoration(border: Border.all(color: Nb.line2), borderRadius: BorderRadius.circular(999)),
-        child: Text(text, style: NbType.label(10, height: 1.5)),
-      );
+  Widget build(BuildContext context) {
+    final c = NbColors.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+      decoration: BoxDecoration(border: Border.all(color: c.line2), borderRadius: NbRadius.pillAll),
+      child: Text(text, style: NbType.text(NbSize.micro + .5, c.dim, height: 1.5)),
+    );
+  }
 }
 
 /// "Less sure" between the sure results and the weak ones.
@@ -107,10 +144,15 @@ class LessSure extends StatelessWidget {
   const LessSure({super.key});
 
   @override
-  Widget build(BuildContext context) => Container(
-        margin: const EdgeInsets.fromLTRB(4, 14, 4, 6),
-        padding: const EdgeInsets.only(top: 10),
-        decoration: const BoxDecoration(border: Border(top: BorderSide(color: Nb.line))),
-        child: Text('LESS SURE', style: NbType.label(10, weight: FontWeight.w700, spacing: .8)),
-      );
+  Widget build(BuildContext context) {
+    final c = NbColors.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
+      child: Row(children: [
+        Text('Less sure', style: NbType.text(NbSize.small, c.dim, weight: FontWeight.w600)),
+        const SizedBox(width: 12),
+        Expanded(child: Container(height: 1, color: c.line)),
+      ]),
+    );
+  }
 }

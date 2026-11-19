@@ -12,11 +12,22 @@ import 'dart:io' show Platform;
 
 import 'package:ffi/ffi.dart';
 
+import '../app/theme/glass.dart';
+
 abstract class WindowControl {
   void hide();
   void showBar();
   void fitBar(int rows);
   void front();
+
+  /// Dark or light title bar, Mica glass on or off. True when Windows took the glass.
+  bool look({required bool dark, required bool glass, required int canvasRgb});
+
+  /// Close the window, which ends this UI process (the engine keeps running).
+  void close();
+
+  /// This window's handle (0 in tests), as the owner of dialogs.
+  int get handle;
 }
 
 /// Tests and non-Windows: does nothing.
@@ -30,6 +41,12 @@ class NoWindow implements WindowControl {
   void fitBar(int rows) {}
   @override
   void front() {}
+  @override
+  bool look({required bool dark, required bool glass, required int canvasRgb}) => false;
+  @override
+  void close() {}
+  @override
+  int get handle => 0;
 }
 
 /// Bar geometry in logical pixels, the same as bar.py (WIDTH, HEIGHT, ROW, MAX_ROWS).
@@ -183,4 +200,29 @@ class Win32Window implements WindowControl {
     _setForeground(hwnd);
   }
 
+  @override
+  bool look({required bool dark, required bool glass, required int canvasRgb}) =>
+      WindowLook.apply(hwnd, dark: dark, glass: glass, canvasRgb: canvasRgb);
+
+  static final _postMessage = _u32.lookupFunction<Int32 Function(IntPtr, Uint32, IntPtr, IntPtr),
+      int Function(int, int, int, int)>('PostMessageW');
+
+  @override
+  void close() {
+    if (hwnd != 0) _postMessage(hwnd, 0x0010, 0, 0); // WM_CLOSE: the runner quits when its window closes
+  }
+
+  @override
+  int get handle => hwnd;
+}
+
+/// Lets the engine's process bring its own dialog (folder picker, Windows' permission prompt) to the front.
+void allowSetForeground(int pid) {
+  if (!Platform.isWindows || pid <= 0) return;
+  try {
+    final u32 = DynamicLibrary.open('user32.dll');
+    u32.lookupFunction<Int32 Function(Uint32), int Function(int)>('AllowSetForegroundWindow')(pid);
+  } on Object {
+    // best effort: the dialog still opens, maybe behind this window
+  }
 }

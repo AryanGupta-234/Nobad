@@ -1,40 +1,25 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:material_ui/material_ui.dart';
-import 'package:nobad_find/app/app.dart';
+import 'package:nobad_find/engine/engine_api.dart';
 import 'package:nobad_find/engine/events.dart';
 import 'package:nobad_find/engine/models/status.dart';
-import 'package:nobad_find/engine/rpc.dart';
 import 'package:nobad_find/features/search/result_tile.dart';
 
 import '../support/fake_engine.dart';
-
-Future<void> pumpApp(WidgetTester tester, FakeEngine engine, {FakeWindow? window}) async {
-  tester.view.physicalSize = const Size(1080, 720);
-  tester.view.devicePixelRatio = 1;
-  addTearDown(tester.view.reset);
-  await tester.pumpWidget(NobadFindApp(engine: engine, window: window ?? FakeWindow()));
-  await tester.pump();
-}
-
-Future<void> type(WidgetTester tester, String text) async {
-  await tester.enterText(find.byType(TextField), text);
-  await tester.pump(const Duration(milliseconds: 80)); // debounce
-  await tester.pump();
-}
 
 void main() {
   testWidgets('home first, then results as you type', (tester) async {
     final engine = FakeEngine();
     await pumpApp(tester, engine);
     expect(find.text('FIND ANYTHING ON THIS PC.'), findsOneWidget);
+    expect(find.text('Recently changed'), findsOneWidget);
+    expect(find.text('tax notes.txt'), findsOneWidget); // recently changed, newest first
 
     await type(tester, 'tax');
-    expect(engine.searches, ['tax']);
+    expect(engine.searches.last, 'tax');
     expect(find.text('tax return 2025.pdf'), findsOneWidget);
-    expect(find.text('tax notes.txt'), findsOneWidget);
     expect(find.textContaining('results · 4 ms'), findsOneWidget);
-    expect(find.text('LESS SURE'), findsOneWidget); // the weak result comes after the divider
+    expect(find.text('Less sure'), findsOneWidget); // the weak result comes after the divider
     expect(find.text('FIND ANYTHING ON THIS PC.'), findsNothing);
   });
 
@@ -69,6 +54,33 @@ void main() {
     expect(engine.opened.last, 5);
   });
 
+  testWidgets('Ctrl+C copies the path; Shift+Delete asks, then forgets', (tester) async {
+    final engine = FakeEngine();
+    String? copied;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') copied = (call.arguments as Map)['text'] as String;
+      return null;
+    });
+    await pumpApp(tester, engine);
+    await type(tester, 'notes');
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyC);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+    expect(copied, r'C:\Users\me\Desktop\tax notes.txt');
+    expect(find.text('Path copied.'), findsOneWidget);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.delete);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.pumpAndSettle();
+    expect(find.text('Forget "tax notes.txt" and keep it out of the index from now on?'), findsOneWidget);
+    await tester.tap(find.text('Forget'));
+    await tester.pumpAndSettle();
+    expect(engine.forgotten, [2]);
+    expect(find.text('Forgotten. Undo it in Settings → Never search.'), findsOneWidget);
+  });
+
   testWidgets('clicking a result opens it; a missing file says so', (tester) async {
     final engine = FakeEngine()..openOk = false;
     await pumpApp(tester, engine);
@@ -79,12 +91,64 @@ void main() {
     expect(find.text("That file isn't there any more."), findsOneWidget);
   });
 
-  testWidgets('Esc clears the box', (tester) async {
-    await pumpApp(tester, FakeEngine());
+  testWidgets('hide after opening, when that setting is on', (tester) async {
+    final engine = FakeEngine(settings: const {'welcome_seen': true, 'bg_notice_seen': true, 'hide_after_open': true});
+    final w = await pumpApp(tester, engine);
+    await type(tester, 'notes');
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    expect(w.calls, contains('hide'));
+  });
+
+  testWidgets('Esc clears the box, a second Esc hides the window', (tester) async {
+    final engine = FakeEngine();
+    final w = await pumpApp(tester, engine);
     await type(tester, 'tax');
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-    await tester.pump(const Duration(milliseconds: 80));
+    await tester.pump(const Duration(milliseconds: 200));
     expect(find.text('FIND ANYTHING ON THIS PC.'), findsOneWidget);
+    expect(w.calls, isNot(contains('hide')));
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    expect(w.calls, contains('hide'));
+    expect(engine.calls, contains('ui_hidden'));
+  });
+
+  testWidgets('a quick tile sets the filters; the filter bar shows them and clears them', (tester) async {
+    final engine = FakeEngine();
+    await pumpApp(tester, engine);
+    await tester.tap(find.text('PDFs'));
+    await tester.pumpAndSettle();
+    expect(engine.searchFilters.last.kind, 'pdf');
+    expect(find.text('tax return 2025.pdf'), findsOneWidget);
+    expect(find.text('Clear filters'), findsOneWidget);
+    await tester.tap(find.text('Clear filters'));
+    await tester.pumpAndSettle();
+    expect(find.text('FIND ANYTHING ON THIS PC.'), findsOneWidget);
+  });
+
+  testWidgets('a kind from the filter menu, and Any folder asks the engine for a folder', (tester) async {
+    final engine = FakeEngine()..pickAnswer = r'C:\Users\me\Documents';
+    await pumpApp(tester, engine);
+    await type(tester, 'tax');
+    await tester.tap(find.text('Any kind'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('PDFs').last);
+    await tester.pumpAndSettle();
+    expect(engine.searchFilters.last.kind, 'pdf');
+    await tester.tap(find.text('Any folder'));
+    await tester.pumpAndSettle();
+    expect(engine.calls, contains('pick_folder'));
+    expect(engine.searchFilters.last.folder, r'C:\Users\me\Documents');
+    expect(find.text('In Documents'), findsOneWidget);
+  });
+
+  testWidgets('"Here" appears when the engine says where the hotkey was pressed', (tester) async {
+    final engine = FakeEngine();
+    await pumpApp(tester, engine);
+    engine.emit(const HereEvent(r'C:\Users\me\Downloads'));
+    await tester.pump();
+    expect(find.text('Here: Downloads'), findsOneWidget);
   });
 
   testWidgets('status line follows the engine events', (tester) async {
@@ -105,12 +169,13 @@ void main() {
     final engine = FakeEngine()..offline = true;
     await pumpApp(tester, engine);
     await type(tester, 'tax');
-    expect(find.textContaining("engine isn't running"), findsOneWidget);
+    expect(find.textContaining("engine isn't running"), findsWidgets);
   });
 
   testWidgets('previews are asked for only for photos, videos and PDFs on screen', (tester) async {
     final engine = FakeEngine();
     await pumpApp(tester, engine);
+    engine.thumbsAsked.clear();
     await type(tester, 'a');
     expect(engine.thumbsAsked.toSet(), {1, 3, 5});
   });
@@ -127,13 +192,24 @@ void main() {
     expect(find.text('report 30.pdf'), findsOneWidget); // the selection is scrolled into view
   });
 
-  testWidgets('the main hotkey brings the window up', (tester) async {
+  testWidgets('the main hotkey brings the window up; the bar hands its words over', (tester) async {
     final engine = FakeEngine();
-    final window = FakeWindow();
-    await pumpApp(tester, engine, window: window);
+    final window = await pumpApp(tester, engine);
     engine.emit(const ShowEvent('main'));
     engine.emit(const ShowEvent('bar')); // not this window's
     await tester.pump();
     expect(window.calls, ['front']);
+    engine.emit(const ShowEvent('main', text: 'tax pdf'));
+    await tester.pump(const Duration(milliseconds: 120));
+    await tester.pump();
+    expect(engine.searches.last, 'tax pdf');
+  });
+
+  testWidgets('quitting closes the window', (tester) async {
+    final engine = FakeEngine();
+    final window = await pumpApp(tester, engine);
+    engine.emit(const QuittingEvent());
+    await tester.pump();
+    expect(window.calls, contains('close'));
   });
 }
