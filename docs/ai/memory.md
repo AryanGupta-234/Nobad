@@ -5,6 +5,8 @@ Add to it when the maintainer decides something; delete lines that stop being tr
 (this repository is public): no keys, configs, personal data or private review notes.
 
 ## Standing decisions
+- 2026-11-19 NOBAD Find: the old web view (pywebview/WebView2) is removed completely; the window is the Flutter UI
+  only, and this is the 0.8.5 build (0.8.0 was never released alone). Maintainer's words.
 - 2026-11-18 Product icons: every NOBAD app uses the company mark (black tile, "n"); only the "n" colour changes:
   NOBAD VPN orange, NOBAD File Bridge blue, NOBAD Find yellow (maintainer's choice).
 - 2026-11-18 NOBAD File Bridge lives only in nobad-studio/file-bridge; its copy in this repo was removed (its open review
