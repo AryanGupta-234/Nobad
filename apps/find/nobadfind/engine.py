@@ -67,6 +67,63 @@ def here_finder(api, events, ui_pids, foreground=winapi.foreground_window, windo
     return pressed
 
 
+MAIN_TAKEN = "The hotkey is used by another app. Pick another one in Settings."
+
+
+class Wiring:
+    """What ties the Api to the indexer, the events and the hotkeys in the headless engine (no Windows needed, so
+    tests build it with fakes).
+
+    - Indexing starts idle, as app.py does when started in the background, unless "Keep indexing in the
+      background" is on; the UI's first ui_shown starts it (lifecycle.Window).
+    - ui_hidden or the UI's pipe closing follows lifecycle.after_hide.
+    - Quit sends quitting, and stops the engine only once the reply is written (protocol.after_reply).
+    - A hotkey another app holds becomes a notice."""
+
+    def __init__(self, api, settings, indexer, events, stop, ui_pids, make_hotkey=None, dialog=None):
+        from . import lifecycle
+        self.api, self.settings, self.indexer, self.events, self.stop = api, settings, indexer, events, stop
+        self.ui_pids = ui_pids
+        self.make_hotkey = make_hotkey
+        self.keys = []
+        self.life = lifecycle.Window(indexer, not settings.get("keep_background"), log, quitting=stop.is_set)
+        api._folder_dialog = dialog if dialog is not None else winapi.pick_folder
+        api._on_show = self._shown
+        api._on_hide = lambda: lifecycle.after_hide(self.life, settings, bool(self.keys and self.keys[0].ok),
+                                                    stop.is_set())
+        api.quit = self._quit
+
+    def _shown(self):
+        self.life.wanted(False)
+        threading.Thread(target=self.indexer.warm_models, daemon=True, name="warm").start()
+
+    def _quit(self):                                       # Quit over the pipe, and the watchdog's last resort
+        from .rpc.protocol import after_reply
+        self.events.quitting()
+        after_reply(self.stop.set)
+        return {"ok": True}
+
+    def start(self):
+        """Indexing (only with background indexing on) and the hotkeys. Returns the hotkeys."""
+        from .bar import TAKEN as BAR_TAKEN
+        make = self.make_hotkey
+        if make is None:
+            from .hotkey import Hotkey as make
+        if not self.life.want_idle:
+            self.indexer.start()
+        else:
+            log("engine: indexing starts when the UI shows its window")
+        self.keys.append(make(self.settings.get("hotkey"), here_finder(self.api, self.events, self.ui_pids)))
+        if self.settings.get("bar"):
+            self.keys.append(make(self.settings.get("bar_hotkey"), lambda: self.events.show("bar"), hk_id=2))
+        for i, hk in enumerate(self.keys):
+            if not hk.start():
+                log(f"engine: hotkey {hk.spec} not available (another app, or the NOBAD Find window, has it)",
+                    "warn")
+                self.events.notice(BAR_TAKEN if i else MAIN_TAKEN)
+        return self.keys
+
+
 def main(stop=None):
     """Run until `stop` (a threading.Event) is set or the process is ended. Returns the exit code."""
     if winapi.is_admin():
@@ -81,12 +138,9 @@ def main(stop=None):
     log(f"{APP_NAME} {APP_VER} engine starting")
     from .activity import Activity
     from .api import Api
-    from . import lifecycle
     from .app import ui_hooks
-    from .bar import TAKEN as BAR_TAKEN
     from .appmemory import AppMemory
     from .governor import Governor
-    from .hotkey import Hotkey
     from .indexer import Indexer
     from .rpc import Rpc
     from .settings import Settings
@@ -109,39 +163,17 @@ def main(stop=None):
     indexer = Indexer(store, settings, vindex, governor=governor, activity=activity)
     ui["indexer"] = indexer
     stop = stop or threading.Event()
-    # The UI's main window open = indexing on; closed = lifecycle's rule (idle unless "keep in background").
-    win_life = lifecycle.Window(indexer, False, log, quitting=stop.is_set)
     api = Api(store, settings, indexer, vindex, lambda: None)
     api._watchdog, api.visible = watchdog, False          # no page heartbeats: the pipe closing tells instead
     api._governor, api._activity, api._apps = governor, activity, apps
-    api._folder_dialog = winapi.pick_folder               # the native dialog, shown by the engine itself
     ui["api"] = api
-    keys = []
-
-    def shown():
-        win_life.wanted(False)
-        threading.Thread(target=indexer.warm_models, daemon=True, name="warm").start()
-    api._on_show = shown
-    api._on_hide = lambda: lifecycle.after_hide(win_life, settings, bool(keys and keys[0].ok), stop.is_set())
     rpc = Rpc(api, activity=activity)
-
-    def quit_():                                          # Quit, and the watchdog's last resort
-        rpc.events.quitting()
-        stop.set()
-        return {"ok": True}
-    api.quit = quit_
+    wiring = Wiring(api, settings, indexer, rpc.events, stop, rpc.ui_pids)
     if not rpc.start():
         print("The NOBAD Find pipe is in use: another engine is running for this user.")
         governor.stop()
         return 1
-    indexer.start()
-    keys.append(Hotkey(settings.get("hotkey"), here_finder(api, rpc.events, rpc.ui_pids)))
-    if settings.get("bar"):
-        keys.append(Hotkey(settings.get("bar_hotkey"), lambda: rpc.show("bar"), hk_id=2))
-    for i, hk in enumerate(keys):
-        if not hk.start():
-            log(f"engine: hotkey {hk.spec} not available (another app, or the NOBAD Find window, has it)", "warn")
-            rpc.events.notice(BAR_TAKEN if i else "The hotkey is used by another app. Pick another one in Settings.")
+    keys = wiring.start()
     log(f"engine ready (pid {os.getpid()})")
     print(f"NOBAD Find engine ready (pid {os.getpid()}). Ctrl+C stops it.", flush=True)
     try:

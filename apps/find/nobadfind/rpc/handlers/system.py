@@ -1,5 +1,6 @@
 """hello, subscribe, unsubscribe, the window reports (ui_shown, ui_hidden), Windows Search, quit."""
 import os
+import threading
 
 from ...const import APP_NAME, APP_VER
 from ..events import EVENTS
@@ -7,6 +8,8 @@ from ..protocol import PROTOCOL, bool_param, choice_param, names_param, ok, str_
 
 WINDOWS = ("main", "bar")
 QUIT_WORD = "QUIT"
+_asking = threading.Lock()          # one Windows Search permission prompt at a time
+BUSY = "Windows is already asking for permission. Answer that window first."
 
 
 def _wsearch(r, saved):
@@ -42,9 +45,9 @@ def methods(api, events=None):
 
     def ui_shown(params, conn=None):
         window = choice_param(params, "window", WINDOWS, "main")
-        if conn is not None:
-            conn.shown.add(window)
-        if window == "main":
+        if events is not None:
+            events.shown(conn, window, api.ui_shown)       # nothing if this client's pipe already closed
+        elif window == "main":
             api.ui_shown()
         return {"ok": True}
 
@@ -52,9 +55,9 @@ def methods(api, events=None):
         """The main window was hidden or closed: what that means for indexing is lifecycle.after_hide's call.
         Another UI still showing its main window (two UIs at once) keeps indexing as it is."""
         window = choice_param(params, "window", WINDOWS, "main")
-        if conn is not None:
-            conn.shown.discard(window)
-        if window == "main" and not (events is not None and events.showing("main")):
+        if events is not None:
+            events.hidden(conn, window, api.hide)
+        elif window == "main":
             api.hide()
         return {"ok": True}
 
@@ -64,7 +67,13 @@ def methods(api, events=None):
 
     def wsearch_change(name, key):
         def call(params, conn=None):
-            r = getattr(api, name)(bool_param(params, key)) or {}
+            value = bool_param(params, key)
+            if not _asking.acquire(blocking=False):
+                return {"ok": False, "error": BUSY, "state": _wsearch(api.wsearch_state(), None)}
+            try:
+                r = getattr(api, name)(value) or {}
+            finally:
+                _asking.release()
             out = ok(r)
             out["state"] = _wsearch(r.get("state") if isinstance(r.get("state"), dict) else {"missing": True},
                                     api.get_settings().get("wsearch_prev"))

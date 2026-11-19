@@ -379,7 +379,8 @@ class Api:
         w = self._win()
         if not w:
             dialog = self._folder_dialog          # the engine: Windows' own dialog, shown by this process
-            return {"path": (dialog() or "") if dialog is not None else ""}
+            path = dialog() if dialog is not None else ""
+            return {"path": "", "busy": True} if path is None else {"path": path or ""}
         import webview
         r = w.create_file_dialog(webview.FOLDER_DIALOG)
         return {"path": r[0] if r else ""}

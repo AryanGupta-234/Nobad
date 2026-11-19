@@ -18,6 +18,7 @@ class Rpc:
         self.events = Events(self.server.clients, self.server.drop, api, **kw)
         self.server.methods = handlers.methods(api, self.events)
         self.server.on_drop = self._dropped
+        self.server.slow = set(handlers.SLOW)
         self.events.on_show = self.server.allow_foreground
         if activity is not None:
             activity.listen(self.events.activity)
@@ -34,8 +35,7 @@ class Rpc:
 
     def _dropped(self, conn):
         """Pipe liveness: a UI that ends (or crashes) without saying ui_hidden counts as its window closing."""
-        if self.events.ui_gone(conn):
-            self.api.hide()
+        self.events.gone(conn, self.api.hide)
 
     def show(self, what, text=None):
         """A hotkey asked for a window ("main" or "bar"): tell the UIs, and let them take the front."""

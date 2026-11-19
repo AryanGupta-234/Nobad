@@ -11,6 +11,8 @@ Security:
   dropped after WRITE_TIMEOUT_MS, so it can't stall the engine.
 
 One reader thread per client; requests run on a small thread pool so a slow thumbnail doesn't hold up a search.
+Methods in `slow` (they wait for the user: a folder dialog, a permission prompt) get a thread of their own, so
+they can never use up the pool; each of them lets only one call wait at a time (the handlers say "busy").
 """
 import ctypes
 import threading
@@ -19,7 +21,8 @@ from concurrent.futures import ThreadPoolExecutor
 from ctypes import wintypes
 
 from ..log import log
-from .protocol import INTERNAL_ERROR, INVALID_REQUEST, MAX_MESSAGE, LineBuffer, encode, error, handle_line, method_of
+from .protocol import (INTERNAL_ERROR, INVALID_REQUEST, MAX_MESSAGE, LineBuffer, encode, error, handle_line, method_of,
+                       run_after)
 
 MAX_CLIENTS = 8
 BUF = 64 * 1024
@@ -184,6 +187,7 @@ class Server:
         self._k, self._a = _dlls()
         self.methods = methods or {}
         self.on_drop = None                  # fn(conn) after a client is gone (pipe liveness: Rpc._dropped)
+        self.slow = set()                    # method names answered on a thread of their own
         self.sid = user_sid()
         self.name = name or pipe_name(self.sid)
         self._stop = threading.Event()
@@ -220,7 +224,7 @@ class Server:
             conns = list(self._conns)
             self._conns.clear()
         for c in conns:
-            c.close()
+            c.close(linger=True)             # a client still reads what was written (quit's reply, quitting)
         self._pool.shutdown(wait=False, cancel_futures=True)
         self._k.LocalFree(self._sd)
         self._sd = None
@@ -334,6 +338,10 @@ class Server:
                     linger = conn.send(error(None, INVALID_REQUEST, "Message too big"))   # it must get to read it
                     break
                 for line in got:
+                    if method_of(line) in self.slow:
+                        threading.Thread(target=self._answer, args=(conn, line), daemon=True,
+                                         name="rpc-slow").start()
+                        continue
                     try:
                         self._pool.submit(self._answer, conn, line)
                     except RuntimeError:                       # the pool is shut down: stopping
@@ -342,13 +350,15 @@ class Server:
             log(f"rpc connection ended: {type(e).__name__}", "warn")
         finally:
             k.CloseHandle(ov.hEvent)
-            self.drop(conn, linger)
+            self.drop(conn, linger or self._stop.is_set())    # stopping: what was written stays readable
 
     def _answer(self, conn, line):
         t0 = time.perf_counter()
-        reply = handle_line(line, self.methods, conn)
+        after = []
+        reply = handle_line(line, self.methods, conn, after=after)
         if reply is not None and conn.alive and not conn.send(reply):
             self.drop(conn)
+        run_after(after)                                       # e.g. quit: only now may the engine stop
         if method_of(line) == "search":                       # how long it took, never the words searched for
             r = reply.get("result") if isinstance(reply, dict) else None
             log(f"rpc search {(time.perf_counter() - t0) * 1000:.1f} ms "

@@ -1,9 +1,33 @@
 """search, open, reveal, thumbnail, here_folder, path_of, forget, to_main.
 
 Files are always named by result id, never by a path from the UI: the path comes from the index (Api._path)."""
+from ...search import FILTER_DAYS, FILTER_KINDS, FILTER_SIZES, SORTS
 from ..protocol import INVALID_PARAMS, RpcError, int_param, ok, str_param
 
-FILTER_KEYS = ("kind", "modified", "size", "folder", "sort")
+MAX_TEXT = 2000                     # characters of typed text (search keeps the first 500)
+FILTERS = {"kind": {""} | FILTER_KINDS, "modified": {""} | set(FILTER_DAYS), "size": {""} | set(FILTER_SIZES),
+           "sort": set(SORTS), "folder": None}                 # None: any string up to MAX_TEXT
+
+
+def _text(params, key):
+    v = str_param(params, key, "")
+    if len(v) > MAX_TEXT:
+        raise RpcError(INVALID_PARAMS, f"'{key}' is longer than {MAX_TEXT} characters")
+    return v
+
+
+def _filters(params):
+    """The filter bar: an object (left out = none) whose values are the schema's words."""
+    f = params.get("filters", {})
+    if not isinstance(f, dict):
+        raise RpcError(INVALID_PARAMS, "'filters' must be an object")
+    for k, v in f.items():
+        if k not in FILTERS or not isinstance(v, str) or len(v) > MAX_TEXT:
+            raise RpcError(INVALID_PARAMS, f"'filters' takes only {', '.join(FILTERS)}, each a string")
+        if FILTERS[k] is not None and v not in FILTERS[k]:
+            words = ", ".join(w for w in sorted(FILTERS[k]) if w)
+            raise RpcError(INVALID_PARAMS, f"'filters.{k}' must be \"\" (no filter) or one of {words}")
+    return f
 
 
 def _search_result(r):
@@ -20,20 +44,15 @@ def _path(r):
 
 def methods(api, events=None):
     def search(params, conn=None):
-        text = params.get("text", "")
-        filters = params.get("filters") or {}
-        if not isinstance(text, str) or not isinstance(filters, dict):
-            raise RpcError(INVALID_PARAMS, "'text' must be a string and 'filters' an object")
-        if not all(k in FILTER_KEYS and isinstance(v, str) for k, v in filters.items()):
-            raise RpcError(INVALID_PARAMS, f"'filters' takes only {', '.join(FILTER_KEYS)}, each a string")
-        return _search_result(api.search(text, filters))
+        text = _text(params, "text")
+        return _search_result(api.search(text, _filters(params)))
 
     def thumbnail(params, conn=None):
         return {"url": str((api.thumbnail(int_param(params)) or {}).get("url") or "")}
 
     def to_main(params, conn=None):
         """The quick find bar's Alt+Enter: the main window comes up with the same words typed in."""
-        text = str_param(params, "text", "")
+        text = _text(params, "text")
         if events is not None:
             events.show("main", text)
         return {"ok": True}

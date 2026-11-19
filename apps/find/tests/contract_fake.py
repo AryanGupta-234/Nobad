@@ -5,6 +5,7 @@ from nobadfind.activity import Activity
 from nobadfind.const import DEFAULTS
 from nobadfind.rpc import handlers
 from nobadfind.rpc.events import Events
+from nobadfind.settings import coerce
 
 RESULT = {"id": 7, "path": "C:\\Users\\me\\Documents\\tax 2025.pdf", "name": "tax 2025.pdf",
           "dir": "C:\\Users\\me\\Documents", "kind": "pdf", "size": 48213, "mtime": 1763400000.0,
@@ -102,14 +103,14 @@ class FakeApi:
         return dict(self.settings)
 
     def set_settings(self, changes):
-        changed = [k for k, v in changes.items() if k in self.settings and k != "wsearch_prev"
-                   and self.settings[k] != v and isinstance(v, type(DEFAULTS[k]))]
-        for k in changed:
-            self.settings[k] = changes[k]
+        """Like Settings.update: every value through the real settings.coerce."""
+        new = {k: coerce(k, v) for k, v in changes.items() if k in DEFAULTS and k != "wsearch_prev"}
+        changed = [k for k, v in new.items() if self.settings[k] != v]
+        self.settings.update(new)
         return {"changed": changed}
 
     def pick_folder(self):
-        return {"path": "C:\\Users\\me\\Projects"}
+        return {"path": "C:\\Users\\me\\Projects", "busy": False}
 
     def rescan(self):
         self._note("rescan")
@@ -200,7 +201,7 @@ class Conn:
     """A client connection that keeps what the engine sent it."""
 
     def __init__(self, pid=4242):
-        self.events, self.shown, self.sent, self.pid = set(), set(), [], pid
+        self.events, self.shown, self.sent, self.pid, self.alive = set(), set(), [], pid, True
 
     def send(self, obj):
         self.sent.append(obj)

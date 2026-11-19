@@ -116,14 +116,19 @@ def test_each_method_example_gives_a_schema_valid_result(name):
 
 
 BAD = {
-    "search": [{"text": 5}, {"text": "x", "filters": "kind=pdf"}, {"text": "x", "filters": {"kind": 5}}],
+    "search": [{"text": 5}, {"text": "x", "filters": "kind=pdf"}, {"text": "x", "filters": {"kind": 5}},
+               {"text": "x", "filters": {"kind": "exe"}}, {"text": "x", "filters": {"modified": "decade"}},
+               {"text": "x", "filters": {"size": "huge"}}, {"text": "x", "filters": {"sort": "random"}},
+               {"text": "x", "filters": {"colour": "red"}}, {"text": "x", "filters": None},
+               {"text": "x" * 2001}, {"text": "x", "filters": {"folder": "x" * 2001}}],
+    "to_main": [{"text": 5}, {"text": "x" * 2001}],
     "open": [{"id": "C:\\Windows\\notepad.exe"}, {"id": True}, {}, {"path": "C:\\Windows\\notepad.exe"}],
     "reveal": [{"id": "C:\\Windows"}, {"id": 1.5}, {}],
     "thumbnail": [{"id": "C:\\x.jpg"}, {}],
     "path_of": [{"id": "7"}, {}],
     "forget": [{"id": None}, {}],
-    "pause_for": [{"seconds": "60"}, {"seconds": True}, {}],
-    "reset_learned": [{"exe": 5}],
+    "pause_for": [{"seconds": "60"}, {"seconds": True}, {}, {"seconds": 0}, {"seconds": -60}],
+    "reset_learned": [{"exe": 5}, {"exe": "x" * 261}],
     "set_settings": [{"changes": "theme=light"}, {}],
     "wipe": [{"confirm": 1}, {}],
     "quit": [{"confirm": True}, {}],
@@ -133,7 +138,6 @@ BAD = {
     "unsubscribe": [{"events": "status"}, {}],
     "ui_shown": [{"window": "desktop"}],
     "ui_hidden": [{"window": 3}],
-    "to_main": [{"text": 5}],
 }
 
 
@@ -257,6 +261,11 @@ def test_the_real_status_and_events_match_the_schema(real):
     ev.step(2.0)
     real._activity.listen(ev.activity)
     real._activity.add("info", "You paused NOBAD Find for 60 min")
+
+    class Paused:
+        decision = Decision("paused", "Paused: you paused NOBAD Find for 60 min")
+        history = []
+    real._governor = Paused()                               # a real level change, through Api.status_brief
     ev.step(2.5)
     ev.notice("The hotkey is used by another app. Pick another one in Settings.")
     ev.show("bar")
@@ -267,7 +276,55 @@ def test_the_real_status_and_events_match_the_schema(real):
         seen.add(msg["method"])
         check(msg, EVENTS["$defs"]["notification"], "events.schema.json")
         check(msg["params"], EVENTS["events"][msg["method"]], "events.schema.json")
-    assert {"status", "status_full", "download", "activity", "notice", "show", "here", "quitting"} <= seen
+    assert {"status", "status_full", "level", "download", "activity", "notice", "show", "here", "quitting"} <= seen
+
+
+def test_real_wipe_without_the_word_leaves_the_index(real):
+    m = handlers.methods(real, None)
+    before = real._store.one("SELECT count(*) FROM files")
+    assert before == 2
+    assert call(m, "wipe", {"confirm": "no"})["result"]["ok"] is False
+    assert real._store.one("SELECT count(*) FROM files") == before and "rescan" not in real._indexer.calls
+
+
+def test_set_settings_survives_infinity_and_is_all_or_nothing(real):
+    m = handlers.methods(real, None)
+    r = m["set_settings"]({"changes": {"theme": "light", "content_max_mb": float("inf"), "workers": float("-inf")}})
+    assert r["settings"]["content_max_mb"] == 25 and r["settings"]["workers"] == 0
+    assert r["changed"] == ["theme"]
+
+
+def test_settings_update_applies_nothing_if_one_value_fails(tmp_path, monkeypatch):
+    st = settings_mod.Settings(str(tmp_path / "s.json"))
+    real_coerce = settings_mod.coerce
+
+    def coerce(k, v):
+        if k == "workers":
+            raise RuntimeError("boom")
+        return real_coerce(k, v)
+    monkeypatch.setattr(settings_mod, "coerce", coerce)
+    with pytest.raises(RuntimeError):
+        st.update({"theme": "light", "workers": 3})
+    assert st.get("theme") == "dark" and not os.path.exists(tmp_path / "s.json")
+
+
+def test_nan_and_infinity_are_not_json():
+    m = engine().methods
+    for bad in ("Infinity", "-Infinity", "NaN"):
+        line = '{"jsonrpc":"2.0","id":1,"method":"pause_for","params":{"seconds":' + bad + '}}'
+        assert protocol.handle_line(line, m)["error"]["code"] == protocol.PARSE_ERROR
+
+
+def test_after_reply_runs_after_the_handler_or_at_once_outside_a_request():
+    done = []
+    m = {"x": lambda params, conn=None: (protocol.after_reply(lambda: done.append("after")), done.append("h"))[1]}
+    after = []
+    protocol.handle_line('{"jsonrpc":"2.0","id":1,"method":"x"}', m, None, after=after)
+    assert done == ["h"] and len(after) == 1
+    protocol.handle_line('{"jsonrpc":"2.0","id":1,"method":"x"}', m)      # nobody collects: run when done
+    assert done == ["h", "h", "after"]
+    protocol.after_reply(lambda: done.append("now"))
+    assert done[-1] == "now"
 
 
 # ---------- events ----------
@@ -368,7 +425,68 @@ def test_show_to_main_and_here_events():
         {"what": "bar", "text": None}, {"what": "main", "text": "tax pdf"}, {"path": "C:\\Users\\me\\Downloads"}]
 
 
+def test_download_speed_counts_from_the_last_change():
+    """Looks that find nothing new don't move the speed's starting point (that overstated the speed)."""
+    e = engine()
+    e.conn.events.add("download")
+    e.api.models["meaning"].update(state="downloading", got=2 * 1048576, size=23 * 1048576)
+    e.events.step(1.0)
+    e.events.step(1.5)
+    e.events.step(2.0)
+    e.api.models["meaning"]["got"] = 4 * 1048576
+    e.events.step(3.0)
+    assert [m["params"]["mb_s"] for m in e.conn.sent] == [0.0, 1.0]
+
+
+def test_a_notice_whose_send_fails_waits_again():
+    e = engine()
+    e.events.notice("first")
+    e.events.notice("second")
+    bad = fake.Conn()
+    bad.send = lambda obj: False
+    e.events.subscribe(bad, ["notice"])
+    call(e.methods, "subscribe", {"events": ["notice"]}, e.conn)
+    assert [m["params"]["text"] for m in e.conn.sent if m.get("method") == "notice"] == ["first", "second"]
+
+
+def test_events_are_sent_outside_the_ticker_lock():
+    """A client that takes long to read must not hold the lock other senders need."""
+    e = engine()
+    held = []
+    real_send = e.conn.send
+    e.conn.send = lambda obj: (held.append(e.events._lock.locked()), real_send(obj))[1]
+    e.conn.events.update({"status", "level", "activity", "download", "status_full"})
+    e.events.step(0.0)
+    e.api.gov.level = "light"
+    e.activity.add("info", "x")
+    e.api.models["photo"].update(state="downloading", got=1, size=2)
+    e.events.step(2.0)
+    assert len(held) >= 6 and not any(held)
+
+
 # ---------- the window as the engine sees it ----------
+def test_ui_shown_on_a_dropped_connection_changes_nothing():
+    """The reader saw the pipe close before the queued ui_shown ran: it must not resume indexing."""
+    e = engine()
+    e.conn.alive = False
+    call(e.methods, "ui_shown", {}, e.conn)
+    assert e.conn.shown == set() and ("ui_shown",) not in e.api.calls
+
+
+def test_gone_and_shown_take_turns():
+    e = engine()
+    call(e.methods, "ui_shown", {}, e.conn)
+    e.conn.alive = False
+    e.events.gone(e.conn, e.api.hide)
+    assert e.api.calls == [("ui_shown",), ("hide",)]
+    e.events.gone(e.conn, e.api.hide)                       # only once per connection
+    assert e.api.calls.count(("hide",)) == 1
+
+
+def test_pick_folder_says_when_a_dialog_is_already_open():
+    e = engine()
+    e.api.pick_folder = lambda: {"path": "", "busy": True}
+    assert call(e.methods, "pick_folder")["result"] == {"path": "", "busy": True}
 def test_ui_shown_and_hidden_reach_the_api():
     e = engine()
     call(e.methods, "ui_shown", {}, e.conn)

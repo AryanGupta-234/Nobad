@@ -13,8 +13,13 @@ def methods(api, events=None):
         r = api.set_settings(changes)
         return {"changed": list((r or {}).get("changed") or []), "settings": api.get_settings()}
 
+    def pick_folder(params, conn=None):
+        """busy: a folder dialog is already open (it was brought to the front); path is "" then."""
+        r = api.pick_folder() or {}
+        return {"path": str(r.get("path") or ""), "busy": bool(r.get("busy"))}
+
     return {"get_settings": lambda params, conn=None: api.get_settings(),
             "set_settings": set_settings,
-            "pick_folder": lambda params, conn=None: {"path": str((api.pick_folder() or {}).get("path") or "")},
+            "pick_folder": pick_folder,
             "rescan": lambda params, conn=None: ok(api.rescan()),
             "wipe": lambda params, conn=None: ok(api.wipe(str_param(params, "confirm")))}

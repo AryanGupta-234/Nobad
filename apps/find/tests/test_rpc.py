@@ -1,6 +1,7 @@
 """The engine's pipe for the Flutter UI: protocol, handlers, and a real named pipe (Windows only)."""
 import json
 import sys
+import threading
 import time
 import uuid
 
@@ -392,6 +393,75 @@ def test_pipe_closing_counts_as_the_window_closing(served):
     while ("hide",) not in api.calls and time.time() < deadline:
         time.sleep(0.02)
     assert api.calls.count(("hide",)) == 1
+
+
+@win_only
+def test_pipe_quit_reaches_a_client_that_reads_late(served):
+    """Quit's quitting event and its reply are written before the engine closes the pipe, and closing keeps
+    what the client hasn't read yet."""
+    rpc, name, api = served
+    stopping = threading.Event()
+
+    def quit_():
+        rpc.events.quitting()
+        protocol.after_reply(stopping.set)                 # engine.py: stop.set, then the main loop stops rpc
+        return {"ok": True}
+    api.quit = quit_
+    threading.Thread(target=lambda: (stopping.wait(5), rpc.stop()), daemon=True).start()
+    c = Client(name)
+    try:
+        c.send({"jsonrpc": "2.0", "id": 1, "method": "subscribe", "params": {"events": ["quitting"]}})
+        c.reply(1)
+        c.send({"jsonrpc": "2.0", "id": 2, "method": "quit", "params": {"confirm": "QUIT"}})
+        assert stopping.wait(3)
+        time.sleep(0.5)                                    # the engine has closed its end by now
+        assert c.line() == {"jsonrpc": "2.0", "method": "quitting", "params": {}}
+        assert c.line()["result"] == {"ok": True, "error": ""}
+    finally:
+        try:
+            c.close()
+        except OSError:
+            pass
+
+
+@win_only
+def test_pipe_ui_shown_then_gone_never_leaves_the_window_shown(served):
+    """ui_shown queued, then the pipe closes: the window must end up hidden every time."""
+    rpc, name, api = served
+    shown = []
+    api.ui_shown = lambda: (shown.append(True), {"ok": True})[1]
+    api.hide = lambda: (shown.append(False), {"ok": True})[1]
+    for _ in range(25):
+        c = Client(name)
+        c.send({"jsonrpc": "2.0", "id": 1, "method": "ui_shown", "params": {}})
+        c.close()
+    deadline = time.time() + 5
+    while (rpc.server.clients() or (shown and shown[-1])) and time.time() < deadline:
+        time.sleep(0.02)
+    time.sleep(0.3)
+    assert not shown or shown[-1] is False
+    assert shown.count(True) == shown.count(False)
+
+
+@win_only
+def test_pipe_slow_calls_dont_hold_up_the_others(served):
+    """A folder dialog or a permission prompt waits for the user; search, status and quit still answer."""
+    rpc, name, api = served
+    gate = threading.Event()
+    api.pick_folder = lambda: (gate.wait(10), {"path": ""})[1]
+    a, b = Client(name), Client(name)
+    try:
+        for i in range(6):
+            a.send({"jsonrpc": "2.0", "id": i, "method": "pick_folder", "params": {}})
+        time.sleep(0.2)
+        t0 = time.time()
+        b.send({"jsonrpc": "2.0", "id": 99, "method": "status", "params": {}})
+        assert b.reply(99)["result"]["files"] == 12
+        assert time.time() - t0 < 2
+    finally:
+        gate.set()
+        a.close()
+        b.close()
 
 
 @win_only
