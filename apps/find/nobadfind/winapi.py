@@ -253,6 +253,103 @@ def _window_title(hwnd):
     return buf.value
 
 
+class _BROWSEINFOW(ctypes.Structure):
+    _fields_ = [("hwndOwner", wintypes.HWND), ("pidlRoot", ctypes.c_void_p), ("pszDisplayName", wintypes.LPWSTR),
+                ("lpszTitle", wintypes.LPCWSTR), ("ulFlags", wintypes.UINT), ("lpfn", ctypes.c_void_p),
+                ("lParam", wintypes.LPARAM), ("iImage", ctypes.c_int)]
+
+
+_dialog = {"hwnd": None}
+_dialog_lock = None                 # made on first use (threading is imported lazily here)
+
+
+def _to_front(hwnd):
+    """Topmost and in front: the engine has no window of its own, so the dialog has no owner to sit on."""
+    u = ctypes.WinDLL("user32")
+    u.SetWindowPos.argtypes = [wintypes.HWND, wintypes.HWND, ctypes.c_int, ctypes.c_int, ctypes.c_int,
+                               ctypes.c_int, wintypes.UINT]
+    u.SetForegroundWindow.argtypes = [wintypes.HWND]
+    u.SetWindowPos(hwnd, wintypes.HWND(-1), 0, 0, 0, 0, 0x1 | 0x2 | 0x40)   # TOPMOST; NOSIZE|NOMOVE|SHOWWINDOW
+    u.SetForegroundWindow(hwnd)
+
+
+def _front_dialog():
+    hwnd = _dialog["hwnd"]
+    if hwnd:
+        _to_front(hwnd)
+
+
+_BFFCALLBACK = ctypes.WINFUNCTYPE(ctypes.c_int, wintypes.HWND, wintypes.UINT, wintypes.LPARAM,
+                                  wintypes.LPARAM) if WIN else None
+
+
+def _on_dialog(hwnd, msg, lparam, data):
+    if msg == 1:                                                   # BFFM_INITIALIZED
+        _dialog["hwnd"] = hwnd
+        try:
+            _to_front(hwnd)
+        except OSError:
+            pass
+    return 0
+
+
+_on_dialog_c = _BFFCALLBACK(_on_dialog) if WIN else None
+
+
+def _browse_folder(title, out):
+    ole32, sh = ctypes.WinDLL("ole32"), ctypes.WinDLL("shell32")
+    sh.SHBrowseForFolderW.argtypes = [ctypes.POINTER(_BROWSEINFOW)]
+    sh.SHBrowseForFolderW.restype = ctypes.c_void_p
+    sh.SHGetPathFromIDListW.argtypes = [ctypes.c_void_p, wintypes.LPWSTR]
+    ole32.CoTaskMemFree.argtypes = [ctypes.c_void_p]
+    inited = ole32.CoInitializeEx(None, 0x2) in (0, 1)           # COINIT_APARTMENTTHREADED: the dialog needs STA
+    try:
+        name = ctypes.create_unicode_buffer(260)
+        info = _BROWSEINFOW(None, None, ctypes.cast(name, wintypes.LPWSTR), title,
+                            0x1 | 0x40,                             # BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE
+                            ctypes.cast(_on_dialog_c, ctypes.c_void_p), 0, 0)
+        try:
+            pidl = sh.SHBrowseForFolderW(ctypes.byref(info))
+        finally:
+            _dialog["hwnd"] = None
+        if pidl:
+            try:
+                path = ctypes.create_unicode_buffer(260)
+                if sh.SHGetPathFromIDListW(pidl, path):
+                    out.append(path.value)
+            finally:
+                ole32.CoTaskMemFree(pidl)
+    finally:
+        if inited:
+            ole32.CoUninitialize()
+
+
+def pick_folder(title="Choose a folder for NOBAD Find"):
+    """Windows' folder dialog, shown by this process (the engine, for the pipe's pick_folder), topmost and in
+    front. The chosen folder, "" if cancelled, or None at once when a dialog is already open (that one is
+    brought to the front again). Runs on a thread of its own so COM is set up the way the dialog needs."""
+    global _dialog_lock
+    if not WIN:
+        return ""
+    import threading
+    if _dialog_lock is None:
+        _dialog_lock = threading.Lock()
+    if not _dialog_lock.acquire(blocking=False):
+        try:
+            _front_dialog()
+        except OSError:
+            pass
+        return None
+    try:
+        out = []
+        t = threading.Thread(target=_browse_folder, args=(title, out), daemon=True, name="folder-dialog")
+        t.start()
+        t.join()
+        return out[0] if out else ""
+    finally:
+        _dialog_lock.release()
+
+
 def foreground_window():
     if not WIN:
         return 0

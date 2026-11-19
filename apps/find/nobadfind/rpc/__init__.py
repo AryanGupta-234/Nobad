@@ -1,21 +1,27 @@
 """The engine's only door to the UI: JSON-RPC 2.0 over a private named pipe (see docs/STRUCTURE.md, ROADMAP §6).
 
-Prototype scope (ROADMAP Phase 3 step 1): hello, subscribe, search, open, reveal, thumbnail, status, and the
-`status` / `show` events. Phase 2 grows it to the whole 0.7.0 API surface.
+The whole 0.7.0 API surface plus the engine's events; the contract is apps/find/contract (schemas, transcripts,
+README), checked by tests/test_rpc_contract.py.
 """
 from . import handlers
-from .events import Events
+from .events import TICK, Events
 
 
 class Rpc:
     """The pipe server, the handlers and the events, wired together for one Api."""
 
-    def __init__(self, api, name=None, status_every=None):
+    def __init__(self, api, name=None, status_every=None, activity=None):
         from .server import Server                  # Windows only
+        self.api = api
         self.server = Server(name=name)
-        kw = {"every": status_every} if status_every else {}
-        self.events = Events(self.server.clients, self.server.drop, api.status_brief, **kw)
+        kw = {"every": status_every, "tick": min(TICK, status_every)} if status_every else {}
+        self.events = Events(self.server.clients, self.server.drop, api, **kw)
         self.server.methods = handlers.methods(api, self.events)
+        self.server.on_drop = self._dropped
+        self.server.slow = set(handlers.SLOW)
+        self.events.on_show = self.server.allow_foreground
+        if activity is not None:
+            activity.listen(self.events.activity)
 
     def start(self):
         if not self.server.start():
@@ -27,7 +33,13 @@ class Rpc:
         self.events.stop()
         self.server.stop()
 
-    def show(self, what):
+    def _dropped(self, conn):
+        """Pipe liveness: a UI that ends (or crashes) without saying ui_hidden counts as its window closing."""
+        self.events.gone(conn, self.api.hide)
+
+    def show(self, what, text=None):
         """A hotkey asked for a window ("main" or "bar"): tell the UIs, and let them take the front."""
-        self.server.allow_foreground()
-        return self.events.push("show", {"what": what})
+        return self.events.show(what, text)
+
+    def ui_pids(self):
+        return {c.pid for c in self.server.clients() if c.pid}
