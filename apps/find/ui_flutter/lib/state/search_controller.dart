@@ -1,23 +1,44 @@
-/// The words typed, the answer, the selected row; opening and revealing by result id.
+/// The words typed, the filters, the answer, the selected row; and what can be done with a row (open, show in
+/// folder, copy its path, forget it), always by result id.
 library;
 
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 
+import '../engine/engine_api.dart';
+import '../engine/events.dart';
 import '../engine/models/result.dart';
-import '../engine/rpc.dart';
+
+import 'toast_controller.dart';
+
+Future<void> _clipboard(String text) => Clipboard.setData(ClipboardData(text: text));
 
 class FindController extends ChangeNotifier {
-  FindController(this.engine, {this.limit, this.debounce = const Duration(milliseconds: 60)});
+  FindController(this.engine,
+      {this.limit, this.debounce = const Duration(milliseconds: 60), this.toasts, Future<void> Function(String)? copy})
+      : _copy = copy ?? _clipboard {
+    _sub = engine.events.listen((e) {
+      if (e is HereEvent && e.path != _here) {
+        _here = e.path;
+        if (!_disposed) notifyListeners();
+      }
+    });
+  }
 
-  final Engine engine;
+  late final StreamSubscription<EngineEvent> _sub;
+
+  final EngineApi engine;
 
   /// At most this many rows (the quick find bar shows 8); null = all the engine sends.
   final int? limit;
   final Duration debounce;
+  final ToastController? toasts;
+  final Future<void> Function(String) _copy;
 
   String _text = '';
+  SearchFilters _filters = SearchFilters.none;
   SearchAnswer _answer = SearchAnswer.empty;
   int _selected = 0;
   String _notice = '';
@@ -25,15 +46,23 @@ class FindController extends ChangeNotifier {
   int _seq = 0;
   Timer? _timer;
   bool _disposed = false;
+  String _here = '';
 
   String get text => _text;
+  SearchFilters get filters => _filters;
   SearchAnswer get answer => _answer;
   List<FileResult> get results => _answer.results;
   int get selected => _selected;
   FileResult? get current => results.isEmpty ? null : results[_selected.clamp(0, results.length - 1)];
   bool get busy => _busy;
 
-  /// A short line for the user: an error from the engine, or "the file isn't there any more".
+  /// Words, or a filter that narrows: results are shown instead of Home (0.7.0's rule).
+  bool get showingResults => _text.trim().isNotEmpty || _filters.narrows;
+
+  /// The File Explorer folder the hotkey was pressed in ('' if none).
+  String get here => _here;
+
+  /// A short line under the box: an engine error or "the engine isn't running".
   String get notice => _notice;
 
   /// The words as they were when the shown answer was asked for.
@@ -47,8 +76,34 @@ class FindController extends ChangeNotifier {
   void setText(String t) {
     if (t == _text) return;
     _text = t;
+    _schedule();
+  }
+
+  void setFilters(SearchFilters f) {
+    if (f == _filters) return;
+    _filters = f;
+    _schedule(now: true);
+  }
+
+  void clearFilters() => setFilters(SearchFilters.none);
+
+  Future<void> loadHere() async {
+    try {
+      _here = await engine.hereFolder();
+    } on Object {
+      _here = '';
+    }
+    if (!_disposed) notifyListeners();
+  }
+
+  /// Only inside the "here" folder.
+  void useHere() {
+    if (_here.isNotEmpty) setFilters(_filters.copyWith(folder: _here));
+  }
+
+  void _schedule({bool now = false}) {
     _timer?.cancel();
-    if (t.trim().isEmpty) {
+    if (!showingResults) {
       _seq++;
       _answer = SearchAnswer.empty;
       _askedFor = '';
@@ -58,20 +113,26 @@ class FindController extends ChangeNotifier {
       notifyListeners();
       return;
     }
-    _timer = Timer(debounce, run);
+    if (now) {
+      notifyListeners();
+      unawaited(run());
+    } else {
+      _timer = Timer(debounce, run);
+    }
   }
 
   Future<void> run() async {
     final my = ++_seq;
     final words = _text;
-    if (words.trim().isEmpty) return;
+    final filters = _filters;
+    if (!showingResults) return;
     _busy = true;
     notifyListeners();
     final clock = Stopwatch()..start();
     SearchAnswer a;
     String notice = '';
     try {
-      a = await engine.search(words);
+      a = await engine.search(words, filters: filters);
     } on EngineOffline {
       a = SearchAnswer.empty;
       notice = "NOBAD Find's engine isn't running. Start it and the search comes back.";
@@ -81,10 +142,15 @@ class FindController extends ChangeNotifier {
     }
     if (_disposed || my != _seq) return; // a newer search is on its way
     final lim = limit;
-    _answer = lim != null && a.results.length > lim
-        ? SearchAnswer(results: a.results.sublist(0, lim), ms: a.ms, understood: a.understood, notes: a.notes,
+    var rows = a.results;
+    if (words.trim().isEmpty) rows = [for (final r in rows) if (!r.weak) r];
+    _answer = lim != null && rows.length > lim
+        ? SearchAnswer(results: rows.sublist(0, lim), ms: a.ms, understood: a.understood, notes: a.notes,
             more: true, error: a.error)
-        : a;
+        : (identical(rows, a.results)
+            ? a
+            : SearchAnswer(results: rows, ms: a.ms, understood: a.understood, notes: a.notes, more: a.more,
+                error: a.error));
     _askedFor = words;
     _lastMs = clock.elapsedMilliseconds;
     _selected = 0;
@@ -107,25 +173,71 @@ class FindController extends ChangeNotifier {
   }
 
   /// Open the selected file with its default program (the engine does it, by id). True if it opened.
-  Future<bool> openSelected() => _act(engine.open);
+  Future<bool> openSelected() => _act((id) => engine.open(id), "That file isn't there any more.");
 
   /// Show the selected file in File Explorer.
-  Future<bool> revealSelected() => _act(engine.reveal);
+  Future<bool> revealSelected() => _act((id) => engine.reveal(id), "Couldn't show it in its folder.");
 
-  Future<bool> _act(Future<bool> Function(int id) how) async {
+  Future<bool> _act(Future<ActionResult> Function(int id) how, String failed) async {
     final r = current;
     if (r == null) return false;
+    var res = const ActionResult(false);
+    try {
+      res = await how(r.id);
+    } on EngineOffline {
+      res = const ActionResult(false, "NOBAD Find's engine isn't running.");
+    } on RpcException catch (e) {
+      res = ActionResult(false, e.message);
+    }
+    if (!res.ok) _say(res.error.isNotEmpty ? res.error : failed);
+    return res.ok;
+  }
+
+  /// Ctrl+C: the selected file's full path on the clipboard.
+  Future<bool> copySelected() async {
+    final r = current;
+    if (r == null) return false;
+    var path = r.path;
+    if (path.isEmpty) {
+      try {
+        path = await engine.pathOf(r.id);
+      } on Object {
+        path = '';
+      }
+    }
+    if (path.isEmpty) {
+      _say("That file isn't there any more.");
+      return false;
+    }
+    await _copy(path);
+    _say('Path copied.');
+    return true;
+  }
+
+  /// Shift+Delete: after [confirm] says yes, remove the selected file from the index and keep it out.
+  Future<bool> forgetSelected(Future<bool> Function(String question) confirm) async {
+    final r = current;
+    if (r == null) return false;
+    if (!await confirm('Forget "${r.name}" and keep it out of the index from now on?')) return false;
     var ok = false;
     try {
-      ok = await how(r.id);
-    } on EngineOffline {
-      _notice = "NOBAD Find's engine isn't running.";
-    } on RpcException catch (e) {
-      _notice = e.message;
+      ok = (await engine.forget(r.id)).ok;
+    } on Object {
+      ok = false;
     }
-    if (!ok && _notice.isEmpty) _notice = "That file isn't there any more.";
-    if (!_disposed) notifyListeners();
-    return ok;
+    if (!ok) return false;
+    _say('Forgotten. Undo it in Settings → Never search.');
+    if (!_disposed) await run();
+    return true;
+  }
+
+  void _say(String s) {
+    if (toasts != null) {
+      toasts!.show(s);
+    } else {
+      _notice = s;
+      if (!_disposed) notifyListeners();
+    }
   }
 
   void clear() => setText('');
@@ -134,6 +246,7 @@ class FindController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _timer?.cancel();
+    _sub.cancel();
     super.dispose();
   }
 }
