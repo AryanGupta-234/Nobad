@@ -385,6 +385,23 @@ def pipe_pair():
     k.CloseHandle(h)
 
 
+def _sid_of(trustee):
+    """A trustee from an SDDL string (a SID or an alias like LA) as a SID string."""
+    import ctypes
+    from ctypes import wintypes
+    a = ctypes.WinDLL("advapi32", use_last_error=True)
+    a.ConvertStringSidToSidW.argtypes = [wintypes.LPCWSTR, ctypes.POINTER(ctypes.c_void_p)]
+    a.ConvertSidToStringSidW.argtypes = [ctypes.c_void_p, ctypes.POINTER(wintypes.LPWSTR)]
+    p = ctypes.c_void_p()
+    assert a.ConvertStringSidToSidW(trustee, ctypes.byref(p))
+    out = wintypes.LPWSTR()
+    assert a.ConvertSidToStringSidW(p, ctypes.byref(out))
+    value = out.value
+    ctypes.windll.kernel32.LocalFree(p)
+    ctypes.windll.kernel32.LocalFree(out)
+    return value
+
+
 @win
 def test_the_pipe_dacl_is_this_user_only(pipe_pair):
     import ctypes
@@ -404,7 +421,8 @@ def test_the_pipe_dacl_is_this_user_only(pipe_pair):
     ctypes.windll.kernel32.LocalFree(sd)
     assert d.startswith("D:P")                                       # protected: nothing inherited
     allows = [ace for ace in d[3:].strip("()").split(")(") if ace.startswith("A;")]
-    assert len(allows) == 1 and allows[0].endswith(";" + sid)      # one allow: this user
+    # SDDL writes some accounts as an alias (the built-in Administrator is "LA" on CI runners): compare SIDs
+    assert len(allows) == 1 and _sid_of(allows[0].rsplit(";", 1)[1]) == sid       # one allow: this user
     assert any(ace.startswith("D;") and ace.endswith(";NU") for ace in d[3:].strip("()").split(")("))
     for other in (";WD", ";BA", ";SY", ";AU", ";BU", ";AN"):
         assert other not in d, other
