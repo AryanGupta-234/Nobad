@@ -169,11 +169,11 @@ _worker = None
 
 
 def init_meaning_worker(model_dir, threads, gpu):
-    """Pool initializer: join Find's worker group (CPU-capped by the governor), background mode, own model."""
+    """Pool initializer: join Find's worker group (CPU-capped by the governor), low priority, own model."""
     global _worker
     from . import jobs, winapi
     jobs.join_workers()
-    winapi.background_mode()
+    winapi.worker_priority()
     _worker = Embedder(model_dir, threads=threads, gpu=gpu)
 
 

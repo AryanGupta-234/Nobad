@@ -102,13 +102,15 @@ class Wiring:
     - Quit sends quitting, and stops the engine only once the reply is written (protocol.after_reply).
     - A hotkey another app holds becomes a notice."""
 
-    def __init__(self, api, settings, indexer, events, stop, ui_pids, make_hotkey=None, dialog=None):
+    def __init__(self, api, settings, indexer, events, stop, ui_pids, make_hotkey=None, dialog=None,
+                 trim=winapi.trim_working_set):
         from . import lifecycle
         self.api, self.settings, self.indexer, self.events, self.stop = api, settings, indexer, events, stop
         self.ui_pids = ui_pids
         self.make_hotkey = make_hotkey
         self.keys = []
-        self.life = lifecycle.Window(indexer, not settings.get("keep_background"), log, quitting=stop.is_set)
+        self.life = lifecycle.Window(indexer, not settings.get("keep_background"), log, quitting=stop.is_set,
+                                     trim=trim)
         api._folder_dialog = dialog if dialog is not None else winapi.pick_folder
         api._on_show = self._shown
         api._on_hide = lambda: lifecycle.after_hide(self.life, settings, bool(self.keys and self.keys[0].ok),

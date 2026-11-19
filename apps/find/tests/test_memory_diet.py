@@ -1,0 +1,101 @@
+"""ROADMAP Phase 1: what each NOBAD Find process loads and commits (see docs/measurements.md).
+
+These start real Python processes, because what matters is what a fresh process imports."""
+import os
+import subprocess
+import sys
+
+import pytest
+
+APP = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+WORKER_ARGV = "sys.argv.append('--multiprocessing-fork')"     # how a spawned pool worker starts
+
+
+def py(code, env=None):
+    e = dict(os.environ)
+    e.pop("OPENBLAS_NUM_THREADS", None)
+    e.update(env or {})
+    r = subprocess.run([sys.executable, "-c", code], cwd=APP, capture_output=True, text=True, timeout=120, env=e)
+    assert r.returncode == 0, r.stderr
+    return r.stdout.strip().splitlines()[-1]
+
+
+def test_a_text_reader_does_not_load_numpy():
+    """What a text reader imports itself (python -m nobadfind: multiprocessing doesn't run a package's __main__
+    again in workers, so this is all of it)."""
+    out = py(f"import sys; {WORKER_ARGV}; from nobadfind import extract; extract.init_worker(); "
+             "print(sorted(m for m in ('numpy', 'nobadfind.app', 'nobadfind.embed', 'onnxruntime', 'webview') "
+             "if m in sys.modules))")
+    assert out == "[]"
+
+
+def test_the_packaged_entry_point_is_light_in_a_worker_too():
+    """NobadFind.exe: every worker runs packaging/launch.py again as __mp_main__; its imports used to load the whole
+    app (numpy: ~500 MB of commit per text reader on a 16-thread PC, ROADMAP §2 cause 2)."""
+    launch = os.path.join(APP, "packaging", "launch.py").replace("\\", "/")
+    out = py(f"import sys, runpy; {WORKER_ARGV}; runpy.run_path('{launch}', run_name='__mp_main__'); "
+             "print(sorted(m for m in ('numpy', 'nobadfind.app') if m in sys.modules))")
+    assert out == "[]"
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="private bytes are read the Windows way")
+def test_numpy_loads_with_one_blas_thread_in_the_main_process():
+    """OpenBLAS reserves ~32 MB of commit per CPU thread when numpy loads (515 MB on a 16-thread PC)."""
+    out = py("import os, psutil, nobadfind, numpy; "
+             "print(round(psutil.Process().memory_info().private / 2**20), os.environ.get('OPENBLAS_NUM_THREADS'))")
+    mb, var = out.split()
+    assert int(mb) < 150
+    assert var == "None"              # put back: programs Find opens don't inherit it
+
+
+def test_workers_keep_one_blas_thread_for_numpy_loaded_later():
+    out = py(f"import sys, os; {WORKER_ARGV}; import nobadfind; "
+             "print(os.environ.get('OPENBLAS_NUM_THREADS'), 'numpy' in sys.modules)")
+    assert out == "1 False"
+
+
+def test_the_users_own_blas_setting_is_left_alone():
+    out = py("import os, nobadfind; print(os.environ.get('OPENBLAS_NUM_THREADS'))", env={"OPENBLAS_NUM_THREADS": "4"})
+    assert out == "4"
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows calls")
+def test_eco_qos_and_trim_work_on_our_own_process():
+    out = py("import psutil; from nobadfind import winapi; a = psutil.Process().memory_info().rss; "
+             "t = winapi.trim_working_set(); e = winapi.eco_qos(True); "
+             "print(t, e, psutil.Process().memory_info().rss < a)")
+    assert out == "True True True"
+
+
+def test_nothing_happens_to_a_process_that_is_gone():
+    from nobadfind import winapi
+    assert winapi.eco_qos(True, pid=0xFFFFFFF0) is False
+    assert winapi.trim_working_set(pid=0xFFFFFFF0) is False
+
+
+def test_mail_parsing_loads_only_for_mail_files():
+    out = py(f"import sys; {WORKER_ARGV}; from nobadfind import extract; extract.init_worker(); "
+             "print(sorted(m for m in ('email', 'email.policy', 'mailbox') if m in sys.modules))")
+    assert out == "[]"
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows priorities")
+def test_worker_priorities_are_low_without_capping_the_working_set():
+    """Workers: idle CPU priority, low memory priority, very low I/O priority. Not Windows background mode: from a
+    process's start it pins the working set near 32 MB, and a PDF reader then page-faults ~400x more
+    (docs/measurements.md)."""
+    out = py("import ctypes, psutil; from ctypes import wintypes; from nobadfind import winapi; "
+             "winapi.worker_priority(True); p = psutil.Process(); "
+             "b = bytearray(160 * 1024 * 1024); b[::4096] = b'x' * len(b[::4096]); "
+             "k = ctypes.WinDLL('kernel32'); k.GetCurrentProcess.restype = wintypes.HANDLE; m = wintypes.ULONG(); "
+             "k.GetProcessInformation.argtypes = [wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD]; "
+             "k.GetProcessInformation(k.GetCurrentProcess(), 0, ctypes.byref(m), 4); "
+             "print(p.nice() == psutil.IDLE_PRIORITY_CLASS, m.value, int(p.ionice()), p.memory_info().rss > 128 << 20)")
+    assert out == "True 2 0 True"
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows priorities")
+def test_worker_priority_back_to_normal():
+    out = py("import psutil; from nobadfind import winapi; winapi.worker_priority(True); winapi.worker_priority(False); "
+             "p = psutil.Process(); print(p.nice() == psutil.NORMAL_PRIORITY_CLASS, int(p.ionice()))")
+    assert out == "True 2"

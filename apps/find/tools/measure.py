@@ -187,6 +187,39 @@ class GpuByPid:
         return out
 
 
+# ---------- priorities per process ----------
+class _Throttle(ctypes.Structure):
+    _fields_ = [("Version", wintypes.DWORD), ("ControlMask", wintypes.DWORD), ("StateMask", wintypes.DWORD)]
+
+
+_k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+_k32.OpenProcess.restype = wintypes.HANDLE
+_k32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+_k32.CloseHandle.argtypes = [wintypes.HANDLE]
+_k32.GetProcessInformation.argtypes = [wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD]
+
+
+def priorities(p):
+    """(eco 0/1, memory priority 0-5, I/O priority 0-3) of one process; "" where it can't be read."""
+    eco = mem = ""
+    h = _k32.OpenProcess(0x1000, False, p.pid)            # PROCESS_QUERY_LIMITED_INFORMATION
+    if h:
+        try:
+            m = wintypes.ULONG()
+            if _k32.GetProcessInformation(h, 0, ctypes.byref(m), 4):          # ProcessMemoryPriority
+                mem = m.value
+            t = _Throttle(1, 0, 0)
+            if _k32.GetProcessInformation(h, 4, ctypes.byref(t), ctypes.sizeof(t)):   # ProcessPowerThrottling
+                eco = int(bool(t.ControlMask & t.StateMask & 1))
+        finally:
+            _k32.CloseHandle(h)
+    try:
+        io = int(p.ionice())
+    except (psutil.Error, OSError, ValueError):
+        io = ""
+    return eco, mem, io
+
+
 # ---------- sampling ----------
 class Sampler(threading.Thread):
     """Once a second: every process in the engine's tree. Rows go to self.rows; self.scenario labels them."""
@@ -233,6 +266,7 @@ class Sampler(threading.Thread):
                            "pid": p.pid, "role": role(p, self.root.pid), "ws_mb": round(mem.rss / MB, 1),
                            "private_mb": round(mem.private / MB, 1), "handles": p.num_handles(),
                            "threads": p.num_threads(), "gpu_pct": round(gpu.get(p.pid, 0.0), 1)}
+                row["eco"], row["mem_prio"], row["io_prio"] = priorities(p)
             except psutil.Error:
                 continue
             cpu_s = cpu.user + cpu.system
@@ -327,9 +361,12 @@ def run_level(level, corpus, work, full, args, searches):
         json.dump(settings_for(corpus), f)
     env = dict(os.environ, NOBAD_FIND_DATA_DIR=data, NOBAD_FIND_MEASURE_LEVEL=level, NOBAD_FIND_MEASURE_PIPE=tag)
     env.pop("NOBAD_FIND_UI_DEMO", None)
+    if args.entry == "launch":
+        env["PYTHONPATH"] = APP_DIR                    # a script's own folder is on the path, not apps/find
     marks = {"run": level}
     t0 = time.monotonic()
-    proc = subprocess.Popen([sys.executable, "-m", "nobadfind", "--engine"], cwd=APP_DIR, env=env,
+    entry = ["-m", "nobadfind"] if args.entry == "module" else [os.path.join(APP_DIR, "packaging", "launch.py")]
+    proc = subprocess.Popen([sys.executable] + entry + ["--engine"], cwd=APP_DIR, env=env,
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
                             creationflags=subprocess.CREATE_NO_WINDOW)
     sampler = Sampler(proc.pid, level, every=args.every)
@@ -459,7 +496,7 @@ def pct(vals, p):
 
 def report(summary, marks, searches, meta):
     lines = [f"Commit `{meta['commit']}`, {meta['pc']}, corpus {meta['files']} files ({meta['corpus']}), "
-             f"samples every {meta['every']} s. CPU % is of one core (100 = one full core), summed over the tree.", "",
+             f"entry `{meta['entry']}`, samples every {meta['every']} s. CPU % is of one core (100 = one full core), summed over the tree.", "",
              "| Run | Scenario | Samples | Procs | Working set MB (mean / max) | Private MB (mean / max) | "
              "Engine process WS / private MB | CPU % (mean / max) | Read / write MB/s | Handles | Threads | GPU % max |",
              "|---|---|---|---|---|---|---|---|---|---|---|---|"]
@@ -503,6 +540,9 @@ def main(argv=None):
     ap.add_argument("--closed", type=float, default=30, help="seconds with the window closed")
     ap.add_argument("--index-timeout", type=float, default=300)
     ap.add_argument("--every", type=float, default=1.0)
+    ap.add_argument("--entry", choices=("module", "launch"), default="module",
+                    help="module: python -m nobadfind --engine; launch: packaging/launch.py --engine, which starts "
+                         "workers the way NobadFind.exe does (each runs the entry script again)")
     ap.add_argument("--out", default="")
     ap.add_argument("--keep", action="store_true", help="keep the temp corpus and data folders")
     args = ap.parse_args(argv)
@@ -534,7 +574,7 @@ def main(argv=None):
                 w.writerows(searches)
     meta = {"commit": git_commit(), "pc": f"{os.cpu_count()} threads, {psutil.virtual_memory().total / 2**30:.1f} GB",
             "files": args.files, "corpus": ", ".join(f"{v} {k}" for k, v in sorted(counts.items())),
-            "every": args.every}
+            "every": args.every, "entry": args.entry}
     text = report(summarize(args.rows), marks, searches, meta)
     with open(os.path.join(out, "summary.md"), "w", encoding="utf-8") as f:
         f.write(text + "\n")

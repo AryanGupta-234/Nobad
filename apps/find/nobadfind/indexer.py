@@ -4,7 +4,7 @@ Phases:  names (parallel walk)  ->  text (worker processes)  ->  meaning (local 
          ->  watching
 It steps aside for you: it pauses on battery, during full-screen games or presentations and during calls
 (settings), works gently while you use the PC and at full speed when you're away, and every worker process
-runs in Windows background mode (low CPU, disk and memory priority).
+runs at low CPU, disk and memory priority (winapi.worker_priority).
 """
 import concurrent.futures as cf
 import json
@@ -28,6 +28,8 @@ MEANING_TIMEOUT = 120           # seconds one batch of meaning vectors may take 
 JOB_TIMEOUT = 300                # seconds one file may take before its reader is stopped
 REMOVABLE_RESCAN = 1800          # USB drives aren't watched (that would block "safely remove"): re-walk them
 PAUSE_CHECK_EVERY = 5.0
+READER_TASKS = 200             # files one text reader process reads before a fresh one takes over (its memory
+                                 # from pdf/zip parsing goes back to Windows; a new reader starts in ~0.2 s)
 RECYCLE_AFTER = 60               # seconds paused before the worker processes end ("Paused: nothing runs")
 RECYCLE = "recycle"              # _wait_while_paused / _await: paused that long, end the workers
 # Names worth a meaning vector: things people make and keep (not code, programs or unknown files)
@@ -373,7 +375,8 @@ class Indexer:
         plan_ = self.status["plan"]
         gentle, full = plan_.get("text_workers", 2), plan_.get("text_workers_idle", 2)
         inflight, queued = {}, []                    # future -> (job, started)
-        pool = cf.ProcessPoolExecutor(max_workers=max(gentle, full), initializer=extract.init_worker)
+        pool = cf.ProcessPoolExecutor(max_workers=max(gentle, full), initializer=extract.init_worker,
+                                      max_tasks_per_child=READER_TASKS)
         self._text_pool = pool
         try:
             while not self.stop_ev.is_set():

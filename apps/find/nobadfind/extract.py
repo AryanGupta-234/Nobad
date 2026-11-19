@@ -3,11 +3,8 @@
 Every file is untrusted: Office/ODF/EPUB files are zips (checked for zip bombs), XML is parsed with the standard
 library's expat (no external entities), and nothing here ever executes or opens a file in another program.
 """
-import email
-import email.policy
 import html.parser
 import io
-import mailbox
 import os
 import re
 import xml.etree.ElementTree as ET
@@ -243,12 +240,15 @@ def _message_text(msg):
 
 
 def eml_text(path, limit):
+    import email                    # here, not at the top: a reader only pays for mail parsing on mail files
+    import email.policy
     with open(path, "rb") as f:
         msg = email.message_from_bytes(f.read(limit), policy=email.policy.compat32)
     return _message_text(msg)
 
 
 def mbox_text(path, limit):
+    import mailbox
     out, size = [], 0
     box = mailbox.mbox(path, create=False)
     try:
@@ -361,7 +361,7 @@ def work(job):
 def init_worker():
     from . import jobs, winapi
     jobs.join_workers()            # into Find's worker group (CPU-capped, ends with the app)
-    winapi.background_mode()
+    winapi.worker_priority()        # low CPU, memory and disk priority
 
 
 __all__ = ["extract", "chunks", "work", "init_worker", "SkipFile", "decode_bytes", "io"]

@@ -18,6 +18,7 @@ from .log import log
 FULL, GENTLE, LIGHT, PAUSED = "full", "gentle", "light", "paused"
 ORDER = [PAUSED, LIGHT, GENTLE, FULL]
 CPU_CAP = {FULL: None, GENTLE: 35, LIGHT: 15, PAUSED: 5}
+ECO_LEVELS = (LIGHT, PAUSED)        # workers in efficiency mode (EcoQoS)
 
 # Every tunable number lives here.
 LIMITS = {
@@ -220,7 +221,7 @@ class _SafeApps:
 
 class Governor(threading.Thread):
     def __init__(self, settings, apps, activity, sense=None, every=2.0, jobs=None, watchdog=None,
-                 release_idle=None):
+                 release_idle=None, eco=None):
         super().__init__(daemon=True, name="governor")
         self.settings, self.activity = settings, activity
         self.apps = _SafeApps(apps)                 # a store error must never stop the governor
@@ -239,6 +240,8 @@ class Governor(threading.Thread):
         self._cpu, self._gpu = None, None
         self._slow = (0.0, False, False)         # (checked at, on battery, in call)
         self._last_cpu_s = None                  # (wall time, Find's CPU seconds)
+        self._eco = eco if eco is not None else (lambda on, pid: winapi.eco_qos(on, pid=pid))
+        self._eco_set = {}                       # worker pid -> EcoQoS on/off as last applied
 
     # ---------- control ----------
     def pause_for(self, seconds):
@@ -279,6 +282,10 @@ class Governor(threading.Thread):
             self.activity.add("level", d.reason)
         self.decision = d
         try:
+            self._eco_workers(d.level)
+        except Exception as e:
+            log(f"governor could not set efficiency mode: {type(e).__name__}", "warn")
+        try:
             self._track_session(s)
         except Exception as e:
             log(f"governor session tracking failed: {type(e).__name__}", "warn")
@@ -293,6 +300,20 @@ class Governor(threading.Thread):
         except Exception as e:
             log(f"releasing idle models failed: {type(e).__name__}", "warn")
         return d
+
+    def _eco_workers(self, level):
+        """Efficiency mode (EcoQoS) for Find's worker processes at Light and Paused (a game, a call, a busy PC):
+        Windows keeps them on efficiency cores at low clocks. Not at Gentle or Full: measured 3.8x slower indexing
+        (docs/measurements.md). Only pids in the worker job, never this process; each set once per change."""
+        workers = getattr(self.jobs, "WORKERS", None)
+        if workers is None or not hasattr(workers, "pids"):
+            return
+        want, me = level in ECO_LEVELS, os.getpid()
+        pids = [p for p in workers.pids() if p != me]
+        self._eco_set = {p: v for p, v in self._eco_set.items() if p in pids}
+        for pid in pids:
+            if self._eco_set.get(pid) is not want and self._eco(want, pid):
+                self._eco_set[pid] = want
 
     def _read_usage(self):
         outer = getattr(self.jobs, "OUTER", None)

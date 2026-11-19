@@ -129,10 +129,10 @@ _mode = [True]
 
 def embed_photos(jobs, fast=False):
     """Worker entry for a batch: [(file_id, path, mtime, model_dir), ...] -> results like embed_photo.
-    fast: you're away from the PC, so the worker leaves Windows background mode for this batch."""
+    fast: you're away from the PC, so the worker runs at normal priority for this batch."""
     if fast == _mode[0]:
         from . import winapi
-        winapi.background_mode(not fast)
+        winapi.worker_priority(not fast)
         _mode[0] = not fast
     return [embed_photo(j) for j in jobs]
 
@@ -140,7 +140,7 @@ def embed_photos(jobs, fast=False):
 def init_worker():
     from . import jobs, winapi
     jobs.join_workers()            # into Find's worker group (CPU-capped, ends with the app)
-    winapi.background_mode()
+    winapi.worker_priority()
     # winrt carries an older C++ runtime; onnxruntime must be loaded first (see ocr._load)
     import importlib
     importlib.import_module("onnxruntime")

@@ -1,5 +1,16 @@
 # NOBAD Find changelog
 
+## Unreleased
+
+### Changed
+- Much less memory: the background workers no longer load the whole app (about 4 GB committed while indexing on a
+  16-thread PC, now about 0.4 GB), and the main process commits about 35 MB instead of 520 MB when idle.
+- Indexing is 3-6 times faster: the workers use low CPU, memory and disk priority instead of Windows background mode,
+  which squeezed each one into about 32 MB.
+- Closing the window hands NOBAD Find's memory back to Windows (about 17 MB in use while closed).
+- Workers run in efficiency mode while a game, a call or a busy PC slows indexing to Light or Paused, and the workers
+  together have a hard memory limit.
+
 ## 0.7.0 · 2026-11-18
 
 ### Added

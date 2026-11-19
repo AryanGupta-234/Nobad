@@ -12,6 +12,7 @@ WORKERS_PREFIX = "Local\\NOBADFind-workers-"
 MAIN_PID_ENV = "NOBAD_FIND_MAIN_PID"
 
 _KILL_ON_JOB_CLOSE = 0x2000
+_JOB_MEMORY = 0x200            # JOB_OBJECT_LIMIT_JOB_MEMORY: committed memory of the whole job
 _BREAKAWAY_OK = 0x800          # JOB_OBJECT_LIMIT_BREAKAWAY_OK: a child that asks may start outside the job
 _CPU_ENABLE, _CPU_HARD_CAP = 0x1, 0x4
 _PROCESS_TERMINATE_SET_QUOTA = 0x0001 | 0x0100
@@ -144,6 +145,21 @@ class Job:
         finally:
             _k.CloseHandle(ph)
 
+    def set_memory_limit(self, mb):
+        """A hard limit on the memory the whole group commits: past it, allocations in its processes fail.
+        Keeps the other limits (close-with-app). True on success."""
+        if not self.handle:
+            return False
+        info = _Extended()
+        if not _k.QueryInformationJobObject(self.handle, _CLS_EXTENDED, ctypes.byref(info), ctypes.sizeof(info), None):
+            return False
+        info.Basic.LimitFlags |= _JOB_MEMORY
+        info.JobMemoryLimit = int(mb) * 1024 * 1024
+        if not _k.SetInformationJobObject(self.handle, _CLS_EXTENDED, ctypes.byref(info), ctypes.sizeof(info)):
+            log("could not set the background memory limit (error %d)" % ctypes.get_last_error())
+            return False
+        return True
+
     def set_cpu_cap(self, percent):
         """Hard-cap the whole group at percent of all CPU time; None lifts the cap. True on success."""
         if not self.handle:
@@ -196,6 +212,13 @@ class Job:
             _k.CloseHandle(h)
 
 
+def worker_memory_limit_mb(total_mb):
+    """The worker group's hard memory limit: a quarter of the PC's memory, 1-4 GB. A backstop above the watchdog
+    (watchdog.JOB_MB, working set) for a reader or model gone wrong; normal work commits far less
+    (docs/measurements.md)."""
+    return max(1024, min(4096, int(total_mb) // 4))
+
+
 def setup():
     """Main process, once at start: everything Find starts from here on dies with the app."""
     global OUTER, WORKERS
@@ -205,6 +228,9 @@ def setup():
     OUTER = Job(breakaway=True)         # files opened from Find start outside it (winapi.open_outside_job)
     OUTER.assign_self()
     WORKERS = Job(WORKERS_PREFIX + str(os.getpid()))
+    total = winapi.memory_status_total_mb()
+    if total:
+        WORKERS.set_memory_limit(worker_memory_limit_mb(total))
 
 
 def join_workers():

@@ -31,9 +31,12 @@ class Window:
     retrying until it can start. Once NOBAD Find is quitting (quitting() true) it settles nothing: quit's
     stop must be the last word, never followed by a start."""
 
-    def __init__(self, indexer, idle, log=lambda *a: None, join_timeout=10, quitting=lambda: False):
+    def __init__(self, indexer, idle, log=lambda *a: None, join_timeout=10, quitting=lambda: False,
+                 trim=lambda: None):
+        """trim: called once each time indexing has gone idle (the engine hands its working set back)."""
         self.indexer, self.log, self.join_timeout = indexer, log, join_timeout
         self.quitting = quitting
+        self.trim = trim
         self.want_idle = idle
         self.stopping = False       # stop() was asked and the indexer may not have ended yet
         self.idle = idle            # the indexer has ended and its models are released
@@ -58,6 +61,10 @@ class Window:
                         self.indexer.release_models()
                         self.idle = True
                         self.log("window closed: indexing stopped, models released")
+                        try:
+                            self.trim()
+                        except Exception as e:
+                            self.log(f"could not trim memory: {type(e).__name__}", "warn")
                     else:
                         self.log("indexing took long to stop", "warn")
                 elif not self.want_idle and (self.idle or self.stopping):

@@ -76,7 +76,8 @@ def make(tmp_path, **changes):
     conn.events.update({"quitting", "notice", "show"})
     ev = Events(lambda: [conn], lambda c: None, api)
     stop = threading.Event()
-    w = engine.Wiring(api, st, ix, ev, stop, ui_pids=lambda: set(), make_hotkey=Key, dialog=lambda: "C:\\x")
+    w = engine.Wiring(api, st, ix, ev, stop, ui_pids=lambda: set(), make_hotkey=Key, dialog=lambda: "C:\\x",
+                      trim=lambda: None)
     return w, api, ix, ev, conn, stop
 
 

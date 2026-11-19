@@ -366,3 +366,14 @@ def test_release_if_idle_never_waits_for_a_model_load():
     finally:
         m._lock.release()
     assert m.release_if_idle(0) is True and m._model is None
+
+
+def test_going_idle_hands_the_working_set_back_once():
+    ix, trims = _FakeIndexer(), []
+    w = lifecycle.Window(ix, False, trim=lambda: trims.append(1))
+    w.wanted(True).join(5)
+    assert ix.calls == ["stop", "release"] and trims == [1]
+    w.wanted(True).join(5)                        # already idle: nothing to hand back again
+    assert trims == [1]
+    w.wanted(False).join(5)
+    assert trims == [1]
