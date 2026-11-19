@@ -215,6 +215,24 @@ def test_untuned_fallback_is_a_runtime_copy_too(win, monkeypatch):
     ctx.tunnel.disconnect()
 
 
+def test_untuned_copy_never_carries_script_hooks(win, monkeypatch):
+    """Re-review of #81: a stored config with a PostUp (old version, elevated editor) connected untuned gets the
+    "orig" candidate; WireGuard must still never see the hook."""
+    ctx.settings.update(stream_tuned=False, dns_leak_block=False)
+    conf = os.path.join(CONFIG_DIR, "Home.conf")
+    with open(conf, encoding="utf-8") as f:
+        text = f.read().replace("vpn.example.com", "203.0.113.9")
+    text = text.replace("[Interface]", "[Interface]\nPostUp = calc.exe\n  preDown=cmd /c x # c", 1)
+    with open(conf, "w", encoding="utf-8", newline="") as f:
+        f.write(text)
+    ctx.tunnel.rescan()
+    monkeypatch.setattr(engine.Tunnel, "_pick_endpoint_ip", lambda self, region: None)
+    assert ctx.tunnel.connect("Home")
+    got = win.installed_conf["Home"].lower()
+    assert b"postup" not in got and b"predown" not in got and b"[peer]" in got
+    ctx.tunnel.disconnect()
+
+
 def test_protection_and_failsafe_are_split_out_of_engine():
     """#8: the kill switch / DNS block and the panic / takeover code live in their own modules, mixed into Tunnel."""
     from nobadvpn import failsafe, protection

@@ -126,6 +126,15 @@ def parse_conf(path):
         return _new_info()
 
 
+def strip_script_hooks(text):
+    """The text without PreUp/PostUp/PreDown/PostDown lines. Every copy WireGuard runs goes through this (engine
+    _write_runtime): WireGuard runs those hooks as SYSTEM when DangerousScriptExecution is set."""
+    keep = [ln for ln in text.splitlines()
+            if not ("=" in ln.split("#", 1)[0]
+                    and ln.split("#", 1)[0].split("=", 1)[0].strip().lower() in _SCRIPT_KEYS)]
+    return "\r\n".join(keep) + "\r\n"
+
+
 def tuned_conf_text(text, info, stream=True, dns_fallback=None, endpoint_ip=None):
     """Runtime copy: MTU + keepalive for streaming, (optionally) a DNS line when the config has none, and
     (optionally) the first peer's Endpoint pinned to an already-resolved IP. Pinning matters because the DNS

@@ -252,6 +252,8 @@ AUDITED_SETTINGS = {"update_url", "crash_report_url", "fallback_dns", "ni_refere
 # settings a pipe client may only clear: where NOBAD downloads its updates from and sends crash reports to. Setting
 # them takes an administrator (the classic window, which runs elevated, or `NobadVPN.exe --set-url`).
 ADMIN_ONLY_URLS = {"update_url", "crash_report_url"}
+# which window the elevated engine starts: over the pipe it can only be turned off (back to the WebView)
+ADMIN_ONLY_SETTINGS = {"ui_flutter"}
 
 
 def refuse(method, checked):
@@ -259,6 +261,9 @@ def refuse(method, checked):
     if method == "settings" and checked.get("key") in ADMIN_ONLY_URLS and checked.get("value") not in ("", None):
         return ("For safety this address can only be set by an administrator: run "
                 "NobadVPN.exe --set-url " + checked["key"].split("_url")[0] + " <https link> from an elevated prompt.")
+    if method == "settings" and checked.get("key") in ADMIN_ONLY_SETTINGS and checked.get("value"):
+        return ("For safety the new window can only be turned on by an administrator, in the NOBAD VPN window "
+                "started as administrator.")
     return None
 # settings keys whose "off" lowers protection (logged like SENSITIVE)
 PROTECTION_KEYS = {"kill_switch", "dns_leak_block", "ks_strict", "watchdog", "force_tunnel_dns", "auto_repair",

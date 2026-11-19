@@ -235,6 +235,13 @@ def test_update_and_crash_addresses_can_only_be_cleared_over_the_pipe():
     assert call(m, "settings", {"key": "update_url", "value": ""})["result"] == {"ok": True}
 
 
+def test_the_new_window_can_only_be_turned_off_over_the_pipe():
+    m, calls = build()
+    r = call(m, "settings", {"key": "ui_flutter", "value": True})["result"]
+    assert r["ok"] is False and "administrator" in r["error"] and calls == []
+    assert call(m, "settings", {"key": "ui_flutter", "value": False})["result"] == {"ok": True}
+
+
 def test_error_sentences_carry_no_paths_or_os_codes():
     raw = "couldn't write the config: [Errno 13] Permission denied: 'C:\\ProgramData\\NobadVPN\\configs\\x.conf'"
     assert methods.clean_error(raw) == "couldn't write the config: Permission denied: '<path>'"

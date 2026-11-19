@@ -333,7 +333,8 @@ class Tunnel(ProtectionMixin, FailsafeMixin):
     def _write_runtime(self, region, body, encrypted):
         self._secure_runtime_dir()
         path = os.path.join(RUNTIME_DIR, region["name"] + (confparse.EXT_ENC if encrypted else confparse.EXT_PLAIN))
-        confparse.write_conf_text(path, body, encrypted=encrypted)
+        # every candidate (tuned, plain, or the untuned "orig" fallback) loses its script hooks here
+        confparse.write_conf_text(path, confparse.strip_script_hooks(body), encrypted=encrypted)
         return path
 
     def _rm_tmp(self):

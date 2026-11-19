@@ -38,8 +38,9 @@ def ui_mode(env=None, exe=None, frozen=None, setting=None):
     """Which UI this launch uses: "webview" (today's default), "flutter" (the engine owns no window; the Flutter UI
     connects over the pipe), or "both" (WebView windows plus the pipe, for checking parity side by side).
 
-    Installed builds read only the `ui_flutter` setting (settings.json in ProgramData, which only administrators can
-    change): the environment is the user's to set (HKCU\\Environment) and must not decide what the elevated app does.
+    Installed builds read only the `ui_flutter` setting (settings.json in ProgramData; only administrators can turn it
+    on, the pipe can only turn it off): the environment is the user's to set (HKCU\\Environment) and must not decide
+    what the elevated app does.
     Source runs also take NOBAD_VPN_UI. "flutter"/"both" need the Flutter UI to be there, else it stays "webview"."""
     frozen = getattr(sys, "frozen", False) if frozen is None else frozen
     if setting is None:
