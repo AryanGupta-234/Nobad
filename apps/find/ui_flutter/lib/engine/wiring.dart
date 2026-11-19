@@ -12,6 +12,7 @@ import 'package:flutter/foundation.dart';
 
 import 'engine_api.dart';
 import 'events.dart';
+import 'models/models_info.dart';
 import 'models/result.dart';
 import 'models/settings.dart';
 import 'models/status.dart';
@@ -119,6 +120,23 @@ class PipeEngine implements EngineApi {
   Future<void> uiHidden(String window) => _pipe.uiHidden(window);
   @override
   Future<ActionResult> quit() => _pipe.quit();
+
+  @override
+  Future<ModelsInfo> models() => _pipe.models();
+  @override
+  Future<ModelUse> modelUse(String feature, String id) => _pipe.modelUse(feature, id);
+  @override
+  Future<ActionResult> modelDownload(String id) => _pipe.modelDownload(id);
+  @override
+  Future<ActionResult> modelRemove(String id) => _pipe.modelRemove(id);
+  @override
+  Future<AutoConfig> autoConfigure() => _pipe.autoConfigure();
+
+  @override
+  Future<ActionResult> openWith(int id) {
+    if (_pipe.enginePid != 0) beforeDialog?.call(_pipe.enginePid);
+    return _pipe.openWith(id);
+  }
 
   @override
   void dispose() => _pipe.dispose();

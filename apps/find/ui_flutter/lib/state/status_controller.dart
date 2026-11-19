@@ -108,7 +108,7 @@ class StatusController extends ChangeNotifier {
         _activity = [entry, ..._activity.take(49)];
       case DownloadEvent():
         _downloads[e.id] = e.asState;
-      case ShowEvent() || NoticeEvent() || HereEvent() || QuittingEvent():
+      case ShowEvent() || NoticeEvent() || HereEvent() || QuittingEvent() || ModelsEvent():
         return;
     }
     _changed();

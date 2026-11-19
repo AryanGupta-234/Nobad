@@ -13,6 +13,7 @@ library;
 import 'package:flutter/foundation.dart';
 
 import 'events.dart';
+import 'models/models_info.dart';
 import 'models/result.dart';
 import 'models/settings.dart';
 import 'models/status.dart';
@@ -102,6 +103,21 @@ abstract class EngineApi {
 
   /// End NOBAD Find completely (the engine sends `quitting`, then closes).
   Future<ActionResult> quit();
+
+  // ---- 0.8: models and Open with (an engine that doesn't list them answers -32601: "needs a newer engine") ----
+  /// This PC, the recommended tier, and every model with its facts.
+  Future<ModelsInfo> models();
+
+  /// Use [id] for [feature] (it may need a download first).
+  Future<ModelUse> modelUse(String feature, String id);
+
+  /// Download [id]. Only call after the consent dialog said yes: it sends the consent word.
+  Future<ActionResult> modelDownload(String id);
+  Future<ActionResult> modelRemove(String id);
+  Future<AutoConfig> autoConfigure();
+
+  /// Windows' "Open with" dialog for the result.
+  Future<ActionResult> openWith(int id);
 
   void dispose();
 }

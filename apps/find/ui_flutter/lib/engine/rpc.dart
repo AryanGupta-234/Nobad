@@ -12,6 +12,7 @@ import 'package:flutter/foundation.dart';
 import 'engine_api.dart';
 import 'events.dart';
 import 'models/json.dart';
+import 'models/models_info.dart';
 import 'models/result.dart';
 import 'models/settings.dart';
 import 'models/status.dart';
@@ -373,6 +374,15 @@ class EngineClient {
   }
 
   Future<ActionResult> quit() => _ok('quit', {'confirm': 'QUIT'});
+
+  // ---- 0.8 ----
+  Future<ModelsInfo> models() async => ModelsInfo.fromJson(await call('models'));
+  Future<ModelUse> modelUse(String feature, String id) async =>
+      ModelUse.fromJson(await call('model_use', {'feature': feature, 'id': id}));
+  Future<ActionResult> modelDownload(String id) => _ok('model_download', {'id': id, 'consent': 'DOWNLOAD'});
+  Future<ActionResult> modelRemove(String id) => _ok('model_remove', {'id': id});
+  Future<AutoConfig> autoConfigure() async => AutoConfig.fromJson(await call('auto_configure'));
+  Future<ActionResult> openWith(int id) => _ok('open_with', {'id': id}, false);
 
   Future<Uint8List?> thumbnail(int id) {
     if (_thumbs.containsKey(id)) {

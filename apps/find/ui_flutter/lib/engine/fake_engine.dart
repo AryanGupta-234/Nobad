@@ -12,6 +12,7 @@ import 'package:flutter/foundation.dart';
 
 import 'engine_api.dart';
 import 'events.dart';
+import 'models/models_info.dart';
 import 'models/result.dart';
 import 'models/settings.dart';
 import 'models/status.dart';
@@ -352,6 +353,104 @@ class FakeEngine implements EngineApi {
   @override
   Future<void> uiHidden(String window) => _answer('ui_hidden', () {});
 
+  // ---------- 0.8: models and Open with ----------
+  final openedWith = <int>[];
+  late ModelsInfo modelsInfo = demoModels();
+
+  /// Answer the 0.8 methods like an older engine: -32601 (tests of the "needs a newer engine" path).
+  bool old = false;
+
+  Future<T> _new<T>(String name, T Function() f) => old
+      ? Future.error(
+          const RpcException(-32601, "This version of NOBAD Find's engine can't do that yet. Update NOBAD Find."),
+        )
+      : _answer(name, f);
+
+  @override
+  Future<ModelsInfo> models() => _new('models', () => modelsInfo);
+
+  @override
+  Future<ModelUse> modelUse(String feature, String id) => _new('model_use', () {
+    final m = modelsInfo.models.where((x) => x.id == id).firstOrNull;
+    if (m == null) return const ModelUse(false, error: 'No such model.');
+    if (!m.onDisk) return const ModelUse(false, needsDownload: true);
+    _setModels(
+      (x) => x.feature == feature
+          ? _with(
+              x,
+              x.id == id ? ModelUseState.active : (x.state == ModelUseState.active ? ModelUseState.ready : x.state),
+            )
+          : x,
+      tier: 'custom',
+    );
+    return const ModelUse(true);
+  });
+
+  @override
+  Future<ActionResult> modelDownload(String id) => _new('model_download', () {
+    final m = modelsInfo.models.where((x) => x.id == id).firstOrNull;
+    if (m == null) return const ActionResult(false, 'No such model.');
+    _setModels((x) => x.id == id ? _with(x, ModelUseState.downloading) : x);
+    emit(DownloadEvent(id: id, state: 'downloading', sizeMb: m.sizeMb));
+    if (live) {
+      Timer(const Duration(seconds: 2), () {
+        _setModels((x) => x.id == id ? _with(x, ModelUseState.ready) : x);
+        emit(DownloadEvent(id: id, state: 'ready', gotMb: m.sizeMb, sizeMb: m.sizeMb));
+      });
+    }
+    return _ok;
+  });
+
+  @override
+  Future<ActionResult> modelRemove(String id) => _new('model_remove', () {
+    _setModels((x) => x.id == id && !x.builtin ? _with(x, ModelUseState.notDownloaded) : x);
+    return _ok;
+  });
+
+  @override
+  Future<AutoConfig> autoConfigure() => _new('auto_configure', () {
+    final steps = [
+      for (final m in modelsInfo.models)
+        if (m.recommended) AutoStep(feature: m.feature, id: m.id, needsDownload: !m.onDisk),
+    ];
+    return AutoConfig(tier: modelsInfo.tierRecommended, steps: steps);
+  });
+
+  @override
+  Future<ActionResult> openWith(int id) => _new('open_with', () {
+    openedWith.add(id);
+    return _ok;
+  });
+
+  void _setModels(ModelInfo Function(ModelInfo) f, {String? tier}) {
+    modelsInfo = ModelsInfo(
+      pc: modelsInfo.pc,
+      tierRecommended: modelsInfo.tierRecommended,
+      tierCurrent: tier ?? modelsInfo.tierCurrent,
+      models: [for (final m in modelsInfo.models) f(m)],
+    );
+    emit(ModelsEvent(modelsInfo));
+  }
+
+  static ModelInfo _with(ModelInfo m, ModelUseState s) => ModelInfo(
+    id: m.id,
+    feature: m.feature,
+    name: m.name,
+    tier: m.tier,
+    licence: m.licence,
+    source: m.source,
+    sizeMb: m.sizeMb,
+    ramMb: m.ramMb,
+    speedNote: m.speedNote,
+    languages: m.languages,
+    improves: m.improves,
+    builtin: m.builtin,
+    state: s,
+    capable: m.capable,
+    capableReason: m.capableReason,
+    recommended: m.recommended,
+  );
+
   @override
   Future<ActionResult> quit() => _answer('quit', () {
     emit(const QuittingEvent());
@@ -663,3 +762,93 @@ List<FileResult> manyFiles(int n) => [
   for (var i = 0; i < n; i++)
     FileResult(id: 100 + i, name: 'report $i.pdf', dir: r'C:\Users\me\Reports\Quarterly\Archive', kind: 'pdf'),
 ];
+
+/// The model catalogue of a made-up 16-thread laptop (the shapes of the 0.8 contract).
+ModelsInfo demoModels() => const ModelsInfo(
+  pc: Hardware(
+    ramGb: 15.7,
+    cores: 12,
+    threads: 16,
+    avx2: true,
+    gpu: 'Intel(R) Iris(R) Xe Graphics',
+    vramGb: 0.1,
+    diskFreeGb: 211.4,
+    ssd: true,
+  ),
+  tierRecommended: 'balanced',
+  tierCurrent: 'light',
+  models: [
+    ModelInfo(
+      id: 'minilm',
+      feature: 'text',
+      name: 'all-MiniLM-L6-v2',
+      tier: 'light',
+      licence: 'Apache-2.0',
+      source: 'Hugging Face (sentence-transformers)',
+      sizeMb: 23,
+      ramMb: 90,
+      speedNote: 'Fast on any PC',
+      languages: ['English'],
+      improves: 'Finds files by what they mean, in English',
+      state: ModelUseState.active,
+    ),
+    ModelInfo(
+      id: 'e5-small',
+      feature: 'text',
+      name: 'multilingual-e5-small',
+      tier: 'balanced',
+      licence: 'MIT',
+      source: 'Hugging Face (intfloat)',
+      sizeMb: 118,
+      ramMb: 260,
+      speedNote: 'About half the speed of Light',
+      languages: ['100+ languages, Hindi and mixed included'],
+      improves: 'Meaning search in your languages',
+      recommended: true,
+    ),
+    ModelInfo(
+      id: 'e5-base',
+      feature: 'text',
+      name: 'multilingual-e5-base',
+      tier: 'best',
+      licence: 'MIT',
+      source: 'Hugging Face (intfloat)',
+      sizeMb: 278,
+      ramMb: 640,
+      speedNote: 'Slow without a graphics card',
+      languages: ['100+ languages'],
+      improves: 'The closest matches in many languages',
+      capable: false,
+      capableReason: 'Needs a graphics card that can run models, or 24 GB of memory',
+    ),
+    ModelInfo(
+      id: 'siglip-base',
+      feature: 'photo',
+      name: 'SigLIP base (Google)',
+      tier: 'balanced',
+      licence: 'Apache-2.0',
+      source: 'Hugging Face (google)',
+      sizeMb: 211,
+      ramMb: 420,
+      speedNote: 'A few photos per second the first time',
+      languages: ['English'],
+      improves: 'Finds photos by what is in them',
+      recommended: true,
+    ),
+    ModelInfo(
+      id: 'winocr',
+      feature: 'ocr',
+      name: 'Windows OCR',
+      tier: 'light',
+      licence: 'Part of Windows',
+      source: 'Built into Windows',
+      ramMb: 60,
+      speedNote: 'Runs after everything else',
+      languages: ['The languages installed in Windows'],
+      improves: 'Words in screenshots, photos and scans',
+      builtin: true,
+      state: ModelUseState.active,
+      recommended: true,
+    ),
+  ],
+);
