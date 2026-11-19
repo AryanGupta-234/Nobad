@@ -8,6 +8,7 @@ import '../app/theme/tokens.dart';
 import '../app/theme/typography.dart';
 import '../state/toast_controller.dart';
 import 'controls.dart';
+import 'glass.dart';
 
 /// A grouped surface. [live] gives it the orange edge (the thing that's working now).
 class NbPanel extends StatelessWidget {
@@ -26,16 +27,12 @@ class NbPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = NbColors.of(context);
-    return AnimatedContainer(
-      duration: NbMotion.of(context, NbMotion.base),
+    // a card of frosted glass on the backdrop (no blur: fill and rim)
+    return Glass(
+      radius: 22,
       padding: padding,
-      clipBehavior: clip ? Clip.antiAlias : Clip.none,
-      decoration: BoxDecoration(
-        color: c.panel,
-        border: Border.all(color: live ? c.orangeA(.55) : c.line),
-        borderRadius: NbRadius.panelAll,
-      ),
-      child: child,
+      rim: live ? c.orangeA(.55) : null,
+      child: clip ? ClipRSuperellipse(borderRadius: BorderRadius.circular(18), child: child) : child,
     );
   }
 }
@@ -55,7 +52,7 @@ class PageTitle extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(text.toUpperCase(), style: NbType.display(size, c.text)),
+          Text(text, style: NbType.display(size, c.text)),
           const SizedBox(height: 12),
           const SignalRule(),
         ],

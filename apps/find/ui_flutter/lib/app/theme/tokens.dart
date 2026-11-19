@@ -19,13 +19,19 @@ abstract final class NbSpace {
 
   /// Reading width of a page column (about 75 characters of body text at 14 px, plus panels).
   static const column = 880.0;
+
+  /// The widest the content gets (centred beyond it, so 4K stays composed).
+  static const maxContent = 1600.0;
+
+  /// From here the search shows the detail pane, Index becomes a two-column dashboard, Settings two panes.
+  static const wide = 1100.0;
 }
 
 abstract final class NbRadius {
-  static const key = Radius.circular(5);
-  static const control = Radius.circular(9);
-  static const row = Radius.circular(11);
-  static const panel = Radius.circular(14);
+  static const key = Radius.circular(6);
+  static const control = Radius.circular(12);
+  static const row = Radius.circular(16);
+  static const panel = Radius.circular(24);
   static const pill = Radius.circular(999);
 
   static const keyAll = BorderRadius.all(key);

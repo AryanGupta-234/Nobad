@@ -4,6 +4,7 @@ library;
 
 import 'dart:async';
 
+import 'package:flutter/physics.dart';
 import 'package:flutter/widgets.dart';
 
 import '../app/theme/colors.dart';
@@ -171,6 +172,86 @@ class SkeletonResults extends StatelessWidget {
             ),
           ),
       ],
+    ),
+  );
+}
+
+/// A spring as a curve (critically damped-ish, a touch of overshoot): panels, the palette, the detail pane.
+class SpringCurve extends Curve {
+  const SpringCurve({this.damping = .72, this.stiffness = 180});
+  final double damping;
+  final double stiffness;
+
+  @override
+  double transformInternal(double t) {
+    final sim = SpringSimulation(
+      SpringDescription.withDampingRatio(mass: 1, stiffness: stiffness, ratio: damping),
+      0,
+      1,
+      0,
+    );
+    // the spring settles in about 0.9 s; the curve's t spans that
+    return sim.x(t * .9);
+  }
+}
+
+/// Hover: the child rises on a spring and leans a little toward the pointer (light parallax). The builder gets
+/// the lift (0..1) and the parallax offset for inner content. Nothing runs while the pointer is away.
+class HoverLift extends StatefulWidget {
+  const HoverLift({super.key, required this.builder, this.parallax = 3});
+  final Widget Function(BuildContext context, double lift, Offset parallax) builder;
+  final double parallax;
+
+  @override
+  State<HoverLift> createState() => _HoverLiftState();
+}
+
+class _HoverLiftState extends State<HoverLift> with SingleTickerProviderStateMixin {
+  late final _c = AnimationController.unbounded(vsync: this);
+  Offset _p = Offset.zero;
+
+  void _to(double v) {
+    if (reduceMotion(context)) {
+      _c.value = v;
+      return;
+    }
+    _c.animateWith(
+      SpringSimulation(
+        SpringDescription.withDampingRatio(mass: 1, stiffness: 260, ratio: .7),
+        _c.value,
+        v,
+        _c.velocity,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => MouseRegion(
+    onEnter: (_) => _to(1),
+    onExit: (_) {
+      _p = Offset.zero;
+      _to(0);
+    },
+    onHover: (e) {
+      if (reduceMotion(context)) return;
+      final box = context.findRenderObject() as RenderBox?;
+      if (box == null || !box.hasSize) return;
+      final s = box.size;
+      final n = Offset((e.localPosition.dx / s.width - .5) * 2, (e.localPosition.dy / s.height - .5) * 2);
+      setState(() => _p = n * widget.parallax);
+    },
+    child: AnimatedBuilder(
+      animation: _c,
+      builder: (context, _) {
+        final lift = _c.value.clamp(0, 1.2).toDouble();
+        return Transform.translate(offset: Offset(0, -2.5 * lift), child: widget.builder(context, lift, _p * lift));
+      },
     ),
   );
 }

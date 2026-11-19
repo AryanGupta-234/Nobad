@@ -7,6 +7,7 @@ import '../app/theme/colors.dart';
 import '../app/theme/tokens.dart';
 import '../app/theme/typography.dart';
 import 'controls.dart';
+import 'glass.dart';
 
 /// The frame every NOBAD dialog uses: a panel with a title, a body and right-aligned actions.
 class NbDialog extends StatelessWidget {
@@ -19,34 +20,43 @@ class NbDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = NbColors.of(context);
+    // a popover of real frosted glass (one of the few blurred layers)
     return Dialog(
-      backgroundColor: c.surface,
+      backgroundColor: const Color(0x00000000),
+      surfaceTintColor: const Color(0x00000000),
+      shadowColor: const Color(0x00000000),
+      elevation: 0,
       insetPadding: const EdgeInsets.all(NbSpace.x6),
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: width),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(NbSpace.x6, NbSpace.x5, NbSpace.x6, NbSpace.x5),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Semantics(
-                header: true,
-                child: Text(title, style: NbType.text(NbSize.lead, c.text, weight: FontWeight.w600, height: 1.3)),
-              ),
-              const SizedBox(height: NbSpace.x3),
-              DefaultTextStyle(style: NbType.text(13.5, c.muted, height: 1.55), child: body),
-              const SizedBox(height: NbSpace.x5),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  for (var i = 0; i < actions.length; i++) ...[
-                    if (i > 0) const SizedBox(width: NbSpace.x2),
-                    actions[i],
+        child: Glass(
+          level: GlassLevel.blur,
+          radius: 26,
+          fill: c.isDark ? const Color(0xB8181B24) : const Color(0xD9FFFFFF),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(NbSpace.x6, NbSpace.x5, NbSpace.x6, NbSpace.x5),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Semantics(
+                  header: true,
+                  child: Text(title, style: NbType.text(NbSize.lead, c.text, weight: FontWeight.w600, height: 1.3)),
+                ),
+                const SizedBox(height: NbSpace.x3),
+                DefaultTextStyle(style: NbType.text(13.5, c.muted, height: 1.55), child: body),
+                const SizedBox(height: NbSpace.x5),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    for (var i = 0; i < actions.length; i++) ...[
+                      if (i > 0) const SizedBox(width: NbSpace.x2),
+                      actions[i],
+                    ],
                   ],
-                ],
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

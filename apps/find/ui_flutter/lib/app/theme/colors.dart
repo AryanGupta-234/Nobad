@@ -1,4 +1,5 @@
-/// NOBAD colour tokens: one NOBAD orange, black or soft white, the same values as nobadfind/ui/app.css (0.7.0).
+/// NOBAD colour tokens for frosted spatial glass: a deep (or pale) backdrop with two soft glows, the NOBAD orange
+/// and a cool indigo, and translucent layers over it: panels, cards and popovers, each with a fine light rim.
 ///
 /// Screens read them with `NbColors.of(context)`; nothing outside lib/app/theme hard-codes a colour.
 library;
@@ -53,23 +54,38 @@ class NbColors extends ThemeExtension<NbColors> {
   bool get isDark => brightness == Brightness.dark;
   Color orangeA(double a) => orange.withValues(alpha: a);
 
-  /// The window canvas: clear over glass, solid otherwise.
-  Color get canvas => glass ? bg.withValues(alpha: isDark ? .36 : .5) : bg;
+  /// The window canvas under the backdrop: clear over Mica, solid otherwise.
+  Color get canvas => glass ? bg.withValues(alpha: isDark ? .55 : .62) : bg;
 
-  /// Panels: tinted glass over Mica, solid otherwise.
-  Color get panel => glass ? surface.withValues(alpha: isDark ? .55 : .72) : surface;
+  /// Floating panels (dock, palette, detail pane): frosted glass.
+  Color get panel => isDark ? const Color(0x14FFFFFF) : const Color(0xA6FFFFFF);
 
-  /// The left rail, a step apart from the canvas.
-  Color get rail => glass ? surface.withValues(alpha: isDark ? .32 : .45) : surface;
+  /// The dock, a little quieter than panels.
+  Color get rail => isDark ? const Color(0x0FFFFFFF) : const Color(0x8CFFFFFF);
+
+  /// Cards on the backdrop: fainter than panels, brighter when hovered.
+  Color get card => isDark ? const Color(0x0DFFFFFF) : const Color(0x80FFFFFF);
+  Color get cardHover => isDark ? const Color(0x17FFFFFF) : const Color(0xCCFFFFFF);
+
+  /// The 1 px light rim on the top edge of glass, fading down the sides.
+  Color get rimLight => isDark ? const Color(0x2EFFFFFF) : const Color(0xF2FFFFFF);
+  Color get rimShade => isDark ? const Color(0x08FFFFFF) : const Color(0x14000000);
+
+  /// The backdrop's two glows.
+  Color get glowWarm => orange.withValues(alpha: isDark ? .22 : .16);
+  Color get glowCool => isDark ? const Color(0x264F5DFF) : const Color(0x1F4F5DFF);
+
+  /// The soft shadow under floating things.
+  Color get float => isDark ? const Color(0x73000000) : const Color(0x1A1B2440);
 
   static const dark = NbColors(
     brightness: Brightness.dark,
     orange: Color(0xFFFF4D00),
     onOrange: Color(0xFF000000),
-    bg: Color(0xFF07080A),
-    surface: Color(0xFF0C0E11),
-    raised: Color(0xFF12151A),
-    text: Color(0xFFF3F4F6),
+    bg: Color(0xFF090A10),
+    surface: Color(0xFF161922),
+    raised: Color(0x14FFFFFF),
+    text: Color(0xFFF4F5F8),
     muted: Color(0xADE8ECF1), // rgba(232, 236, 241, .68)
     dim: Color(0x73E8ECF1), // .45
     line: Color(0x14FFFFFF), // .08
@@ -83,10 +99,10 @@ class NbColors extends ThemeExtension<NbColors> {
     brightness: Brightness.light,
     orange: Color(0xFFE84400),
     onOrange: Color(0xFFFFFFFF),
-    bg: Color(0xFFF6F5F3),
-    surface: Color(0xFFFFFFFF),
-    raised: Color(0xFFEFEDEA),
-    text: Color(0xFF16181C),
+    bg: Color(0xFFE7EAF1),
+    surface: Color(0xFFFBFBFD),
+    raised: Color(0x0F1B2440),
+    text: Color(0xFF12141A),
     muted: Color(0xB816181C), // .72
     dim: Color(0x8516181C), // .52
     line: Color(0x17000000), // .09

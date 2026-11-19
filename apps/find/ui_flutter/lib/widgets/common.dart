@@ -44,13 +44,18 @@ class KindBadge extends StatelessWidget {
       height: size,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: c.raised.withValues(alpha: .6),
+        // a small pane of glass with the kind on it
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [c.orangeA(c.isDark ? .14 : .10), c.card],
+        ),
         border: Border.all(color: c.line2),
-        borderRadius: NbRadius.rowAll,
+        borderRadius: BorderRadius.circular(size >= 96 ? 28 : 12),
       ),
       child: Text(
         kindTag(kind),
-        style: NbType.data(9.5, c.orange, weight: FontWeight.w700),
+        style: NbType.data(9.5 * (size / 40).clamp(1, 3.2), c.orange, weight: FontWeight.w700),
         maxLines: 1,
         softWrap: false,
       ),
@@ -102,10 +107,13 @@ class _ResultThumbState extends State<ResultThumb> {
     final b = _bytes;
     final s = widget.size;
     if (b == null) {
-      return SizedBox(
-        width: s,
-        child: Align(alignment: Alignment.topLeft, child: KindBadge(widget.result.kind)),
-      );
+      // big (the detail pane): the kind fills the frame; small: a badge at the top left of its slot
+      return s >= 96
+          ? KindBadge(widget.result.kind, size: s)
+          : SizedBox(
+              width: s,
+              child: Align(alignment: Alignment.topLeft, child: KindBadge(widget.result.kind)),
+            );
     }
     final px = (s * MediaQuery.devicePixelRatioOf(context)).round();
     return Container(

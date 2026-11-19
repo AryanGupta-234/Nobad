@@ -1,10 +1,8 @@
-/// Type: system fonts only (nothing bundled, works offline, no extra RAM), the same three families as app.css.
+/// Type, led by one face: Segoe UI Variable. Big display lines are set thin (weight 300) with tight tracking, the
+/// confident, quiet voice of the frosted design; body text is Segoe UI Variable Text; Cascadia Mono only for
+/// numbers and paths. System fonts only: nothing bundled, nothing downloaded.
 ///
-/// - Arial Black, upper case: one display line per screen ("Find anything on this PC.", the level on Indexing).
-/// - Segoe UI Variable: everything people read.
-/// - Cascadia Mono: data only (paths, sizes, counts, times, key caps), never decoration.
-///
-/// The scale is the classic 11 / 12 / 13 / 14 / 16 / 18 / 21 / 28 / 44 ladder (The Elements of Typographic Style).
+/// The scale: 11 / 12 / 13 / 14 / 16 / 18 / 21 / 28 / 40 / 60.
 library;
 
 import 'dart:io';
@@ -18,18 +16,18 @@ abstract final class NbFont {
   static const mono = 'Cascadia Mono';
   static const monoFallback = ['Consolas', 'Segoe UI', 'Segoe UI Symbol'];
 
-  /// Arial Black, loaded from the Windows fonts folder at start ([loadDisplayFont]): asked for by name, Windows'
-  /// font matching gives plain Arial instead (Arial Black is a weight of the Arial family there).
+  /// Segoe UI Variable (the variable font file), registered at start ([loadDisplayFont]) so its weight axis can be
+  /// set exactly: asked for by name, Windows' font matching doesn't give the thin weights reliably.
   static const display = 'NOBAD Display';
-  static const displayFallback = ['Arial Black', 'Segoe UI Black', 'Segoe UI'];
+  static const displayFallback = ['Segoe UI Variable Display', 'Segoe UI Light', 'Segoe UI'];
 }
 
-/// Registers Windows' own Arial Black (Fonts\ariblk.ttf in the Windows folder) as [NbFont.display]. Nothing is
-/// bundled or downloaded; without the file the fallbacks are used.
+/// Registers Windows' own Segoe UI Variable (Fonts\SegUIVar.ttf in the Windows folder) as [NbFont.display].
+/// Nothing is bundled or downloaded; without the file the fallbacks are used.
 Future<void> loadDisplayFont() async {
   try {
     final dir = Platform.environment['WINDIR'] ?? r'C:\Windows';
-    final f = File('$dir${Platform.pathSeparator}Fonts${Platform.pathSeparator}ariblk.ttf');
+    final f = File('$dir${Platform.pathSeparator}Fonts${Platform.pathSeparator}SegUIVar.ttf');
     if (!f.existsSync()) return;
     final bytes = await f.readAsBytes();
     await (FontLoader(NbFont.display)..addFont(Future.value(ByteData.sublistView(bytes)))).load();
@@ -46,8 +44,8 @@ abstract final class NbSize {
   static const title = 16.0;
   static const lead = 18.0;
   static const field = 21.0;
-  static const page = 28.0;
-  static const hero = 44.0;
+  static const page = 40.0;
+  static const hero = 60.0;
 }
 
 abstract final class NbType {
@@ -73,13 +71,15 @@ abstract final class NbType {
     fontFeatures: const [FontFeature.tabularFigures()],
   );
 
-  /// The one display line per screen. Callers upper-case the words (the 0.7.0 look).
-  static TextStyle display(double size, Color color) => TextStyle(
+  /// Display lines: thin, tight, sentence case. [weight] on the variable font's axis (300 = light).
+  static TextStyle display(double size, Color color, {double weight = 300}) => TextStyle(
     fontFamily: NbFont.display,
     fontFamilyFallback: NbFont.displayFallback,
     fontSize: size,
+    fontWeight: weight <= 350 ? FontWeight.w300 : FontWeight.w500,
+    fontVariations: [FontVariation('wght', weight), FontVariation('opsz', size.clamp(8, 36).toDouble())],
     color: color,
-    height: 1.02,
-    letterSpacing: -0.03 * size,
+    height: 1.06,
+    letterSpacing: -0.028 * size,
   );
 }

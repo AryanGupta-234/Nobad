@@ -24,7 +24,8 @@ abstract final class WindowLook {
   static const _darkMode = 20; // DWMWA_USE_IMMERSIVE_DARK_MODE
   static const _captionColor = 35; // DWMWA_CAPTION_COLOR
   static const _backdrop = 38; // DWMWA_SYSTEMBACKDROP_TYPE
-  static const _backdropNone = 1, _backdropMica = 2;
+  static const _backdropNone = 1, _backdropMica = 2, _backdropAcrylic = 3;
+  static const _corner = 33; // DWMWA_WINDOW_CORNER_PREFERENCE: 2 = round
   static const _colorDefault = 0xFFFFFFFF;
 
   static int Function(int, int, Pointer<Void>, int)? _set;
@@ -50,13 +51,18 @@ abstract final class WindowLook {
   }
 
   /// Applies the theme to [hwnd]. Returns true when Windows took the glass (so the UI may draw see-through).
-  static bool apply(int hwnd, {required bool dark, required bool glass, required int canvasRgb}) {
+  /// [acrylic]: the quick find bar, a transient window: Acrylic (frosted, shows what's behind) and round corners.
+  static bool apply(int hwnd, {required bool dark, required bool glass, required int canvasRgb, bool acrylic = false}) {
     if (hwnd == 0 || !_load()) return false;
     return using((a) {
       final v = a<Uint32>();
       v.value = dark ? 1 : 0;
       _set!(hwnd, _darkMode, v.cast(), 4);
-      v.value = glass ? _backdropMica : _backdropNone;
+      if (acrylic) {
+        v.value = 2;
+        _set!(hwnd, _corner, v.cast(), 4);
+      }
+      v.value = glass ? (acrylic ? _backdropAcrylic : _backdropMica) : _backdropNone;
       final tookGlass = _set!(hwnd, _backdrop, v.cast(), 4) == 0 && glass; // fails before Windows 11 22H2
       final m = a<_MARGINS>();
       final e = tookGlass ? -1 : 0;
