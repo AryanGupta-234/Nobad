@@ -76,8 +76,13 @@ class NbColors extends ThemeExtension<NbColors> {
   Color get rimShade => isDark ? const Color(0x14FFFFFF) : const Color(0x14000000);
 
   /// The backdrop's two glows.
-  Color get glowWarm => orange.withValues(alpha: isDark ? .07 : .05);
-  Color get glowCool => isDark ? const Color(0x124F5DFF) : const Color(0x0F4F5DFF);
+  Color get glowWarm => orange.withValues(alpha: isDark ? .30 : .22);
+  Color get glowCool => isDark ? const Color(0x524F5DFF) : const Color(0x3D4F5DFF);
+  Color get glowMagenta => isDark ? const Color(0x38D0347A) : const Color(0x2ED0347A);
+
+  /// Frosted glass: a faint white light falling from the top edge of each layer, and its fine grain.
+  Color get sheen => isDark ? const Color(0x0FFFFFFF) : const Color(0x66FFFFFF);
+  Color get grain => isDark ? const Color(0x0AFFFFFF) : const Color(0x0D000000);
 
   /// The soft shadow under floating things.
   Color get float => isDark ? const Color(0x73000000) : const Color(0x1A1B2440);
