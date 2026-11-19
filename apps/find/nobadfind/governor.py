@@ -94,6 +94,7 @@ class Brain:
         self._up_since = None    # when a higher level became continuously allowed
         self._hot_since = None   # when CPU/GPU became continuously hot
         self._lag_recorded = False  # this lag episode already sent to record_lag
+        self.fixed = None        # a level pinned for a measurement (engine.measure_overrides, dev only)
 
     def _games_mode(self):
         mode = self.settings.get("games_mode")
@@ -161,6 +162,9 @@ class Brain:
         return GENTLE, "Gentle: you're using the PC"
 
     def decide(self, s):
+        if self.fixed in ORDER:
+            self._level = self.fixed
+            return Decision(self.fixed, f"{_prefix(self.fixed)}: fixed for a measurement")
         wanted, reason = self._wanted(s)
         if self._level is None:
             self._level = wanted
