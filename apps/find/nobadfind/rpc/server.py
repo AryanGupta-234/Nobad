@@ -158,7 +158,10 @@ class Conn:
                 self.alive = False
             return self.alive
 
-    def close(self):
+    def close(self, linger=False):
+        """linger=True: let the client still read what was already written (e.g. the "Message too big" error).
+        DisconnectNamedPipe throws away anything the client hasn't read yet; closing the handle alone doesn't
+        (the client reads it, then gets end-of-file) and never blocks, unlike FlushFileBuffers."""
         k = self._k
         with self._wlock:
             self.alive = False
@@ -166,7 +169,8 @@ class Conn:
                 return
             self._closed = True
         k.CancelIoEx(self.handle, None)
-        k.DisconnectNamedPipe(self.handle)
+        if not linger:
+            k.DisconnectNamedPipe(self.handle)
         k.CloseHandle(self.handle)
         k.CloseHandle(self._wov.hEvent)
 
@@ -222,12 +226,12 @@ class Server:
         with self._lock:
             return [c for c in self._conns if c.alive]
 
-    def drop(self, conn):
+    def drop(self, conn, linger=False):
         with self._lock:
             if conn not in self._conns:
                 return
             self._conns.discard(conn)
-        conn.close()
+        conn.close(linger)
 
     def allow_foreground(self):
         """A hotkey press gives the engine the right to bring a window to the front: pass it on to the UIs."""
@@ -303,6 +307,7 @@ class Server:
         buf = ctypes.create_string_buffer(BUF)
         lines = LineBuffer()
         n = wintypes.DWORD()
+        linger = False
         try:
             while not self._stop.is_set() and conn.alive:
                 k.ResetEvent(ov.hEvent)
@@ -318,7 +323,7 @@ class Server:
                 try:
                     got = lines.feed(buf.raw[:n.value])
                 except ValueError:
-                    conn.send(error(None, INVALID_REQUEST, "Message too big"))
+                    linger = conn.send(error(None, INVALID_REQUEST, "Message too big"))   # it must get to read it
                     break
                 for line in got:
                     try:
@@ -329,7 +334,7 @@ class Server:
             log(f"rpc connection ended: {type(e).__name__}", "warn")
         finally:
             k.CloseHandle(ov.hEvent)
-            self.drop(conn)
+            self.drop(conn, linger)
 
     def _answer(self, conn, line):
         t0 = time.perf_counter()

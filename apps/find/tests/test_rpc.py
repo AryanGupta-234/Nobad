@@ -301,6 +301,7 @@ def test_pipe_too_big_message_drops_only_that_client(served):
     c = Client(name)
     try:
         c.send(b"x" * (protocol.MAX_MESSAGE + 10))
+        time.sleep(0.3)                 # read only after the server dropped us: the error must still be there
         assert c.line()["error"]["message"] == "Message too big"
         with pytest.raises((EOFError, OSError)):
             c.line()
