@@ -19,6 +19,7 @@ import 'engine/wiring.dart';
 import 'platform/demo.dart';
 import 'platform/timing.dart';
 import 'platform/window.dart';
+import 'widgets/glass.dart';
 
 Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,6 +30,8 @@ Future<void> main(List<String> args) async {
   Win32Window.shownCacheBytes = cacheMb << 20;
   SystemChannels.skia.invokeMethod<void>('Skia.setResourceCacheMaxBytes', cacheMb << 20);
   final mode = args.contains('--bar') ? AppMode.bar : AppMode.main;
+  Win32Window.acrylic = mode == AppMode.bar;
+  Glass.noBlur = Platform.environment['NOBAD_FIND_NO_BLUR'] == '1';
   final EngineApi engine;
   if (Platform.environment['NOBAD_FIND_FAKE_ENGINE'] == '1') {
     engine = FakeEngine(
@@ -48,5 +51,6 @@ Future<void> main(List<String> args) async {
     engine = PipeEngine(pipe, beforeDialog: allowSetForeground); // never the fake: offline is shown as offline
   }
   runApp(NobadFindApp(engine: engine, mode: mode, window: Win32Window.create(), demo: Demo.fromEnvironment()));
+  startFrameLog();
   WidgetsBinding.instance.waitUntilFirstFrameRasterized.then((_) => recordTiming('first-frame ${mode.name}'));
 }

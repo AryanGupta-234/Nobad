@@ -41,10 +41,7 @@ class AboutPage extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Version ${v.isNotEmpty ? v : s.version}'.toUpperCase(),
-                          style: NbType.display(22, c.text),
-                        ),
+                        Text('Version ${v.isNotEmpty ? v : s.version}', style: NbType.display(22, c.text)),
                         const SizedBox(height: 8),
                         Text(
                           'Private, offline file search for Windows. Your files, your index and your searches stay on '

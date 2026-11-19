@@ -11,6 +11,7 @@ import '../../app/theme/colors.dart';
 import '../../app/theme/tokens.dart';
 import '../../app/theme/typography.dart';
 import '../../widgets/controls.dart';
+import '../../widgets/glass.dart';
 import '../../widgets/icons.dart';
 import '../../widgets/pressable.dart';
 
@@ -34,12 +35,8 @@ class SettingsGroup extends StatelessWidget {
               child: Text(title, style: NbType.text(NbSize.small, c.dim, weight: FontWeight.w600)),
             ),
           ),
-          Container(
-            decoration: BoxDecoration(
-              color: c.panel,
-              border: Border.all(color: c.line),
-              borderRadius: NbRadius.panelAll,
-            ),
+          Glass(
+            radius: 22,
             child: Column(
               children: [
                 for (var i = 0; i < rows.length; i++) ...[if (i > 0) Container(height: 1, color: c.line), rows[i]],

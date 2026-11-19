@@ -7,11 +7,11 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 
 import '../../app/scope.dart';
-import '../../app/theme/colors.dart';
 import '../../app/theme/tokens.dart';
 import '../../engine/engine_api.dart';
 import '../../engine/events.dart';
 import '../../platform/demo.dart';
+import '../../widgets/glass.dart';
 import '../../widgets/panels.dart';
 import '../indexing/indexing_screen.dart';
 import '../search/search_screen.dart';
@@ -75,11 +75,11 @@ class _ShellState extends State<Shell> {
   @override
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
-    final c = NbColors.of(context);
     return ColoredBox(
-      color: c.canvas,
+      color: const Color(0x00000000),
       child: Stack(
         children: [
+          const Positioned.fill(child: Backdrop()), // painted once; Mica shows through it
           Positioned.fill(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -110,7 +110,7 @@ class _ShellState extends State<Shell> {
             ),
           ),
           Positioned(
-            left: 92,
+            left: Rail.room,
             right: 0,
             bottom: 52,
             child: Center(child: ToastHost(toasts: s.toasts)),

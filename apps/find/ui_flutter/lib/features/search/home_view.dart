@@ -17,6 +17,7 @@ import '../../engine/engine_api.dart' show Link;
 import '../../engine/models/result.dart';
 import '../../widgets/common.dart';
 import '../../widgets/controls.dart';
+import '../../widgets/glass.dart';
 import '../../widgets/panels.dart';
 import '../../widgets/pressable.dart';
 
@@ -112,76 +113,118 @@ class _HomeViewState extends State<HomeView> {
   Widget build(BuildContext context) {
     final c = NbColors.of(context);
     final s = AppScope.of(context);
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(NbSpace.x8, NbSpace.x8, NbSpace.x8, NbSpace.x8),
-      child: Align(
-        alignment: Alignment.topLeft,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 800),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Semantics(
-                header: true,
-                child: Text('Find anything on this PC.'.toUpperCase(), style: NbType.display(NbSize.hero, c.text)),
-              ),
-              const SizedBox(height: NbSpace.x4),
-              const SignalRule(),
-              const SizedBox(height: NbSpace.x4),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 560),
-                child: Text(
-                  'Search by name, by the words inside a file, or by what it was about. Add a kind, a time, a folder '
-                  'or a size to the words, or pick filters above.',
-                  style: NbType.text(NbSize.body, c.muted, height: 1.55),
-                ),
-              ),
-              const SizedBox(height: NbSpace.x5),
-              Semantics(
-                label: 'Examples to try',
-                container: true,
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [for (final e in homeExamples) _Example(e, onTap: () => widget.onExample(e))],
-                ),
-              ),
-              const SectionTitle('Browse', top: NbSpace.x8),
-              Semantics(
-                label: 'Browse by kind',
-                container: true,
-                child: TileGrid(
-                  min: 200,
-                  children: [
-                    for (final (badge, label, words, f) in homeTiles)
-                      _Tile(badge: badge, label: label, onTap: () => widget.onTile(words, f)),
-                  ],
-                ),
-              ),
-              const SectionTitle('Recently changed'),
-              _RecentList(
-                files: _recent,
-                onOpen: (r) async {
-                  final res = await s.engine.open(r.id);
-                  if (!res.ok) {
-                    s.toasts.show(res.error.isNotEmpty ? res.error : "That file isn't there any more.");
-                  } else if (s.settings.settings.flag('hide_after_open')) {
-                    s.window.hide();
-                  }
-                },
-              ),
-              const SizedBox(height: NbSpace.x6),
-              const KeyHints([
-                (['↑', '↓'], 'move'),
-                (['Enter'], 'open'),
-                (['Ctrl', 'Enter'], 'show in folder'),
-                (['Ctrl', 'C'], 'copy path'),
-                (['Esc'], 'hide'),
-              ]),
-            ],
+    final hero = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Semantics(header: true, child: Text('Find anything on this PC.', style: NbType.display(NbSize.hero, c.text))),
+        const SizedBox(height: NbSpace.x4),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: Text(
+            'Search by name, by the words inside a file, or by what it was about. Add a kind, a time, a folder '
+            'or a size to the words, or pick filters above.',
+            style: NbType.text(15, c.muted, height: 1.6),
           ),
         ),
+        const SizedBox(height: NbSpace.x5),
+        Semantics(
+          label: 'Examples to try',
+          container: true,
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [for (final e in homeExamples) _Example(e, onTap: () => widget.onExample(e))],
+          ),
+        ),
+      ],
+    );
+    final browse = Semantics(
+      label: 'Browse by kind',
+      container: true,
+      child: TileGrid(
+        min: 180,
+        gap: 12,
+        children: [
+          for (final (badge, label, words, f) in homeTiles)
+            _Tile(badge: badge, label: label, onTap: () => widget.onTile(words, f)),
+        ],
       ),
+    );
+    final recent = Glass(
+      radius: 26,
+      padding: const EdgeInsets.fromLTRB(8, 18, 8, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+            child: Semantics(
+              header: true,
+              child: Text('Recently changed', style: NbType.text(NbSize.title, c.text, weight: FontWeight.w600)),
+            ),
+          ),
+          _RecentList(
+            files: _recent,
+            onOpen: (r) async {
+              final res = await s.engine.open(r.id);
+              if (!res.ok) {
+                s.toasts.show(res.error.isNotEmpty ? res.error : "That file isn't there any more.");
+              } else if (s.settings.settings.flag('hide_after_open')) {
+                s.window.hide();
+                unawaited(s.engine.uiHidden('main').catchError((Object _) {}));
+              }
+            },
+          ),
+        ],
+      ),
+    );
+    const keys = KeyHints([
+      (['↑', '↓'], 'move'),
+      (['Enter'], 'open'),
+      (['Ctrl', 'Enter'], 'show in folder'),
+      (['Ctrl', 'C'], 'copy path'),
+      (['Esc'], 'hide'),
+    ]);
+    // a bento: the big line and the kinds on the left, what changed lately on the right; one column when narrow
+    return LayoutBuilder(
+      builder: (context, box) {
+        final wide = box.maxWidth >= 1040;
+        return SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(NbSpace.x6, wide ? NbSpace.x10 : NbSpace.x6, NbSpace.x5, NbSpace.x8),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1320),
+              child: wide
+                  ? Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          flex: 7,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [hero, const SizedBox(height: 40), browse, const SizedBox(height: 28), keys],
+                          ),
+                        ),
+                        const SizedBox(width: 28),
+                        Expanded(flex: 5, child: recent),
+                      ],
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        hero,
+                        const SizedBox(height: 28),
+                        browse,
+                        const SizedBox(height: 20),
+                        recent,
+                        const SizedBox(height: 20),
+                        keys,
+                      ],
+                    ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -227,11 +270,13 @@ class _Tile extends StatelessWidget {
       ringRadius: NbRadius.rowAll,
       builder: (context, p) => AnimatedContainer(
         duration: NbMotion.of(context, NbMotion.fast),
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: c.panel,
-          border: Border.all(color: p.lit ? c.orangeA(.6) : c.line),
-          borderRadius: NbRadius.rowAll,
+        padding: const EdgeInsets.all(12),
+        decoration: ShapeDecoration(
+          color: p.lit ? c.cardHover : c.card,
+          shape: RoundedSuperellipseBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: BorderSide(color: p.lit ? c.orangeA(.55) : c.line),
+          ),
         ),
         child: Row(
           children: [
@@ -265,9 +310,8 @@ class _RecentList extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = NbColors.of(context);
     final list = files;
-    return NbPanel(
-      padding: EdgeInsets.zero,
-      clip: true,
+    return ClipRRect(
+      borderRadius: NbRadius.rowAll,
       child: list == null
           ? const SizedBox(height: 48)
           : list.isEmpty
@@ -278,7 +322,7 @@ class _RecentList extends StatelessWidget {
           : Column(
               children: [
                 for (var i = 0; i < list.length; i++) ...[
-                  if (i > 0) Container(height: 1, color: c.line),
+                  if (i > 0) Container(height: 1, margin: const EdgeInsets.symmetric(horizontal: 12), color: c.line),
                   Pressable(
                     onTap: () => onOpen(list[i]),
                     semanticLabel: list[i].name,

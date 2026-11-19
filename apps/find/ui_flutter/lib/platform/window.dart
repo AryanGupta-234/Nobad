@@ -232,7 +232,10 @@ class Win32Window implements WindowControl {
 
   @override
   bool look({required bool dark, required bool glass, required int canvasRgb}) =>
-      WindowLook.apply(hwnd, dark: dark, glass: glass, canvasRgb: canvasRgb);
+      WindowLook.apply(hwnd, dark: dark, glass: glass, canvasRgb: canvasRgb, acrylic: acrylic);
+
+  /// The quick find bar: Acrylic and round corners (set by main.dart for `--bar`).
+  static bool acrylic = false;
 
   static final _postMessage = _u32
       .lookupFunction<Int32 Function(IntPtr, Uint32, IntPtr, IntPtr), int Function(int, int, int, int)>('PostMessageW');

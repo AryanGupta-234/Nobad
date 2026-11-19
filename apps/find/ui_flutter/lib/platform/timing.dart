@@ -2,10 +2,12 @@
 /// Written only when NOBAD_FIND_UI_TIMING names a file (docs/measurements.md); nothing is ever sent anywhere.
 library;
 
+import 'dart:async';
 import 'dart:ffi';
 import 'dart:io';
 
 import 'package:ffi/ffi.dart';
+import 'package:flutter/scheduler.dart';
 
 final class _FILETIME extends Struct {
   @Uint32()
@@ -44,4 +46,21 @@ void recordTiming(String what) {
   } on FileSystemException {
     // measurement only
   }
+}
+
+/// Measurement only: with `NOBAD_FIND_UI_FRAMES=<file>`, writes how many frames were drawn in each 5 s, so "idle
+/// draws nothing" can be checked (docs/measurements.md). Off unless set.
+void startFrameLog() {
+  final path = Platform.environment['NOBAD_FIND_UI_FRAMES'];
+  if (path == null || path.isEmpty) return;
+  var frames = 0;
+  SchedulerBinding.instance.addTimingsCallback((t) => frames += t.length);
+  Timer.periodic(const Duration(seconds: 5), (_) {
+    try {
+      File(path).writeAsStringSync('frames=$frames ms=${msSinceProcessStart()}\n', mode: FileMode.append, flush: true);
+    } on FileSystemException {
+      // measurement only
+    }
+    frames = 0;
+  });
 }

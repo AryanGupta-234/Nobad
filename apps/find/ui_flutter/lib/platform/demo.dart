@@ -14,6 +14,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
 import '../app/scope.dart';
+import '../app/theme/colors.dart';
 import '../engine/engine_api.dart';
 import '../features/consent/download_consent_dialog.dart';
 import '../state/search_controller.dart';
@@ -90,6 +91,16 @@ class Demo {
     return tour(s);
   }
 
+  /// Words into this window's box. `tour-current` (someone else's engine) keeps it inside this window: the engine's
+  /// to_main would bring every connected window up with the words.
+  Future<void> _type(AppScope s, String text) async {
+    if (keepSettings) {
+      s.find.handOver(text);
+    } else {
+      await s.engine.toMain(text);
+    }
+  }
+
   /// The screenshot tour of the main window.
   Future<void> tour(AppScope s) async {
     if (!isTour) return;
@@ -103,15 +114,15 @@ class Demo {
       if (s.settings.settings.text('theme') != theme) await s.settings.set('theme', theme);
       await _wait(700);
       s.nav.go(AppTab.search);
-      await s.engine.toMain('');
+      await _type(s, '');
       await _wait(1200);
       await _shot('tour-home-$theme.png');
-      await s.engine.toMain('tax');
+      await _type(s, 'tax');
       await _wait(700);
       s.find.move(1);
       await _wait(500);
       await _shot('tour-results-$theme.png');
-      await s.engine.toMain('');
+      await _type(s, '');
       s.nav.go(AppTab.indexing);
       await _wait(1500);
       await _shot('tour-index-$theme.png');
@@ -144,7 +155,16 @@ class Demo {
     final ro = shotBoundary.currentContext?.findRenderObject();
     if (dir == null || dir.isEmpty || ro is! RenderRepaintBoundary) return;
     try {
-      final image = await ro.toImage(pixelRatio: 1);
+      final shot = await ro.toImage(pixelRatio: 1);
+      // over glass the window is see-through (Mica behind it): put the picture on the theme's base colour
+      final ctx = shotBoundary.currentContext;
+      final base = ctx != null && ctx.mounted ? NbColors.of(ctx).bg : const Color(0xFF000000);
+      final rec = ui.PictureRecorder();
+      ui.Canvas(rec)
+        ..drawColor(base, BlendMode.src)
+        ..drawImage(shot, Offset.zero, ui.Paint());
+      final image = await rec.endRecording().toImage(shot.width, shot.height);
+      shot.dispose();
       final png = await image.toByteData(format: ui.ImageByteFormat.png);
       image.dispose();
       if (png != null) File('$dir${Platform.pathSeparator}$name').writeAsBytesSync(png.buffer.asUint8List());

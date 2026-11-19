@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:nobad_find/app/app.dart';
-import 'package:nobad_find/app/scope.dart' show SettingsPage;
 import 'package:nobad_find/features/consent/download_consent_dialog.dart';
 import 'package:nobad_find/platform/demo.dart';
 import 'package:nobad_find/platform/window.dart';
@@ -29,53 +28,55 @@ Future<void> shoot(WidgetTester tester, String name) async {
 void main() {
   setUpAll(loadWindowsFonts);
 
+  const sizes = {'1280': Size(1280, 800), '2560': Size(2560, 1440)};
   for (final theme in ['dark', 'light']) {
     group(theme, () {
-      testWidgets('home', (tester) async {
-        await pumpApp(tester, engineFor(theme));
-        await shoot(tester, 'home_$theme');
-      });
+      for (final MapEntry(key: w, value: size) in sizes.entries) {
+        testWidgets('home $w', (tester) async {
+          await pumpApp(tester, engineFor(theme), size: size);
+          await shoot(tester, 'home_${w}_$theme');
+        });
 
-      testWidgets('results', (tester) async {
-        await pumpApp(tester, engineFor(theme));
-        await type(tester, 'tax');
-        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-        await shoot(tester, 'results_$theme');
-      });
+        testWidgets('results $w', (tester) async {
+          await pumpApp(tester, engineFor(theme), size: size);
+          await type(tester, 'tax');
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+          await shoot(tester, 'results_${w}_$theme');
+        });
 
-      testWidgets('index', (tester) async {
-        await pumpApp(tester, engineFor(theme), size: const Size(1080, 1500));
-        await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
-        await tester.sendKeyEvent(LogicalKeyboardKey.digit2);
-        await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
-        await shoot(tester, 'index_$theme');
-      });
+        testWidgets('results as cards $w', (tester) async {
+          await pumpApp(tester, engineFor(theme), size: size);
+          await type(tester, 'a');
+          await tester.tap(find.text('Cards'));
+          await shoot(tester, 'cards_${w}_$theme');
+        });
 
-      for (final page in [
-        SettingsPage.general,
-        SettingsPage.models,
-        SettingsPage.performance,
-        SettingsPage.privacy,
-        SettingsPage.about,
-      ]) {
-        testWidgets('settings ${page.name}', (tester) async {
-          await pumpApp(tester, engineFor(theme), size: const Size(1080, 900));
+        testWidgets('index $w', (tester) async {
+          await pumpApp(tester, engineFor(theme), size: size);
+          await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+          await tester.sendKeyEvent(LogicalKeyboardKey.digit2);
+          await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+          await shoot(tester, 'index_${w}_$theme');
+        });
+
+        testWidgets('settings $w', (tester) async {
+          await pumpApp(tester, engineFor(theme), size: size);
           await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
           await tester.sendKeyEvent(LogicalKeyboardKey.digit3);
           await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
           await tester.pumpAndSettle();
-          await tester.tap(find.text(page.label).last);
-          await shoot(tester, 'settings_${page.name}_$theme');
+          await tester.tap(find.text('Models').last);
+          await shoot(tester, 'settings_${w}_$theme');
         });
       }
 
       testWidgets('welcome', (tester) async {
-        await pumpApp(tester, engineFor(theme, welcome: true));
+        await pumpApp(tester, engineFor(theme, welcome: true), size: const Size(1280, 800));
         await shoot(tester, 'welcome_$theme');
       });
 
       testWidgets('consent dialog', (tester) async {
-        await pumpApp(tester, engineFor(theme));
+        await pumpApp(tester, engineFor(theme), size: const Size(1280, 800));
         askDownloadConsent(appNavigator.currentContext!, 'photo');
         await shoot(tester, 'consent_$theme');
       });

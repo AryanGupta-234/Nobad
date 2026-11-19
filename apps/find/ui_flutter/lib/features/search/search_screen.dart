@@ -20,6 +20,7 @@ import '../../engine/models/result.dart';
 import '../../state/search_controller.dart';
 import '../../platform/demo.dart';
 import '../../widgets/dialogs.dart';
+import '../../widgets/glass.dart';
 import '../../widgets/icons.dart';
 import '../../widgets/motion.dart';
 import '../../widgets/pressable.dart';
@@ -44,6 +45,9 @@ class _SearchScreenState extends State<SearchScreen> {
   /// One key per row for the answer on screen, so the selected row can be scrolled to without rebuilding rows.
   final _rowKeys = <int, GlobalKey>{};
   int _keysFor = -1;
+
+  /// List or cards (cards: a grid of 1 to 4 columns as the window allows).
+  bool _cards = false;
   StreamSubscription<EngineEvent>? _shows;
   int _lastSel = -1;
   bool _wired = false;
@@ -173,7 +177,6 @@ class _SearchScreenState extends State<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final c = NbColors.of(context);
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.arrowDown): () => s.find.move(1),
@@ -185,81 +188,119 @@ class _SearchScreenState extends State<SearchScreen> {
         const SingleActivator(LogicalKeyboardKey.delete, shift: true): _forget,
         const SingleActivator(LogicalKeyboardKey.escape): _escape,
       },
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            padding: const EdgeInsets.fromLTRB(NbSpace.x6, NbSpace.x5, NbSpace.x6, NbSpace.x3),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _SearchBox(controller: box, focus: focus),
-                const SizedBox(height: NbSpace.x3),
-                FilterBar(onDone: focus.requestFocus),
-              ],
-            ),
-          ),
-          ListenableBuilder(
-            listenable: s.find,
-            builder: (context, _) => _Meta(find: s.find),
-          ),
-          Expanded(
-            child: ListenableBuilder(
-              listenable: s.find,
-              builder: (context, _) => AnimatedSwitcher(
-                duration: NbMotion.of(context, NbMotion.fast),
-                child: s.find.showingResults && s.find.busy && s.find.results.isEmpty && s.find.notice.isEmpty
-                    ? const Align(
-                        key: ValueKey('loading'),
-                        alignment: Alignment.topCenter,
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(horizontal: NbSpace.x4),
-                          child: SkeletonResults(),
-                        ),
-                      )
-                    : !s.find.showingResults
-                    ? HomeView(
-                        key: const ValueKey('home'),
-                        onExample: (t) {
-                          box.text = t;
-                          box.selection = TextSelection.collapsed(offset: t.length);
-                          focus.requestFocus();
-                        },
-                        onTile: (words, f) {
-                          s.find.setFilters(f);
-                          box.text = words;
-                          focus.requestFocus();
-                        },
-                      )
-                    : _Results(
-                        key: const ValueKey('results'),
-                        scroll: scroll,
-                        rowKey: rowKey,
-                        onTap: (i, reveal) {
-                          s.find.select(i);
-                          _open(reveal: reveal);
-                          focus.requestFocus();
-                        },
-                        onSecondary: (i) {
-                          s.find.select(i);
-                          _open(reveal: true);
-                        },
-                      ),
+      child: LayoutBuilder(
+        builder: (context, box2) {
+          final wide = box2.maxWidth >= NbSpace.wide;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // the command palette: centred, floating, the one blurred layer always on screen
+              Padding(
+                padding: EdgeInsets.fromLTRB(NbSpace.x5, box2.maxHeight > 760 ? 28 : 18, NbSpace.x5, NbSpace.x3),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 920),
+                    child: _SearchBox(
+                      controller: box,
+                      focus: focus,
+                      filters: FilterBar(onDone: focus.requestFocus),
+                    ),
+                  ),
+                ),
               ),
-            ),
-          ),
-          Container(height: 1, color: c.line),
-          const StatusLine(),
-        ],
+              ListenableBuilder(
+                listenable: s.find,
+                builder: (context, _) => _Meta(find: s.find, cards: _cards, onCards: (v) => setState(() => _cards = v)),
+              ),
+              Expanded(
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: NbSpace.maxContent),
+                    child: ListenableBuilder(
+                      listenable: s.find,
+                      builder: (context, _) => AnimatedSwitcher(
+                        duration: NbMotion.of(context, NbMotion.fast),
+                        layoutBuilder: (current, previous) =>
+                            Stack(alignment: Alignment.topCenter, children: [...previous, ?current]),
+                        child: s.find.showingResults && s.find.busy && s.find.results.isEmpty && s.find.notice.isEmpty
+                            ? const Align(
+                                key: ValueKey('loading'),
+                                alignment: Alignment.topCenter,
+                                child: Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: NbSpace.x5),
+                                  child: SkeletonResults(),
+                                ),
+                              )
+                            : !s.find.showingResults
+                            ? HomeView(
+                                key: const ValueKey('home'),
+                                onExample: (t) {
+                                  box.text = t;
+                                  box.selection = TextSelection.collapsed(offset: t.length);
+                                  focus.requestFocus();
+                                },
+                                onTile: (words, f) {
+                                  s.find.setFilters(f);
+                                  box.text = words;
+                                  focus.requestFocus();
+                                },
+                              )
+                            : Row(
+                                key: const ValueKey('results'),
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Expanded(
+                                    child: _Results(
+                                      scroll: scroll,
+                                      rowKey: rowKey,
+                                      cards: _cards,
+                                      onTap: (i, reveal) {
+                                        s.find.select(i);
+                                        _open(reveal: reveal);
+                                        focus.requestFocus();
+                                      },
+                                      onSecondary: (i) {
+                                        s.find.select(i);
+                                        _open(reveal: true);
+                                      },
+                                    ),
+                                  ),
+                                  if (wide && s.find.results.isNotEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.fromLTRB(4, 4, NbSpace.x5, NbSpace.x5),
+                                      child: SizedBox(
+                                        width: box2.maxWidth >= 1700 ? 460 : 400,
+                                        child: DetailPane(
+                                          engine: s.engine,
+                                          result: s.find.current,
+                                          onOpen: _open,
+                                          onReveal: () => _open(reveal: true),
+                                          onCopy: _copy,
+                                          onForget: _forget,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const StatusLine(),
+            ],
+          );
+        },
       ),
     );
   }
 }
 
 class _SearchBox extends StatefulWidget {
-  const _SearchBox({required this.controller, required this.focus});
+  const _SearchBox({required this.controller, required this.focus, required this.filters});
   final TextEditingController controller;
   final FocusNode focus;
+  final Widget filters;
 
   @override
   State<_SearchBox> createState() => _SearchBoxState();
@@ -284,66 +325,74 @@ class _SearchBoxState extends State<_SearchBox> {
   Widget build(BuildContext context) {
     final c = NbColors.of(context);
     final on = widget.focus.hasFocus;
-    OutlineInputBorder border(Color col) => OutlineInputBorder(
-      borderRadius: NbRadius.panelAll,
-      borderSide: BorderSide(color: col),
-    );
-    return AnimatedContainer(
-      duration: NbMotion.of(context, NbMotion.base),
-      decoration: BoxDecoration(
-        borderRadius: NbRadius.panelAll,
-        boxShadow: [if (on) BoxShadow(color: c.orangeA(c.isDark ? .14 : .1), spreadRadius: 4)],
+    // the palette settles in on a spring when the window opens
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: reduceMotion(context) ? 1 : 0, end: 1),
+      duration: NbMotion.of(context, const Duration(milliseconds: 700)),
+      curve: const SpringCurve(damping: .68),
+      builder: (context, t, child) => Opacity(
+        opacity: t.clamp(0, 1).toDouble(),
+        child: Transform.translate(offset: Offset(0, 14 * (1 - t)), child: child),
       ),
-      child: TextField(
-        controller: widget.controller,
-        focusNode: widget.focus,
-        autofocus: true,
-        cursorColor: c.orange,
-        inputFormatters: [LengthLimitingTextInputFormatter(maxTextLength)],
-        style: NbType.text(NbSize.lead + 1, c.text),
-        textInputAction: TextInputAction.search,
-        decoration: InputDecoration(
-          isDense: true,
-          filled: true,
-          fillColor: c.panel,
-          hintText: 'Describe it: “rent pdf from last week”, “beach photos in march”, “budget.xlsx”',
-          hintStyle: NbType.text(NbSize.lead + 1, c.dim),
-          prefixIcon: Padding(
-            padding: const EdgeInsets.only(left: 16, right: 10),
-            child: NbIcon(NbGlyph.search, size: 20, color: on ? c.orange : c.dim),
-          ),
-          prefixIconConstraints: const BoxConstraints(minWidth: 46, minHeight: 20),
-          // a way to clear the box with the mouse; Esc does the same
-          suffixIcon: ListenableBuilder(
-            listenable: widget.controller,
-            builder: (context, _) => AnimatedOpacity(
-              opacity: widget.controller.text.isEmpty ? 0 : 1,
-              duration: NbMotion.of(context, NbMotion.fast),
-              child: widget.controller.text.isEmpty
-                  ? const SizedBox(width: 8)
-                  : Padding(
-                      padding: const EdgeInsets.only(right: 10),
-                      child: Pressable(
-                        onTap: () {
-                          widget.controller.clear();
-                          widget.focus.requestFocus();
-                        },
-                        semanticLabel: 'Clear',
-                        tooltip: 'Clear (Esc)',
-                        canRequestFocus: false,
-                        ringRadius: NbRadius.pillAll,
-                        builder: (context, p) => Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(color: p.lit ? c.line : null, shape: BoxShape.circle),
-                          child: NbIcon(NbGlyph.close, size: 15, color: p.lit ? c.text : c.dim),
-                        ),
-                      ),
-                    ),
+      child: Glass(
+        level: GlassLevel.panel,
+        radius: 26,
+        rim: on ? c.orangeA(.5) : null,
+        padding: const EdgeInsets.fromLTRB(6, 6, 6, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // its own layer: the blinking caret repaints only the field, not the glass around it
+            RepaintBoundary(
+              child: TextField(
+                controller: widget.controller,
+                focusNode: widget.focus,
+                autofocus: true,
+                cursorColor: c.orange,
+                inputFormatters: [LengthLimitingTextInputFormatter(maxTextLength)],
+                style: NbType.display(26, c.text, weight: 330),
+                textInputAction: TextInputAction.search,
+                decoration: InputDecoration(
+                  isDense: true,
+                  border: InputBorder.none,
+                  hintText: 'Describe it: “rent pdf from last week”, “beach photos in march”, “budget.xlsx”',
+                  hintStyle: NbType.display(26, c.dim, weight: 300),
+                  prefixIcon: Padding(
+                    padding: const EdgeInsets.only(left: 18, right: 12),
+                    child: NbIcon(NbGlyph.search, size: 22, color: on ? c.orange : c.dim),
+                  ),
+                  prefixIconConstraints: const BoxConstraints(minWidth: 52, minHeight: 22),
+                  // a way to clear the box with the mouse; Esc does the same
+                  suffixIcon: ListenableBuilder(
+                    listenable: widget.controller,
+                    builder: (context, _) => widget.controller.text.isEmpty
+                        ? const SizedBox(width: 8)
+                        : Padding(
+                            padding: const EdgeInsets.only(right: 10),
+                            child: Pressable(
+                              onTap: () {
+                                widget.controller.clear();
+                                widget.focus.requestFocus();
+                              },
+                              semanticLabel: 'Clear',
+                              tooltip: 'Clear (Esc)',
+                              canRequestFocus: false,
+                              ringRadius: NbRadius.pillAll,
+                              builder: (context, p) => Container(
+                                padding: const EdgeInsets.all(7),
+                                decoration: BoxDecoration(color: p.lit ? c.cardHover : null, shape: BoxShape.circle),
+                                child: NbIcon(NbGlyph.close, size: 15, color: p.lit ? c.text : c.dim),
+                              ),
+                            ),
+                          ),
+                  ),
+                  contentPadding: const EdgeInsets.fromLTRB(0, 16, 12, 14),
+                ),
+              ),
             ),
-          ),
-          contentPadding: const EdgeInsets.fromLTRB(0, 17, 18, 17),
-          enabledBorder: border(c.line2),
-          focusedBorder: border(c.orangeA(.75)),
+            Container(height: 1, margin: const EdgeInsets.fromLTRB(14, 0, 14, 10), color: c.line),
+            Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: widget.filters),
+          ],
         ),
       ),
     );
@@ -351,8 +400,10 @@ class _SearchBoxState extends State<_SearchBox> {
 }
 
 class _Meta extends StatelessWidget {
-  const _Meta({required this.find});
+  const _Meta({required this.find, required this.cards, required this.onCards});
   final FindController find;
+  final bool cards;
+  final ValueChanged<bool> onCards;
 
   @override
   Widget build(BuildContext context) {
@@ -375,29 +426,89 @@ class _Meta extends StatelessWidget {
         spans.add(TextSpan(text: ' · $n', style: NbType.text(NbSize.small, c.warn)));
       }
     }
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(NbSpace.x6 + 4, 0, NbSpace.x6, NbSpace.x2),
-      child: Wrap(
-        spacing: 6,
-        runSpacing: 6,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          for (final u in a.understood)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-              decoration: BoxDecoration(
-                color: c.orangeA(.07),
-                border: Border.all(color: c.orangeA(.5)),
-                borderRadius: NbRadius.pillAll,
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: NbSpace.maxContent),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(NbSpace.x6, 0, NbSpace.x5, NbSpace.x2),
+          child: Row(
+            children: [
+              Expanded(
+                child: Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    for (final u in a.understood)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: c.orangeA(.07),
+                          border: Border.all(color: c.orangeA(.5)),
+                          borderRadius: NbRadius.pillAll,
+                        ),
+                        child: Text(
+                          u,
+                          style: NbType.text(NbSize.small, c.orange, weight: FontWeight.w600, height: 1.3),
+                        ),
+                      ),
+                    if (spans.isNotEmpty)
+                      Padding(
+                        padding: EdgeInsets.only(left: a.understood.isEmpty ? 0 : 6),
+                        child: Text.rich(TextSpan(children: spans), style: NbType.data(NbSize.caption, c.dim)),
+                      ),
+                  ],
+                ),
               ),
-              child: Text(u, style: NbType.text(NbSize.small, c.orange, weight: FontWeight.w600, height: 1.3)),
-            ),
-          if (spans.isNotEmpty)
-            Padding(
-              padding: EdgeInsets.only(left: a.understood.isEmpty ? 0 : 6),
-              child: Text.rich(TextSpan(children: spans), style: NbType.data(NbSize.caption, c.dim)),
-            ),
-        ],
+              if (a.results.isNotEmpty) _ViewSwitch(cards: cards, onChanged: onCards),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// List or cards: a two-segment switch, the lit segment a small glass pill.
+class _ViewSwitch extends StatelessWidget {
+  const _ViewSwitch({required this.cards, required this.onChanged});
+  final bool cards;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = NbColors.of(context);
+    Widget seg(String label, bool on, VoidCallback tap) => Pressable(
+      onTap: tap,
+      selected: on,
+      semanticLabel: label,
+      ringRadius: NbRadius.pillAll,
+      builder: (context, p) => AnimatedContainer(
+        duration: NbMotion.of(context, NbMotion.base),
+        curve: NbMotion.curve,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        decoration: BoxDecoration(color: on ? c.cardHover : null, borderRadius: NbRadius.pillAll),
+        child: Text(
+          label,
+          style: NbType.text(
+            NbSize.small,
+            on ? c.text : (p.lit ? c.muted : c.dim),
+            weight: on ? FontWeight.w600 : FontWeight.w500,
+            height: 1.2,
+          ),
+        ),
+      ),
+    );
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: c.card,
+        border: Border.all(color: c.line),
+        borderRadius: NbRadius.pillAll,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [seg('List', !cards, () => onChanged(false)), seg('Cards', cards, () => onChanged(true))],
       ),
     );
   }
@@ -405,14 +516,15 @@ class _Meta extends StatelessWidget {
 
 class _Results extends StatelessWidget {
   const _Results({
-    super.key,
     required this.scroll,
     required this.rowKey,
+    required this.cards,
     required this.onTap,
     required this.onSecondary,
   });
   final ScrollController scroll;
   final GlobalKey Function(int id) rowKey;
+  final bool cards;
   final void Function(int index, bool reveal) onTap;
   final void Function(int index) onSecondary;
 
@@ -422,11 +534,40 @@ class _Results extends StatelessWidget {
     final List<FileResult> rows = s.find.results;
     final firstWeak = rows.indexWhere((r) => r.weak);
     final divider = firstWeak > 0;
+    if (cards) {
+      // 1 to 4 (or more) columns of cards, as wide as the space allows
+      return Scrollbar(
+        controller: scroll,
+        child: GridView.builder(
+          controller: scroll,
+          padding: const EdgeInsets.fromLTRB(NbSpace.x5, 4, NbSpace.x4, NbSpace.x6),
+          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 300,
+            mainAxisExtent: ResultCard.height,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+          ),
+          itemCount: rows.length,
+          itemBuilder: (context, i) => Appear(
+            key: ValueKey((s.find.serial, rows[i].id)),
+            delay: Appear.stagger(i),
+            child: ResultCard(
+              key: rowKey(rows[i].id),
+              engine: s.engine,
+              result: rows[i],
+              selected: i == s.find.selected,
+              onTap: (reveal) => onTap(i, reveal),
+              onSecondary: () => onSecondary(i),
+            ),
+          ),
+        ),
+      );
+    }
     return Scrollbar(
       controller: scroll,
       child: ListView.builder(
         controller: scroll,
-        padding: const EdgeInsets.fromLTRB(NbSpace.x4, 0, NbSpace.x4, NbSpace.x6),
+        padding: const EdgeInsets.fromLTRB(NbSpace.x5, 0, NbSpace.x4, NbSpace.x6),
         itemCount: rows.length + (divider ? 1 : 0),
         itemBuilder: (context, i) {
           if (divider && i == firstWeak) return const LessSure();

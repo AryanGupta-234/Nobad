@@ -56,43 +56,79 @@ class _IndexingScreenState extends State<IndexingScreen> {
       builder: (context, _) {
         final st = s.status.status;
         final d = s.status.details;
-        return SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(NbSpace.x8, NbSpace.x6, NbSpace.x8, NbSpace.x10),
-          child: Align(
-            alignment: Alignment.topLeft,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: NbSpace.column),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const PageTitle('Index'),
-                  const SizedBox(height: NbSpace.x6),
-                  if (!s.settings.settings.flag('bg_notice_seen')) ...[
-                    NoticeBar(
-                      text:
-                          'Closing the window now stops indexing. Turn on Keep indexing in the background in '
-                          'Settings → Performance to keep it going.',
-                      action: 'Got it',
-                      onAction: () => s.settings.set('bg_notice_seen', true),
-                    ),
-                    const SizedBox(height: NbSpace.x4),
-                  ],
-                  _Now(status: st, connected: s.status.connected),
-                  if (!s.status.connected)
-                    Padding(
-                      padding: const EdgeInsets.only(top: NbSpace.x4),
-                      child: Text(s.status.line, style: NbType.text(13, c.warn)),
-                    ),
-                  // no engine: no numbers at all (old ones would look current)
-                  if (d != null && s.status.connected) ..._details(context, s, d),
-                  if (d == null && s.status.connected) const _Loading(),
-                ],
+        return LayoutBuilder(
+          builder: (context, box) {
+            final wide = box.maxWidth >= NbSpace.wide;
+            return SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(NbSpace.x6, NbSpace.x8, NbSpace.x6, NbSpace.x10),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: wide ? NbSpace.maxContent : NbSpace.column),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const PageTitle('Index'),
+                      const SizedBox(height: NbSpace.x6),
+                      if (!s.settings.settings.flag('bg_notice_seen')) ...[
+                        NoticeBar(
+                          text:
+                              'Closing the window now stops indexing. Turn on Keep indexing in the background in '
+                              'Settings → Performance to keep it going.',
+                          action: 'Got it',
+                          onAction: () => s.settings.set('bg_notice_seen', true),
+                        ),
+                        const SizedBox(height: NbSpace.x4),
+                      ],
+                      _Now(status: st, connected: s.status.connected),
+                      if (!s.status.connected)
+                        Padding(
+                          padding: const EdgeInsets.only(top: NbSpace.x4),
+                          child: Text(s.status.line, style: NbType.text(13, c.warn)),
+                        ),
+                      // no engine: no numbers at all (old ones would look current)
+                      if (d != null && s.status.connected) ..._layout(_details(context, s, d), wide),
+                      if (d == null && s.status.connected) const _Loading(),
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ),
+            );
+          },
         );
       },
     );
+  }
+
+  /// Narrow: one column. Wide: a dashboard, what it is doing, the models and the index on the left; what it
+  /// uses, recent decisions, folders and drives on the right.
+  List<Widget> _layout(List<Widget> flat, bool wide) {
+    if (!wide) return flat;
+    final sections = <List<Widget>>[];
+    for (final w in flat) {
+      if (w is SectionTitle || sections.isEmpty) sections.add([]);
+      sections.last.add(w);
+    }
+    // what it is doing spans the width (its rows need room); the rest in two columns
+    final first = sections.isEmpty ? <Widget>[] : sections.removeAt(0);
+    final left = <Widget>[], right = <Widget>[];
+    for (var i = 0; i < sections.length; i++) {
+      (i.isEven ? left : right).addAll(sections[i]);
+    }
+    return [
+      ...first,
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: left),
+          ),
+          const SizedBox(width: 28),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: right),
+          ),
+        ],
+      ),
+    ];
   }
 
   List<Widget> _details(BuildContext context, AppScope s, IndexDetails d) {
@@ -115,7 +151,7 @@ class _IndexingScreenState extends State<IndexingScreen> {
       ),
       const SectionTitle('What NOBAD Find uses'),
       TileGrid(
-        min: 190,
+        min: 150,
         children: [
           StatTile(value: pct(r.cpu), label: 'Processor'),
           StatTile(value: r.memoryMb != null ? mb(r.memoryMb) : '–', label: 'Memory'),
@@ -210,7 +246,7 @@ class _Now extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(label.toUpperCase(), style: NbType.display(26, paused ? c.muted : c.text)),
+                  Text(label, style: NbType.display(32, paused ? c.muted : c.text)),
                   if (st.reason.isNotEmpty && connected) ...[
                     const SizedBox(height: 8),
                     ConstrainedBox(

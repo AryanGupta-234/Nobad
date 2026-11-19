@@ -10,6 +10,7 @@ import '../../app/scope.dart';
 import '../../app/theme/colors.dart';
 import '../../app/theme/tokens.dart';
 import '../../app/theme/typography.dart';
+import '../../widgets/glass.dart';
 import '../../widgets/panels.dart';
 import '../../widgets/pressable.dart';
 import 'pages/about.dart';
@@ -52,68 +53,149 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final c = NbColors.of(context);
     return ListenableBuilder(
       listenable: Listenable.merge([s.nav, s.settings, s.status]),
-      builder: (context, _) => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            padding: const EdgeInsets.fromLTRB(NbSpace.x8, NbSpace.x6, NbSpace.x8, 0),
-            decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: c.line)),
-            ),
-            child: Align(
-              alignment: Alignment.topLeft,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: NbSpace.column),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const PageTitle('Settings'),
-                    const SizedBox(height: NbSpace.x5),
-                    _SubNav(page: s.nav.page, onPick: s.nav.showPage),
-                  ],
+      builder: (context, _) => LayoutBuilder(
+        builder: (context, box) {
+          // wide: the pages as a list on the left, the page on the right; narrow: tabs on top
+          final wide = box.maxWidth >= 1000;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                padding: const EdgeInsets.fromLTRB(NbSpace.x6, NbSpace.x8, NbSpace.x6, 0),
+                decoration: BoxDecoration(
+                  border: wide ? null : Border(bottom: BorderSide(color: c.line)),
                 ),
-              ),
-            ),
-          ),
-          Expanded(
-            child: SingleChildScrollView(
-              key: PageStorageKey(s.nav.page),
-              padding: const EdgeInsets.fromLTRB(NbSpace.x8, NbSpace.x6, NbSpace.x8, NbSpace.x10),
-              child: Align(
-                alignment: Alignment.topLeft,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: NbSpace.column),
-                  // not const: a page rebuilds when the settings or the status change. Without the engine the
-                  // page says so and can't be changed (nothing would be saved).
-                  child: _OfflineGate(
-                    offline: !s.status.connected,
-                    child: switch (s.nav.page) {
-                      SettingsPage.general => GeneralPage(key: ValueKey(s.nav.page)),
-                      SettingsPage.indexing => IndexingPage(key: ValueKey(s.nav.page)),
-                      SettingsPage.models => ModelsPage(key: ValueKey(s.nav.page)),
-                      SettingsPage.performance => PerformancePage(key: ValueKey(s.nav.page)),
-                      SettingsPage.privacy => PrivacyPage(key: ValueKey(s.nav.page)),
-                      SettingsPage.about => AboutPage(key: ValueKey(s.nav.page)),
-                    },
+                child: Align(
+                  alignment: Alignment.topLeft,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: wide ? NbSpace.column + 280 : NbSpace.column),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const PageTitle('Settings'),
+                        const SizedBox(height: NbSpace.x5),
+                        if (!wide) _SubNav(page: s.nav.page, onPick: s.nav.showPage),
+                      ],
+                    ),
                   ),
                 ),
               ),
+              Expanded(
+                child: _TwoPane(
+                  wide: wide,
+                  nav: _SubNav(page: s.nav.page, onPick: s.nav.showPage, vertical: true),
+                  child: SingleChildScrollView(
+                    key: PageStorageKey(s.nav.page),
+                    padding: const EdgeInsets.fromLTRB(NbSpace.x8, NbSpace.x6, NbSpace.x8, NbSpace.x10),
+                    child: Align(
+                      alignment: Alignment.topLeft,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: NbSpace.column),
+                        // not const: a page rebuilds when the settings or the status change. Without the engine the
+                        // page says so and can't be changed (nothing would be saved).
+                        child: _OfflineGate(
+                          offline: !s.status.connected,
+                          child: switch (s.nav.page) {
+                            SettingsPage.general => GeneralPage(key: ValueKey(s.nav.page)),
+                            SettingsPage.indexing => IndexingPage(key: ValueKey(s.nav.page)),
+                            SettingsPage.models => ModelsPage(key: ValueKey(s.nav.page)),
+                            SettingsPage.performance => PerformancePage(key: ValueKey(s.nav.page)),
+                            SettingsPage.privacy => PrivacyPage(key: ValueKey(s.nav.page)),
+                            SettingsPage.about => AboutPage(key: ValueKey(s.nav.page)),
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Wide: the page list in a floating glass column beside the page.
+class _TwoPane extends StatelessWidget {
+  const _TwoPane({required this.wide, required this.nav, required this.child});
+  final bool wide;
+  final Widget nav;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!wide) return child;
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: NbSpace.column + 280 + 2 * NbSpace.x6),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(NbSpace.x6, NbSpace.x6, 0, 0),
+              child: SizedBox(
+                width: 236,
+                child: Glass(level: GlassLevel.panel, radius: 24, padding: const EdgeInsets.all(8), child: nav),
+              ),
             ),
-          ),
-        ],
+            Expanded(child: child),
+          ],
+        ),
       ),
     );
   }
 }
 
 class _SubNav extends StatelessWidget {
-  const _SubNav({required this.page, required this.onPick});
+  const _SubNav({required this.page, required this.onPick, this.vertical = false});
   final SettingsPage page;
   final ValueChanged<SettingsPage> onPick;
+  final bool vertical;
 
   @override
   Widget build(BuildContext context) {
     final c = NbColors.of(context);
+    if (vertical) {
+      return Semantics(
+        label: 'Settings pages',
+        container: true,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final p in SettingsPage.values)
+              Pressable(
+                onTap: () => onPick(p),
+                selected: p == page,
+                semanticLabel: p.label,
+                ringRadius: NbRadius.rowAll,
+                builder: (context, st) => AnimatedContainer(
+                  duration: NbMotion.of(context, NbMotion.base),
+                  curve: NbMotion.curve,
+                  margin: const EdgeInsets.symmetric(vertical: 2),
+                  padding: const EdgeInsets.fromLTRB(14, 11, 12, 11),
+                  decoration: BoxDecoration(
+                    color: p == page ? c.orangeA(c.isDark ? .14 : .10) : (st.lit ? c.card : null),
+                    borderRadius: NbRadius.rowAll,
+                  ),
+                  child: Text(
+                    p.label,
+                    style: NbType.text(
+                      14,
+                      p == page ? c.orange : (st.lit ? c.text : c.muted),
+                      weight: p == page ? FontWeight.w600 : FontWeight.w500,
+                      height: 1.2,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+    }
     return Semantics(
       label: 'Settings pages',
       container: true,

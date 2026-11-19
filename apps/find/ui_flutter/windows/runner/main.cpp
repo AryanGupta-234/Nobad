@@ -62,7 +62,13 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
 
   // One main window and one bar per user session: a second start of the main window brings the running one to
   // the front and ends; a second bar just ends (the engine's bar hotkey shows the running one).
-  HANDLE single = CreateMutexW(nullptr, FALSE, bar ? L"Local\\NOBADFindUI-bar" : L"Local\\NOBADFindUI-main");
+  // NOBAD_FIND_UI_ALLOW_SECOND=1 (development only) skips this, to run a second window next to a demo.
+  wchar_t second[4] = {};
+  const bool allow_second = GetEnvironmentVariableW(L"NOBAD_FIND_UI_ALLOW_SECOND", second, 4) > 0 &&
+                            wcscmp(second, L"1") == 0;
+  HANDLE single = allow_second ? nullptr
+                               : CreateMutexW(nullptr, FALSE,
+                                              bar ? L"Local\\NOBADFindUI-bar" : L"Local\\NOBADFindUI-main");
   if (single != nullptr && GetLastError() == ERROR_ALREADY_EXISTS) {
     if (!bar) {
       HWND other = FindWindowW(L"FLUTTER_RUNNER_WIN32_WINDOW", L"NOBAD Find");

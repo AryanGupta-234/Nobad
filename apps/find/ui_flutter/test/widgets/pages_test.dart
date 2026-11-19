@@ -19,7 +19,7 @@ void main() {
       final engine = FakeEngine();
       await pumpApp(tester, engine, size: const Size(1080, 1600));
       await ctrl(tester, LogicalKeyboardKey.digit2);
-      expect(find.text('WORKING GENTLY'), findsOneWidget);
+      expect(find.text('Working gently'), findsOneWidget);
       expect(find.text('Reading documents'), findsOneWidget);
       expect(find.text('31,877 / 40,112'), findsOneWidget);
       expect(find.textContaining('done in about 9 min'), findsOneWidget);
@@ -28,11 +28,11 @@ void main() {
       await tester.tap(find.text('Pause for 1 hour'));
       await tester.pumpAndSettle();
       expect(engine.calls, contains('pause_for'));
-      expect(find.text('PAUSED'), findsOneWidget);
+      expect(find.text('Paused'), findsOneWidget);
       expect(find.text('Paused: you paused NOBAD Find for 60 min'), findsWidgets);
       await tester.tap(find.text('Resume'));
       await tester.pumpAndSettle();
-      expect(find.text('WORKING GENTLY'), findsOneWidget);
+      expect(find.text('Working gently'), findsOneWidget);
     });
 
     testWidgets('watches status_full only while open, also across a theme change', (tester) async {

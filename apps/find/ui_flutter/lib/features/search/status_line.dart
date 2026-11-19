@@ -27,7 +27,7 @@ class StatusLine extends StatelessWidget {
         return Container(
           height: 38,
           padding: const EdgeInsets.symmetric(horizontal: 24),
-          color: c.rail,
+          color: const Color(0x00000000), // floats on the backdrop
           child: Row(
             children: [
               LevelGlyph(level: ok ? (st?.levelKey ?? 'light') : 'paused', color: c.orange, dim: c.dim, size: 10),

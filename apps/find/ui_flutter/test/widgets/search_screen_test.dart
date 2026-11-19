@@ -11,7 +11,7 @@ void main() {
   testWidgets('home first, then results as you type', (tester) async {
     final engine = FakeEngine();
     await pumpApp(tester, engine);
-    expect(find.text('FIND ANYTHING ON THIS PC.'), findsOneWidget);
+    expect(find.text('Find anything on this PC.'), findsOneWidget);
     expect(find.text('Recently changed'), findsOneWidget);
     expect(find.text('tax notes.txt'), findsOneWidget); // recently changed, newest first
 
@@ -20,7 +20,7 @@ void main() {
     expect(find.text('tax return 2025.pdf'), findsOneWidget);
     expect(find.textContaining('results · 4 ms'), findsOneWidget);
     expect(find.text('Less sure'), findsOneWidget); // the weak result comes after the divider
-    expect(find.text('FIND ANYTHING ON THIS PC.'), findsNothing);
+    expect(find.text('Find anything on this PC.'), findsNothing);
   });
 
   testWidgets('a file name is shown as plain text, never as markup', (tester) async {
@@ -106,7 +106,7 @@ void main() {
     await type(tester, 'tax');
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pump(const Duration(milliseconds: 200));
-    expect(find.text('FIND ANYTHING ON THIS PC.'), findsOneWidget);
+    expect(find.text('Find anything on this PC.'), findsOneWidget);
     expect(w.calls, isNot(contains('hide')));
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pump();
@@ -124,7 +124,7 @@ void main() {
     expect(find.text('Clear filters'), findsOneWidget);
     await tester.tap(find.text('Clear filters'));
     await tester.pumpAndSettle();
-    expect(find.text('FIND ANYTHING ON THIS PC.'), findsOneWidget);
+    expect(find.text('Find anything on this PC.'), findsOneWidget);
   });
 
   testWidgets('a kind from the filter menu, and Any folder asks the engine for a folder', (tester) async {

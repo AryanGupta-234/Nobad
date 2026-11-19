@@ -18,6 +18,7 @@ import '../../platform/demo.dart';
 import '../../platform/window.dart';
 import '../../state/search_controller.dart';
 import '../../widgets/common.dart';
+import '../../widgets/glass.dart';
 import '../../widgets/motion.dart';
 
 class BarWindow extends StatefulWidget {
@@ -159,13 +160,11 @@ class _BarWindowState extends State<BarWindow> {
   }
 
   Widget _frame(NbColors c) {
-    return Container(
-      decoration: BoxDecoration(
-        color: c.glass ? c.bg.withValues(alpha: c.isDark ? .55 : .7) : c.bg,
-        border: Border.all(color: c.line2),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      clipBehavior: Clip.antiAlias,
+    // a frosted pill: Windows' Acrylic behind the window does the blur; the glass adds the tint and the rim
+    return Glass(
+      level: GlassLevel.panel,
+      radius: 12,
+      fill: c.glass ? c.panel : c.surface,
       child: CallbackShortcuts(
         bindings: {
           const SingleActivator(LogicalKeyboardKey.arrowDown): () => find.move(1),
@@ -269,12 +268,12 @@ class _FieldState extends State<_Field> {
                   autofocus: true,
                   cursorColor: c.orange,
                   inputFormatters: [LengthLimitingTextInputFormatter(maxTextLength)],
-                  style: NbType.text(NbSize.field, c.text),
+                  style: NbType.display(24, c.text, weight: 330),
                   decoration: InputDecoration(
                     isCollapsed: true,
                     border: InputBorder.none,
                     hintText: 'Find a file',
-                    hintStyle: NbType.text(NbSize.field, c.dim),
+                    hintStyle: NbType.display(24, c.dim, weight: 300),
                   ),
                 ),
               ),
@@ -357,9 +356,12 @@ class _RowState extends State<_Row> {
                   child: AnimatedOpacity(
                     opacity: lit ? (widget.selected ? 1 : .6) : 0,
                     duration: NbMotion.of(context, NbMotion.fast),
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(colors: [c.orangeA(.16), c.orangeA(0)], stops: const [0, .75]),
+                    // the selected row: a soft pill of warm light inside the glass
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: ShapeDecoration(
+                        color: c.orangeA(c.isDark ? .16 : .12),
+                        shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(14)),
                       ),
                     ),
                   ),
