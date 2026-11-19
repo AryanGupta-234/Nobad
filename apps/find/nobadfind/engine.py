@@ -173,6 +173,17 @@ class Wiring:
         api._on_hide = lambda: lifecycle.after_hide(self.life, settings, bool(self.keys and self.keys[0].ok),
                                                     stop.is_set())
         api.quit = self._quit
+        api._on_all_closed = self._all_closed
+
+    def _all_closed(self):
+        """The last window closed (its process ended). 0.8.5, maintainer's ask: closing NOBAD Find leaves nothing
+        running, so the engine, its workers and the tray icon quit too, unless "Keep running after closing the
+        window" (stay_running) is on, which keeps the hotkeys and the icon as before."""
+        if self.settings.get("stay_running") or self.stop.is_set():
+            return
+        log("the last window closed: quitting (stay_running is off)")
+        self.events.quitting()
+        self.stop.set()
 
     def _shown(self):
         self.life.wanted(False)

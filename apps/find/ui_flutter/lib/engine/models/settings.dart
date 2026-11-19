@@ -29,6 +29,7 @@ class Settings {
     'pause_fullscreen': true,
     'games_mode': 'smart',
     'keep_background': false,
+    'stay_running': false,
     'bar': true,
     'bar_hotkey': 'ctrl+alt+space',
     'pause_on_call': true,

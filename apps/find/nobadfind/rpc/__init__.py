@@ -34,8 +34,12 @@ class Rpc:
         self.server.stop()
 
     def _dropped(self, conn):
-        """Pipe liveness: a UI that ends (or crashes) without saying ui_hidden counts as its window closing."""
+        """Pipe liveness: a UI that ends (or crashes) without saying ui_hidden counts as its window closing. When
+        it was the last UI, the engine hears it too (Wiring._all_closed: quit unless "stay_running" is on)."""
         self.events.gone(conn, self.api.hide)
+        hook = getattr(self.api, "_on_all_closed", None)
+        if hook is not None and not any(c is not conn and c.pid for c in self.server.clients()):
+            hook()
 
     def show(self, what, text=None):
         """A hotkey asked for a window ("main" or "bar"): tell the UIs, and let them take the front."""

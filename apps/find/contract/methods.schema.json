@@ -2274,6 +2274,9 @@
         "keep_background": {
           "type": "boolean"
         },
+        "stay_running": {
+          "type": "boolean"
+        },
         "bar": {
           "type": "boolean"
         },
@@ -2388,6 +2391,7 @@
         "pause_fullscreen",
         "games_mode",
         "keep_background",
+        "stay_running",
         "bar",
         "bar_hotkey",
         "pause_on_call",
@@ -2469,6 +2473,9 @@
           ]
         },
         "keep_background": {
+          "type": "boolean"
+        },
+        "stay_running": {
           "type": "boolean"
         },
         "bar": {

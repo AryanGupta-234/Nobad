@@ -142,6 +142,8 @@ be `""` when not). Files are always named by a result **`id`** from `search`, ne
   value (`settings.coerce`); a value that doesn't fit becomes the default, unknown names and `wsearch_prev` are
   ignored. `changed` lists what really changed, `settings` is the result. A new hotkey takes effect after the
   engine restarts.
+  `stay_running` (0.8.5, default off): off, the engine quits when the last UI's pipe closes (its window closed),
+  so nothing of NOBAD Find keeps running; on, it stays for the hotkeys and the notification-area icon.
 - **`pick_folder`** `{}` → `{path: string, busy: bool}`: Windows' folder dialog, shown by the engine, topmost;
   `path` `""` if cancelled. The answer comes when the user closes the dialog: **no time limit** on this call. Only
   one dialog at a time: while one is open, another call answers at once with `busy: true` (and `path: ""`) and

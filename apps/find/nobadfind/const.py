@@ -77,6 +77,7 @@ DEFAULTS = {
     "pause_fullscreen": True,       # old: replaced by games_mode, kept so a downgrade still reads it
     "games_mode": "smart",          # smart | always | off: what to do while a game is running
     "keep_background": False,
+    "stay_running": False,          # off: closing the last window quits NOBAD Find completely (no process left)
     "bar": True,
     "bar_hotkey": "ctrl+alt+space",
     "pause_on_call": True,          # while the microphone or camera is in use

@@ -11,10 +11,26 @@
   welcome and a download consent dialog. Rounder controls and a frosted look.
 - The old web window is gone completely: no WebView2, pywebview or .NET bridge is installed any more, and an
   upgrade removes the old files.
-- NobadFind.exe runs the search engine (index, hotkeys, notification-area icon) and starts the window. Closing the
-  window ends its process; the engine stays for the hotkey and the icon, as before. Starting NOBAD Find again brings the
-  window up; `NobadFind.exe --page settings`, `--page index` and `--bar` open that page or the quick find bar.
+- NobadFind.exe runs the search engine (index, hotkeys, notification-area icon) and starts the window. Closing
+  the window now quits NOBAD Find completely: no process stays running. Settings > Performance > "Keep running after
+  closing the window" keeps it in the notification area for the hotkey and the quick find bar, as before. Starting
+  NOBAD Find again brings the window up; `NobadFind.exe --page settings`, `--page index` and `--bar` open that page
+  or the quick find bar.
 - Settings > Performance has the notification-area icon switch.
+- Dark only. A frosted, rounder look drawn inside the window (no live blur, so it stays smooth), glided mouse-wheel
+  scrolling, quicker animations, and a tighter window size range (860 x 600 to 1280 x 820).
+
+### Smart search
+- Ask in plain words: "2 boys in an image in downloads" searches Downloads, pictures only, by what is in them.
+  Places (Downloads, Desktop, your folders, a drive), kinds, times and sizes are understood and shown as chips you
+  can remove.
+- A best guess first when NOBAD Find is sure (an exact name, the only match, a clear winner); Enter opens it.
+- Suggestions while you type: your own past searches, phrases NOBAD Find understands and your file names; Tab or →
+  takes the grey completion.
+- The quick find bar searches as much as the main window: it scrolls through every result, with the same chips,
+  best guess and suggestions.
+- Measured on a generated test set (docs/measurements.md): keyword, folder, time and size questions 100 % right at
+  the top; meaning-only questions are the weak spot (40 % at the top, 60 % in the top five).
 
 ### Added
 - Choose your models in Settings → Models. NOBAD Find looks at your PC (memory, cores, graphics card, disk) and your
@@ -32,6 +48,11 @@
 - A NOBAD Find icon in the notification area: open, the quick find bar, pause for an hour, Settings, Index, Quit.
 - The hotkey or the icon opens NOBAD Find's window when it isn't running.
 - "Open with" for a result.
+
+### Privacy and security
+- Search history: NOBAD Find remembers what you type in its own search box (on this PC only, inside the encrypted
+  index, at most 200). Settings > Privacy > "Remember my searches" turns it off and clears it; "Clear history" and
+  the x on a suggestion forget it. It never reads Windows' Recent items, browser history or event logs.
 
 ### Changed
 - One- and two-letter searches, and "photos" alone, stay fast on a whole-PC index (a million files: under 25 ms a

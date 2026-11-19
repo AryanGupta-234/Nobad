@@ -39,6 +39,12 @@ class PerformancePage extends StatelessWidget {
             SwitchSetting('pause_on_battery', 'Pause on battery', ''),
             SwitchSetting('pause_on_call', 'Pause during calls', 'While an app uses the microphone or camera.'),
             SwitchSetting(
+              'stay_running',
+              'Keep running after closing the window',
+              'Off: closing NOBAD Find quits it completely, nothing stays running. On: it stays in the notification '
+                  'area so the hotkey and the quick find bar keep working.',
+            ),
+            SwitchSetting(
               'keep_background',
               'Keep indexing in the background',
               'Closing the window stops indexing and every worker; NOBAD Find stays as one small idle process so the '

@@ -244,3 +244,18 @@ def test_tray_actions(tmp_path):
     assert ui.asked == ["main", "bar", "settings", "index"] and paused == [3600, "resume"]
     w.tray_action("quit")
     assert stop.is_set()
+
+
+def test_closing_the_last_window_quits_unless_stay_running(tmp_path):
+    """0.8.5 (maintainer): closing NOBAD Find leaves no process running; "stay_running" keeps the old behaviour."""
+    for stay in (False, True):
+        st = settings_mod.Settings(str(tmp_path / f"s{stay}.json"))
+        st.update({"stay_running": stay})
+        ix, ui = Ix(), FakeUi()
+        api = Api(None, st, ix, None)
+        ev = Events(lambda: [], lambda c: None, api)
+        stop = threading.Event()
+        engine.Wiring(api, st, ix, ev, stop, ui_pids=lambda: set(), make_hotkey=Key, dialog=lambda: "x",
+                      trim=lambda: None, launcher=lambda events: ui)
+        api._on_all_closed()
+        assert stop.is_set() is (not stay)
