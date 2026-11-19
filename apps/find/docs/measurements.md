@@ -4,6 +4,48 @@ Numbers decide (ROADMAP §3). Every performance claim points at a row here. Newe
 now; private = committed memory only this process can use (`Get-Process` `WorkingSet64` / `PrivateMemorySize64`,
 summed over the process tree).
 
+## 2026-11-19 (late): 0.8.5 smart search (understood parts, best guess, autocomplete)
+
+**Quality** (`tools/eval_search.py`, generated corpus: 31 answer files in English, Hindi, Spanish, French and German
+plus 400 look-alike files made of the same words in other folders, Downloads / Desktop / Documents / Pictures /
+Videos / Music-like folders with dates from today to 8 years back and sizes from 1 KB to 150 MB, 7 drawn pictures;
+51 questions; reference PC, quiet). The models were copied from a local data folder into the temp data folder;
+nothing was downloaded.
+
+| Questions | n | recall@1 | recall@5 | MRR@10 | parts right | best guesses (right) |
+|---|---|---|---|---|---|---|
+| Keywords and filters (places, kinds, times, sizes, names, prefixes, text, 5 languages, Hinglish) | 39 | **1.000** | 1.000 | 1.000 | 39/39 | 32 (32) |
+| Meaning, all-MiniLM-L6-v2 ("apartment lease", "plane ticket", "job application letter") | 5 | 0.400 | 0.600 | 0.495 | 5/5 | 1 (1) |
+| Photo meaning, SigLIP base, drawn pictures ("2 boys in an image in downloads", "red circle", "sunset over the sea") | 7 | **1.000** | 1.000 | 1.000 | 7/7 | 2 (2) |
+| All | 51 | 0.941 | 0.961 | 0.951 | 51/51 | 35 (35) |
+
+- The best guess was never wrong on this set (precision 1.0); it stays away when two files are close (a photo of
+  two people next to a photo of one person in the same folder: no guess).
+- The meaning row is the weak part: with 400 look-alikes, "apartment lease" puts the rental agreement 7th behind
+  look-alike names, "job application letter" misses the French letter. Keyword questions were not affected.
+- The drawn pictures are simple shapes, stick figures and a card with words, not real photos: they show the
+  routing ("2 boys" goes to photo meaning inside Downloads), not photo-model quality (that is the 55-photo set above).
+- `pytest` runs the keyword part on every change (`tests/test_smart_search.py`, thresholds recall@1 ≥ 0.90, recall@5
+  ≥ 0.95, MRR ≥ 0.90, every part right, guess precision ≥ 0.95).
+
+**Speed per keystroke** (`tools/bench_search.py --smart`, 998,212-entry synthetic index, same index for both, quiet PC):
+
+| | 0.8.5 base (8a4ca7a) p50 / p90 / max | With smart search p50 / p90 / max |
+|---|---|---|
+| 1-2 letters (30) | 3.3 / 5.0 / 11.1 ms | 3.3 / **4.3** / 9.4 ms |
+| Names, 3+ letters (44) | 17.1 / 30.1 / 45.2 ms | 16.7 / **36.5** / 50.9 ms |
+| Several words (16) | 40.4 / 103.9 / 109.5 ms | 41.4 / **95.1** / 113.5 ms |
+| Plain-language questions (164 keystrokes of 7 questions) | not measured | 5.2 / **192** / 350 ms |
+| Suggestions (`suggest`, 254 keystrokes, with history) | none | 0.4 / **2.3** / 5.2 ms |
+
+The parts and the best guess cost nothing measurable (they reuse the ranked answer). The plain-language p90 is over
+the 80 ms budget, and the slow keystrokes are all filter-only listings on this synthetic index, where sizes are
+spread evenly so only 1 % of rows pass "small" or "big": "big videos" (330 ms before this change too), "small pdfs"
+(new: "small" is now a size filter instead of a word) and "budget in documents" (330 ms before). They walk one kind's
+files newest first checking the size; an index on (kind, size) would fix it and wasn't added (it grows the index).
+"on d drive" with nothing from D: now answers in 1 ms (it scanned for 300-1,000 ms). On the eval corpus (small) search
+is 1.2 / 2.1 / 9.6 ms without models and 29 / 36 / 42 ms with both question encoders.
+
 ## 2026-11-19 (night): review of #80, name results that are right at whole-PC scale (H1)
 
 The first whole-PC fix capped name candidates with `IN (SELECT rowid … MATCH ? LIMIT 2000)`, which keeps the 2,000
