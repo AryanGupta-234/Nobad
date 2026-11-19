@@ -27,9 +27,9 @@ Future<void> type(WidgetTester tester, String text) async {
 }
 
 void main() {
-  test('bar geometry matches bar.py', () {
-    expect(BarSize.height(0), 64);
-    expect(BarSize.height(3), 64 + 1 + 3 * 44);
+  test('bar geometry: a 52 px box, 38 px rows, placed like bar.py', () {
+    expect(BarSize.height(0), 52);
+    expect(BarSize.height(3), 52 + 1 + 3 * 38);
     expect(BarSize.height(20), BarSize.height(8));
     expect(BarSize.place(0, 0, 1920, 1040, 640, 64), (640, 314));
     expect(BarSize.place(-1920, 0, 0, 1080, 640, 64), (-1280, 328));

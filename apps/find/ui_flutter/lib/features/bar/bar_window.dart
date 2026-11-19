@@ -340,45 +340,48 @@ class _FieldState extends State<_Field> {
     final c = NbColors.of(context);
     return Stack(
       children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 16, right: 20),
-          child: Row(
-            children: [
-              Builder(
-                builder: (ctx) => Pressable(
-                  onTap: () {
-                    final b = ctx.findRenderObject() as RenderBox?;
-                    widget.onMark(b == null ? Offset.zero : b.localToGlobal(Offset(0, b.size.height + 6)));
-                  },
-                  semanticLabel: 'NOBAD Find menu',
-                  tooltip: 'NOBAD Find menu',
-                  canRequestFocus: false,
-                  ringRadius: NbRadius.controlAll,
-                  builder: (context, p) => AnimatedScale(
-                    scale: p.lit ? 1.06 : 1,
-                    duration: NbMotion.of(context, NbMotion.fast),
-                    child: const NbMark(size: 30),
+        Positioned.fill(
+          bottom: 6, // the key hint has the last few pixels
+          child: Padding(
+            padding: const EdgeInsets.only(left: 16, right: 20),
+            child: Row(
+              children: [
+                Builder(
+                  builder: (ctx) => Pressable(
+                    onTap: () {
+                      final b = ctx.findRenderObject() as RenderBox?;
+                      widget.onMark(b == null ? Offset.zero : b.localToGlobal(Offset(0, b.size.height + 6)));
+                    },
+                    semanticLabel: 'NOBAD Find menu',
+                    tooltip: 'NOBAD Find menu',
+                    canRequestFocus: false,
+                    ringRadius: NbRadius.controlAll,
+                    builder: (context, p) => AnimatedScale(
+                      scale: p.lit ? 1.06 : 1,
+                      duration: NbMotion.of(context, NbMotion.fast),
+                      child: const NbMark(size: 24),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: TextField(
-                  controller: widget.box,
-                  focusNode: widget.focus,
-                  autofocus: true,
-                  cursorColor: c.orange,
-                  inputFormatters: [LengthLimitingTextInputFormatter(maxTextLength)],
-                  style: NbType.text(NbSize.field, c.text),
-                  decoration: InputDecoration(
-                    isCollapsed: true,
-                    border: InputBorder.none,
-                    hintText: 'Find a file',
-                    hintStyle: NbType.text(NbSize.field, c.dim),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: widget.box,
+                    focusNode: widget.focus,
+                    autofocus: true,
+                    cursorColor: c.orange,
+                    inputFormatters: [LengthLimitingTextInputFormatter(maxTextLength)],
+                    style: NbType.text(16, c.text),
+                    decoration: InputDecoration(
+                      isCollapsed: true,
+                      border: InputBorder.none,
+                      hintText: 'Find a file',
+                      hintStyle: NbType.text(16, c.dim),
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         // the one loud thing: an orange line under the box while it has focus
@@ -401,7 +404,7 @@ class _FieldState extends State<_Field> {
         ),
         Positioned(
           right: 20,
-          bottom: 4,
+          bottom: 3,
           child: IgnorePointer(
             child: ListenableBuilder(
               listenable: widget.find,
@@ -464,15 +467,15 @@ class _RowState extends State<_Row> {
                       margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: ShapeDecoration(
                         color: c.orangeA(c.isDark ? .16 : .12),
-                        shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(14)),
+                        shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(8)),
                       ),
                     ),
                   ),
                 ),
                 Positioned(
                   left: 0,
-                  top: 8,
-                  bottom: 8,
+                  top: 9,
+                  bottom: 9,
                   width: 3,
                   child: AnimatedScale(
                     scale: widget.selected ? 1 : 0,
@@ -490,7 +493,7 @@ class _RowState extends State<_Row> {
                   child: Row(
                     children: [
                       SizedBox(
-                        width: 46,
+                        width: 40,
                         child: Text(
                           kindTag(widget.result.kind),
                           style: NbType.data(9.5, c.orange, weight: FontWeight.w700),
@@ -504,7 +507,7 @@ class _RowState extends State<_Row> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           softWrap: false,
-                          style: NbType.text(14.5, c.text, weight: FontWeight.w600),
+                          style: NbType.text(13.5, c.text, weight: FontWeight.w600),
                         ),
                       ),
                       const SizedBox(width: 12),
