@@ -18,6 +18,7 @@ def parse_args(argv=None):
     p = argparse.ArgumentParser(prog="NobadFind")
     p.add_argument("--background", action="store_true", help="start hidden; the hotkey opens the window")
     p.add_argument("--wsearch", choices=("auto", "delayed-auto", "demand", "disabled"), help=argparse.SUPPRESS)
+    p.add_argument("--turbo", choices=("serve", "selftest"), help=argparse.SUPPRESS)   # the elevated NTFS helper
     p.add_argument("--version", action="store_true")
     p.add_argument("--engine", action="store_true", help="no window: serve the UI over the private pipe")
     p.add_argument("--uninstall", action="store_true", help=argparse.SUPPRESS)   # run by the uninstaller
@@ -100,7 +101,7 @@ def quit_teardown(api, indexer, governor, hk, bar_hk, bar_ctl):
 
 def main(argv=None):
     args = parse_args(argv)
-    if args.version or args.wsearch or args.uninstall or args.engine:
+    if args.version or args.wsearch or args.turbo or args.uninstall or args.engine:
         close_splash()                              # no window to wait for
     if args.version:
         print(f"{APP_NAME} {APP_VER}")
@@ -108,6 +109,9 @@ def main(argv=None):
     if args.wsearch:                                # the elevated one-shot helper: nothing else runs
         from .wsearch import helper_main
         return helper_main(args.wsearch)
+    if args.turbo:                                  # the elevated turbo index helper (ntfs.py): nothing else runs
+        from .ntfs import helper_main as turbo_main
+        return turbo_main(args.turbo)
     if args.uninstall:
         return uninstall()
     if args.engine:                                 # headless: the Flutter UI talks to it over the pipe
