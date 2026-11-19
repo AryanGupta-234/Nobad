@@ -45,7 +45,9 @@ def test_every_setting_key_has_a_control():
     from nobadfind.const import DEFAULTS
     internal = {"wsearch_prev", "pause_fullscreen", "bg_notice_seen", "welcome_seen",     # old/internal: no control
                 # chosen on the Flutter UI's Settings -> Models page (the models methods), not in this 0.7.0 page
-                "text_model", "photo_model", "language_focus"}
+                "text_model", "photo_model", "language_focus",
+                # 0.8.5: Flutter Settings -> Privacy only (the WebView page is being removed)
+                "search_history"}
     for key in set(DEFAULTS) - internal:
         assert f'"{key}"' in JS, f"no control for setting {key}"
     for label in ("Smart (recommended)", "Always pause", "Don't change"):

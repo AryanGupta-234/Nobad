@@ -398,7 +398,8 @@ API_METHODS = {"download_model", "download_photo_model", "downloads", "forget", 
                "use_instead_of_windows_search", "wipe", "wsearch_set", "wsearch_state",
                # 0.8.0: Open with and the model tiers (the WebView page may call them like any Api method)
                "open_with", "models", "model_use", "model_download", "model_remove", "auto_configure",
-               "model_language"}
+               "model_language",
+               "suggest", "history_add", "history_forget", "history_clear"}      # 0.8.5 smart search
 
 
 def test_the_page_sees_only_the_api_methods(tmp_path):

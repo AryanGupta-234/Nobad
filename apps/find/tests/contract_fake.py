@@ -30,6 +30,7 @@ class FakeApi:
         self.dl = {"meaning": {"state": "missing", "got": 0, "size": 0, "error": ""},
                    "photo": {"state": "missing", "got": 0, "size": 0, "error": ""}}
         self.ready = set()                       # model ids "downloaded" in this fake
+        self.history = set()                     # questions kept for autocomplete (history_add)
         self.turbo = {"available": True, "enabled": False, "running": False, "error": "",
                       "volumes": [{"drive": "C:\\", "ntfs": True, "files": 0, "usn_ok": False, "last_scan": None}]}
 
@@ -42,7 +43,40 @@ class FakeApi:
         if not text.strip() and not filters:
             return {"results": [], "understood": [], "terms": [], "notes": [], "ms": 0}
         return {"results": [dict(RESULT)], "understood": ["pdf"], "terms": ["tax"], "notes": [], "more": False,
-                "ms": 4}
+                "ms": 4, "parts": [{"kind": "kind", "label": "PDFs", "without": "tax"},
+                                   {"kind": "words", "label": "tax", "without": "pdf"}],
+                "best": {"id": 7, "reason": "The only match"}}
+
+    def suggest(self, text, channel="main"):
+        self._note("suggest", text, channel)
+        items = []
+        if self.settings.get("search_history") and "tax pdf" in self.history and "tax pdf".startswith(text.lower()):
+            items.append({"text": "tax pdf", "kind": "history", "label": "tax pdf", "detail": ""})
+        if text.strip():
+            items.append({"text": "tax 2025.pdf", "kind": "file", "label": "tax 2025.pdf",
+                          "detail": RESULT["dir"], "id": 7})
+            items.append({"text": text.rstrip() + " in downloads", "kind": "filter", "label": "in downloads",
+                          "detail": "folder"})
+        first = next((i["text"] for i in items if i["text"].lower().startswith(text.lower()) and text), "")
+        return {"items": items[:5 if channel == "bar" else 8], "complete": text + first[len(text):] if first else ""}
+
+    def history_add(self, text):
+        self._note("history_add", text)
+        if not self.settings.get("search_history") or len(text.strip()) < 2:
+            return {"ok": True, "saved": False}
+        self.history.add(text.strip().lower())
+        return {"ok": True, "saved": True}
+
+    def history_forget(self, text):
+        self._note("history_forget", text)
+        known = text.strip().lower() in self.history
+        self.history.discard(text.strip().lower())
+        return {"ok": known}
+
+    def history_clear(self):
+        self._note("history_clear")
+        self.history.clear()
+        return {"ok": True}
 
     def open(self, file_id):
         self._note("open", file_id)

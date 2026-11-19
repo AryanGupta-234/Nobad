@@ -5,6 +5,9 @@ Add to it when the maintainer decides something; delete lines that stop being tr
 (this repository is public): no keys, configs, personal data or private review notes.
 
 ## Standing decisions
+- 2026-11-19 NOBAD Find keeps the user's own typed search queries locally for autocomplete (setting `search_history`,
+  default on, inside the encrypted index, capped at 200, "Clear search history" in Settings > Privacy, forget one from
+  the suggestion list). Still no OS activity history (Recent items, browser history, event logs).
 - 2026-11-18 Product icons: every NOBAD app uses the company mark (black tile, "n"); only the "n" colour changes:
   NOBAD VPN orange, NOBAD File Bridge blue, NOBAD Find yellow (maintainer's choice).
 - 2026-11-18 NOBAD File Bridge lives only in nobad-studio/file-bridge; its copy in this repo was removed (its open review

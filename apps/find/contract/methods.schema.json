@@ -109,6 +109,116 @@
         "$ref": "#/$defs/search_result"
       }
     },
+    "suggest": {
+      "description": "Autocomplete while typing (0.8.5): the user's own past questions (only while the setting search_history is on), names in the index and the phrases search understands (\"in downloads\", \"images\", \"last week\"). Each item's text is the whole question to search; complete is the inline completion of what's typed (starts with exactly the typed text), or \"\". Fast enough for every keystroke; it never fails (a problem gives no items).",
+      "params": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 2000,
+            "description": "What's typed so far (a trailing space counts: \"pdf \" asks for what comes next)."
+          },
+          "channel": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,15}$",
+            "description": "\"main\" (up to 8 items) or \"bar\" (up to 5)."
+          }
+        },
+        "additionalProperties": false,
+        "examples": [
+          {
+            "text": "inv"
+          },
+          {
+            "text": "2 boys in d",
+            "channel": "bar"
+          },
+          {
+            "text": ""
+          }
+        ]
+      },
+      "result": {
+        "$ref": "#/$defs/suggestions"
+      }
+    },
+    "history_add": {
+      "description": "The user used this question (Enter, opened a result, picked a suggestion): keep it for autocomplete. Only while search_history is on (saved false otherwise, or when the text is too short). Kept inside the encrypted index, at most 200, oldest dropped first.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "additionalProperties": false,
+        "examples": [
+          {
+            "text": "tax pdf"
+          },
+          {
+            "text": "x"
+          }
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "saved": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "saved"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "history_forget": {
+      "description": "Forget one kept question (the x on a history suggestion). ok false when it wasn't kept.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "additionalProperties": false,
+        "examples": [
+          {
+            "text": "tax pdf"
+          },
+          {
+            "text": "never typed"
+          }
+        ]
+      },
+      "result": {
+        "$ref": "#/$defs/ok"
+      }
+    },
+    "history_clear": {
+      "description": "Settings > Privacy: \"Clear search history\". Deletes every kept question.",
+      "params": {
+        "$ref": "#/$defs/no_params"
+      },
+      "result": {
+        "$ref": "#/$defs/ok"
+      }
+    },
     "open": {
       "description": "Open a result with its default program (outside NOBAD Find's process group).",
       "params": {
@@ -1036,6 +1146,24 @@
         "cancelled": {
           "const": true,
           "description": "Only there when a newer search on the same channel replaced this one: ignore this answer."
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/part"
+          },
+          "description": "How the question was understood, as removable chips in display order (0.8.5): where, what kind, when, size, order, then what it's about. Removing a chip = searching its without text."
+        },
+        "best": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/best_guess"
+            }
+          ],
+          "description": "The best guess: one result the engine is sure of, always results[0] when there is one; null when unsure (a wrong guess is worse than none)."
         }
       },
       "required": [
@@ -1045,7 +1173,9 @@
         "notes",
         "more",
         "ms",
-        "error"
+        "error",
+        "parts",
+        "best"
       ],
       "additionalProperties": false
     },
@@ -1111,6 +1241,114 @@
         "why",
         "snippet",
         "weak"
+      ],
+      "additionalProperties": false
+    },
+    "part": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "folder",
+            "drive",
+            "kind",
+            "time",
+            "size",
+            "sort",
+            "meaning",
+            "words"
+          ],
+          "description": "meaning: what it's about, searched by meaning (photo or text model); words: the same, by words only (no model)."
+        },
+        "label": {
+          "type": "string",
+          "description": "Plain text for the chip (\"Downloads\", \"Images\", \"2 boys\"); from the user's own words or the index, never markup."
+        },
+        "without": {
+          "type": "string",
+          "description": "The question with this part taken out (may be \"\")."
+        }
+      },
+      "required": [
+        "kind",
+        "label",
+        "without"
+      ],
+      "additionalProperties": false
+    },
+    "best_guess": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "description": "A result id in results (results[0])."
+        },
+        "reason": {
+          "type": "string",
+          "description": "Why it's the guess, in plain words (\"Exact name\", \"The only match\")."
+        }
+      },
+      "required": [
+        "id",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "suggestion": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "The whole question to put in the box and search."
+        },
+        "kind": {
+          "enum": [
+            "history",
+            "filter",
+            "file",
+            "folder"
+          ],
+          "description": "history: one of the user's own past questions (show it marked, with a remove x: history_forget); filter: a phrase search understands; file / folder: a name in the index."
+        },
+        "label": {
+          "type": "string",
+          "description": "What to show (plain text, never markup)."
+        },
+        "detail": {
+          "type": "string",
+          "description": "A file's folder, a filter's kind, or \"\"."
+        },
+        "id": {
+          "type": "integer",
+          "description": "file and folder items: the result id (open by id)."
+        }
+      },
+      "required": [
+        "text",
+        "kind",
+        "label",
+        "detail"
+      ],
+      "additionalProperties": false
+    },
+    "suggestions": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/suggestion"
+          },
+          "description": "At most 8 (5 for the bar), in order."
+        },
+        "complete": {
+          "type": "string",
+          "description": "Inline completion: the typed text plus the rest (ghost text), or \"\"."
+        }
+      },
+      "required": [
+        "items",
+        "complete"
       ],
       "additionalProperties": false
     },
@@ -2127,6 +2365,10 @@
             "hindi"
           ],
           "description": "\"\" = from Windows' languages."
+        },
+        "search_history": {
+          "type": "boolean",
+          "description": "Keep your own typed questions (encrypted, at most 200) for autocomplete; off deletes them."
         }
       },
       "required": [
@@ -2166,7 +2408,8 @@
         "tray",
         "text_model",
         "photo_model",
-        "language_focus"
+        "language_focus",
+        "search_history"
       ],
       "additionalProperties": false
     },
@@ -2300,6 +2543,9 @@
             "hindi"
           ],
           "description": "\"\" = from Windows' languages."
+        },
+        "search_history": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false

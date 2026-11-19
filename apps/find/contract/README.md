@@ -57,7 +57,8 @@ be `""` when not). Files are always named by a result **`id`** from `search`, ne
 ### Search and results
 
 - **`search`** `{text?: string (≤ 2000), filters?: Filters}` → `{results: [Result], understood: [string], terms:
-  [string], notes: [string], more: bool, ms: int, error: string}`. Empty text with no filter gives no results.
+  [string], notes: [string], more: bool, ms: int, error: string, parts: [Part], best: BestGuess|null}`. Empty text
+  with no filter gives no results.
   `filters` is an object or left out (`null` is refused). `understood`
   is how the question was read (show as chips), `terms` the words to highlight, `notes` sentences for the user,
   `more` = there were more matches than shown, `error` = `""` or a sentence when the search failed.
@@ -68,7 +69,33 @@ be `""` when not). Files are always named by a result **`id`** from `search`, ne
   - `Result`: `{id: int, path, name, dir, kind: string, size: int|null, mtime: number|null (seconds since 1970),
     ago: string, why: [string], snippet: string, weak: bool}`. `weak` = a loose match, show it as less sure.
     Every string is untrusted text from the user's disk: show it as plain text, never as markup.
+  - `Part` (0.8.5, smart search): `{kind, label, without}`, how the question was understood, in display order
+    (where, what kind, when, size, order, then what it's about): `kind` is `folder drive kind time size sort meaning
+    words` (`meaning`: what it's about, searched by meaning with a model; `words`: the same by words only). `label`
+    is the chip's text ("Downloads", "Images", "2 boys"); `without` is the question with that part taken out, so a
+    chip's remove x just searches `without` (the engine stays the one place questions are understood).
+    "2 boys in an image in downloads" → `[folder Downloads] [kind Images] [meaning "2 boys"]`, and "2 boys" goes to
+    photo meaning restricted to Downloads.
+  - `BestGuess`: `{id, reason}`, the one result the engine is sure of (an exact name, the only name that starts like
+    what was typed, the only match, the picture that clearly fits best, a clear winner on name and content). When
+    there is one it is always `results[0]`, so Enter opens it. `null` when unsure.
   `channel` (optional, default `"main"`): which search of the UI this is (`"home"` for the Home list, `"bar"`). A newer search on the same connection and channel cancels the one still running, which then answers with `cancelled: true` (and no results): ignore that answer. Other channels are left alone.
+- **`suggest`** `{text: string (≤ 2000), channel?: "main"|"bar"|...}` → `{items: [Suggestion], complete: string}`:
+  autocomplete for every keystroke (well under a millisecond on the eval corpus, `docs/measurements.md`). Up to 8
+  items (5 for `channel: "bar"`), in order: the user's own past questions (only while `search_history` is on), the
+  phrases search understands that complete the last words ("in d" → "in downloads", "ima" → "images", "last w" →
+  "last week", folders under the user's folders "in pro" → "in Projects", other drives "on d drive"), then names in
+  the index whose words start with the last word typed. `Suggestion`: `{text, kind: history|filter|file|folder,
+  label, detail, id?}`: `text` is the whole question to search, `label` what to show (plain text), `detail` a file's
+  folder or a filter's kind, `id` a file's or folder's result id. `complete` is the inline (ghost) completion, it
+  starts with exactly the typed text, or `""`. It never fails a keystroke: a problem gives no items.
+- **`history_add`** `{text}` → `{ok, saved}`: the UI tells the engine a question was used (Enter, a result opened, a
+  suggestion picked). Kept for autocomplete inside the encrypted index (at most 200, oldest dropped) while
+  `search_history` is on; `saved: false` when it's off or the text is too short. Only the user's own typed questions:
+  no activity history (maintainer decision 2026-11-19).
+- **`history_forget`** `{text}` → `Ok`: the x on a history suggestion. `ok: false` when it wasn't kept.
+- **`history_clear`** `{}` → `Ok`: Settings > Privacy, "Clear search history". Turning `search_history` off clears it
+  too.
 - **`open`** `{id}` → `Ok`: open with the default program (outside NOBAD Find's process group, so it survives Quit).
 - **`open_with`** `{id}` → `Ok`: Windows' "Open with" list for that result. It runs in a small helper started outside
   NOBAD Find's process group, so the program chosen there survives Quit like `open`. By id only, never a path.
@@ -257,3 +284,4 @@ lines, rewrites the `recv` lines), then review the diff.
 | `04-indexing-page.jsonl` | status_full method and event, pause_for/resume with level events, bad pauses (a string, 0), learned_apps, reset_learned, hardware, forget |
 | `05-scope-and-turbo.jsonl` | scope_info before and after a scope change, turbo_state, turbo_set declined at the prompt (and a bad one), turbo events (running, helper ended), turbo_set off |
 | `06-models-and-tray.jsonl` | models (method and event), model_language, model_use (and a model for the wrong feature), model_download without and with consent and its download events, model_remove (downloaded, built-in, a bad id), auto_configure, open_with, show settings / index (the tray) |
+| `07-smart-search.jsonl` | search with parts and a best guess, suggest (empty, typed, the bar's), history_add (kept, too short, with the setting off), history_forget (kept, never typed), history_clear |
