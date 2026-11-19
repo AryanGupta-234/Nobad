@@ -179,7 +179,6 @@ class _Item extends StatelessWidget {
           color: on ? c.selected : (p.lit ? c.cardHover : const Color(0x00000000)),
           borderRadius: const BorderRadius.all(Radius.circular(4)),
         ),
-        foregroundDecoration: const BoxDecoration(),
         child: Row(
           children: [
             // the pill: where you are
