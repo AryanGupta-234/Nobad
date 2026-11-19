@@ -350,13 +350,13 @@ class _SearchBoxState extends State<_SearchBox> {
                 autofocus: true,
                 cursorColor: c.orange,
                 inputFormatters: [LengthLimitingTextInputFormatter(maxTextLength)],
-                style: NbType.display(26, c.text, weight: 330),
+                style: NbType.text(NbSize.field, c.text),
                 textInputAction: TextInputAction.search,
                 decoration: InputDecoration(
                   isDense: true,
                   border: InputBorder.none,
                   hintText: 'Describe it: “rent pdf from last week”, “beach photos in march”, “budget.xlsx”',
-                  hintStyle: NbType.display(26, c.dim, weight: 300),
+                  hintStyle: NbType.text(NbSize.field, c.dim),
                   prefixIcon: Padding(
                     padding: const EdgeInsets.only(left: 18, right: 12),
                     child: NbIcon(NbGlyph.search, size: 22, color: on ? c.orange : c.dim),

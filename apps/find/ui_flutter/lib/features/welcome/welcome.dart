@@ -42,7 +42,7 @@ class Welcome extends StatelessWidget {
                 Semantics(
                   header: true,
                   child: Text(
-                    'Your files.\nFound in a moment.\nNever sent anywhere.',
+                    'Your files.\nFound in a moment.\nNever sent anywhere.'.toUpperCase(),
                     style: NbType.display(36, c.text),
                   ),
                 ),

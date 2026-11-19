@@ -52,7 +52,7 @@ class PageTitle extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(text, style: NbType.display(size, c.text)),
+          Text(text.toUpperCase(), style: NbType.display(size, c.text)),
           const SizedBox(height: 12),
           const SignalRule(),
         ],

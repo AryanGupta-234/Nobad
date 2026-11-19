@@ -265,7 +265,7 @@ class DetailPane extends StatelessWidget {
                       child: ResultThumb(engine: engine, result: r, size: 180),
                     ),
                     const SizedBox(height: 20),
-                    Text(r.name, style: NbType.display(26, c.text, weight: 380)),
+                    Text(r.name, style: NbType.text(20, c.text, weight: FontWeight.w600, height: 1.3)),
                     const SizedBox(height: 8),
                     SelectableText(r.dir, style: NbType.data(12, c.muted, height: 1.5)),
                     const SizedBox(height: 10),

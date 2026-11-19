@@ -246,7 +246,7 @@ class _Now extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(label, style: NbType.display(32, paused ? c.muted : c.text)),
+                  Text(label.toUpperCase(), style: NbType.display(26, paused ? c.muted : c.text)),
                   if (st.reason.isNotEmpty && connected) ...[
                     const SizedBox(height: 8),
                     ConstrainedBox(
