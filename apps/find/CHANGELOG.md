@@ -1,6 +1,6 @@
 # NOBAD Find changelog
 
-## 0.8.5 (in development)
+## 0.8.5 · 2026-11-19
 
 0.8.0 was never released on its own; its changes ship in 0.8.5.
 
