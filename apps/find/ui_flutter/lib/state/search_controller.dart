@@ -41,10 +41,20 @@ class FindController extends ChangeNotifier {
   final RecentSearches? recent;
 
   void _remember() {
+    if (_askedFor.trim().isEmpty) return;
+    remember(_askedFor);
+  }
+
+  /// A question was used (a result opened, Enter, a suggestion picked): the UI's recent list, and the engine's
+  /// search history for autocomplete (kept only while the search_history setting is on; the engine checks).
+  void remember(String words) {
+    if (words.trim().isEmpty) return;
     final r = recent;
-    if (r == null || _askedFor.trim().isEmpty) return;
-    r.add(_askedFor);
-    unawaited(r.save());
+    if (r != null) {
+      r.add(words);
+      unawaited(r.save());
+    }
+    unawaited(engine.historyAdd(words).then((_) {}, onError: (Object _) {}));
   }
 
   /// Time since the last keystroke (the screen records keystroke → paint after the frame).
@@ -161,7 +171,9 @@ class FindController extends ChangeNotifier {
     final filters = _filters;
     if (!showingResults) return;
     _busy = true;
-    notifyListeners();
+    // "busy" only changes the screen while there are no results yet (the skeleton): with results on screen a
+    // keystroke rebuilds them once, when the answer comes, not twice
+    if (_answer.results.isEmpty) notifyListeners();
     final clock = Stopwatch()..start();
     SearchAnswer a;
     String notice = '';
@@ -186,26 +198,8 @@ class FindController extends ChangeNotifier {
     var rows = a.results;
     if (words.trim().isEmpty) rows = rows.where((r) => !r.weak).toList();
     _answer = lim != null && rows.length > lim
-        ? SearchAnswer(
-            results: rows.sublist(0, lim),
-            ms: a.ms,
-            understood: a.understood,
-            terms: a.terms,
-            notes: a.notes,
-            more: true,
-            error: a.error,
-          )
-        : (identical(rows, a.results)
-              ? a
-              : SearchAnswer(
-                  results: rows,
-                  ms: a.ms,
-                  understood: a.understood,
-                  terms: a.terms,
-                  notes: a.notes,
-                  more: a.more,
-                  error: a.error,
-                ));
+        ? a.copyWith(results: rows.sublist(0, lim), more: true)
+        : (identical(rows, a.results) ? a : a.copyWith(results: rows));
     _askedFor = words;
     serial++;
     if (hadNone && rows.isNotEmpty) revealSerial++;

@@ -23,6 +23,9 @@ Specific to this app:
 - **Out of scope (maintainer decision 2026-11-17):** no activity timeline or usage history (Recent items, browser
   history, event logs, programs run). Indexing is the normal-user folder walk (`walker.py`) plus folder-change
   notifications (`watcher.py`); the turbo helper above is the one optional exception for names and changes.
+  The one thing kept is the user's **own typed search questions** for autocomplete (maintainer decision 2026-11-19,
+  `history.py`, setting `search_history`, on by default): inside the encrypted index, at most 200, "Clear search
+  history" in Settings > Privacy, off deletes them. Never read anything Windows or other programs record.
 - **Everything indexed is untrusted:** file names, folder names and file contents go to the UI only through
   `esc()`; FTS queries only through `store.fts_quote`; nothing builds a shell string; files are never executed
   except by the user's explicit Open (by result id, never a path from the page).

@@ -2,6 +2,9 @@
 ///
 /// Keys (0.7.0): ↑/↓ choose, Enter opens, Ctrl+Enter shows in folder, Ctrl+C copies the path (when no text is
 /// selected in the box), Shift+Delete forgets, Esc clears the box and, when it's empty, hides the window.
+/// 0.8.5 smart search: while the suggestions are open ↑/↓ move in them and Enter takes one; Tab or → (at the end)
+/// takes the dim inline completion; Esc closes the suggestions first. With no suggestion highlighted Enter opens
+/// the best guess (the first result).
 library;
 
 import 'dart:async';
@@ -19,6 +22,7 @@ import '../../engine/events.dart';
 import '../../engine/models/result.dart';
 import '../../state/categories.dart';
 import '../../state/search_controller.dart';
+import '../../state/suggest_controller.dart';
 import '../../platform/demo.dart';
 import '../../widgets/dialogs.dart';
 import '../../widgets/glass.dart';
@@ -26,6 +30,7 @@ import '../../widgets/icons.dart';
 import '../../widgets/motion.dart';
 import '../../widgets/panels.dart';
 import '../../widgets/pressable.dart';
+import '../../widgets/smooth_scroll.dart';
 import 'filter_bar.dart';
 import 'home_view.dart';
 import '../../platform/timing.dart';
@@ -33,6 +38,7 @@ import '../../state/typed_filters.dart';
 import '../../widgets/controls.dart';
 import 'result_actions.dart';
 import 'result_tile.dart';
+import 'smart_search.dart';
 import 'status_line.dart';
 
 class SearchScreen extends StatefulWidget {
@@ -44,9 +50,20 @@ class SearchScreen extends StatefulWidget {
 
 class _SearchScreenState extends State<SearchScreen> {
   late AppScope s;
-  late final box = TextEditingController(text: AppScope.of(context).find.text);
+  late final box = GhostTextController(text: AppScope.of(context).find.text);
+
+  /// Autocomplete (the engine's `suggest`), shown under the box.
+  late final SuggestController sug = SuggestController(AppScope.of(context).engine);
+  final _boxLink = LayerLink();
+  final _dropdown = OverlayPortalController();
+  double _boxWidth = 600;
+
+  /// The box's text is being set by the screen (a suggestion taken, a chip removed): not typing.
+  bool _quiet = false;
   final focus = FocusNode(debugLabel: 'search box');
-  final scroll = ScrollController();
+
+  /// The results' scroll: wheel notches glide (smooth_scroll.dart); the Scrollbar and the keys use it too.
+  final scroll = SmoothScrollController();
 
   /// One key per row for the answer on screen, so the selected row can be scrolled to without rebuilding rows.
   final _rowKeys = <int, GlobalKey>{};
@@ -66,9 +83,17 @@ class _SearchScreenState extends State<SearchScreen> {
     _wired = true;
     Demo.mainBox = box;
     box.addListener(() {
-      if (box.text != s.find.text) _navigating = false;
+      final changed = box.text != s.find.text;
+      if (changed) _navigating = false;
       s.find.setText(box.text);
+      if (changed && !_quiet) sug.typed(box.text);
+      box.ghost = sug.ghostFor(box.text);
     });
+    sug.addListener(() => box.ghost = sug.ghostFor(box.text));
+    focus.addListener(() {
+      if (!focus.hasFocus) sug.close();
+    });
+    _dropdown.show();
     s.find.addListener(_follow);
     s.find.addListener(_measure);
     s.find.addListener(_takeHandOver);
@@ -146,6 +171,7 @@ class _SearchScreenState extends State<SearchScreen> {
     s.find.removeListener(_follow);
     s.find.removeListener(_measure);
     s.find.removeListener(_takeHandOver);
+    sug.dispose();
     box.dispose();
     focus.dispose();
     scroll.dispose();
@@ -198,10 +224,17 @@ class _SearchScreenState extends State<SearchScreen> {
 
   /// Keys that only mean something to the results while the selection is being moved (else they edit the words).
   KeyEventResult _navKeys(FocusNode node, KeyEvent e) {
+    // the inline completion: Tab, or → with the caret at the end
+    if (e is KeyDownEvent &&
+        (e.logicalKey == LogicalKeyboardKey.tab && !HardwareKeyboard.instance.isShiftPressed ||
+            e.logicalKey == LogicalKeyboardKey.arrowRight && box.atEnd && box.ghost.isNotEmpty) &&
+        box.acceptGhost()) {
+      return KeyEventResult.handled;
+    }
     if (e is KeyDownEvent && e.logicalKey == LogicalKeyboardKey.tab && !HardwareKeyboard.instance.isShiftPressed) {
-      final sug = suggestFilters(box.text);
-      if (sug.isNotEmpty) {
-        _acceptSuggestion(sug.first);
+      final typed = suggestFilters(box.text);
+      if (typed.isNotEmpty) {
+        _acceptSuggestion(typed.first);
         return KeyEventResult.handled;
       }
     }
@@ -231,9 +264,42 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   void _setWords(String t) {
+    _quiet = true;
     box.text = t;
     box.selection = TextSelection.collapsed(offset: t.length);
+    _quiet = false;
+    sug.close();
     focus.requestFocus();
+  }
+
+  /// A suggestion taken (Enter on it, a click): its whole question goes in the box and is kept in history.
+  void _pick(Suggestion x) {
+    _setWords(x.text);
+    s.find.remember(x.text);
+  }
+
+  void _down() {
+    if (sug.down(noResults: s.find.results.isEmpty)) return;
+    if (box.text.isEmpty && s.find.results.isEmpty) {
+      sug.showRecent(); // ↓ in an empty box: your recent questions
+      return;
+    }
+    _nav(() => s.find.move(1));
+  }
+
+  void _up() {
+    if (sug.up(atTop: s.find.results.isEmpty || s.find.selected == 0)) return;
+    _nav(() => s.find.move(-1));
+  }
+
+  void _enter() {
+    final x = sug.current;
+    if (x != null) {
+      _pick(x);
+      return;
+    }
+    sug.close();
+    _open();
   }
 
   void _action(ResultAction a) {
@@ -271,6 +337,7 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   void _escape() {
+    if (sug.close()) return;
     if (_sheet) {
       setState(() => _sheet = false);
       return;
@@ -284,12 +351,27 @@ class _SearchScreenState extends State<SearchScreen> {
     unawaited(s.engine.uiHidden('main').catchError((Object _) {}));
   }
 
+  /// The suggestions, floating under the search field over the page (they never push the results down).
+  Widget _dropdownLayer(BuildContext context) => Positioned(
+    width: _boxWidth,
+    child: CompositedTransformFollower(
+      link: _boxLink,
+      targetAnchor: Alignment.bottomLeft,
+      offset: const Offset(0, 4),
+      child: TextFieldTapRegion(
+        child: SuggestionList(ctl: sug, onPick: _pick),
+      ),
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
+    box.ghostColor = NbColors.of(context).dim;
+    scroll.glide = !reduceMotion(context);
     return CallbackShortcuts(
       bindings: {
-        const SingleActivator(LogicalKeyboardKey.arrowDown): () => _nav(() => s.find.move(1)),
-        const SingleActivator(LogicalKeyboardKey.arrowUp): () => _nav(() => s.find.move(-1)),
+        const SingleActivator(LogicalKeyboardKey.arrowDown): _down,
+        const SingleActivator(LogicalKeyboardKey.arrowUp): _up,
         const SingleActivator(LogicalKeyboardKey.pageDown): () => _nav(() => s.find.move(_page)),
         const SingleActivator(LogicalKeyboardKey.pageUp): () => _nav(() => s.find.move(-_page)),
         const SingleActivator(LogicalKeyboardKey.enter, control: true, shift: true): () =>
@@ -298,8 +380,8 @@ class _SearchScreenState extends State<SearchScreen> {
         // the action panel on the selected result, as in a command palette
         const SingleActivator(LogicalKeyboardKey.keyK, control: true): _menuAtSelection,
         const SingleActivator(LogicalKeyboardKey.f10, shift: true): _menuAtSelection,
-        const SingleActivator(LogicalKeyboardKey.enter): _open,
-        const SingleActivator(LogicalKeyboardKey.numpadEnter): _open,
+        const SingleActivator(LogicalKeyboardKey.enter): _enter,
+        const SingleActivator(LogicalKeyboardKey.numpadEnter): _enter,
         const SingleActivator(LogicalKeyboardKey.enter, control: true): () => _open(reveal: true),
         const SingleActivator(LogicalKeyboardKey.keyC, control: true): _copy,
         const SingleActivator(LogicalKeyboardKey.delete, shift: true): _forget,
@@ -335,6 +417,10 @@ class _SearchScreenState extends State<SearchScreen> {
                       child: _SearchBox(
                         controller: box,
                         focus: focus,
+                        link: _boxLink,
+                        onWidth: (w) => _boxWidth = w,
+                        dropdown: _dropdown,
+                        overlay: (context) => _dropdownLayer(context),
                         filters: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
@@ -503,20 +589,51 @@ class _SearchScreenState extends State<SearchScreen> {
 }
 
 class _SearchBox extends StatefulWidget {
-  const _SearchBox({required this.controller, required this.focus, required this.filters});
+  const _SearchBox({
+    required this.controller,
+    required this.focus,
+    required this.filters,
+    required this.link,
+    required this.onWidth,
+    required this.dropdown,
+    required this.overlay,
+  });
   final TextEditingController controller;
   final FocusNode focus;
   final Widget filters;
+
+  /// The suggestions hang from the field (smart_search.dart).
+  final LayerLink link;
+  final ValueChanged<double> onWidth;
+  final OverlayPortalController dropdown;
+  final WidgetBuilder overlay;
 
   @override
   State<_SearchBox> createState() => _SearchBoxState();
 }
 
-class _SearchBoxState extends State<_SearchBox> {
+class _SearchBoxState extends State<_SearchBox> with SingleTickerProviderStateMixin {
+  // the palette settles in when the window opens: 280 ms, a FadeTransition (one layer, nothing rebuilt per frame)
+  late final _in = AnimationController(vsync: this, duration: const Duration(milliseconds: 280));
+  late final _fade = CurvedAnimation(parent: _in, curve: NbMotion.curve);
+  late final _rise = Tween(begin: const Offset(0, .06), end: Offset.zero).animate(_fade);
+
   @override
   void initState() {
     super.initState();
     widget.focus.addListener(_changed);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_in.isDismissed) {
+      if (reduceMotion(context)) {
+        _in.value = 1;
+      } else {
+        _in.forward();
+      }
+    }
   }
 
   void _changed() => setState(() {});
@@ -524,6 +641,7 @@ class _SearchBoxState extends State<_SearchBox> {
   @override
   void dispose() {
     widget.focus.removeListener(_changed);
+    _in.dispose();
     super.dispose();
   }
 
@@ -531,78 +649,85 @@ class _SearchBoxState extends State<_SearchBox> {
   Widget build(BuildContext context) {
     final c = NbColors.of(context);
     final on = widget.focus.hasFocus;
-    // the palette settles in on a spring when the window opens
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: reduceMotion(context) ? 1 : 0, end: 1),
-      duration: NbMotion.of(context, const Duration(milliseconds: 700)),
-      curve: const SpringCurve(damping: .68),
-      builder: (context, t, child) => Opacity(
-        opacity: t.clamp(0, 1).toDouble(),
-        child: Transform.translate(offset: Offset(0, 14 * (1 - t)), child: child),
-      ),
-      child: Glass(
-        level: GlassLevel.panel,
-        radius: 18,
-        rim: on ? c.orangeA(.6) : null,
-        padding: const EdgeInsets.fromLTRB(4, 2, 4, 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // its own layer: the blinking caret repaints only the field, not the glass around it
-            RepaintBoundary(
-              child: TextField(
-                controller: widget.controller,
-                focusNode: widget.focus,
-                autofocus: true,
-                cursorColor: c.orange,
-                inputFormatters: [LengthLimitingTextInputFormatter(maxTextLength)],
-                style: NbType.text(NbSize.field, c.text),
-                textInputAction: TextInputAction.search,
-                decoration: InputDecoration(
-                  isDense: true,
-                  border: InputBorder.none,
-                  hintText: 'Describe it: “rent pdf from last week”, “budget.xlsx”',
-                  hintStyle: NbType.text(NbSize.field, c.dim),
-                  prefixIcon: Padding(
-                    padding: const EdgeInsets.only(left: 12, right: 10),
-                    child: NbIcon(NbGlyph.search, size: 17, color: on ? c.orange : c.dim),
-                  ),
-                  prefixIconConstraints: const BoxConstraints(minWidth: 40, minHeight: 18),
-                  // a way to clear the box with the mouse; Esc does the same
-                  suffixIcon: ListenableBuilder(
-                    listenable: widget.controller,
-                    builder: (context, _) => widget.controller.text.isEmpty
-                        ? const SizedBox(width: 8)
-                        : Padding(
-                            padding: const EdgeInsets.only(right: 10),
-                            child: Pressable(
-                              onTap: () {
-                                widget.controller.clear();
-                                widget.focus.requestFocus();
-                              },
-                              semanticLabel: 'Clear',
-                              tooltip: 'Clear (Esc)',
-                              canRequestFocus: false,
-                              ringRadius: NbRadius.pillAll,
-                              builder: (context, p) => Container(
-                                padding: const EdgeInsets.all(5),
-                                decoration: BoxDecoration(color: p.lit ? c.cardHover : null, shape: BoxShape.circle),
-                                child: NbIcon(NbGlyph.close, size: 13, color: p.lit ? c.text : c.dim),
-                              ),
-                            ),
-                          ),
-                  ),
-                  contentPadding: const EdgeInsets.fromLTRB(0, 12, 12, 11),
-                ),
+    return FadeTransition(
+      opacity: _fade,
+      child: SlideTransition(
+        position: _rise,
+        child: Glass(
+          level: GlassLevel.panel,
+          radius: 18,
+          rim: on ? c.orangeA(.6) : null,
+          padding: const EdgeInsets.fromLTRB(4, 2, 4, 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // its own layer: the blinking caret repaints only the field, not the glass around it
+              LayoutBuilder(
+                builder: (context, cons) {
+                  widget.onWidth(cons.maxWidth);
+                  return OverlayPortal(
+                    controller: widget.dropdown,
+                    overlayChildBuilder: widget.overlay,
+                    child: CompositedTransformTarget(link: widget.link, child: _field(context, c, on)),
+                  );
+                },
               ),
-            ),
-            Container(height: 1, margin: const EdgeInsets.fromLTRB(10, 0, 10, 8), color: c.line),
-            Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: widget.filters),
-          ],
+              Container(height: 1, margin: const EdgeInsets.fromLTRB(10, 0, 10, 8), color: c.line),
+              Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: widget.filters),
+            ],
+          ),
         ),
       ),
     );
   }
+
+  Widget _field(BuildContext context, NbColors c, bool on) => RepaintBoundary(
+    child: TextField(
+      controller: widget.controller,
+      focusNode: widget.focus,
+      autofocus: true,
+      cursorColor: c.orange,
+      inputFormatters: [LengthLimitingTextInputFormatter(maxTextLength)],
+      style: NbType.text(NbSize.field, c.text),
+      textInputAction: TextInputAction.search,
+      decoration: InputDecoration(
+        isDense: true,
+        border: InputBorder.none,
+        hintText: 'Describe it: “rent pdf from last week”, “budget.xlsx”',
+        hintStyle: NbType.text(NbSize.field, c.dim),
+        prefixIcon: Padding(
+          padding: const EdgeInsets.only(left: 12, right: 10),
+          child: NbIcon(NbGlyph.search, size: 17, color: on ? c.orange : c.dim),
+        ),
+        prefixIconConstraints: const BoxConstraints(minWidth: 40, minHeight: 18),
+        // a way to clear the box with the mouse; Esc does the same
+        suffixIcon: ListenableBuilder(
+          listenable: widget.controller,
+          builder: (context, _) => widget.controller.text.isEmpty
+              ? const SizedBox(width: 8)
+              : Padding(
+                  padding: const EdgeInsets.only(right: 10),
+                  child: Pressable(
+                    onTap: () {
+                      widget.controller.clear();
+                      widget.focus.requestFocus();
+                    },
+                    semanticLabel: 'Clear',
+                    tooltip: 'Clear (Esc)',
+                    canRequestFocus: false,
+                    ringRadius: NbRadius.pillAll,
+                    builder: (context, p) => Container(
+                      padding: const EdgeInsets.all(5),
+                      decoration: BoxDecoration(color: p.lit ? c.cardHover : null, shape: BoxShape.circle),
+                      child: NbIcon(NbGlyph.close, size: 13, color: p.lit ? c.text : c.dim),
+                    ),
+                  ),
+                ),
+        ),
+        contentPadding: const EdgeInsets.fromLTRB(0, 12, 12, 11),
+      ),
+    ),
+  );
 }
 
 class _Meta extends StatelessWidget {
@@ -647,16 +772,19 @@ class _Meta extends StatelessWidget {
                   runSpacing: 6,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    for (final u in a.understood)
-                      _Understood(
-                        u,
-                        onRemove: removeUnderstood(find.text, u) == null
-                            ? null
-                            : () => onWords(removeUnderstood(find.text, u)!),
-                      ),
+                    // 0.8.5: the engine's parts, each removable (it says what the question is without it)
+                    for (final p in a.parts) PartChip(p, onRemove: () => onWords(p.without)),
+                    if (a.parts.isEmpty)
+                      for (final u in a.understood)
+                        _Understood(
+                          u,
+                          onRemove: removeUnderstood(find.text, u) == null
+                              ? null
+                              : () => onWords(removeUnderstood(find.text, u)!),
+                        ),
                     if (spans.isNotEmpty)
                       Padding(
-                        padding: EdgeInsets.only(left: a.understood.isEmpty ? 0 : 6),
+                        padding: EdgeInsets.only(left: a.understood.isEmpty && a.parts.isEmpty ? 0 : 6),
                         child: Text.rich(TextSpan(children: spans), style: NbType.data(NbSize.caption, c.dim)),
                       ),
                   ],
@@ -796,20 +924,23 @@ class _Results extends StatelessWidget {
               if (divider && i == firstWeak) return const LessSure();
               final idx = divider && i > firstWeak ? i - 1 : i;
               final sel = idx == s.find.selected;
+              final best = s.find.answer.best;
+              final guess = idx == 0 && s.find.answer.hasGuess && best != null;
               // each new answer comes in as a short cascade; moving the selection doesn't replay it
+              final tile = ResultTile(
+                key: rowKey(rows[idx].id), // stable: moving the selection only repaints two rows
+                engine: s.engine,
+                result: rows[idx],
+                selected: sel,
+                onTap: (reveal) => onTap(idx, reveal),
+                onSecondary: (pos) => onSecondary(idx, pos),
+                onAction: (a) => onAction(idx, a),
+                terms: s.find.answer.terms,
+              );
               return Appear(
                 key: ValueKey((s.find.revealSerial, rows[idx].id)),
                 delay: Appear.stagger(i),
-                child: ResultTile(
-                  key: rowKey(rows[idx].id), // stable: moving the selection only repaints two rows
-                  engine: s.engine,
-                  result: rows[idx],
-                  selected: sel,
-                  onTap: (reveal) => onTap(idx, reveal),
-                  onSecondary: (pos) => onSecondary(idx, pos),
-                  onAction: (a) => onAction(idx, a),
-                  terms: s.find.answer.terms,
-                ),
+                child: guess ? BestGuessCard(reason: best.reason, selected: sel, child: tile) : tile,
               );
             },
           ),
@@ -828,7 +959,7 @@ class _DetailSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final d = NbMotion.of(context, const Duration(milliseconds: 380));
+    final d = NbMotion.of(context, const Duration(milliseconds: 220));
     return IgnorePointer(
       ignoring: !open,
       child: Stack(

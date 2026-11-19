@@ -1,6 +1,12 @@
 /// The quick find bar (`--bar`): frameless, on top, 640 px wide, a third of the way down the monitor with the
-/// mouse; up to 8 results; Enter opens, Ctrl+Enter shows in folder, Alt+Enter hands the words to the main window,
+/// mouse; at most 8 rows tall, scrolling through every result the engine sends (the less sure ones too, under
+/// "Less sure"); Enter opens, Ctrl+Enter shows in folder, Alt+Enter hands the words to the main window,
 /// Esc hides. The engine's bar hotkey shows it.
+///
+/// 0.8.5 smart search, as in the main window: the understood parts as removable chips (the bar's filters), up to 3
+/// suggestions above the results (↑ from the first result goes up into them, Enter takes one), the dim inline
+/// completion (Tab or → takes it), the best guess marked on the first row (Enter opens it), and when there are more
+/// results than fit, a last line "N results · Alt+Enter opens them in NOBAD Find".
 library;
 
 import 'dart:async';
@@ -20,8 +26,11 @@ import '../../state/search_controller.dart';
 import '../../widgets/common.dart';
 import '../../widgets/pressable.dart';
 import '../search/result_actions.dart';
+import '../search/smart_search.dart';
+import '../../state/suggest_controller.dart';
 import '../../widgets/glass.dart';
 import '../../widgets/motion.dart';
+import '../../widgets/smooth_scroll.dart';
 
 class BarWindow extends StatefulWidget {
   const BarWindow({super.key, required this.engine, this.window = const NoWindow(), this.demo});
@@ -34,21 +43,36 @@ class BarWindow extends StatefulWidget {
 }
 
 class _BarWindowState extends State<BarWindow> {
-  late final FindController find = FindController(
-    widget.engine,
-    limit: BarSize.maxRows,
-    debounce: const Duration(milliseconds: 90),
-  );
-  final box = TextEditingController();
+  // every result the engine sends (no cut to the window's rows): the list scrolls
+  late final FindController find = FindController(widget.engine, debounce: const Duration(milliseconds: 90));
+  final scroll = SmoothScrollController(); // wheel notches glide
+  int _followed = -1;
+  final box = GhostTextController();
+  late final SuggestController sug = SuggestController(widget.engine, channel: 'bar');
   final focus = FocusNode(debugLabel: 'bar box');
+
+  /// Suggestion rows shown above the results (the bar's window only has room for 8 rows in all).
+  static const maxSuggestions = 3;
+  bool _quiet = false;
   late final StreamSubscription<EngineEvent> _shows;
   int _rows = -1;
 
   @override
   void initState() {
     super.initState();
-    box.addListener(() => find.setText(box.text));
+    box.addListener(() {
+      final changed = box.text != find.text;
+      find.setText(box.text);
+      if (changed && !_quiet) sug.typed(box.text);
+      box.ghost = sug.ghostFor(box.text);
+    });
+    sug.addListener(() {
+      box.ghost = sug.ghostFor(box.text);
+      _fit();
+    });
+    find.addListener(() => sug.exclude = {for (final r in find.results.take(BarSize.maxRows)) r.id});
     find.addListener(_fit);
+    find.addListener(_follow);
     _shows = widget.engine.events.listen((e) {
       if (e is ShowEvent && e.what == 'bar') show();
       if (e is QuittingEvent) widget.window.close();
@@ -57,10 +81,106 @@ class _BarWindowState extends State<BarWindow> {
     _life; // start listening
   }
 
-  /// Rows the window needs: the results, or one for "No match for …" or a failed open.
+  /// The understood parts' line (the bar's filters), while there's an answer that has them.
+  int get chipRows => find.askedFor.isNotEmpty && find.text.trim().isNotEmpty && find.answer.parts.isNotEmpty ? 1 : 0;
+
+  /// Suggestion rows on show now (always leaving a row for the results).
+  int get suggestionRows => sug.isOpen && find.text.trim().isNotEmpty
+      ? sug.items.length.clamp(0, maxSuggestions).clamp(0, BarSize.maxRows - 1 - chipRows)
+      : 0;
+
+  /// The result list's lines: a result's index, or -1 for the "Less sure" line before the first loose match.
+  List<int> get listItems {
+    final firstWeak = find.results.indexWhere((r) => r.weak);
+    return [
+      for (var i = 0; i < find.results.length; i++) ...[if (i == firstWeak && firstWeak > 0) -1, i],
+    ];
+  }
+
+  /// More lines than the window has room for: the list scrolls and the last line says how many there are.
+  bool get overflows => chipRows + suggestionRows + listItems.length > BarSize.maxRows;
+
+  /// Rows the window needs: chips, suggestions and results (and the count line), or one for "No match for …".
   int get rowsNeeded {
-    if (find.text.trim().isEmpty || find.askedFor.isEmpty) return 0;
-    return find.results.isEmpty ? 1 : find.results.length;
+    if (find.text.trim().isEmpty) return 0;
+    final ns = suggestionRows;
+    if (find.askedFor.isEmpty) return ns;
+    if (find.results.isEmpty) return chipRows + ns + 1;
+    return overflows ? BarSize.maxRows : chipRows + ns + listItems.length;
+  }
+
+  /// ↑/↓ moved the selection: scroll the list so the selected row is in view (every row is BarSize.row tall).
+  void _follow() {
+    if (find.selected == _followed) return;
+    _followed = find.selected;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !scroll.hasClients) return;
+      final at = listItems.indexOf(find.selected);
+      if (at < 0) return;
+      final row = BarSize.row.toDouble();
+      final p = scroll.position;
+      final top = at * row - (at > 0 && listItems[at - 1] == -1 ? row : 0); // keep "Less sure" above its first row
+      if (top < p.pixels) {
+        p.jumpTo(top.clamp(0, p.maxScrollExtent));
+      } else if ((at + 1) * row > p.pixels + p.viewportDimension) {
+        p.jumpTo(((at + 1) * row - p.viewportDimension).clamp(0, p.maxScrollExtent));
+      }
+    });
+  }
+
+  /// A chip's x: search the question without that part.
+  void _words(String t) {
+    _quiet = true;
+    box.value = TextEditingValue(
+      text: t,
+      selection: TextSelection.collapsed(offset: t.length),
+    );
+    _quiet = false;
+    sug.close();
+    focus.requestFocus();
+  }
+
+  void _down() {
+    if (sug.down(noResults: find.results.isEmpty)) return;
+    find.move(1);
+  }
+
+  void _up() {
+    if (sug.up(atTop: find.results.isEmpty || find.selected == 0)) return;
+    find.move(-1);
+  }
+
+  void _enter() {
+    final x = sug.current;
+    if (x == null) {
+      sug.close();
+      unawaited(_act());
+      return;
+    }
+    _quiet = true;
+    box.value = TextEditingValue(
+      text: x.text,
+      selection: TextSelection.collapsed(offset: x.text.length),
+    );
+    _quiet = false;
+    sug.close();
+    find.remember(x.text);
+  }
+
+  void _escape() {
+    if (sug.close()) return;
+    hide();
+  }
+
+  /// Tab, or → with the caret at the end: the inline completion.
+  KeyEventResult _ghostKeys(FocusNode node, KeyEvent e) {
+    if (e is KeyDownEvent &&
+        (e.logicalKey == LogicalKeyboardKey.tab ||
+            e.logicalKey == LogicalKeyboardKey.arrowRight && box.atEnd && box.ghost.isNotEmpty) &&
+        box.acceptGhost()) {
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
   }
 
   void _fit() {
@@ -152,7 +272,10 @@ class _BarWindowState extends State<BarWindow> {
     _settling = true;
     _settle?.cancel();
     _settle = Timer(const Duration(milliseconds: 400), () => _settling = false);
+    _quiet = true;
     box.clear();
+    _quiet = false;
+    sug.close();
     setState(() => _open = false);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) setState(() => _open = true);
@@ -176,7 +299,10 @@ class _BarWindowState extends State<BarWindow> {
 
   void _gone() {
     widget.window.hide();
+    _quiet = true;
     box.clear();
+    _quiet = false;
+    sug.close();
     if (mounted) setState(() => _open = true);
   }
 
@@ -207,6 +333,8 @@ class _BarWindowState extends State<BarWindow> {
     _life.dispose();
     _settle?.cancel();
     find.dispose();
+    scroll.dispose();
+    sug.dispose();
     box.dispose();
     focus.dispose();
     super.dispose();
@@ -216,6 +344,7 @@ class _BarWindowState extends State<BarWindow> {
   Widget build(BuildContext context) {
     final c = NbColors.of(context);
     final d = NbMotion.of(context, const Duration(milliseconds: 140));
+    scroll.glide = !reduceMotion(context);
     return AnimatedOpacity(
       opacity: _open ? 1 : 0,
       duration: d,
@@ -243,57 +372,116 @@ class _BarWindowState extends State<BarWindow> {
             bindings: {
               const SingleActivator(LogicalKeyboardKey.enter, control: true, shift: true): () =>
                   _rowAction(ResultAction.openWith),
-              const SingleActivator(LogicalKeyboardKey.arrowDown): () => find.move(1),
-              const SingleActivator(LogicalKeyboardKey.arrowUp): () => find.move(-1),
-              const SingleActivator(LogicalKeyboardKey.enter): _act,
-              const SingleActivator(LogicalKeyboardKey.numpadEnter): _act,
+              const SingleActivator(LogicalKeyboardKey.arrowDown): _down,
+              const SingleActivator(LogicalKeyboardKey.arrowUp): _up,
+              const SingleActivator(LogicalKeyboardKey.enter): _enter,
+              const SingleActivator(LogicalKeyboardKey.numpadEnter): _enter,
               const SingleActivator(LogicalKeyboardKey.enter, control: true): () => _act(reveal: true),
               const SingleActivator(LogicalKeyboardKey.enter, alt: true): _toMain,
-              const SingleActivator(LogicalKeyboardKey.escape): hide,
+              const SingleActivator(LogicalKeyboardKey.escape): _escape,
             },
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 SizedBox(
                   height: BarSize.field - 2,
-                  child: _Field(box: box, focus: focus, find: find, onMark: (pos) => _openMenu(_appMenu(), pos)),
+                  child: Focus(
+                    canRequestFocus: false,
+                    skipTraversal: true,
+                    onKeyEvent: _ghostKeys,
+                    child: _Field(box: box, focus: focus, find: find, onMark: (pos) => _openMenu(_appMenu(), pos)),
+                  ),
                 ),
                 Expanded(
                   child: ListenableBuilder(
-                    listenable: find,
+                    listenable: Listenable.merge([find, sug]),
                     builder: (context, _) {
                       if (rowsNeeded == 0) return const SizedBox.shrink();
+                      final ns = suggestionRows;
+                      final best = find.answer.hasGuess ? find.answer.best : null;
+                      final items = listItems;
+                      final row = BarSize.row.toDouble();
                       return Container(
                         decoration: BoxDecoration(
                           border: Border(top: BorderSide(color: c.line)),
                         ),
-                        child: find.results.isEmpty
-                            ? _NoMatch(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            if (chipRows > 0)
+                              SizedBox(
+                                height: row,
+                                child: SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+                                  child: Row(
+                                    children: [
+                                      for (final p in find.answer.parts)
+                                        Padding(
+                                          padding: const EdgeInsets.only(right: 6),
+                                          child: PartChip(p, onRemove: () => _words(p.without)),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            for (var i = 0; i < ns; i++)
+                              SuggestionRow(
+                                s: sug.items[i],
+                                typed: sug.askedFor,
+                                lit: i == sug.highlighted,
+                                dense: true,
+                                onTap: () {
+                                  sug.hover(i);
+                                  _enter();
+                                },
+                                onHover: () => sug.hover(i),
+                                onForget: sug.items[i].isHistory ? () => sug.forget(sug.items[i]) : null,
+                              ),
+                            if (find.askedFor.isNotEmpty && find.results.isEmpty)
+                              _NoMatch(
                                 find.notice.isNotEmpty ? find.notice : find.askedFor.trim(),
                                 isError: find.notice.isNotEmpty,
                               )
-                            : Column(
-                                children: [
-                                  for (var i = 0; i < find.results.length; i++)
-                                    Appear(
-                                      key: ValueKey((find.serial, find.results[i].id)),
-                                      delay: Appear.stagger(i),
-                                      lift: 3,
-                                      child: _Row(
-                                        result: find.results[i],
-                                        selected: i == find.selected,
-                                        onSecondary: (pos) {
-                                          find.select(i);
-                                          _openMenu(_rowMenu(), pos);
-                                        },
-                                        onTap: (reveal) {
-                                          find.select(i);
-                                          _act(reveal: reveal);
-                                        },
-                                      ),
-                                    ),
-                                ],
+                            else if (find.askedFor.isNotEmpty)
+                              Expanded(
+                                child: ListView.builder(
+                                  controller: scroll,
+                                  padding: EdgeInsets.zero,
+                                  itemExtent: row,
+                                  itemCount: items.length,
+                                  itemBuilder: (context, at) {
+                                    final i = items[at];
+                                    if (i < 0) return const _LessSure();
+                                    final rowWidget = _Row(
+                                      result: find.results[i],
+                                      guess: i == 0 && best != null ? best.reason : null,
+                                      selected: i == find.selected && sug.highlighted < 0,
+                                      onSecondary: (pos) {
+                                        find.select(i);
+                                        _openMenu(_rowMenu(), pos);
+                                      },
+                                      onTap: (reveal) {
+                                        find.select(i);
+                                        _act(reveal: reveal);
+                                      },
+                                    );
+                                    // the first rows of a new answer come in as a short cascade
+                                    return at >= BarSize.maxRows
+                                        ? rowWidget
+                                        : Appear(
+                                            key: ValueKey((find.serial, find.results[i].id)),
+                                            delay: Appear.stagger(at),
+                                            lift: 3,
+                                            child: rowWidget,
+                                          );
+                                  },
+                                ),
                               ),
+                            if (find.results.isNotEmpty && overflows)
+                              _MoreLine(count: find.results.length, more: find.answer.more),
+                          ],
+                        ),
                       );
                     },
                   ),
@@ -425,8 +613,17 @@ class _FieldState extends State<_Field> {
 }
 
 class _Row extends StatefulWidget {
-  const _Row({required this.result, required this.selected, required this.onTap, required this.onSecondary});
+  const _Row({
+    required this.result,
+    required this.selected,
+    required this.onTap,
+    required this.onSecondary,
+    this.guess,
+  });
   final FileResult result;
+
+  /// The best guess's reason when this row is it (a "Best guess" pill in place of the folder's start).
+  final String? guess;
   final bool selected;
   final void Function(bool reveal) onTap;
   final void Function(Offset globalPosition) onSecondary;
@@ -511,6 +708,20 @@ class _RowState extends State<_Row> {
                         ),
                       ),
                       const SizedBox(width: 12),
+                      if (widget.guess != null) ...[
+                        Tooltip(
+                          message: widget.guess!,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
+                            decoration: BoxDecoration(color: c.orange, borderRadius: NbRadius.pillAll),
+                            child: Text(
+                              'Best guess',
+                              style: NbType.text(NbSize.micro - 1, c.onOrange, weight: FontWeight.w700, height: 1.3),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
                       Expanded(flex: 4, child: TailText(widget.result.dir, style: NbType.data(11, c.dim))),
                     ],
                   ),
@@ -519,6 +730,60 @@ class _RowState extends State<_Row> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// The bar's "Less sure" line, one row tall (the main window's LessSure, fitted to the bar).
+class _LessSure extends StatelessWidget {
+  const _LessSure();
+
+  @override
+  Widget build(BuildContext context) {
+    final c = NbColors.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+      child: Row(
+        children: [
+          Text('Less sure', style: NbType.text(NbSize.micro, c.dim, weight: FontWeight.w600)),
+          const SizedBox(width: 12),
+          Expanded(child: Container(height: 1, color: c.line)),
+        ],
+      ),
+    );
+  }
+}
+
+/// More results than fit: how many, and the way to see them all.
+class _MoreLine extends StatelessWidget {
+  const _MoreLine({required this.count, required this.more});
+  final int count;
+  final bool more;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = NbColors.of(context);
+    return Container(
+      height: BarSize.row.toDouble(),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: c.line)),
+      ),
+      alignment: Alignment.centerLeft,
+      child: Text.rich(
+        TextSpan(
+          children: [
+            TextSpan(
+              text: '$count${more ? '+' : ''} results',
+              style: NbType.text(12, c.text, weight: FontWeight.w600),
+            ),
+            const TextSpan(text: ' · ↑↓ scroll · Alt+Enter opens them in NOBAD Find'),
+          ],
+        ),
+        style: NbType.text(12, c.dim),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
       ),
     );
   }

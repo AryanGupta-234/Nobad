@@ -6,6 +6,7 @@ Tables
   vecs    meaning-search vectors for chunks (float16)
   nvecs   meaning-search vectors for file and folder names (so a photo or a bill is found by what its name means)
   pvecs   photo-meaning vectors (what's in the picture), with the file time they were made for
+  search_history  the questions you typed yourself, for autocomplete (setting search_history; history.py)
 """
 import os
 import secrets
@@ -74,6 +75,9 @@ CREATE TRIGGER IF NOT EXISTS files_au_w AFTER UPDATE OF name ON files WHEN old.n
 CREATE TABLE IF NOT EXISTS nvecs_next(file_id INTEGER PRIMARY KEY, v BLOB NOT NULL);
 CREATE TRIGGER IF NOT EXISTS chunks_ad_next AFTER DELETE ON chunks BEGIN
   DELETE FROM vecs_next WHERE chunk_id = old.id; END;
+CREATE TABLE IF NOT EXISTS search_history(k TEXT PRIMARY KEY, q TEXT NOT NULL, n INTEGER NOT NULL DEFAULT 1,
+  last REAL NOT NULL);
+CREATE INDEX IF NOT EXISTS search_history_last ON search_history(last);
 CREATE TRIGGER IF NOT EXISTS files_ad_next AFTER DELETE ON files BEGIN
   DELETE FROM nvecs_next WHERE file_id = old.id; END;
 CREATE TRIGGER IF NOT EXISTS files_au_next AFTER UPDATE OF name, dir ON files
@@ -413,7 +417,8 @@ class Store:
 
     def wipe(self):
         with self.wlock:
-            for t in ("vecs", "nvecs", "vecs_next", "nvecs_next", "pvecs", "chunks", "files", "meta", "apps"):
+            for t in ("vecs", "nvecs", "vecs_next", "nvecs_next", "pvecs", "chunks", "files", "meta", "apps",
+                      "search_history"):
                 self.db.execute(f"DELETE FROM {t}")
             self.db.execute("INSERT INTO names(names) VALUES('rebuild')")
             self.db.execute("INSERT INTO text(text) VALUES('rebuild')")

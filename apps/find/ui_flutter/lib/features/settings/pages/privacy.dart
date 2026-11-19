@@ -1,4 +1,5 @@
-/// Privacy: the Windows Search switch (elevated helper, undoable) and deleting the whole index.
+/// Privacy: the Windows Search switch (elevated helper, undoable), your own search history (0.8.5) and deleting
+/// the whole index.
 library;
 
 import 'dart:async';
@@ -61,6 +62,34 @@ class PrivacyPage extends StatelessWidget {
         SettingsGroup(
           'Windows Search',
           rows: [SettingRow(label: 'Use NOBAD Find instead of Windows Search', helpWidget: wsHelp, control: wsControl)],
+        ),
+        SettingsGroup(
+          'Search history',
+          rows: [
+            const SwitchSetting(
+              'search_history',
+              'Remember my searches',
+              'Keeps the questions you type here, so suggestions can finish them. Only what you search in NOBAD '
+                  'Find: nothing from Windows or other programs. Encrypted with the index, at most 200; turning it '
+                  'off deletes them.',
+            ),
+            SettingRow(
+              label: 'Clear search history',
+              help: 'Forgets every question kept for suggestions. One at a time: the x next to it in the list.',
+              control: NbButton(
+                'Clear history',
+                kind: NbButtonKind.ghost,
+                onPressed: () async {
+                  try {
+                    final r = await s.engine.historyClear();
+                    s.toasts.show(r.ok ? 'Search history cleared.' : "Couldn't clear the search history.");
+                  } on Object {
+                    s.toasts.show("NOBAD Find's engine isn't running.");
+                  }
+                },
+              ),
+            ),
+          ],
         ),
         SettingsGroup(
           'Your data',

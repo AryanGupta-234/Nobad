@@ -85,6 +85,40 @@ class Api:
             log(f"search failed: {type(e).__name__}", "warn")
             return {"results": [], "understood": [], "terms": [], "ms": 0, "error": "Search failed. Try other words."}
 
+    # ---------- smart search (0.8.5): suggestions while typing, your own search history ----------
+    def suggest(self, text, channel="main"):
+        """Autocomplete (suggest.py): your past questions (when search_history is on), names in the index and the
+        phrases search understands. Never fails a keystroke: a problem gives no suggestions."""
+        from . import suggest as sg
+        from .understand import place_bases
+        if not isinstance(text, str):
+            return {"items": [], "complete": ""}
+        try:
+            drives = self._indexer.drive_list
+            bases = place_bases(self._indexer.roots(drives), drives)
+            return sg.suggest(self._store, text[:MAX_QUERY], history_on=bool(self._settings.get("search_history")),
+                              limit=5 if channel == "bar" else 8, bases=bases, drives=drives)
+        except Exception as e:
+            log(f"suggest failed: {type(e).__name__}", "warn")
+            return {"items": [], "complete": ""}
+
+    def history_add(self, text):
+        """The UI says a question was used (Enter, a result opened, a suggestion picked): kept for autocomplete,
+        only while search_history is on."""
+        from . import history
+        if not self._settings.get("search_history"):
+            return {"ok": True, "saved": False}
+        return {"ok": True, "saved": history.add(self._store, text)}
+
+    def history_forget(self, text):
+        from . import history
+        return {"ok": history.forget(self._store, text)}
+
+    def history_clear(self):
+        from . import history
+        history.clear(self._store)
+        return {"ok": True}
+
     def _path(self, file_id):
         if not isinstance(file_id, int) or isinstance(file_id, bool):
             return None
@@ -403,6 +437,8 @@ class Api:
         changed = self._settings.update(changes)
         if "autostart" in changed:
             set_autostart(self._settings.get("autostart"))
+        if "search_history" in changed and not self._settings.get("search_history"):
+            self.history_clear()                     # off: what was kept goes now, not later
         if "include_secrets" in changed and not self._settings.get("include_secrets"):
             self._remove_secrets()                   # off: their names leave the index now, not at the next walk
         if set(changed) & {"roots", "exclude", "scope", "include_system", "include_caches", "include_secrets"}:

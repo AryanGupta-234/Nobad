@@ -64,6 +64,20 @@ abstract class EngineApi {
   /// The bar's Alt+Enter: the engine brings the main window up with [text] in its box.
   Future<void> toMain(String text);
 
+  // ---- 0.8.5 smart search: autocomplete and the user's own search history (an older engine: no suggestions) ----
+  /// Suggestions for what's typed so far: past questions, names, phrases search understands; [channel] "bar"
+  /// gets at most 5. Never throws for an engine that doesn't serve it (no suggestions then).
+  Future<Suggestions> suggest(String text, {String channel = 'main'});
+
+  /// A question was used: kept for autocomplete while the `search_history` setting is on. True if it was kept.
+  Future<bool> historyAdd(String text);
+
+  /// The x on a history suggestion.
+  Future<ActionResult> historyForget(String text);
+
+  /// Settings > Privacy: "Clear search history".
+  Future<ActionResult> historyClear();
+
   // ---- status and the governor ----
   Future<EngineStatus> status();
 

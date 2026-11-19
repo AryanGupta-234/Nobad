@@ -5,6 +5,8 @@ folder, then questions typed one letter at a time through the engine's real sear
     python tools/bench_search.py --rows 1000000 [--keep DIR]
 
 Prints p50 / p90 / max per keystroke for short (1-2 letters), name (3+ letters) and multi-word questions.
+--smart (0.8.5): also plain-language questions ("pdf in downloads", "2 boys in an image") typed one letter at a time,
+and the autocomplete (suggest.suggest, with some search history kept) on every keystroke of all of them.
 """
 import argparse
 import json
@@ -33,6 +35,8 @@ KINDS = {".txt": "text", ".pdf": "pdf", ".docx": "document", ".xlsx": "spreadshe
          ".html": "code", ".xml": "code", ".ini": "code"}
 TYPED = ("invoice", "tax 2024", "re", "a", "ma", "budget report", "photo", "dsc", "setup.exe", "readme",
          "py", "x", "holiday photos", "zz", "contract", "wedding")
+SMART = ("invoice pdf in downloads", "2 boys in an image in downloads", "big videos from last year",
+         "notes in project", "small pdfs on d drive", "budget in documents", "photos of a dog on the beach")
 
 
 def build(root, rows, seed=3):
@@ -74,6 +78,27 @@ def bench(store, prepare=None):
     return out
 
 
+def bench_smart(store):
+    """Plain-language questions per keystroke (search with parts and the best guess), and suggest per keystroke."""
+    from nobadfind import history, search, suggest
+    from nobadfind.understand import place_bases
+    for q in ("invoice pdf in downloads", "budget report", "holiday photos 2024", "tax return"):
+        history.add(store, q)
+    bases = place_bases(["C:\\"], [{"root": "C:\\"}, {"root": "D:\\"}])
+    out = {"smart": [], "suggest": []}
+    for q in SMART + TYPED:
+        for i in range(1, len(q) + 1):
+            text = q[:i]
+            if q in SMART:
+                t = time.perf_counter()
+                search.search(store, text, limit=60, roots=["C:\\"])
+                out["smart"].append((time.perf_counter() - t) * 1000)
+            t = time.perf_counter()
+            suggest.suggest(store, text, bases=bases, drives=[{"root": "D:\\"}])
+            out["suggest"].append((time.perf_counter() - t) * 1000)
+    return out
+
+
 def pct(v, p):
     v = sorted(v)
     return v[min(len(v) - 1, int(round(p / 100 * (len(v) - 1))))]
@@ -83,6 +108,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--rows", type=int, default=1000000)
     ap.add_argument("--keep", default="", help="a folder to build in (and keep, so a later run reuses it)")
+    ap.add_argument("--smart", action="store_true", help="also plain-language questions and suggest (0.8.5)")
     args = ap.parse_args(argv)
     root = args.keep or tempfile.mkdtemp(prefix="nobadfind-bench-")
     os.makedirs(root, exist_ok=True)
@@ -97,6 +123,9 @@ def main(argv=None):
     up = time.perf_counter() - t
     bench(store)                                  # warm the page cache
     r = bench(store)
+    if args.smart:
+        bench_smart(store)                        # warm
+        r.update(bench_smart(store))
     res = {"rows": n, "build_s": round(secs, 1), "name_index_upgrade_s": round(up, 1)}
     for k, v in r.items():
         res[k] = {"keystrokes": len(v), "p50": round(statistics.median(v), 1), "p90": round(pct(v, 90), 1),

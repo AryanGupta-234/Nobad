@@ -71,6 +71,21 @@ class PipeEngine implements EngineApi {
   @override
   Future<void> toMain(String text) => _pipe.toMain(text);
 
+  // ---- 0.8.5 smart search (an engine without it: no suggestions, nothing kept) ----
+  @override
+  Future<Suggestions> suggest(String text, {String channel = 'main'}) async {
+    if (_pipe.link.value != Link.connected || !_pipe.serves('suggest')) return Suggestions.none;
+    return _pipe.suggest(text, channel: channel);
+  }
+
+  @override
+  Future<bool> historyAdd(String text) async =>
+      _pipe.link.value == Link.connected && _pipe.serves('history_add') && await _pipe.historyAdd(text);
+  @override
+  Future<ActionResult> historyForget(String text) => _pipe.historyForget(text);
+  @override
+  Future<ActionResult> historyClear() => _pipe.historyClear();
+
   // ---- status ----
   @override
   Future<EngineStatus> status() => _pipe.status();

@@ -26,7 +26,7 @@ void main() {
     final engine = FakeEngine();
     await pumpApp(tester, engine);
     await type(tester, 'tax pdf');
-    await tester.tap(find.bySemanticsLabel('Remove pdf'), warnIfMissed: false);
+    await tester.tap(find.bySemanticsLabel('Remove PDFs'), warnIfMissed: false); // the engine's part (0.8.5)
     await tester.pumpAndSettle();
     expect(boxText(tester), 'tax');
   });
