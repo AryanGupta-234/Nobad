@@ -50,7 +50,7 @@ class NoWindow implements WindowControl {
   int get handle => 0;
 }
 
-/// Bar geometry in logical pixels, the same as bar.py (WIDTH, HEIGHT, ROW, MAX_ROWS).
+/// Bar geometry in logical pixels (the 0.7.0 quick find bar had the same WIDTH, HEIGHT, ROW, MAX_ROWS).
 abstract final class BarSize {
   static const width = 640;
   static const field = 52;

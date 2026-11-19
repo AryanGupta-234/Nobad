@@ -73,7 +73,7 @@ def test_previews_only_by_result_id(tmp_path):
 
     class Ix:
         embedder = photo_text = None
-    a = api_mod.Api(s, settings.Settings(str(tmp_path / "s.json")), Ix(), None, lambda: None)
+    a = api_mod.Api(s, settings.Settings(str(tmp_path / "s.json")), Ix(), None)
     assert a.thumbnail("C:\\Windows\\win.ini") == {"url": ""}           # a path from the page: refused
     assert a.thumbnail(True) == {"url": ""}
     fid = s.one("SELECT id FROM files")
@@ -81,7 +81,6 @@ def test_previews_only_by_result_id(tmp_path):
     s.close()
 
 
-def test_glass_and_memory_are_safe():
-    assert winapi.glass(0) is False
+def test_memory_is_safe():
     if winapi.WIN:
         assert winapi.memory_mb() > 0

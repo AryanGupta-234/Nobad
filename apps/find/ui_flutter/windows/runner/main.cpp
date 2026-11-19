@@ -10,7 +10,7 @@
 #include "utils.h"
 
 // The quick find bar: 640 x 52 (logical) on the monitor with the mouse, centered,
-// a third of the way down its work area (the same rule as nobadfind/bar.py).
+// a third of the way down its work area (the same rule as the 0.7.0 quick find bar).
 static void PlaceBar(HWND hwnd) {
   POINT pt{};
   GetCursorPos(&pt);

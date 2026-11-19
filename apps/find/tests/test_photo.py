@@ -101,7 +101,7 @@ def test_switch_to_nobad_find(monkeypatch, tmp_path):
     class Ix:
         embedder = None
         photo_text = None
-    a = api_mod.Api(None, st, Ix(), None, lambda: None)
+    a = api_mod.Api(None, st, Ix(), None)
     assert a.use_instead_of_windows_search(True)["ok"]
     assert calls == ["disabled", ("autostart", True)] and st.get("wsearch_prev") == "delayed-auto"
     assert st.get("autostart") is True

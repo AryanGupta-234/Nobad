@@ -16,14 +16,22 @@ if WIN:
 INVALID_HANDLE = ctypes.c_void_p(-1).value
 
 SHOW_EVENT = "Local\\NOBAD-Find-Show"         # a second start asks the running copy to show its window
+SHOW_WHAT = ("main", "settings", "index", "bar")   # what it may ask for: one event each (main keeps the old name)
 
 
-def show_event():
-    """The running copy's auto-reset "show the window" event (None off Windows or on failure)."""
+def show_event_name(what="main", base=SHOW_EVENT):
+    if what not in SHOW_WHAT:
+        raise ValueError(what)
+    return base if what == "main" else f"{base}-{what}"
+
+
+def show_event(what="main", base=SHOW_EVENT):
+    """The running copy's auto-reset "show the window" event for one page (None off Windows or on failure)."""
     if not WIN:
         return None
     k32.CreateEventW.restype = ctypes.c_void_p
-    return k32.CreateEventW(None, False, False, SHOW_EVENT) or None
+    k32.CreateEventW.argtypes = [ctypes.c_void_p, wintypes.BOOL, wintypes.BOOL, wintypes.LPCWSTR]
+    return k32.CreateEventW(None, False, False, show_event_name(what, base)) or None
 
 
 def wait_event(handle, timeout_ms):
@@ -32,16 +40,25 @@ def wait_event(handle, timeout_ms):
     return k32.WaitForSingleObject(handle, timeout_ms) == 0          # WAIT_OBJECT_0
 
 
-def ask_running_copy_to_show():
-    """Signal the copy that is already running to bring its window up. True if it was reached."""
+def wait_any(handles, timeout_ms):
+    """The index of the first signalled handle within the timeout, else None (at most 64 handles)."""
+    arr = (ctypes.c_void_p * len(handles))(*handles)
+    k32.WaitForMultipleObjects.argtypes = [wintypes.DWORD, ctypes.c_void_p, wintypes.BOOL, wintypes.DWORD]
+    k32.WaitForMultipleObjects.restype = wintypes.DWORD
+    r = k32.WaitForMultipleObjects(len(handles), arr, False, timeout_ms)
+    return r if r < len(handles) else None                           # WAIT_OBJECT_0 + i; timeout or failure
+
+
+def ask_running_copy_to_show(what="main", base=SHOW_EVENT):
+    """Signal the copy that is already running to bring its window up on that page. True if it was reached."""
     if not WIN:
         return False
     k32.OpenEventW.restype = ctypes.c_void_p
-    h = k32.OpenEventW(0x0002, False, SHOW_EVENT)                     # EVENT_MODIFY_STATE
+    h = k32.OpenEventW(0x0002, False, show_event_name(what, base))   # EVENT_MODIFY_STATE
     if not h:
         return False
     try:
-        user32.AllowSetForegroundWindow(wintypes.DWORD(0xFFFFFFFF))  # ASFW_ANY: it may take the front
+        user32.AllowSetForegroundWindow(wintypes.DWORD(0xFFFFFFFF))  # ASFW_ANY: it (and its UI) may take the front
         k32.SetEvent.argtypes = [ctypes.c_void_p]
         return bool(k32.SetEvent(h))
     finally:
@@ -434,58 +451,6 @@ def foreground_folder(hwnd=None):
         from .log import log
         log(f"couldn't read the File Explorer folder: {type(e).__name__}", "warn")
         return ""
-
-
-def own_window(title):
-    """The handle of this process's top-level window with this title (0 if none yet)."""
-    if not WIN:
-        return 0
-    found = []
-    pid = os.getpid()
-    proc = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
-
-    def each(h, _l):
-        if window_pid(h) == pid and _window_title(h) == title:
-            found.append(h)
-            return False
-        return True
-    user32.EnumWindows(proc(each), 0)
-    return found[0] if found else 0
-
-
-def transparency_allowed():
-    """Windows' own "Transparency effects" switch (Settings > Personalization > Colors)."""
-    if not WIN:
-        return False
-    import winreg
-    try:
-        with winreg.OpenKey(winreg.HKEY_CURRENT_USER,
-                            r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize") as k:
-            return bool(winreg.QueryValueEx(k, "EnableTransparency")[0])
-    except OSError:
-        return True
-
-
-class _MARGINS(ctypes.Structure):
-    _fields_ = [("l", ctypes.c_int), ("r", ctypes.c_int), ("t", ctypes.c_int), ("b", ctypes.c_int)]
-
-
-def glass(hwnd):
-    """Windows 11 acrylic behind the whole window, dark title bar. True if Windows took it (22H2 and later)."""
-    if not WIN or not hwnd:
-        return False
-    try:
-        dwm = ctypes.WinDLL("dwmapi")
-        h = wintypes.HWND(hwnd)
-        dark = ctypes.c_int(1)
-        dwm.DwmSetWindowAttribute(h, 20, ctypes.byref(dark), 4)              # DWMWA_USE_IMMERSIVE_DARK_MODE
-        backdrop = ctypes.c_int(3)                                           # DWMSBT_TRANSIENTWINDOW (acrylic)
-        if dwm.DwmSetWindowAttribute(h, 38, ctypes.byref(backdrop), 4) != 0:  # DWMWA_SYSTEMBACKDROP_TYPE
-            return False
-        m = _MARGINS(-1, -1, -1, -1)                                          # the backdrop fills the client area
-        return dwm.DwmExtendFrameIntoClientArea(h, ctypes.byref(m)) == 0
-    except Exception:
-        return False
 
 
 class _PMC(ctypes.Structure):

@@ -1,4 +1,5 @@
-# PyInstaller spec for NOBAD Find - onedir, windowed (the installer wraps the folder). build.ps1 runs it from apps/find:
+# PyInstaller spec for NOBAD Find's engine - onedir, windowed (the installer wraps the folder). build.ps1 runs it from
+# apps/find, then copies the Flutter UI (nobad_find.exe and its files) into the same folder:
 #   python -m PyInstaller --noconfirm --clean --distpath dist --workpath build packaging\nobadfind.spec
 # No uac_admin: NOBAD Find runs as the normal user and refuses to start elevated. The one elevated step (the Windows
 # Search switch) asks for it itself, through `NobadFind.exe --wsearch <word>`.
@@ -11,19 +12,14 @@ ROOT = os.path.dirname(HERE)
 ICON = os.path.join(HERE, "nobadfind.ico")
 VERSION = os.path.join(HERE, "version_info.txt")
 
-# Windows only needs pywebview's WinForms + Edge WebView2 (EdgeChromium) backend; the other backends (and the GUI
-# toolkits they would drag in if installed on the build machine) are left out.
-hidden = collect_submodules("webview", filter=lambda m: not any(
-    x in m for x in (".gtk", ".qt", ".cocoa", ".android", ".cef", ".mshtml")))
-hidden += ["webview.platforms.winforms", "webview.platforms.edgechromium", "clr", "clr_loader", "pythonnet"]
-datas = [(os.path.join(ROOT, "nobadfind", "ui"), "nobadfind/ui")]
+# No window toolkit here: the window is the Flutter UI (apps/find/ui_flutter), a separate exe.
+datas = []
 binaries = []
 
 # Imported lazily inside functions (store / extract / embed); listed so a missing one fails the build, not the app.
-hidden += ["sqlcipher3", "sqlcipher3.dbapi2", "pypdf", "numpy", "onnxruntime", "tokenizers"]
+hidden = ["sqlcipher3", "sqlcipher3.dbapi2", "pypdf", "numpy", "onnxruntime", "tokenizers"]
 hidden += collect_submodules("pypdf")
 binaries += collect_dynamic_libs("sqlcipher3") + collect_dynamic_libs("onnxruntime")
-datas += collect_data_files("webview")      # pywebview's injected JS and the WebView2 loader DLLs
 datas += collect_data_files("pypdf")
 
 # Windows built-in OCR through the winrt projection (winrt-runtime + winrt-Windows.* packages). `winrt` is a
@@ -40,9 +36,7 @@ else:
     binaries += collect_dynamic_libs("winrt")
     datas += collect_data_files("winrt", excludes=["**/*.pyi"])
 
-EXCLUDES = ["tkinter", "pytest", "_pytest", "pyflakes", "PyQt5", "PyQt6", "PySide2", "PySide6", "gi",
-            "webview.platforms.gtk", "webview.platforms.qt", "webview.platforms.cocoa",
-            "webview.platforms.android", "webview.platforms.cef", "webview.platforms.mshtml"]
+EXCLUDES = ["tkinter", "pytest", "_pytest", "pyflakes", "PyQt5", "PyQt6", "PySide2", "PySide6", "gi"]
 
 a = Analysis([os.path.join(HERE, "launch.py")], pathex=[ROOT], binaries=binaries, datas=datas,
              hiddenimports=hidden, excludes=EXCLUDES, noarchive=False)
@@ -54,9 +48,7 @@ _OLD_CRT = {os.path.normcase(os.path.join("winrt", n)) for n in ("msvcp140.dll",
 a.binaries = [b for b in a.binaries if os.path.normcase(b[0]) not in _OLD_CRT]
 a.datas = [d for d in a.datas if os.path.normcase(d[0]) not in _OLD_CRT]
 pyz = PYZ(a.pure)
-# The start-up picture shown while the exe unpacks; app.py closes it with pyi_splash when the window is up.
-splash = Splash(os.path.join(ROOT, "nobadfind", "ui", "brand", "splash.png"), binaries=a.binaries, datas=a.datas,
-                text_pos=None, always_on_top=False)
-exe = EXE(pyz, a.scripts, splash, [], exclude_binaries=True, name="NobadFind", console=False, disable_windowed_traceback=False,
+# No start-up picture: the engine starts the UI first thing (uilaunch.start_now), and the UI shows its own.
+exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name="NobadFind", console=False, disable_windowed_traceback=False,
           icon=ICON, version=VERSION if os.path.exists(VERSION) else None)
-coll = COLLECT(exe, splash.binaries, a.binaries, a.datas, strip=False, upx=False, name="NobadFind")
+coll = COLLECT(exe, a.binaries, a.datas, strip=False, upx=False, name="NobadFind")

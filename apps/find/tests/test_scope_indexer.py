@@ -100,7 +100,7 @@ class Ix:
 def make_api(tmp_path):
     s = Store(str(tmp_path / "i.db"), encrypt=False)
     st = Settings(str(tmp_path / "s.json"))
-    a = api_mod.Api(s, st, Ix(), None, lambda: None)
+    a = api_mod.Api(s, st, Ix(), None)
     return a, s
 
 

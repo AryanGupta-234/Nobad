@@ -1,6 +1,6 @@
-"""The methods the UI can call (pywebview js_api). Every argument from the page is checked here.
+"""The methods the UI can call (through the pipe handlers in nobadfind/rpc). Every argument from the UI is checked here.
 
-The page never hands the app a path to open: it sends a result id, and the path comes from the index.
+The UI never hands the engine a path to open: it sends a result id, and the path comes from the index.
 """
 import ctypes
 import os
@@ -32,18 +32,15 @@ PHASES = (("names", "Finding file names"), ("text", "Reading documents"), ("ocr"
 
 
 class Api:
-    def __init__(self, store, settings, indexer, vindex, window_ref):
+    def __init__(self, store, settings, indexer, vindex):
         self._store = store
         self._settings = settings
         self._indexer = indexer
         self._vindex = vindex
-        self._win = window_ref            # callable returning the pywebview window (or None)
-        self._watchdog = None             # set by app.py
-        self.visible = True               # the main window is shown (the watchdog expects heartbeats)
-        self.here = ""                    # the Explorer folder the hotkey was pressed in (see app.bring_up)
+        self.here = ""                    # the Explorer folder the hotkey was pressed in (engine.here_finder)
         self._model = {"state": "ready" if embed.model_ready() else "missing", "got": 0, "size": 0, "error": ""}
         self._photo_model = {"state": "ready" if photo.model_ready() else "missing", "got": 0, "size": 0, "error": ""}
-        self._governor = None             # set by app.py (the status page reads the governor, the activity log,
+        self._governor = None             # set by engine.py (the status page reads the governor, the activity log,
         self._activity = None             # and what was learned about apps); None in tests
         self._apps = None
         self._slock = threading.Lock()
@@ -54,9 +51,9 @@ class Api:
         self._pcpu = {}                   # pid -> (time, cpu_seconds)
         self._progress = {k: deque(maxlen=RATE_WINDOW) for k, _l in PHASES}
         self._rate = DownloadRate()       # the download speed on the model cards
-        self._on_hide = None              # app.py: what hiding the window means for indexing (lifecycle.after_hide)
+        self._on_hide = None              # engine.py: what hiding the window means for indexing (lifecycle.after_hide)
         self._on_show = None              # engine.py: the UI's main window came up (indexing resumes)
-        self._folder_dialog = None        # engine.py: the native folder dialog (no pywebview window there)
+        self._folder_dialog = None        # engine.py: Windows' own folder dialog
         self._turbo = None                # engine.py: turbo.Turbo, the optional elevated NTFS index helper
         self._timer, self._exit = threading.Timer, os._exit     # tests replace them
 
@@ -483,14 +480,9 @@ class Api:
         return dict(r, state=self._turbo.state())
 
     def pick_folder(self):
-        w = self._win()
-        if not w:
-            dialog = self._folder_dialog          # the engine: Windows' own dialog, shown by this process
-            path = dialog() if dialog is not None else ""
-            return {"path": "", "busy": True} if path is None else {"path": path or ""}
-        import webview
-        r = w.create_file_dialog(webview.FOLDER_DIALOG)
-        return {"path": r[0] if r else ""}
+        dialog = self._folder_dialog              # Windows' own dialog, shown by this process
+        path = dialog() if dialog is not None else ""
+        return {"path": "", "busy": True} if path is None else {"path": path or ""}
 
     def rescan(self):
         self._indexer.rescan()
@@ -753,16 +745,6 @@ class Api:
         return r
 
     # ---------- window ----------
-    def heartbeat(self):
-        if self._watchdog is not None:
-            self._watchdog.beat()
-        return {"ok": True}
-
-    def page_visible(self, on):
-        if self._watchdog is not None:
-            self._watchdog.page_visible(bool(on))
-        return {"ok": True}
-
     def ui_shown(self):
         """The UI's main window came up (the pipe's ui_shown): indexing resumes if closing had stopped it."""
         if self._on_show is not None:
@@ -770,26 +752,19 @@ class Api:
         return {"ok": True}
 
     def hide(self):
-        self.visible = False
-        w = self._win()
-        if w:
-            w.hide()
+        """The UI's main window went away (ui_hidden, or its pipe closed): what that means for indexing."""
         if self._on_hide is not None:
             self._on_hide()
         return {"ok": True}
 
     def quit(self):
-        self._quitting = True                  # app.py: closing now really quits instead of hiding
+        self._quitting = True
         self._indexer.stop()
         self._arm_hard_exit()
-        w = self._win()
-        if w:
-            w.destroy()
         return {"ok": True}
 
     def _arm_hard_exit(self):
-        """If closing the windows (WebView2, WinForms) or the exit hangs, end the process anyway; the job then
-        ends every worker and WebView2 with it. Used by Quit and by closing the window when that quits."""
+        """If the exit hangs, end the process anyway; the job then ends every worker with it."""
         if getattr(self, "_hard_exit_timer", None) is not None:
             return
         t = self._hard_exit_timer = self._timer(QUIT_TIMEOUT, self._hard_exit)

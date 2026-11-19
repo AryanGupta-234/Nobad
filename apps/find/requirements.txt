@@ -1,5 +1,4 @@
-# NOBAD Find runtime dependencies. requirements-lock.txt pins these (and everything they pull in) by hash.
-pywebview==6.2.1           # the window (Edge WebView2)
+# NOBAD Find engine runtime dependencies (the window is the Flutter UI in ui_flutter/, built by packaging/build.ps1). requirements-lock.txt pins these (and everything they pull in) by hash.
 sqlcipher3-wheels==0.5.7   # the encrypted index (SQLCipher with FTS5)
 pypdf==6.21.4              # text inside PDFs
 numpy==2.4.6               # meaning-search vectors
