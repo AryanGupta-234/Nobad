@@ -147,7 +147,7 @@
       "result": {"$ref": "#/$defs/settings"}
     },
     "set_settings": {
-      "description": "Change settings. Each value is checked by the engine (settings.coerce): a value that doesn't fit becomes the default. Unknown names and wsearch_prev are ignored.",
+      "description": "Change settings. Each value is checked by the engine (settings.coerce): a value that doesn't fit becomes the default. Unknown names, wsearch_prev and turbo are ignored.",
       "params": {
         "type": "object",
         "properties": {"changes": {"$ref": "#/$defs/settings_changes"}},
@@ -227,6 +227,22 @@
         "examples": [{"on": true}, {"on": false}]
       },
       "result": {"$ref": "#/$defs/wsearch_change"}
+    },
+    "scope_info": {
+      "description": "What is indexed: the scope (Whole PC, My files, Custom), the folders it walks and every category (system folders, caches, secrets, other people's files, USB and network drives) with what it is, why, examples, whether it's in, whether the user can change it and how many entries of it are indexed (null when not known cheaply).",
+      "params": {"$ref": "#/$defs/no_params"},
+      "result": {"$ref": "#/$defs/scope_info"}
+    },
+    "turbo_state": {
+      "description": "The optional turbo index (an elevated helper that reads the NTFS file list and change journal: names and changes only, never file contents). available: this PC can use it (Windows, an NTFS fixed drive in the scope); enabled: the turbo setting; running: the helper is connected now.",
+      "params": {"$ref": "#/$defs/no_params"},
+      "result": {"$ref": "#/$defs/turbo_state"}
+    },
+    "turbo_set": {
+      "description": "Turn the turbo index on (Windows asks for administrator permission once per engine run; the answer comes after that prompt, don't time this call out) or off (the helper ends, the normal folder walk and change notifications take over). While one prompt is open, another call answers at once with ok false and a sentence. Saying no at the prompt gives ok false and leaves the setting off.",
+      "params": {"type": "object", "properties": {"on": {"type": "boolean"}}, "required": ["on"],
+                 "additionalProperties": false, "examples": [{"on": true}, {"on": false}]},
+      "result": {"$ref": "#/$defs/turbo_change"}
     },
     "ui_shown": {
       "description": "This UI's window came up (main by default). For the main window, indexing starts (the engine starts idle unless keep_background is on) or resumes after a close stopped it. Ignored once this connection's pipe has closed.",
@@ -604,6 +620,64 @@
       "required": ["ok", "error", "state"],
       "additionalProperties": false
     },
+    "scope_category": {
+      "type": "object",
+      "properties": {
+        "id": {"enum": ["system", "caches", "secrets", "other_profiles", "removable", "network"]},
+        "name": {"type": "string"},
+        "why": {"type": "string", "description": "A sentence or two for the user: what it is and why it's in or out."},
+        "examples": {"type": "array", "items": {"type": "string"}, "description": "Example paths or folder names."},
+        "included": {"type": "boolean"},
+        "locked": {"type": "boolean", "description": "The user can't change it here (other people's files are always out; system folders aren't part of My files; USB/network drives in Custom come from the folder list)."},
+        "count": {"type": ["integer", "null"], "description": "Entries of this category in the index now; null when it can't be counted cheaply."}
+      },
+      "required": ["id", "name", "why", "examples", "included", "locked", "count"],
+      "additionalProperties": false
+    },
+    "scope_info": {
+      "type": "object",
+      "properties": {
+        "scope": {"enum": ["whole_pc", "my_files", "custom"]},
+        "roots": {"$ref": "#/$defs/folders", "description": "The folders the walk starts from."},
+        "categories": {"type": "array", "items": {"$ref": "#/$defs/scope_category"}}
+      },
+      "required": ["scope", "roots", "categories"],
+      "additionalProperties": false
+    },
+    "turbo_volume": {
+      "type": "object",
+      "properties": {
+        "drive": {"type": "string", "description": "Like C:\\"},
+        "ntfs": {"type": "boolean"},
+        "files": {"type": "integer", "minimum": 0, "description": "Entries the helper sent from this drive (after its privacy filter)."},
+        "usn_ok": {"type": "boolean", "description": "Changes are being followed from the change journal."},
+        "last_scan": {"type": ["number", "null"], "description": "When the last full read of this drive ended (seconds since 1970)."}
+      },
+      "required": ["drive", "ntfs", "files", "usn_ok", "last_scan"],
+      "additionalProperties": false
+    },
+    "turbo_state": {
+      "type": "object",
+      "properties": {
+        "available": {"type": "boolean"},
+        "enabled": {"type": "boolean"},
+        "running": {"type": "boolean"},
+        "volumes": {"type": "array", "items": {"$ref": "#/$defs/turbo_volume"}},
+        "error": {"type": "string", "description": "\"\" or a sentence: why turbo isn't running (the folder walk is used instead)."}
+      },
+      "required": ["available", "enabled", "running", "volumes", "error"],
+      "additionalProperties": false
+    },
+    "turbo_change": {
+      "type": "object",
+      "properties": {
+        "ok": {"type": "boolean"},
+        "error": {"type": "string"},
+        "state": {"$ref": "#/$defs/turbo_state"}
+      },
+      "required": ["ok", "error", "state"],
+      "additionalProperties": false
+    },
     "hotkey": {"type": "string", "pattern": "^(?:(?:ctrl|alt|shift|win)\\+){1,3}(?:[a-z0-9]|space|f(?:[1-9]|1[0-2]))$"},
     "folders": {"type": "array", "items": {"type": "string"}, "description": "Absolute folder paths (at most 200)."},
     "settings": {
@@ -636,17 +710,23 @@
         "theme": {"enum": ["dark", "light"]},
         "glass": {"type": "boolean"},
         "bg_notice_seen": {"type": "boolean"},
-        "welcome_seen": {"type": "boolean"}
+        "welcome_seen": {"type": "boolean"},
+        "scope": {"enum": ["whole_pc", "my_files", "custom"], "description": "What to index: whole_pc = your profile and every fixed drive, my_files = your own folders, custom = the folders in roots."},
+        "include_system": {"type": "boolean", "description": "Windows, Program Files, ProgramData, Recovery, PerfLogs."},
+        "include_caches": {"type": "boolean", "description": "AppData, caches, temp, node_modules, .git, venv."},
+        "include_secrets": {"type": "boolean", "description": "Keys, browser passwords/cookies/history, Windows Credentials, chat and developer tokens, password vaults, wallets: names only, never their content. Browser profiles and app databases are names only even with this off and caches on."},
+        "turbo": {"type": "boolean", "description": "Read-only: the turbo index is turned on and off with turbo_set (it needs the permission prompt); set_settings ignores it."}
       },
       "required": ["roots", "exclude", "content", "content_max_mb", "semantic", "photo_meaning",
                    "allow_photo_model_download", "allow_model_download", "src_mail", "ocr", "index_removable",
                    "index_network", "pause_on_battery", "pause_fullscreen", "games_mode", "keep_background", "bar",
                    "bar_hotkey", "pause_on_call", "workers", "hotkey", "autostart", "hide_after_open", "wsearch_prev",
-                   "theme", "glass", "bg_notice_seen", "welcome_seen"],
+                   "theme", "glass", "bg_notice_seen", "welcome_seen", "scope", "include_system",
+                   "include_caches", "include_secrets", "turbo"],
       "additionalProperties": false
     },
     "settings_changes": {
-      "description": "Any of the settings (not wsearch_prev), each with its own type; values that don't fit become the default.",
+      "description": "Any of the settings (not wsearch_prev or turbo), each with its own type; values that don't fit become the default.",
       "type": "object",
       "properties": {
         "roots": {"$ref": "#/$defs/folders"},
@@ -675,7 +755,11 @@
         "theme": {"enum": ["dark", "light"]},
         "glass": {"type": "boolean"},
         "bg_notice_seen": {"type": "boolean"},
-        "welcome_seen": {"type": "boolean"}
+        "welcome_seen": {"type": "boolean"},
+        "scope": {"enum": ["whole_pc", "my_files", "custom"]},
+        "include_system": {"type": "boolean"},
+        "include_caches": {"type": "boolean"},
+        "include_secrets": {"type": "boolean"}
       },
       "additionalProperties": false
     }

@@ -431,7 +431,13 @@ const PAGES = {
   ],
   indexing: [
     ["What to search", [
-      ["roots", "folders", "Folders to search", "Empty: your profile folder and every fixed drive (never other people's profiles or Windows itself)."],
+      ["scope", "select", "What to index", "Whole PC: your profile and every fixed drive. My files: only your own folders. Custom: only the folders below.",
+        [["whole_pc", "Whole PC"], ["my_files", "My files"], ["custom", "Custom"]]],
+      ["roots", "folders", "Folders to search", "Used when What to index is Custom. Other people's profiles are never indexed."],
+      ["include_system", "switch", "Windows and programs", "Windows, Program Files and ProgramData: many files you rarely look for. Off keeps the index smaller."],
+      ["include_caches", "switch", "App data, caches and code folders", "AppData, temp folders, node_modules, .git and venv."],
+      ["include_secrets", "switch", "Keys and password stores (names only)", "SSH and GPG keys, certificates, password vaults and wallets. Only their names are indexed: NOBAD Find never reads what's inside them."],
+      ["turbo", "switch", "Turbo index (asks for administrator permission)", "Reads the NTFS file list directly for a much faster first scan and instant changes. Windows asks once each time NOBAD Find starts. Names and changes only, never file contents."],
       ["exclude", "folders", "Never search", "These folders and files are skipped and removed from the index."],
       ["content", "switch", "Read the text inside files", "Documents, PDFs, code, notes and e-mail files. Off: names only."],
       ["content_max_mb", "num", "Largest file to read (MB)", "Bigger files are still found by name."],

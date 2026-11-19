@@ -49,6 +49,9 @@ later phase while an earlier one has open work unless the status table says it w
 | 2026-11-19 | Maintainer approved the full move from the WebView UI to Flutter | Prototype numbers (section 6 status, `docs/measurements.md`) |
 | 2026-11-19 | Pipe contract v1 lives in `contract/` (schemas, transcripts, README); `status` stays the short status, `status_full` is the Indexing page's; `heartbeat`/`page_visible`/`hide` became `ui_shown`/`ui_hidden` plus pipe liveness; `quit` needs `confirm: "QUIT"` | The UI never polls and never sends a path; one file both test suites replay |
 | 2026-11-19 | Workers use explicit low priorities (idle CPU, memory 2, I/O very low), not Windows background mode; EcoQoS only at Light and Paused | Background mode from a process's start pins its working set near 32 MB: PDF readers page-faulted ~400x more, indexing 3-6x slower. EcoQoS at Gentle cost speed with no measurable gain on this PC (`docs/measurements.md`) |
+| 2026-11-19 | **Turbo index**: an optional elevated helper (`ntfs.py`, `NobadFind.exe --turbo serve`), **off by default**, that reads the NTFS file list (`FSCTL_ENUM_USN_DATA`, MFT records) and follows the change journal. Reverses "never elevated" (2026-11-17) for this one helper only; the walker stays the fallback | Maintainer's request (2026-11-17), decided in the 2026-11-19 session. One UAC prompt per engine run; metadata only, never contents; other people's files dropped inside the helper (`ntfs.py` docstring) |
+| 2026-11-19 | "What to index" scope: **Whole PC / My files / Custom** (setting `scope`; old `roots: []` = Whole PC, a folder list = Custom) | Maintainer decision, 2026-11-19 |
+| 2026-11-19 | **Full transparency**: system folders, caches and secrets aren't skipped silently. Settings shows every category (`scope_info`) and the user chooses: `include_system` and `include_caches` on, `include_secrets` **off** (names only when on, never the content); other people's files always out (locked, shown with the reason) | Maintainer decision, 2026-11-19. The secrets default is the maintainer's to flip |
 | 2026-11-18 | Flutter prototype renders with **Skia**, not Impeller (Flutter 3.50's Windows default) | On the reference PC Impeller took 0.9 s to the first frame and ~50 MB more; re-measure on every Flutter upgrade and on another GPU before the full move |
 
 Options considered for the UI and why they lost:
@@ -195,7 +198,9 @@ Windows optimizations to apply (each behind a measurement, each on Find's own pr
 - **No polling where Windows can notify:** power changes (`RegisterPowerSettingNotification`), foreground changes
   (`SetWinEventHook(EVENT_SYSTEM_FOREGROUND)`) and display/presentation state instead of asking every 2 s; the
   governor tick can then drop to 5 s when nothing changed.
-- Out of scope by maintainer decision (2026-11-17): NTFS MFT/USN change-journal reading and running elevated.
+- ~~Out of scope by maintainer decision (2026-11-17): NTFS MFT/USN change-journal reading and running elevated.~~
+  Reversed 2026-11-19 for the optional turbo index helper only (decisions table); everything else still runs as the
+  normal user.
 
 Done when: budgets for "indexing" and "closed" are met or the gap is explained in `measurements.md`, and all
 tests pass.
@@ -261,8 +266,8 @@ both; the release workflow (`find-release.yml`) builds and attests both; SHA-256
 2. Polish deferred from 0.7.0 reviews (most disappear with Flutter): Home recent list fetches 500 rows for 8; light
    theme flash at start; glass sub-nav dark on light; Settings re-render during downloads; "a game" wording;
    Alt+Enter keeps a stale "here"; static-only UI tests.
-3. Later ideas (ask first): previews inside Find, optional admin "turbo" index (maintainer asked 2026-11-17; the
-   app never runs elevated today, so this needs its own design), code signing (SignPath) so SmartScreen and the
+3. Later ideas (ask first): previews inside Find, ~~optional admin "turbo" index~~ (built 2026-11-19, status
+   table), code signing (SignPath) so SmartScreen and the
    updater stop warning.
 
 ### Phase 5: carry the lessons to NOBAD VPN
@@ -277,7 +282,8 @@ both; the release workflow (`find-release.yml`) builds and attests both; SHA-256
 - Never touch, throttle or kill other apps. Only Find's own processes (by job membership).
 - No new outbound connection without a setting and an entry in the privacy docs; downloads only with consent,
   pinned and SHA-256 checked.
-- Never run elevated (except the existing Windows Search helper).
+- Never run elevated, except the Windows Search helper (`wsearch.helper_main`) and the optional turbo index helper
+  (`ntfs.helper_main`, off by default; maintainer decision 2026-11-19). No other elevated path.
 - Learned app data: exe file names only.
 - Releases only from CI (`find-v*` tag → `find-release.yml`), and everywhere: version, changelog, docs, website,
   memory repo (`docs/ai/playbooks/release-find.md`).
@@ -305,4 +311,6 @@ both; the release workflow (`find-release.yml`) builds and attests both; SHA-256
 | 3 | Full Flutter UI | **built, in review** | find-flutter-ui (draft PR #77 into find-flutter-prototype) | Every screen in section 5 (Home, results, filters, bar, Index, six Settings pages, welcome, consent, splash, toasts) on the full pipe contract; `FakeEngine` only for tests, goldens and the explicit demo; offline is shown as offline. Window 128 MB at start, 140 MB after searches, ~150-170 MB after every screen; bar hidden 2-10 MB ([measurements](docs/measurements.md#2026-11-19-full-flutter-ui-phase-3)). Still over the 100 MB window budget (Intel driver). Open: packaging and the release workflow |
 | 3 | Packaging (engine + UI), release workflow | not started | | |
 | 4 | 0.8.0 model tiers (multilingual, consent) | not started | | Spec §4 |
+| 4 | Scope (Whole PC / My files / Custom) and transparent categories | **built, in review** | find-turbo-index (draft PR into find-flutter-prototype) | `scope.py` (Rules, roots, `scope_info`), walker and live changes driven by `include_system/caches/secrets`, secrets names only (indexer `_skip_secrets`, no thumbnails), a scope change drops what's out on the next full scan. Real C:\ with the new defaults: 854 297 entries, 266 s, 314 MB peak private, 953 MB index (`docs/measurements.md`). Engine, whole PC by name (~0.8-0.9 M entries): 435 s at Full, 353 MB peak private (budget met); status counts now cost at most 5% of a core. Open: **one- and two-letter name searches scan every row (p90 2.5 s, max 13 s at a whole PC; `search.py`)**, closed 135 MB (re-measure after that), the Flutter Settings rows (UI agent), counts for caches/secrets are null |
+| 4 | Turbo index (elevated NTFS helper) | **built, in review; needs the maintainer's first elevated run** | find-turbo-index | `ntfs.py` (helper, parsing, privacy filter, journal), `turbo.py` (engine side, pipe, fallback), `turbo_state`/`turbo_set`/`turbo` event. Unit tests on synthetic USN_RECORD_V2/V3 and MFT records; nothing elevated was run by an agent. Next: the maintainer's elevated run (`--turbo selftest`, then turbo on in the engine) for walker vs turbo numbers. **From source the helper is dev only:** the UAC prompt names python.exe and the elevated interpreter imports from the user-writable source tree, so it refuses unless `NOBAD_FIND_DEV_TURBO=1` (set with `setx`: an elevated process doesn't inherit the caller's environment); the shipped exe is unaffected. Security review of #79 (2026-11-19): browser credential stores, Windows Credentials/Vault/Protect, chat tokens, developer tokens and wallets joined the secrets category; browser profiles and app databases are names only |
 | 5 | NOBAD VPN mini-window bug | waiting | | Needs the steps that trigger it from the maintainer |

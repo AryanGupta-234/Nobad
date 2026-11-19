@@ -10,7 +10,7 @@ import threading
 import time
 from collections import deque
 
-from . import embed, jobs, ocr, photo, thumbs, wsearch, winapi
+from . import embed, jobs, ocr, photo, scope, thumbs, wsearch, winapi
 from . import hardware as hw
 from .const import APP_VER, MODEL_FILES
 from .indexer import NAME_KINDS
@@ -20,6 +20,8 @@ from .search import SORTS, search
 
 MAX_QUERY = 500
 TOTALS_TTL = 10                  # seconds: the phase counts are COUNT queries, too heavy for every 2 s poll
+STATS_TTL = 10                   # seconds the index counts (Store.stats) are reused by status()
+COUNT_SHARE = 20                 # and at least 20x as long as they took to count: <= 5% of a core on a big index
 RATE_WINDOW = 15                 # status polls a progress rate is measured over (about 30 s)
 MAX_PAUSE_S = 24 * 3600
 QUIT_TIMEOUT = 15                # seconds a quit may take before the process ends anyway
@@ -53,6 +55,7 @@ class Api:
         self._on_hide = None              # app.py: what hiding the window means for indexing (lifecycle.after_hide)
         self._on_show = None              # engine.py: the UI's main window came up (indexing resumes)
         self._folder_dialog = None        # engine.py: the native folder dialog (no pywebview window there)
+        self._turbo = None                # engine.py: turbo.Turbo, the optional elevated NTFS index helper
         self._timer, self._exit = threading.Timer, os._exit     # tests replace them
 
     # ---------- search ----------
@@ -108,6 +111,8 @@ class Api:
         row = self._store.q("SELECT path, kind, mtime FROM files WHERE id=?", (file_id,))
         if not row or row[0][1] not in thumbs.KINDS:
             return {"url": ""}
+        if scope.Rules.from_settings(self._settings).names_only(row[0][0]):
+            return {"url": ""}                      # a preview is the content: secrets are names only
         return {"url": thumbs.data_url(row[0][0], row[0][2])}
 
     def here_folder(self):
@@ -132,7 +137,7 @@ class Api:
     # ---------- status and settings ----------
     def status(self):
         st = dict(self._indexer.status)
-        st.update(self._store.stats())
+        st.update(self._stats())
         st["version"] = APP_VER
         st["model"] = dict(self._model)
         st["photo_model"] = dict(self._photo_model)
@@ -145,6 +150,18 @@ class Api:
         with self._slock:
             self._transparency(st)
         return st
+
+    def _stats(self):
+        """Store.stats (six COUNTs over the whole index: seconds on a whole PC), reused for STATS_TTL seconds or
+        COUNT_SHARE times as long as the last count took, whichever is longer."""
+        at, ttl, cached = getattr(self, "_stats_cache", (None, 0.0, None))
+        now = self._clock()
+        if cached is not None and now - at < ttl:
+            return cached
+        cached = self._store.stats()
+        took = self._clock() - now
+        self._stats_cache = (now, max(STATS_TTL, COUNT_SHARE * took), cached)
+        return cached
 
     def status_brief(self):
         """The few status fields a status line needs, cheap enough for every 2 s (the pipe's status event)."""
@@ -211,7 +228,8 @@ class Api:
         at, k, counts = self._totals
         if not counts:
             return self._refresh(now, key)                  # the very first call computes inline
-        if (k != key or now - at >= TOTALS_TTL) and not (self._refresher and self._refresher.is_alive()):
+        ttl = max(TOTALS_TTL, COUNT_SHARE * getattr(self, "_totals_took", 0.0))
+        if (k != key or now - at >= ttl) and not (self._refresher and self._refresher.is_alive()):
             self._refresher = threading.Thread(target=self._refresh, args=(now, key), daemon=True, name="counts")
             self._refresher.start()                         # the COUNT queries never hold up a status poll
         return counts
@@ -223,6 +241,7 @@ class Api:
         if not s.get("src_mail"):
             text_ext -= {".eml", ".mbox"}
         mx = s.get("content_max_mb") * 1024 * 1024
+        t0 = time.monotonic()
         try:
             counts = {"text": (st.count_readable(text_ext, mx), st.count_needs_text(text_ext, mx)),
                       "ocr": (st.count_readable(ocr.OCR_EXT, mx, ocr.MIN_IMAGE_BYTES),
@@ -234,6 +253,7 @@ class Api:
         except Exception as e:
             log(f"status counts failed: {type(e).__name__}", "warn")
             counts = counts or {p: (0, 0) for p in ("text", "ocr", "meaning", "photos")}
+        self._totals_took = time.monotonic() - t0
         self._totals = (now, key, counts)
         return counts
 
@@ -348,11 +368,14 @@ class Api:
     def set_settings(self, changes):
         if not isinstance(changes, dict):
             return {"changed": []}
-        changes = {k: v for k, v in changes.items() if k not in ("wsearch_prev",)}
+        changes = {k: v for k, v in changes.items() if k not in ("wsearch_prev", "turbo")}   # turbo: turbo_set (UAC)
+        changes = scope.derive_changes(changes, self._settings.all())     # an older UI only sends roots
         changed = self._settings.update(changes)
         if "autostart" in changed:
             set_autostart(self._settings.get("autostart"))
-        if set(changed) & {"roots", "exclude"}:
+        if "include_secrets" in changed and not self._settings.get("include_secrets"):
+            self._remove_secrets()                   # off: their names leave the index now, not at the next walk
+        if set(changed) & {"roots", "exclude", "scope", "include_system", "include_caches", "include_secrets"}:
             self._indexer.rescan()
         for key, kind in (("index_removable", "removable"), ("index_network", "network")):
             if key in changed:
@@ -374,6 +397,48 @@ class Api:
             threading.Thread(target=self._indexer._load_embedder, daemon=True).start()
             self._indexer.wake.set()
         return {"changed": changed}
+
+    def _remove_secrets(self):
+        """Every secret (scope category) out of the index: key files by extension, secret folders by name."""
+        from .const import BROWSER_SECRET_FILES, SECRET_EXT, SECRET_FILES, SECRET_NAMES, SECRET_PATHS
+        rules = scope.Rules.from_settings(self._settings)
+        exts = sorted(SECRET_EXT)
+        names = sorted(SECRET_NAMES | SECRET_FILES | BROWSER_SECRET_FILES)
+        names += [n + t for n in sorted(SECRET_FILES | BROWSER_SECRET_FILES) for t in ("-journal", "-wal", "-shm")]
+
+        def esc(t):
+            return t.replace("!", "!!").replace("%", "!%").replace("_", "!_")
+        folders = ["%\\" + esc(n) + "\\%" for n in sorted(SECRET_NAMES)]
+        folders += ["%\\" + esc("\\".join(p)) + "\\%" for p in SECRET_PATHS]
+        like = " OR ".join(["lower(path) LIKE ? ESCAPE '!'"] * len(folders))
+        rows = self._store.q(f"SELECT path FROM files WHERE ext IN ({','.join('?' * len(exts))}) OR lower(name) IN "
+                             f"({','.join('?' * len(names))}) OR {like}", (*exts, *names, *folders))
+        gone = [r[0] for r in rows if rules.category(r[0]) == "secrets"]
+        if gone:
+            self._store.remove_paths(gone)
+        return len(gone)
+
+    def scope_info(self):
+        """What is indexed: the scope, its folders and every category with what's in it (scope.info)."""
+        return scope.info(self._settings, winapi.drives(), self._store)
+
+    # ---------- turbo index ----------
+    def turbo_state(self):
+        """The turbo index (turbo.Turbo.state); without the engine (the WebView app) it is never running."""
+        if self._turbo is not None:
+            return self._turbo.state()
+        return {"available": False, "enabled": bool(self._settings.get("turbo")), "running": False, "volumes": [],
+                "error": "The turbo index runs with the NOBAD Find engine only."}
+
+    def turbo_set(self, on):
+        """On: Windows asks for permission (once per run), the helper starts. Off: it ends."""
+        if self._turbo is None:
+            return {"ok": False, "error": "The turbo index runs with the NOBAD Find engine only.",
+                    "state": self.turbo_state()}
+        r = self._turbo.turn_on() if on else self._turbo.turn_off()
+        if r.get("ok") and on:
+            self._indexer.rescan()                  # read the drives with turbo now
+        return dict(r, state=self._turbo.state())
 
     def pick_folder(self):
         w = self._win()

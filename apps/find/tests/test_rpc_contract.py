@@ -75,7 +75,7 @@ def test_settings_schema_has_every_setting():
     from nobadfind.const import DEFAULTS
     s = METHODS["$defs"]["settings"]
     assert set(s["properties"]) == set(s["required"]) == set(DEFAULTS)
-    assert set(METHODS["$defs"]["settings_changes"]["properties"]) == set(DEFAULTS) - {"wsearch_prev"}
+    assert set(METHODS["$defs"]["settings_changes"]["properties"]) == set(DEFAULTS) - {"wsearch_prev", "turbo"}
     check(DEFAULTS, s)
 
 
@@ -134,6 +134,7 @@ BAD = {
     "quit": [{"confirm": True}, {}],
     "wsearch_set": [{"off": "yes"}, {}],
     "use_instead_of_windows_search": [{"on": 1}, {}],
+    "turbo_set": [{"on": "yes"}, {"on": 1}, {}],
     "subscribe": [{"events": "status"}, {"events": [1]}, {}],
     "unsubscribe": [{"events": "status"}, {}],
     "ui_shown": [{"window": "desktop"}],

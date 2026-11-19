@@ -15,7 +15,8 @@ from collections import deque
 from ..api import DownloadRate
 from ..log import log
 
-EVENTS = {"status", "status_full", "level", "activity", "download", "notice", "show", "here", "quitting"}
+EVENTS = {"status", "status_full", "level", "activity", "download", "notice", "show", "here", "quitting",
+          "turbo"}
 STATUS_EVERY = 2.0                 # seconds between status events
 TICK = 0.5                         # seconds between looks for level and download changes
 MAX_NOTICES = 5
@@ -94,6 +95,10 @@ class Events:
 
     def quitting(self):
         return self.push("quitting", {})
+
+    def turbo(self, state):
+        """The turbo index changed (turbo.Turbo pushes its state; turbo_set too)."""
+        return self.push("turbo", state)
 
     # ----- the main window, as the UIs report it -----
     # A connection's requests can still be running after its pipe closed (the reader saw the end first). These
