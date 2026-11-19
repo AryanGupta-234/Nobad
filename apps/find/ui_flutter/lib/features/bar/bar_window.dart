@@ -51,6 +51,7 @@ class _BarWindowState extends State<BarWindow> {
       if (e is QuittingEvent) widget.window.close();
     });
     widget.demo?.run(widget.engine, box, find, 'bar', after: hide);
+    _life; // start listening
   }
 
   /// Rows the window needs: the results, or one for "No match for …" or a failed open.
@@ -71,8 +72,22 @@ class _BarWindowState extends State<BarWindow> {
   bool _open = true;
   Timer? _hiding;
 
+  /// On screen, and since when (the focus shuffles for a moment while the window comes up).
+  bool _visible = true;
+  bool _settling = false;
+  Timer? _settle;
+  late final AppLifecycleListener _life = AppLifecycleListener(
+    onInactive: () {
+      if (_visible && !_settling) hide();
+    },
+  );
+
   void show() {
     _hiding?.cancel();
+    _visible = true;
+    _settling = true;
+    _settle?.cancel();
+    _settle = Timer(const Duration(milliseconds: 400), () => _settling = false);
     box.clear();
     setState(() => _open = false);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -87,6 +102,7 @@ class _BarWindowState extends State<BarWindow> {
   }
 
   void hide() {
+    _visible = false;
     unawaited(widget.engine.uiHidden('bar').catchError((Object _) {}));
     if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) return _gone();
     setState(() => _open = false);
@@ -123,6 +139,8 @@ class _BarWindowState extends State<BarWindow> {
   void dispose() {
     _shows.cancel();
     _hiding?.cancel();
+    _life.dispose();
+    _settle?.cancel();
     find.dispose();
     box.dispose();
     focus.dispose();

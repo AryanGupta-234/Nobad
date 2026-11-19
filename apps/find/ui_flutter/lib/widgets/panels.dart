@@ -170,71 +170,35 @@ class TileGrid extends StatelessWidget {
   );
 }
 
-/// A progress bar. [busy]: working with no known end (a moving segment, only while it's really working).
-class NbMeter extends StatefulWidget {
+/// A progress bar. [busy]: working with no known end (watching for changes, counting): a still, softly tinted
+/// track rather than an endless animation, which would keep the window drawing for nothing.
+class NbMeter extends StatelessWidget {
   const NbMeter({super.key, required this.fraction, this.busy = false, this.muted = false});
   final double fraction;
   final bool busy;
   final bool muted;
 
   @override
-  State<NbMeter> createState() => _NbMeterState();
-}
-
-class _NbMeterState extends State<NbMeter> with SingleTickerProviderStateMixin {
-  AnimationController? _spin;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _sync();
-  }
-
-  @override
-  void didUpdateWidget(NbMeter old) {
-    super.didUpdateWidget(old);
-    _sync();
-  }
-
-  void _sync() {
-    final want = widget.busy && !(MediaQuery.maybeDisableAnimationsOf(context) ?? false);
-    if (want && _spin == null) {
-      _spin = AnimationController(vsync: this, duration: const Duration(milliseconds: 1400))..repeat();
-    } else if (!want && _spin != null) {
-      _spin!.dispose();
-      _spin = null;
-    }
-  }
-
-  @override
-  void dispose() {
-    _spin?.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final c = NbColors.of(context);
-    final fill = widget.muted ? c.dim : c.orange;
+    final fill = muted ? c.dim : c.orange;
     return Semantics(
-      value: widget.busy ? null : '${(widget.fraction * 100).round()}%',
+      value: busy ? 'working' : '${(fraction * 100).round()}%',
       child: SizedBox(
         height: 6,
         child: ClipRRect(
           borderRadius: NbRadius.pillAll,
           child: ColoredBox(
             color: c.raised,
-            child: _spin == null
-                ? FractionallySizedBox(
-                    alignment: Alignment.centerLeft,
-                    widthFactor: widget.busy ? .3 : widget.fraction.clamp(0, 1),
-                    child: ColoredBox(color: fill),
-                  )
-                : AnimatedBuilder(
-                    animation: _spin!,
-                    builder: (context, _) => FractionallySizedBox(
-                      alignment: Alignment(-1.6 + 3.2 * _spin!.value, 0),
-                      widthFactor: .3,
+            child: busy
+                ? ColoredBox(color: fill.withValues(alpha: .35), child: const SizedBox.expand())
+                : TweenAnimationBuilder<double>(
+                    tween: Tween(end: fraction.clamp(0, 1).toDouble()),
+                    duration: NbMotion.of(context, NbMotion.slow),
+                    curve: NbMotion.curve,
+                    builder: (context, f, _) => FractionallySizedBox(
+                      alignment: Alignment.centerLeft,
+                      widthFactor: f,
                       child: ColoredBox(color: fill),
                     ),
                   ),

@@ -1,8 +1,8 @@
 /// Home, shown while the box and the filters are empty: the one display line, examples to try, quick tiles
 /// (the same filters as the bar), files changed lately, and the keys.
 ///
-/// "Recently changed" is asked for once when Home appears and again only when the index grows (status events),
-/// at most every 15 s, and asks for 8 rows, not 500 (a 0.7.0 review note).
+/// "Recently changed" is asked for when Home appears, when the engine connects, and again when the index grows
+/// (status events, at most every 15 s) or after a failed try. The engine sends its usual answer; 8 are shown.
 library;
 
 import 'dart:async';
@@ -13,6 +13,7 @@ import '../../app/scope.dart';
 import '../../app/theme/colors.dart';
 import '../../app/theme/tokens.dart';
 import '../../app/theme/typography.dart';
+import '../../engine/engine_api.dart' show Link;
 import '../../engine/models/result.dart';
 import '../../widgets/common.dart';
 import '../../widgets/controls.dart';
@@ -60,12 +61,23 @@ class _HomeViewState extends State<HomeView> {
     _scope?.status.removeListener(_statusChanged);
     _scope = s;
     s.status.addListener(_statusChanged);
+    s.engine.link.addListener(_linkChanged);
     _files = s.status.status?.files ?? -1;
     unawaited(_load());
   }
 
+  bool _failed = false;
+
+  void _linkChanged() {
+    if (_scope!.engine.link.value == Link.connected) unawaited(_load());
+  }
+
   void _statusChanged() {
     final n = _scope!.status.status?.files ?? -1;
+    if (_failed) {
+      unawaited(_load());
+      return;
+    }
     if (n == _files) return;
     _files = n;
     if (DateTime.now().difference(_asked) > const Duration(seconds: 15)) unawaited(_load());
@@ -75,6 +87,7 @@ class _HomeViewState extends State<HomeView> {
     _asked = DateTime.now();
     try {
       final a = await _scope!.engine.search('', filters: const SearchFilters(sort: 'newest'));
+      _failed = false;
       if (!mounted) return;
       setState(
         () => _recent = [
@@ -83,6 +96,7 @@ class _HomeViewState extends State<HomeView> {
         ].take(8).toList(),
       );
     } on Object {
+      _failed = true; // tried again on the next status or when the engine comes back
       if (mounted) setState(() => _recent ??= const []);
     }
   }
@@ -90,6 +104,7 @@ class _HomeViewState extends State<HomeView> {
   @override
   void dispose() {
     _scope?.status.removeListener(_statusChanged);
+    _scope?.engine.link.removeListener(_linkChanged);
     super.dispose();
   }
 

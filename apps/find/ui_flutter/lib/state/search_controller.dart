@@ -262,6 +262,34 @@ class FindController extends ChangeNotifier {
 
   void clear() => setText('');
 
+  /// Esc: clears the words, else the filters; false when there was nothing left to clear (then the window hides).
+  bool clearOne() {
+    if (_text.isNotEmpty) {
+      setText('');
+      return true;
+    }
+    if (!_filters.isEmpty) {
+      clearFilters();
+      return true;
+    }
+    return false;
+  }
+
+  String? _handOver;
+
+  /// Words for the search box from outside it (the bar's Alt+Enter), kept until the search screen takes them,
+  /// even when another page is open.
+  void handOver(String text) {
+    _handOver = text;
+    if (!_disposed) notifyListeners();
+  }
+
+  String? takeHandOver() {
+    final t = _handOver;
+    _handOver = null;
+    return t;
+  }
+
   @override
   void dispose() {
     _disposed = true;

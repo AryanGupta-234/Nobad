@@ -43,6 +43,8 @@ class _ShellState extends State<Shell> {
     _shows?.cancel();
     _shows = s.engine.events.listen((e) {
       if (e is ShowEvent && e.what == 'main') {
+        final t = e.text;
+        if (t != null) s.find.handOver(t); // kept until the search screen takes it
         s.window.front();
         unawaited(s.engine.uiShown('main').catchError((Object _) {})); // the engine starts idle until a window shows
         s.nav.go(AppTab.search);

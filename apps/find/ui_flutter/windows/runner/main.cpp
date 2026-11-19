@@ -60,6 +60,22 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
                              command_line_arguments.end(),
                              "--bar") != command_line_arguments.end();
 
+  // One main window and one bar per user session: a second start of the main window brings the running one to
+  // the front and ends; a second bar just ends (the engine's bar hotkey shows the running one).
+  HANDLE single = CreateMutexW(nullptr, FALSE, bar ? L"Local\\NOBADFindUI-bar" : L"Local\\NOBADFindUI-main");
+  if (single != nullptr && GetLastError() == ERROR_ALREADY_EXISTS) {
+    if (!bar) {
+      HWND other = FindWindowW(L"FLUTTER_RUNNER_WIN32_WINDOW", L"NOBAD Find");
+      if (other != nullptr) {
+        ShowWindow(other, IsIconic(other) ? SW_RESTORE : SW_SHOW);
+        SetForegroundWindow(other);
+      }
+    }
+    CloseHandle(single);
+    ::CoUninitialize();
+    return EXIT_SUCCESS;
+  }
+
   project.set_dart_entrypoint_arguments(std::move(command_line_arguments));
 
   FlutterWindow window(project);

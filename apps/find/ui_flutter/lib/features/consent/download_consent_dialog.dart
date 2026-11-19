@@ -132,8 +132,9 @@ class ConsentDialog extends StatelessWidget {
         ],
       ),
       actions: [
-        NbButton('Not now', kind: NbButtonKind.ghost, onPressed: () => Navigator.pop(context, false)),
-        NbButton('Download', autofocus: true, onPressed: () => Navigator.pop(context, true)),
+        // no download by pressing Enter: "Not now" has the focus
+        NbButton('Not now', kind: NbButtonKind.ghost, autofocus: true, onPressed: () => Navigator.pop(context, false)),
+        NbButton('Download', onPressed: () => Navigator.pop(context, true)),
       ],
     );
   }

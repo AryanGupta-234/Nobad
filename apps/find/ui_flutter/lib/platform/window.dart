@@ -256,3 +256,24 @@ void allowSetForeground(int pid) {
     // best effort: the dialog still opens, maybe behind this window
   }
 }
+
+/// Windows' Settings > Accessibility > Visual effects > "Animation effects" (SPI_GETCLIENTAREAANIMATION): true when
+/// it is off, so the UI shows changes at once. False off Windows or if Windows can't say.
+bool systemAnimationsOff() {
+  if (!Platform.isWindows) return false;
+  try {
+    final u32 = DynamicLibrary.open('user32.dll');
+    final spi = u32
+        .lookupFunction<
+          Int32 Function(Uint32, Uint32, Pointer<Int32>, Uint32),
+          int Function(int, int, Pointer<Int32>, int)
+        >('SystemParametersInfoW');
+    return using((a) {
+      final v = a<Int32>();
+      if (spi(0x1042, 0, v, 0) == 0) return false; // SPI_GETCLIENTAREAANIMATION
+      return v.value == 0;
+    });
+  } on Object {
+    return false;
+  }
+}

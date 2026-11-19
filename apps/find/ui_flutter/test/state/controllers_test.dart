@@ -1,5 +1,6 @@
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nobad_find/engine/engine_api.dart';
 import 'package:nobad_find/engine/events.dart';
 import 'package:nobad_find/engine/fake_engine.dart';
 import 'package:nobad_find/engine/models/result.dart';
@@ -11,6 +12,27 @@ import 'package:nobad_find/state/toast_controller.dart';
 
 void main() {
   group('FindController', () {
+    test('words handed over by the bar wait until the search screen takes them', () {
+      final f = FindController(FakeEngine(), debounce: Duration.zero);
+      f.handOver('tax pdf');
+      expect(f.takeHandOver(), 'tax pdf');
+      expect(f.takeHandOver(), isNull);
+      f.dispose();
+    });
+
+    test('Esc order: words, then filters, then nothing left to clear', () {
+      final f = FindController(FakeEngine(), debounce: Duration.zero);
+      f.setText('tax');
+      f.setFilters(const SearchFilters(kind: 'pdf'));
+      expect(f.clearOne(), isTrue);
+      expect(f.text, '');
+      expect(f.filters.kind, 'pdf');
+      expect(f.clearOne(), isTrue);
+      expect(f.filters.isEmpty, isTrue);
+      expect(f.clearOne(), isFalse);
+      f.dispose();
+    });
+
     test('filters go with the words; filters alone list files, the order alone does not', () async {
       final e = FakeEngine();
       final f = FindController(e, debounce: Duration.zero);
@@ -85,6 +107,17 @@ void main() {
   });
 
   group('StatusController', () {
+    test('losing the engine drops the details: nothing old is shown as current', () async {
+      final e = FakeEngine();
+      final s = StatusController(e);
+      await s.watch(true);
+      expect(s.details, isNotNull);
+      e.linkState = Link.offline;
+      expect(s.details, isNull);
+      expect(s.activity, isEmpty);
+      s.dispose();
+    });
+
     test('status from events; details only while watched; new decisions on top; downloads from events', () async {
       final e = FakeEngine();
       final s = StatusController(e);
@@ -101,6 +134,8 @@ void main() {
       e.emit(const StatusEvent(EngineStatus(level: 'full', files: 3)));
       expect(s.status?.level, 'full');
       expect(s.line, '3 files indexed · Working at full speed');
+      e.emit(const StatusEvent(EngineStatus(level: 'paused', files: 3, phase: 'text', paused: 'Paused: on battery')));
+      expect(s.line, '3 files indexed · Paused: on battery');
       e.emit(const LevelEvent('paused', 'Paused: on battery', paused: 'on battery'));
       expect(s.status?.phaseLabel, 'Paused · on battery');
       await s.watch(false);
@@ -110,6 +145,32 @@ void main() {
   });
 
   group('SettingsController', () {
+    test('errors say what happened: offline, refused, failed', () async {
+      final e = FakeEngine();
+      final toasts = ToastController();
+      final c = SettingsController(e, toasts: toasts);
+      await c.load();
+      e.offline = true;
+      expect(await c.set('theme', 'light'), isFalse);
+      expect(toasts.message, "NOBAD Find's engine isn't running.");
+      expect(c.settings.dark, isTrue); // shown as it really is
+      e.offline = false;
+      e.failNext = const RpcException(-32602, "'changes' must be an object");
+      expect(await c.set('theme', 'light'), isFalse);
+      expect(toasts.message, "That value wasn't accepted.");
+      e.failNext = const RpcException(-32603, 'The engine failed');
+      expect(await c.set('theme', 'light'), isFalse);
+      expect(toasts.message, "Couldn't save that. Try again.");
+      e.wipeError = 'The index is in use. Try again in a moment.';
+      expect(await c.wipe(() async => 'DELETE'), isFalse);
+      expect(toasts.message, 'The index is in use. Try again in a moment.');
+      e.offline = true;
+      expect(await c.wipe(() async => 'DELETE'), isFalse);
+      expect(toasts.message, "NOBAD Find's engine isn't running.");
+      c.dispose();
+      toasts.dispose();
+    });
+
     test('a change goes to the engine; a refused one says so and snaps back', () async {
       final e = FakeEngine();
       final toasts = ToastController();

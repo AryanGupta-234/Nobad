@@ -68,11 +68,11 @@ Future<bool> confirmDialog(
       title: title,
       body: Text(question),
       actions: [
-        NbButton(no, kind: NbButtonKind.ghost, onPressed: () => Navigator.pop(context, false)),
+        // the safe answer has the focus: Enter never forgets or deletes by accident
+        NbButton(no, kind: NbButtonKind.ghost, autofocus: true, onPressed: () => Navigator.pop(context, false)),
         NbButton(
           yes,
           kind: danger ? NbButtonKind.danger : NbButtonKind.primary,
-          autofocus: true,
           onPressed: () => Navigator.pop(context, true),
         ),
       ],

@@ -9,6 +9,14 @@ import '../engine/models/settings.dart';
 
 import 'toast_controller.dart';
 
+/// What to tell the user when a call failed: the engine is gone, it refused the request, or something else.
+String errorText(Object e, {String invalid = "That wasn't accepted.", String other = "That didn't work. Try again."}) {
+  if (e is EngineOffline) return "NOBAD Find's engine isn't running.";
+  if (e is RpcException && e.code == -32601) return e.message;
+  if (e is RpcException && e.code == -32602) return invalid;
+  return other;
+}
+
 class SettingsController extends ChangeNotifier {
   SettingsController(this.engine, {this.toasts});
 
@@ -69,8 +77,8 @@ class SettingsController extends ChangeNotifier {
     SettingsChange r;
     try {
       r = await engine.setSettings({key: value});
-    } on Object {
-      _say("NOBAD Find's engine isn't running.");
+    } on Object catch (e) {
+      _say(errorText(e, invalid: "That value wasn't accepted.", other: "Couldn't save that. Try again."));
       _settings = before;
       _changed();
       return false;
@@ -154,22 +162,24 @@ class SettingsController extends ChangeNotifier {
   Future<bool> wipe(Future<String?> Function() ask) async {
     if (await ask() != 'DELETE') return false;
     try {
-      if ((await engine.wipe('DELETE')).ok) {
+      final r = await engine.wipe('DELETE');
+      if (r.ok) {
         _say('Index deleted. Rebuilding.');
         return true;
       }
-    } on Object {
-      // falls through
+      _say(r.error.isNotEmpty ? r.error : "The index wasn't deleted. Try again.");
+    } on Object catch (e) {
+      _say(errorText(e, other: "The index wasn't deleted. Try again."));
     }
     return false;
   }
 
   Future<void> rescan() async {
     try {
-      await engine.rescan();
-      _say('Rescan started.');
-    } on Object {
-      _say("NOBAD Find's engine isn't running.");
+      final r = await engine.rescan();
+      _say(r.ok ? 'Rescan started.' : (r.error.isNotEmpty ? r.error : "The rescan didn't start. Try again."));
+    } on Object catch (e) {
+      _say(errorText(e));
     }
   }
 

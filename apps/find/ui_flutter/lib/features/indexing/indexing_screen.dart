@@ -83,7 +83,8 @@ class _IndexingScreenState extends State<IndexingScreen> {
                       padding: const EdgeInsets.only(top: NbSpace.x4),
                       child: Text(s.status.line, style: NbType.text(13, c.warn)),
                     ),
-                  if (d != null) ..._details(context, s, d),
+                  // no engine: no numbers at all (old ones would look current)
+                  if (d != null && s.status.connected) ..._details(context, s, d),
                   if (d == null && s.status.connected) const _Loading(),
                 ],
               ),

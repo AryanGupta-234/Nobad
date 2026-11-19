@@ -5,6 +5,7 @@ library;
 import 'package:flutter/widgets.dart';
 
 import '../../app/scope.dart';
+import '../../state/settings_controller.dart' show errorText;
 import '../../engine/engine_api.dart' show FolderPick;
 import '../../engine/models/result.dart';
 import '../../widgets/controls.dart';
@@ -71,7 +72,12 @@ class FilterBar extends StatelessWidget {
                 tooltip: f.folder.isEmpty ? 'Only inside one folder' : '${f.folder} (click to search everywhere again)',
                 onTap: () async {
                   if (f.folder.isNotEmpty) return set(f.copyWith(folder: ''));
-                  final p = await s.engine.pickFolder().catchError((Object _) => const FolderPick(''));
+                  FolderPick p;
+                  try {
+                    p = await s.engine.pickFolder();
+                  } on Object catch (e) {
+                    return s.toasts.show(errorText(e));
+                  }
                   if (p.busy) return s.toasts.show('The folder window is already open.');
                   if (p.path.isNotEmpty) set(find.filters.copyWith(folder: p.path));
                 },

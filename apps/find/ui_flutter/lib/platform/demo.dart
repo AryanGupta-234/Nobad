@@ -23,15 +23,19 @@ final shotBoundary = GlobalKey(debugLabel: 'demo shot');
 final appNavigator = GlobalKey<NavigatorState>(debugLabel: 'app navigator');
 
 class Demo {
-  Demo._(this._queries, {this.isTour = false});
+  Demo._(this._queries, {this.isTour = false, this.keepSettings = false});
   final List<String> _queries;
   final bool isTour;
+
+  /// `tour-current`: only the theme already set, changing no setting (safe on someone else's engine).
+  final bool keepSettings;
 
   /// Null unless NOBAD_FIND_UI_DEMO is set ("1" for the default searches, `a|b|c`, or "tour").
   static Demo? fromEnvironment() {
     final v = Platform.environment['NOBAD_FIND_UI_DEMO'];
     if (v == null || v.isEmpty) return null;
     if (v == 'tour') return Demo._(const [], isTour: true);
+    if (v == 'tour-current') return Demo._(const [], isTour: true, keepSettings: true);
     return Demo._(v == '1' ? const ['tax', 'beach photo', 'invoice march', 'notes', 'budget'] : v.split('|'));
   }
 
@@ -93,9 +97,9 @@ class Demo {
     await _wait(1200);
     if (!s.settings.settings.flag('welcome_seen')) {
       await _shot('tour-welcome-dark.png');
-      await s.settings.set('welcome_seen', true);
+      if (!keepSettings) await s.settings.set('welcome_seen', true);
     }
-    for (final theme in ['dark', 'light']) {
+    for (final theme in keepSettings ? [s.settings.settings.text('theme')] : ['dark', 'light']) {
       if (s.settings.settings.text('theme') != theme) await s.settings.set('theme', theme);
       await _wait(700);
       s.nav.go(AppTab.search);

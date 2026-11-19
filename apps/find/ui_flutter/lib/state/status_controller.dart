@@ -48,7 +48,14 @@ class StatusController extends ChangeNotifier {
   }
 
   void _linkChanged() {
-    if (connected && _watchers > 0) unawaited(_refreshDetails(subscribe: true));
+    if (connected) {
+      if (_watchers > 0) unawaited(_refreshDetails(subscribe: true));
+    } else {
+      // no engine: nothing old is shown as if it were current
+      _details = null;
+      _activity = const [];
+      _downloads.clear();
+    }
     _changed();
   }
 
@@ -120,7 +127,8 @@ class StatusController extends ChangeNotifier {
     if (s == null) return 'Connected';
     return [
       '${groupDigits(s.files)} files indexed',
-      if (s.levelLabel.isNotEmpty) s.levelLabel,
+      // "Paused" once: the phase already says it while paused
+      if (s.levelLabel.isNotEmpty && !(s.paused.isNotEmpty && s.levelLabel == 'Paused')) s.levelLabel,
       if (s.phaseLabel.isNotEmpty) s.phaseLabel,
     ].join(' · ');
   }

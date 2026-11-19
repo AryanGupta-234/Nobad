@@ -83,15 +83,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 alignment: Alignment.topLeft,
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: NbSpace.column),
-                  // not const: a page rebuilds when the settings or the status change
-                  child: switch (s.nav.page) {
-                    SettingsPage.general => GeneralPage(key: ValueKey(s.nav.page)),
-                    SettingsPage.indexing => IndexingPage(key: ValueKey(s.nav.page)),
-                    SettingsPage.models => ModelsPage(key: ValueKey(s.nav.page)),
-                    SettingsPage.performance => PerformancePage(key: ValueKey(s.nav.page)),
-                    SettingsPage.privacy => PrivacyPage(key: ValueKey(s.nav.page)),
-                    SettingsPage.about => AboutPage(key: ValueKey(s.nav.page)),
-                  },
+                  // not const: a page rebuilds when the settings or the status change. Without the engine the
+                  // page says so and can't be changed (nothing would be saved).
+                  child: _OfflineGate(
+                    offline: !s.status.connected,
+                    child: switch (s.nav.page) {
+                      SettingsPage.general => GeneralPage(key: ValueKey(s.nav.page)),
+                      SettingsPage.indexing => IndexingPage(key: ValueKey(s.nav.page)),
+                      SettingsPage.models => ModelsPage(key: ValueKey(s.nav.page)),
+                      SettingsPage.performance => PerformancePage(key: ValueKey(s.nav.page)),
+                      SettingsPage.privacy => PrivacyPage(key: ValueKey(s.nav.page)),
+                      SettingsPage.about => AboutPage(key: ValueKey(s.nav.page)),
+                    },
+                  ),
                 ),
               ),
             ),
@@ -140,6 +144,37 @@ class _SubNav extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+/// Without the engine: a line saying so, and the page shown but not changeable.
+class _OfflineGate extends StatelessWidget {
+  const _OfflineGate({required this.offline, required this.child});
+  final bool offline;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!offline) return child;
+    final c = NbColors.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: NbSpace.x5),
+          child: Semantics(
+            liveRegion: true,
+            child: Text(
+              "NOBAD Find's engine isn't running, so settings can't be changed right now. They come back with it.",
+              style: NbType.text(13.5, c.warn, height: 1.5),
+            ),
+          ),
+        ),
+        IgnorePointer(
+          child: ExcludeFocus(child: Opacity(opacity: .45, child: child)),
+        ),
+      ],
     );
   }
 }

@@ -40,7 +40,10 @@ class _SearchScreenState extends State<SearchScreen> {
   late final box = TextEditingController(text: AppScope.of(context).find.text);
   final focus = FocusNode(debugLabel: 'search box');
   final scroll = ScrollController();
-  final _selKey = GlobalKey();
+
+  /// One key per row for the answer on screen, so the selected row can be scrolled to without rebuilding rows.
+  final _rowKeys = <int, GlobalKey>{};
+  int _keysFor = -1;
   StreamSubscription<EngineEvent>? _shows;
   int _lastSel = -1;
   bool _wired = false;
@@ -54,19 +57,31 @@ class _SearchScreenState extends State<SearchScreen> {
     Demo.mainBox = box;
     box.addListener(() => s.find.setText(box.text));
     s.find.addListener(_follow);
+    s.find.addListener(_takeHandOver);
+    _takeHandOver();
     _shows = s.engine.events.listen((e) {
-      if (e is ShowEvent && e.what == 'main') {
-        final t = e.text;
-        if (t != null) {
-          box.text = t; // the bar's words (Alt+Enter)
-          box.selection = TextSelection.collapsed(offset: t.length);
-          focus.requestFocus();
-          return;
-        }
+      if (e is ShowEvent && e.what == 'main' && e.text == null) {
         focus.requestFocus();
         box.selection = TextSelection(baseOffset: 0, extentOffset: box.text.length);
       }
     });
+  }
+
+  /// The bar's words (Alt+Enter), held by the controller until this screen is there to take them.
+  void _takeHandOver() {
+    final t = s.find.takeHandOver();
+    if (t == null) return;
+    box.text = t;
+    box.selection = TextSelection.collapsed(offset: t.length);
+    focus.requestFocus();
+  }
+
+  GlobalKey rowKey(int id) {
+    if (_keysFor != s.find.serial) {
+      _keysFor = s.find.serial;
+      _rowKeys.clear();
+    }
+    return _rowKeys.putIfAbsent(id, GlobalKey.new);
   }
 
   void _follow() {
@@ -79,7 +94,8 @@ class _SearchScreenState extends State<SearchScreen> {
   /// jumped far, e.g. wrapping from the first to the last) is first reached by an estimate, then aligned.
   void _reveal({required bool retry}) {
     if (!mounted) return;
-    final ctx = _selKey.currentContext;
+    final cur = s.find.current;
+    final ctx = cur == null ? null : _rowKeys[cur.id]?.currentContext;
     if (ctx != null && ctx.mounted) {
       final ro = ctx.findRenderObject();
       final viewport = ro == null ? null : RenderAbstractViewport.maybeOf(ro);
@@ -108,6 +124,7 @@ class _SearchScreenState extends State<SearchScreen> {
     if (identical(Demo.mainBox, box)) Demo.mainBox = null;
     _shows?.cancel();
     s.find.removeListener(_follow);
+    s.find.removeListener(_takeHandOver);
     box.dispose();
     focus.dispose();
     scroll.dispose();
@@ -120,7 +137,10 @@ class _SearchScreenState extends State<SearchScreen> {
       return;
     }
     final ok = await s.find.openSelected();
-    if (ok && s.settings.settings.flag('hide_after_open')) s.window.hide();
+    if (ok && s.settings.settings.flag('hide_after_open')) {
+      s.window.hide();
+      unawaited(s.engine.uiHidden('main').catchError((Object _) {}));
+    }
   }
 
   void _copy() {
@@ -140,11 +160,13 @@ class _SearchScreenState extends State<SearchScreen> {
     if (mounted) focus.requestFocus();
   }
 
+  /// Esc clears the words, then the filters, and only then hides the window.
   void _escape() {
-    if (box.text.isNotEmpty || !s.find.filters.isEmpty) {
+    if (box.text.isNotEmpty) {
       box.clear();
       return;
     }
+    if (s.find.clearOne()) return;
     s.window.hide();
     unawaited(s.engine.uiHidden('main').catchError((Object _) {}));
   }
@@ -212,7 +234,7 @@ class _SearchScreenState extends State<SearchScreen> {
                     : _Results(
                         key: const ValueKey('results'),
                         scroll: scroll,
-                        selKey: _selKey,
+                        rowKey: rowKey,
                         onTap: (i, reveal) {
                           s.find.select(i);
                           _open(reveal: reveal);
@@ -385,12 +407,12 @@ class _Results extends StatelessWidget {
   const _Results({
     super.key,
     required this.scroll,
-    required this.selKey,
+    required this.rowKey,
     required this.onTap,
     required this.onSecondary,
   });
   final ScrollController scroll;
-  final GlobalKey selKey;
+  final GlobalKey Function(int id) rowKey;
   final void Function(int index, bool reveal) onTap;
   final void Function(int index) onSecondary;
 
@@ -415,7 +437,7 @@ class _Results extends StatelessWidget {
             key: ValueKey((s.find.serial, rows[idx].id)),
             delay: Appear.stagger(i),
             child: ResultTile(
-              key: sel ? selKey : ValueKey(rows[idx].id),
+              key: rowKey(rows[idx].id), // stable: moving the selection only repaints two rows
               engine: s.engine,
               result: rows[idx],
               selected: sel,

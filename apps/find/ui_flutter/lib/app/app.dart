@@ -32,8 +32,13 @@ class NobadFindApp extends StatefulWidget {
     this.window = const NoWindow(),
     this.demo,
     this.splash = true,
+    this.reduceMotion,
   });
   final EngineApi engine;
+
+  /// Animations off: Windows' "Animation effects" switch (read at start and when the window comes back), or
+  /// forced by tests.
+  final bool? reduceMotion;
   final AppMode mode;
   final WindowControl window;
   final Demo? demo;
@@ -53,10 +58,18 @@ class _NobadFindAppState extends State<NobadFindApp> {
   final nav = AppNav();
   bool _glass = false;
   (bool, bool)? _applied;
+  late bool _motionOff = widget.reduceMotion ?? systemAnimationsOff();
+
+  /// On screen (not hidden or minimized): animations only run while it is.
+  bool _onScreen = true;
+  late final AppLifecycleListener _life;
+
+  String get _windowName => widget.mode == AppMode.bar ? 'bar' : 'main';
 
   @override
   void initState() {
     super.initState();
+    _life = AppLifecycleListener(onStateChange: _lifecycle);
     settings.addListener(_restyle);
     unawaited(settings.load());
     widget.engine.link.addListener(_relink);
@@ -78,8 +91,24 @@ class _NobadFindAppState extends State<NobadFindApp> {
     setState(() => _glass = took);
   }
 
+  /// Minimized or hidden: tell the engine (it stops indexing when the main window goes, unless asked to keep on)
+  /// and stop every animation; back on screen: the same the other way, and look at the animation setting again.
+  void _lifecycle(AppLifecycleState state) {
+    final on = state == AppLifecycleState.resumed || state == AppLifecycleState.inactive;
+    if (on == _onScreen) return;
+    if (widget.mode == AppMode.main) {
+      final f = on ? widget.engine.uiShown(_windowName) : widget.engine.uiHidden(_windowName);
+      unawaited(f.catchError((Object _) {}));
+    }
+    setState(() {
+      _onScreen = on;
+      if (on && widget.reduceMotion == null) _motionOff = systemAnimationsOff();
+    });
+  }
+
   @override
   void dispose() {
+    _life.dispose();
     settings.removeListener(_restyle);
     widget.engine.link.removeListener(_relink);
     find.dispose();
@@ -115,9 +144,15 @@ class _NobadFindAppState extends State<NobadFindApp> {
               nav: nav,
               window: widget.window,
               version: appVersion,
-              child: DefaultTextStyle(
-                style: TextStyle(color: c.text, fontSize: 14),
-                child: child!,
+              child: MediaQuery(
+                data: MediaQuery.of(context).copyWith(disableAnimations: _motionOff),
+                child: TickerMode(
+                  enabled: _onScreen,
+                  child: DefaultTextStyle(
+                    style: TextStyle(color: c.text, fontSize: 14),
+                    child: child!,
+                  ),
+                ),
               ),
             ),
           ),
