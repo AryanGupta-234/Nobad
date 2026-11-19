@@ -232,7 +232,7 @@ class Api:
             if last and now > last[0]:
                 cpu = max(0.0, min(100.0, (info["cpu_seconds"] - last[1]) / (now - last[0]) / cores * 100))
             seen[pid] = (now, info["cpu_seconds"])
-            procs.append({"name": names.get(pid, "Window (WebView2)"), "pid": int(pid), "cpu": round(cpu, 1),
+            procs.append({"name": names.get(pid, "Helper"), "pid": int(pid), "cpu": round(cpu, 1),
                           "memory_mb": int(info["memory_mb"])})
         self._pcpu = seen
         use = jobs.OUTER.usage() if jobs.OUTER is not None else {"cpu_seconds": 0.0, "read_bytes": 0}
@@ -463,7 +463,7 @@ class Api:
 
     # ---------- turbo index ----------
     def turbo_state(self):
-        """The turbo index (turbo.Turbo.state); without the engine (the WebView app) it is never running."""
+        """The turbo index (turbo.Turbo.state); never running without one (tests)."""
         if self._turbo is not None:
             return self._turbo.state()
         return {"available": False, "enabled": bool(self._settings.get("turbo")), "running": False, "volumes": [],

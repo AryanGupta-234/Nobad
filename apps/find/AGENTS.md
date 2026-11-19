@@ -7,7 +7,7 @@ then features), the architecture, the feature inventory, and a status table to r
 
 Specific to this app:
 
-- **Runs as the normal user, never as admin** (`app.py` and `engine.py` refuse to start elevated). There are
+- **Runs as the normal user, never as admin** (`app.py` and `engine.py` refuse to start elevated; the Flutter UI is started by the engine as the same user). There are
   exactly two elevated helpers; don't add others:
   - `wsearch.helper_main`: accepts the four words in `wsearch.STARTS` and runs `sc.exe` with a fixed argument list.
   - `ntfs.helper_main` (the **turbo index**, maintainer decision 2026-11-19, setting `turbo`, **off by default**):
@@ -52,8 +52,10 @@ Specific to this app:
 - Models are `embed.Lazy`: loaded on use, released when idle. Don't hold a model outside that wrapper.
 - Typed network paths (\\server\share) are never looked up on disk (`search.folder_checker`): only folders already
   in the index or the folder list count, so typing one can't make Windows contact a server.
-- New setting: `const.DEFAULTS` + `settings.coerce` + a row in `ui/app.js` GROUPS + `contract/methods.schema.json`
-  (`$defs/settings` and `settings_changes`).
+- New setting: `const.DEFAULTS` + `settings.coerce` + a row on its Flutter Settings page
+  (`ui_flutter/lib/features/settings/pages/`) + `contract/methods.schema.json` (`$defs/settings` and `settings_changes`).
+- The window is the Flutter UI only (`ui_flutter/`, `nobad_find.exe` next to `NobadFind.exe`, started by
+  `uilaunch.py`). The old pywebview UI was removed in 0.8.5; don't add a web view, a local server or pywebview back.
 - The UI ⇄ engine pipe (`nobadfind/rpc/`) follows `contract/`: a new or changed method or event updates the schema,
   `contract/README.md`, a transcript (`python tests/test_rpc_contract.py --record`) and the Dart side together.
   Handlers stay thin (check params, call the `Api` method, shape the result); files only by result id.

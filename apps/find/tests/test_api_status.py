@@ -195,7 +195,7 @@ def test_resource_rates_are_deltas(tmp_path, monkeypatch):
     assert r["read_mb_s"] == 2.0
     assert r["cpu"] == round(5.0 / 10 / cores * 100, 1)
     proc = {p["pid"]: p for p in r["processes"]}
-    assert proc[os.getpid()]["name"] == "Main" and proc[999]["name"] == "Window (WebView2)"
+    assert proc[os.getpid()]["name"] == "Main" and proc[999]["name"] == "Helper"
     assert proc[999]["cpu"] == round(5.0 / 10 / cores * 100, 1) and proc[os.getpid()]["cpu"] == 0.0
     s.close()
 

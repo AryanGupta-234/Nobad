@@ -11,8 +11,8 @@ only point here. Keep this file short; details live in the files it links.
 - `apps/vpn/`: NOBAD VPN for Windows (Python 3.11, runs **elevated**). Backend `nobadvpn/`, web UI
   `nobadvpn/ui/*.js|css` shown in pywebview, tests `apps/vpn/tests/`, docs `apps/vpn/docs/`.
 - NOBAD File Bridge lives in its own repository, [nobad-studio/file-bridge](https://github.com/nobad-studio/file-bridge) (maintainer @harshRaj1601).
-- `apps/find/`: NOBAD Find, private offline search for your own files (Python 3.11 + pywebview, runs as the normal
-  user, released from `find-v*` tags by `find-release.yml`). Its own [`apps/find/AGENTS.md`](apps/find/AGENTS.md) lists what's in and out of scope.
+- `apps/find/`: NOBAD Find, private offline search for your own files (Python 3.11 engine + Flutter UI over a
+  private pipe, runs as the normal user, released from `find-v*` tags by `find-release.yml`). Its own [`apps/find/AGENTS.md`](apps/find/AGENTS.md) lists what's in and out of scope.
 - `site-pages/` + `releases/vpn/releases.json` → `npm run build` → `public/` (generated, untracked). Hosted on a
   Cloudflare worker (`wrangler.jsonc`), deployed from `main`.
 - `docs/ai/`: assistant playbooks, tools and memory (this system).

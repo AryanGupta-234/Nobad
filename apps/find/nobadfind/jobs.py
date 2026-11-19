@@ -109,7 +109,7 @@ def process_info(pid):
 class Job:
     def __init__(self, name=None, kill_on_close=True, breakaway=False):
         """breakaway: a process started with CREATE_BREAKAWAY_FROM_JOB may leave the job. Only OUTER has it, so
-        the program a file opens in outlives Find. Never the silent kind: workers and WebView2 stay inside."""
+        the program a file opens in outlives Find. Never the silent kind: workers stay inside (the UI is started outside on purpose, uilaunch)."""
         self.handle = None
         if not winapi.WIN:
             return
