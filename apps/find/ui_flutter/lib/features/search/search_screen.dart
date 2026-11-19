@@ -17,12 +17,14 @@ import '../../app/theme/typography.dart';
 import '../../engine/engine_api.dart' show maxTextLength;
 import '../../engine/events.dart';
 import '../../engine/models/result.dart';
+import '../../state/categories.dart';
 import '../../state/search_controller.dart';
 import '../../platform/demo.dart';
 import '../../widgets/dialogs.dart';
 import '../../widgets/glass.dart';
 import '../../widgets/icons.dart';
 import '../../widgets/motion.dart';
+import '../../widgets/panels.dart';
 import '../../widgets/pressable.dart';
 import 'filter_bar.dart';
 import 'home_view.dart';
@@ -308,12 +310,21 @@ class _SearchScreenState extends State<SearchScreen> {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // the command palette: centred, floating, the one blurred layer always on screen
+              // the page header: Search, and the category (the sidebar's lit entry)
+              ListenableBuilder(
+                listenable: s.find,
+                builder: (context, _) {
+                  final cat = SearchCategory.of(s.find.filters);
+                  return PageHeader(cat == SearchCategory.all ? 'All files' : cat.label, crumb: 'Search');
+                },
+              ),
+              // the toolbar: the box and its filters, on the page gutter
               Padding(
-                padding: EdgeInsets.fromLTRB(NbSpace.x5, box2.maxHeight > 760 ? 28 : 18, NbSpace.x5, NbSpace.x3),
-                child: Center(
+                padding: const EdgeInsets.fromLTRB(NbSpace.gutter, 0, NbSpace.gutter, NbSpace.x2),
+                child: Align(
+                  alignment: Alignment.topLeft,
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 920),
+                    constraints: const BoxConstraints(maxWidth: NbSpace.maxContent),
                     // Space, Home and End go to the results while the selection is being moved with the keys
                     child: Focus(
                       canRequestFocus: false,
@@ -348,7 +359,8 @@ class _SearchScreenState extends State<SearchScreen> {
                         menuChildren: resultMenuItems(context, _action, details: !wide),
                         child: KeyedSubtree(
                           key: _menuAnchor,
-                          child: Center(
+                          child: Align(
+                            alignment: Alignment.topLeft,
                             child: ConstrainedBox(
                               constraints: const BoxConstraints(maxWidth: NbSpace.maxContent),
                               child: ListenableBuilder(
@@ -381,6 +393,16 @@ class _SearchScreenState extends State<SearchScreen> {
                                           onClearFilters: s.find.clearFilters,
                                           onWords: _setWords,
                                         )
+                                      : s.find.showingResults &&
+                                            !s.find.busy &&
+                                            s.find.results.isEmpty &&
+                                            s.find.askedFor.isEmpty
+                                      ? _EmptyCategory(
+                                          key: ValueKey(('empty', SearchCategory.of(s.find.filters))),
+                                          category: SearchCategory.of(s.find.filters),
+                                          current: s.find.filters,
+                                          onTile: s.find.setFilters,
+                                        )
                                       : !s.find.showingResults
                                       ? HomeView(
                                           key: const ValueKey('home'),
@@ -401,6 +423,9 @@ class _SearchScreenState extends State<SearchScreen> {
                                           children: [
                                             Expanded(
                                               child: _Results(
+                                                tiles: s.find.text.trim().isEmpty
+                                                    ? SearchCategory.of(s.find.filters).tiles
+                                                    : null,
                                                 scroll: scroll,
                                                 rowKey: rowKey,
                                                 cards: _cards,
@@ -422,9 +447,9 @@ class _SearchScreenState extends State<SearchScreen> {
                                             ),
                                             if (wide && s.find.results.isNotEmpty)
                                               Padding(
-                                                padding: const EdgeInsets.fromLTRB(4, 4, NbSpace.x5, NbSpace.x5),
+                                                padding: const EdgeInsets.fromLTRB(4, 2, NbSpace.gutter, NbSpace.x3),
                                                 child: SizedBox(
-                                                  width: box2.maxWidth >= 1700 ? 460 : 400,
+                                                  width: box2.maxWidth >= 1100 ? 360 : 320,
                                                   child: DetailPane(
                                                     engine: s.engine,
                                                     result: s.find.current,
@@ -517,9 +542,9 @@ class _SearchBoxState extends State<_SearchBox> {
       ),
       child: Glass(
         level: GlassLevel.panel,
-        radius: 26,
-        rim: on ? c.orangeA(.5) : null,
-        padding: const EdgeInsets.fromLTRB(6, 6, 6, 12),
+        radius: 12,
+        rim: on ? c.orangeA(.6) : null,
+        padding: const EdgeInsets.fromLTRB(4, 2, 4, 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -539,10 +564,10 @@ class _SearchBoxState extends State<_SearchBox> {
                   hintText: 'Describe it: “rent pdf from last week”, “beach photos in march”, “budget.xlsx”',
                   hintStyle: NbType.text(NbSize.field, c.dim),
                   prefixIcon: Padding(
-                    padding: const EdgeInsets.only(left: 18, right: 12),
-                    child: NbIcon(NbGlyph.search, size: 22, color: on ? c.orange : c.dim),
+                    padding: const EdgeInsets.only(left: 12, right: 10),
+                    child: NbIcon(NbGlyph.search, size: 17, color: on ? c.orange : c.dim),
                   ),
-                  prefixIconConstraints: const BoxConstraints(minWidth: 52, minHeight: 22),
+                  prefixIconConstraints: const BoxConstraints(minWidth: 40, minHeight: 18),
                   // a way to clear the box with the mouse; Esc does the same
                   suffixIcon: ListenableBuilder(
                     listenable: widget.controller,
@@ -560,19 +585,19 @@ class _SearchBoxState extends State<_SearchBox> {
                               canRequestFocus: false,
                               ringRadius: NbRadius.pillAll,
                               builder: (context, p) => Container(
-                                padding: const EdgeInsets.all(7),
+                                padding: const EdgeInsets.all(5),
                                 decoration: BoxDecoration(color: p.lit ? c.cardHover : null, shape: BoxShape.circle),
-                                child: NbIcon(NbGlyph.close, size: 15, color: p.lit ? c.text : c.dim),
+                                child: NbIcon(NbGlyph.close, size: 13, color: p.lit ? c.text : c.dim),
                               ),
                             ),
                           ),
                   ),
-                  contentPadding: const EdgeInsets.fromLTRB(0, 16, 12, 14),
+                  contentPadding: const EdgeInsets.fromLTRB(0, 12, 12, 11),
                 ),
               ),
             ),
-            Container(height: 1, margin: const EdgeInsets.fromLTRB(14, 0, 14, 10), color: c.line),
-            Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: widget.filters),
+            Container(height: 1, margin: const EdgeInsets.fromLTRB(10, 0, 10, 8), color: c.line),
+            Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: widget.filters),
           ],
         ),
       ),
@@ -608,11 +633,12 @@ class _Meta extends StatelessWidget {
         spans.add(TextSpan(text: ' · $n', style: NbType.text(NbSize.small, c.warn)));
       }
     }
-    return Center(
+    return Align(
+      alignment: Alignment.topLeft,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: NbSpace.maxContent),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(NbSpace.x6, 0, NbSpace.x5, NbSpace.x2),
+          padding: const EdgeInsets.fromLTRB(NbSpace.gutter + 2, 0, NbSpace.gutter, 6),
           child: Row(
             children: [
               Expanded(
@@ -627,19 +653,6 @@ class _Meta extends StatelessWidget {
                         onRemove: removeUnderstood(find.text, u) == null
                             ? null
                             : () => onWords(removeUnderstood(find.text, u)!),
-                      ),
-                    for (final u in const <String>[])
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: c.orangeA(.07),
-                          border: Border.all(color: c.orangeA(.5)),
-                          borderRadius: NbRadius.pillAll,
-                        ),
-                        child: Text(
-                          u,
-                          style: NbType.text(NbSize.small, c.orange, weight: FontWeight.w600, height: 1.3),
-                        ),
                       ),
                     if (spans.isNotEmpty)
                       Padding(
@@ -705,6 +718,7 @@ class _ViewSwitch extends StatelessWidget {
 
 class _Results extends StatelessWidget {
   const _Results({
+    this.tiles,
     required this.scroll,
     required this.rowKey,
     required this.cards,
@@ -719,10 +733,19 @@ class _Results extends StatelessWidget {
   final void Function(int index, Offset globalPosition) onSecondary;
   final void Function(int index, ResultAction action) onAction;
 
+  /// A category's narrower searches, shown above its files while the box is empty.
+  final List<CategoryTile>? tiles;
+
   @override
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
     final List<FileResult> rows = s.find.results;
+    final head = tiles == null
+        ? null
+        : Padding(
+            padding: const EdgeInsets.fromLTRB(2, 0, 0, 10),
+            child: CategoryTiles(tiles: tiles!, current: s.find.filters, onTile: s.find.setFilters),
+          );
     final firstWeak = rows.indexWhere((r) => r.weak);
     final divider = firstWeak > 0;
     if (cards) {
@@ -731,7 +754,7 @@ class _Results extends StatelessWidget {
         controller: scroll,
         child: GridView.builder(
           controller: scroll,
-          padding: const EdgeInsets.fromLTRB(NbSpace.x5, 4, NbSpace.x4, NbSpace.x6),
+          padding: const EdgeInsets.fromLTRB(NbSpace.gutter, 4, NbSpace.x2, NbSpace.x4),
           gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
             maxCrossAxisExtent: 300,
             mainAxisExtent: ResultCard.height,
@@ -759,9 +782,11 @@ class _Results extends StatelessWidget {
       controller: scroll,
       child: ListView.builder(
         controller: scroll,
-        padding: const EdgeInsets.fromLTRB(NbSpace.x5, 0, NbSpace.x4, NbSpace.x6),
-        itemCount: rows.length + (divider ? 1 : 0),
-        itemBuilder: (context, i) {
+        padding: const EdgeInsets.fromLTRB(NbSpace.gutter, 0, NbSpace.x2, NbSpace.x4),
+        itemCount: rows.length + (divider ? 1 : 0) + (head == null ? 0 : 1),
+        itemBuilder: (context, at) {
+          if (head != null && at == 0) return head;
+          final i = head == null ? at : at - 1;
           if (divider && i == firstWeak) return const LessSure();
           final idx = divider && i > firstWeak ? i - 1 : i;
           final sel = idx == s.find.selected;
@@ -878,7 +903,7 @@ class _Suggestions extends StatelessWidget {
           ];
         }
         return Padding(
-          padding: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.only(bottom: 6),
           child: Wrap(spacing: 6, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: chips),
         );
       },
@@ -944,14 +969,14 @@ class _NoResults extends StatelessWidget {
     final parts = words.trim().split(RegExp(r'\s+'));
     final fewer = parts.length > 1 ? parts.sublist(0, parts.length - 1).join(' ') : '';
     return Align(
-      alignment: Alignment.topCenter,
+      alignment: Alignment.topLeft,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(NbSpace.x5, NbSpace.x8, NbSpace.x5, 0),
+        padding: const EdgeInsets.fromLTRB(NbSpace.gutter, NbSpace.x2, NbSpace.gutter, 0),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 620),
           child: Glass(
-            radius: 24,
-            padding: const EdgeInsets.all(24),
+            radius: 12,
+            padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -965,7 +990,7 @@ class _NoResults extends StatelessWidget {
                       ),
                     ],
                   ),
-                  style: NbType.text(16, c.muted),
+                  style: NbType.text(14, c.muted),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -990,6 +1015,40 @@ class _NoResults extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A category with nothing in it yet (or nothing for its filters): says so, with its narrower searches.
+class _EmptyCategory extends StatelessWidget {
+  const _EmptyCategory({super.key, required this.category, required this.current, required this.onTile});
+  final SearchCategory category;
+  final SearchFilters current;
+  final ValueChanged<SearchFilters> onTile;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = NbColors.of(context);
+    return Align(
+      alignment: Alignment.topLeft,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(NbSpace.gutter, 0, NbSpace.gutter, 0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CategoryTiles(tiles: category.tiles, current: current, onTile: onTile),
+            const SizedBox(height: NbSpace.x4),
+            Text(
+              category == SearchCategory.all
+                  ? 'Nothing matches these filters.'
+                  : 'Nothing here yet in ${category.label}. Files show up as they are indexed.',
+              style: NbType.text(13, c.muted, weight: FontWeight.w600),
+            ),
+            const SizedBox(height: 4),
+            Text('Try another tile, or type a few words.', style: NbType.text(12, c.dim)),
+          ],
         ),
       ),
     );

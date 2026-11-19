@@ -17,21 +17,29 @@ abstract final class NbSpace {
   static const x10 = 40.0;
   static const x14 = 56.0;
 
-  /// Reading width of a page column (about 75 characters of body text at 14 px, plus panels).
-  static const column = 880.0;
+  /// Reading width of a page column (Settings, Index): content stays top-left at this width, the rest of the
+  /// window shows the map behind it.
+  static const column = 760.0;
 
-  /// The widest the content gets (centred beyond it, so 4K stays composed).
-  static const maxContent = 1600.0;
+  /// The widest the results area gets.
+  static const maxContent = 1240.0;
 
-  /// From here the search shows the detail pane, Index becomes a two-column dashboard, Settings two panes.
-  static const wide = 1100.0;
+  /// Every page's left and right gutter: its header, toolbar and content start on the same line.
+  static const gutter = 20.0;
+
+  /// The sidebar: 200 px with 32 px items.
+  static const sidebar = 200.0;
+
+  /// Content width (the window less the sidebar, so a window of about 1090 px) from which the search shows the
+  /// detail pane and Index becomes two columns.
+  static const wide = 880.0;
 }
 
 abstract final class NbRadius {
-  static const key = Radius.circular(6);
-  static const control = Radius.circular(12);
-  static const row = Radius.circular(16);
-  static const panel = Radius.circular(24);
+  static const key = Radius.circular(4);
+  static const control = Radius.circular(8);
+  static const row = Radius.circular(8);
+  static const panel = Radius.circular(12);
   static const pill = Radius.circular(999);
 
   static const keyAll = BorderRadius.all(key);

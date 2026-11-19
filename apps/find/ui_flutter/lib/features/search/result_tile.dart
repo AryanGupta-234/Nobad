@@ -29,8 +29,8 @@ class _CardShell extends StatelessWidget {
     required this.onTap,
     this.onSecondary,
     required this.builder,
-    this.radius = 18,
-    this.padding = const EdgeInsets.fromLTRB(16, 12, 16, 12),
+    this.radius = 10,
+    this.padding = const EdgeInsets.fromLTRB(12, 10, 12, 10),
   });
   final FileResult result;
   final bool selected;
@@ -93,100 +93,116 @@ class ResultTile extends StatelessWidget {
   /// A button on the row (shown when it is selected or hovered); null: no buttons (the quick find bar).
   final void Function(ResultAction action)? onAction;
 
+  /// A row: 56 px (name, then folder and the matching words on one line).
+  static const height = 56.0;
+
   @override
   Widget build(BuildContext context) {
     final c = NbColors.of(context);
     final r = result;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 2),
       child: _CardShell(
         result: r,
         selected: selected,
         onTap: onTap,
         onSecondary: onSecondary,
-        builder: (context, parallax, lit) => Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Transform.translate(
-              offset: parallax,
-              child: ResultThumb(engine: engine, result: r),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text.rich(
-                    TextSpan(
-                      children: highlightSpans(
-                        r.name,
-                        terms,
-                        NbType.text(15.5, c.text, weight: FontWeight.w600, height: 1.3),
-                        c,
+        radius: 8,
+        padding: const EdgeInsets.fromLTRB(10, 0, 8, 0),
+        builder: (context, parallax, lit) => SizedBox(
+          height: height - 4,
+          child: Row(
+            children: [
+              Transform.translate(
+                offset: parallax * .5,
+                child: ResultThumb(engine: engine, result: r, size: 34),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text.rich(
+                      TextSpan(
+                        children: highlightSpans(
+                          r.name,
+                          terms,
+                          NbType.text(13.5, c.text, weight: FontWeight.w600, height: 1.3),
+                          c,
+                        ),
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    // one line: the folder (its end, the part that tells folders apart), then the matching words
+                    Row(
+                      children: [
+                        if (r.dir.isNotEmpty)
+                          Flexible(
+                            flex: r.snippet.isEmpty ? 1 : 2,
+                            child: Tooltip(
+                              message: r.dir,
+                              waitDuration: const Duration(milliseconds: 700),
+                              child: TailText(
+                                r.dir,
+                                textAlign: TextAlign.left,
+                                style: NbType.data(11, c.dim, height: 1.3),
+                              ),
+                            ),
+                          ),
+                        if (r.snippet.isNotEmpty) ...[
+                          if (r.dir.isNotEmpty) const SizedBox(width: 10),
+                          Expanded(
+                            flex: 3,
+                            child: Text.rich(
+                              TextSpan(children: snippetSpans(r.snippet, NbType.text(12, c.muted, height: 1.3), c)),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              // age and size; on the selected or hovered row the actions fade in in their place
+              Stack(
+                alignment: Alignment.centerRight,
+                children: [
+                  AnimatedOpacity(
+                    opacity: lit && onAction != null ? 0 : 1,
+                    duration: NbMotion.of(context, NbMotion.fast),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        if (r.ago.isNotEmpty) Text(r.ago, style: NbType.data(11, lit ? c.muted : c.dim, height: 1.4)),
+                        if (humanSize(r.size).isNotEmpty)
+                          Text(humanSize(r.size), style: NbType.data(11, c.dim, height: 1.4)),
+                      ],
                     ),
                   ),
-                  if (r.dir.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      // one line; a long folder keeps its end (the part that tells folders apart)
-                      child: Tooltip(
-                        message: r.dir,
-                        waitDuration: const Duration(milliseconds: 700),
-                        child: TailText(
-                          r.dir,
-                          textAlign: TextAlign.left,
-                          style: NbType.data(NbSize.caption, c.dim, height: 1.35),
+                  if (onAction != null)
+                    IgnorePointer(
+                      ignoring: !lit,
+                      child: AnimatedOpacity(
+                        opacity: lit ? 1 : 0,
+                        duration: NbMotion.of(context, NbMotion.fast),
+                        child: InlineActions(
+                          compact: true,
+                          onAction: onAction!,
+                          onMore: (pos) => onSecondary?.call(pos),
                         ),
                       ),
                     ),
-                  if (r.snippet.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 6),
-                      child: Text.rich(
-                        TextSpan(children: snippetSpans(r.snippet, NbType.text(13, c.muted, height: 1.55), c)),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  if (r.why.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 7),
-                      child: Wrap(spacing: 5, runSpacing: 5, children: [for (final w in r.why) WhyChip(w)]),
-                    ),
-                  // every action at every width: shown on the selected or hovered row
-                  if (onAction != null)
-                    AnimatedSize(
-                      duration: NbMotion.of(context, NbMotion.base),
-                      curve: NbMotion.curve,
-                      alignment: Alignment.topLeft,
-                      child: lit
-                          ? Padding(
-                              padding: const EdgeInsets.only(top: 10),
-                              child: LayoutBuilder(
-                                builder: (context, box) => InlineActions(
-                                  compact: box.maxWidth < 430,
-                                  onAction: onAction!,
-                                  onMore: (pos) => onSecondary?.call(pos),
-                                ),
-                              ),
-                            )
-                          : const SizedBox(width: double.infinity),
-                    ),
                 ],
               ),
-            ),
-            const SizedBox(width: 14),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                if (r.ago.isNotEmpty)
-                  Text(r.ago, style: NbType.data(NbSize.caption, lit ? c.muted : c.dim, height: 1.6)),
-                if (humanSize(r.size).isNotEmpty)
-                  Text(humanSize(r.size), style: NbType.data(NbSize.caption, c.dim, height: 1.6)),
-              ],
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -222,7 +238,7 @@ class ResultCard extends StatelessWidget {
       selected: selected,
       onTap: onTap,
       onSecondary: onSecondary,
-      radius: 22,
+      radius: 10,
       padding: const EdgeInsets.all(14),
       builder: (context, parallax, lit) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -280,7 +296,7 @@ class DetailPane extends StatelessWidget {
     final r = result;
     return Glass(
       level: GlassLevel.panel,
-      radius: 28,
+      radius: 12,
       child: AnimatedSwitcher(
         duration: NbMotion.of(context, const Duration(milliseconds: 420)),
         switchInCurve: const SpringCurve(),
@@ -300,42 +316,55 @@ class DetailPane extends StatelessWidget {
               )
             : SingleChildScrollView(
                 key: ValueKey(r.id),
-                padding: const EdgeInsets.all(22),
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Center(
-                      child: ResultThumb(engine: engine, result: r, size: 180),
+                      child: ResultThumb(engine: engine, result: r, size: 132),
                     ),
-                    const SizedBox(height: 20),
-                    Text(r.name, style: NbType.text(20, c.text, weight: FontWeight.w600, height: 1.3)),
+                    const SizedBox(height: 14),
+                    Text(r.name, style: NbType.text(15, c.text, weight: FontWeight.w600, height: 1.3)),
+                    const SizedBox(height: 6),
+                    SelectableText(r.dir, style: NbType.data(11.5, c.muted, height: 1.45)),
                     const SizedBox(height: 8),
-                    SelectableText(r.dir, style: NbType.data(12, c.muted, height: 1.5)),
-                    const SizedBox(height: 10),
                     Text(
                       [kindTag(r.kind), r.ago, humanSize(r.size)].where((s) => s.isNotEmpty).join('   '),
-                      style: NbType.data(12, c.dim),
+                      style: NbType.data(11.5, c.dim),
                     ),
                     if (r.snippet.isNotEmpty) ...[
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
                       Text.rich(
-                        TextSpan(children: snippetSpans(r.snippet, NbType.text(13.5, c.muted, height: 1.6), c)),
+                        TextSpan(children: snippetSpans(r.snippet, NbType.text(12.5, c.muted, height: 1.5), c)),
                       ),
                     ],
                     if (r.why.isNotEmpty) ...[
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 10),
                       Wrap(spacing: 6, runSpacing: 6, children: [for (final w in r.why) WhyChip(w)]),
                     ],
-                    const SizedBox(height: 22),
+                    const SizedBox(height: 16),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
                       children: [
-                        NbButton('Open', icon: NbGlyph.external, onPressed: onOpen),
-                        if (onOpenWith != null) NbButton('Open with…', kind: NbButtonKind.ghost, onPressed: onOpenWith),
-                        NbButton('Show in folder', kind: NbButtonKind.ghost, icon: NbGlyph.folder, onPressed: onReveal),
-                        NbButton('Copy path', kind: NbButtonKind.ghost, icon: NbGlyph.copy, onPressed: onCopy),
-                        NbButton('Forget…', kind: NbButtonKind.quiet, onPressed: onForget),
+                        NbButton('Open', small: true, icon: NbGlyph.external, onPressed: onOpen),
+                        if (onOpenWith != null)
+                          NbButton('Open with…', small: true, kind: NbButtonKind.ghost, onPressed: onOpenWith),
+                        NbButton(
+                          'Show in folder',
+                          small: true,
+                          kind: NbButtonKind.ghost,
+                          icon: NbGlyph.folder,
+                          onPressed: onReveal,
+                        ),
+                        NbButton(
+                          'Copy path',
+                          small: true,
+                          kind: NbButtonKind.ghost,
+                          icon: NbGlyph.copy,
+                          onPressed: onCopy,
+                        ),
+                        NbButton('Forget…', small: true, kind: NbButtonKind.quiet, onPressed: onForget),
                       ],
                     ),
                   ],
@@ -373,7 +402,7 @@ class LessSure extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = NbColors.of(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(6, 18, 6, 8),
+      padding: const EdgeInsets.fromLTRB(6, 12, 6, 6),
       child: Row(
         children: [
           Text('Less sure', style: NbType.text(NbSize.small, c.dim, weight: FontWeight.w600)),

@@ -18,7 +18,7 @@ import '../search/search_screen.dart';
 import '../settings/settings_screen.dart';
 import '../splash/splash.dart';
 import '../welcome/welcome.dart';
-import 'rail.dart';
+import 'sidebar.dart';
 
 class Shell extends StatefulWidget {
   const Shell({super.key, this.splash = true, this.demo});
@@ -90,7 +90,7 @@ class _ShellState extends State<Shell> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Rail(),
+                const Sidebar(),
                 Expanded(
                   child: ListenableBuilder(
                     listenable: s.nav,
@@ -116,7 +116,7 @@ class _ShellState extends State<Shell> {
             ),
           ),
           Positioned(
-            left: Rail.room,
+            left: Sidebar.room,
             right: 0,
             bottom: 52,
             child: Center(child: ToastHost(toasts: s.toasts)),

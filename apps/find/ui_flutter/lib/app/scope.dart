@@ -12,12 +12,15 @@ import '../state/toast_controller.dart';
 
 enum AppTab { search, indexing, settings }
 
+/// Settings' pages, each with its own sidebar entry.
 enum SettingsPage {
   general('General'),
-  indexing('Indexing'),
-  models('Models'),
+  search('Search'),
+  indexing('What to index'),
+  models('Models & languages'),
   performance('Performance'),
-  privacy('Privacy'),
+  privacy('Privacy & data'),
+  shortcuts('Shortcuts'),
   about('About');
 
   const SettingsPage(this.label);

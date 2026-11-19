@@ -35,8 +35,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(engine.modelsInfo.languageFocus, LanguageFocus.english);
     expect(engine.modelsInfo.models.firstWhere((m) => m.recommended && m.feature == 'text').id, 'bge-small-en-v1.5');
-    expect(engine.modelsInfo.models.firstWhere((m) => m.feature == 'text' && m.state == ModelUseState.active).id,
-        'minilm-l6-v2');
+    expect(
+      engine.modelsInfo.models.firstWhere((m) => m.feature == 'text' && m.state == ModelUseState.active).id,
+      'minilm-l6-v2',
+    );
   });
 
   testWidgets('a download asks first; "Not now" downloads nothing, "Download" sends the consent', (tester) async {
@@ -49,14 +51,18 @@ void main() {
     expect(find.textContaining('Download multilingual-e5-small?'), findsOneWidget);
     await tester.tap(find.text('Not now'));
     await tester.pumpAndSettle();
-    expect(engine.modelsInfo.models.firstWhere((m) => m.id == 'multilingual-e5-small').state,
-        ModelUseState.notDownloaded);
+    expect(
+      engine.modelsInfo.models.firstWhere((m) => m.id == 'multilingual-e5-small').state,
+      ModelUseState.notDownloaded,
+    );
     await tester.tap(button);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Download'));
     await tester.pumpAndSettle();
-    expect(engine.modelsInfo.models.firstWhere((m) => m.id == 'multilingual-e5-small').state,
-        ModelUseState.downloading);
+    expect(
+      engine.modelsInfo.models.firstWhere((m) => m.id == 'multilingual-e5-small').state,
+      ModelUseState.downloading,
+    );
   });
 
   testWidgets('an older engine: says so, and offers the older downloads', (tester) async {

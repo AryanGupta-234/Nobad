@@ -29,7 +29,7 @@ Future<void> shoot(WidgetTester tester, String name) async {
 void main() {
   setUpAll(loadWindowsFonts);
 
-  const sizes = {'1280': Size(1280, 800), '2560': Size(2560, 1440)};
+  const sizes = {'860': Size(860, 600), '1180': Size(1180, 760)};
   for (final theme in ['dark', 'light']) {
     group(theme, () {
       for (final MapEntry(key: w, value: size) in sizes.entries) {
@@ -66,7 +66,7 @@ void main() {
           await tester.sendKeyEvent(LogicalKeyboardKey.digit3);
           await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
           await tester.pumpAndSettle();
-          await tester.tap(find.text('Models').last);
+          await tester.tap(find.text('Models & languages').last);
           await shoot(tester, 'settings_${w}_$theme');
         });
       }
@@ -97,13 +97,13 @@ void main() {
           ],
           settings: {'theme': theme, 'welcome_seen': true, 'bg_notice_seen': true},
         );
-        await pumpApp(tester, engine, size: const Size(1280, 800));
+        await pumpApp(tester, engine, size: const Size(1180, 760));
         await type(tester, 'किराया');
         await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
         await shoot(tester, 'devanagari_$theme');
       });
 
-      for (final size in const [Size(800, 600), Size(1280, 800)]) {
+      for (final size in const [Size(860, 600), Size(1180, 760)]) {
         testWidgets('actions on the selected row ${size.width.toInt()}', (tester) async {
           await pumpApp(tester, engineFor(theme), size: size);
           await type(tester, 'tax');
@@ -113,12 +113,12 @@ void main() {
       }
 
       testWidgets('welcome', (tester) async {
-        await pumpApp(tester, engineFor(theme, welcome: true), size: const Size(1280, 800));
+        await pumpApp(tester, engineFor(theme, welcome: true), size: const Size(1180, 760));
         await shoot(tester, 'welcome_$theme');
       });
 
       testWidgets('consent dialog', (tester) async {
-        await pumpApp(tester, engineFor(theme), size: const Size(1280, 800));
+        await pumpApp(tester, engineFor(theme), size: const Size(1180, 760));
         askDownloadConsent(appNavigator.currentContext!, 'photo');
         await shoot(tester, 'consent_$theme');
       });

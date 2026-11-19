@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:nobad_find/app/app.dart';
+import 'package:nobad_find/platform/languages.dart';
 import 'package:nobad_find/platform/window.dart';
 import 'package:nobad_find/engine/fake_engine.dart';
 
@@ -40,6 +41,7 @@ Future<FakeWindow> pumpApp(
   FakeWindow? window,
   Size size = const Size(1080, 720),
 }) async {
+  debugWindowsLanguageFocus = () => 'english'; // the same on every PC
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);

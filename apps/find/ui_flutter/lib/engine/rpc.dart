@@ -13,6 +13,7 @@ import 'engine_api.dart';
 import 'events.dart';
 import 'models/json.dart';
 import 'models/models_info.dart';
+import 'models/scope_info.dart';
 import 'models/result.dart';
 import 'models/settings.dart';
 import 'models/status.dart';
@@ -384,6 +385,9 @@ class EngineClient {
   Future<AutoConfig> autoConfigure() async => AutoConfig.fromJson(await call('auto_configure'));
   Future<ActionResult> modelLanguage(String focus) => _ok('model_language', {'focus': focus});
   Future<ActionResult> openWith(int id) => _ok('open_with', {'id': id}, false);
+  Future<ScopeInfo> scopeInfo() async => ScopeInfo.fromJson(await call('scope_info'));
+  Future<TurboState> turboState() async => TurboState.fromJson(await call('turbo_state'));
+  Future<TurboSet> turboSet(bool on) async => TurboSet.fromJson(await call('turbo_set', {'on': on}, false));
 
   Future<Uint8List?> thumbnail(int id) {
     if (_thumbs.containsKey(id)) {

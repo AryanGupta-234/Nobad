@@ -8,8 +8,13 @@ import 'dart:io';
 
 import 'package:ffi/ffi.dart';
 
+/// Tests: the answer, instead of this PC's languages (goldens must not depend on the PC they run on).
+String? Function()? debugWindowsLanguageFocus;
+
 /// 'english' | 'multilingual' | 'hindi', or null off Windows or if Windows can't say.
 String? windowsLanguageFocus() {
+  final debug = debugWindowsLanguageFocus;
+  if (debug != null) return debug();
   if (!Platform.isWindows) return null;
   try {
     final k32 = DynamicLibrary.open('kernel32.dll');

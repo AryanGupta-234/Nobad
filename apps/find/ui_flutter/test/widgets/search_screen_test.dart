@@ -11,7 +11,7 @@ void main() {
   testWidgets('home first, then results as you type', (tester) async {
     final engine = FakeEngine();
     await pumpApp(tester, engine);
-    expect(find.text('FIND ANYTHING ON THIS PC.'), findsOneWidget);
+    expect(find.text('Recently changed'), findsOneWidget);
     expect(find.text('Recently changed'), findsOneWidget);
     expect(find.text('tax notes.txt'), findsOneWidget); // recently changed, newest first
 
@@ -20,7 +20,7 @@ void main() {
     expect(find.text('tax return 2025.pdf'), findsOneWidget);
     expect(find.textContaining('results · 4 ms'), findsOneWidget);
     expect(find.text('Less sure'), findsOneWidget); // the weak result comes after the divider
-    expect(find.text('FIND ANYTHING ON THIS PC.'), findsNothing);
+    expect(find.text('Recently changed'), findsNothing);
   });
 
   testWidgets('a file name is shown as plain text, never as markup', (tester) async {
@@ -106,7 +106,7 @@ void main() {
     await type(tester, 'tax');
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pump(const Duration(milliseconds: 200));
-    expect(find.text('FIND ANYTHING ON THIS PC.'), findsOneWidget);
+    expect(find.text('Recently changed'), findsOneWidget);
     expect(w.calls, isNot(contains('hide')));
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pump();
@@ -114,9 +114,13 @@ void main() {
     expect(engine.calls, contains('ui_hidden'));
   });
 
-  testWidgets('a quick tile sets the filters; the filter bar shows them and clears them', (tester) async {
+  testWidgets('a category tile, then a narrower tile, set the filters; the filter bar clears them', (tester) async {
     final engine = FakeEngine();
     await pumpApp(tester, engine);
+    await tester.tap(find.text('Documents').last); // Home's tile (the sidebar has one too)
+    await tester.pumpAndSettle();
+    expect(engine.searchFilters.last.kind, 'document');
+    expect(find.text('DOCUMENTS'), findsOneWidget); // the page header names the category
     await tester.tap(find.text('PDFs'));
     await tester.pumpAndSettle();
     expect(engine.searchFilters.last.kind, 'pdf');
@@ -124,7 +128,7 @@ void main() {
     expect(find.text('Clear filters'), findsOneWidget);
     await tester.tap(find.text('Clear filters'));
     await tester.pumpAndSettle();
-    expect(find.text('FIND ANYTHING ON THIS PC.'), findsOneWidget);
+    expect(find.text('Recently changed'), findsOneWidget);
   });
 
   testWidgets('a kind from the filter menu, and Any folder asks the engine for a folder', (tester) async {

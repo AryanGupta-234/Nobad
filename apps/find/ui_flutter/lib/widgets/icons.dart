@@ -6,7 +6,35 @@ import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 
-enum NbGlyph { search, rings, settings, close, chevron, check, folder, plus, pause, play, copy, external }
+enum NbGlyph {
+  search,
+  rings,
+  settings,
+  close,
+  chevron,
+  check,
+  folder,
+  plus,
+  pause,
+  play,
+  copy,
+  external,
+  // the sidebar's categories and Settings pages
+  grid,
+  doc,
+  image,
+  media,
+  code,
+  download,
+  clock,
+  sliders,
+  drive,
+  chip,
+  gauge,
+  shield,
+  keyboard,
+  info,
+}
 
 class NbIcon extends StatelessWidget {
   const NbIcon(this.glyph, {super.key, this.size = 20, required this.color, this.stroke = 1.6});
@@ -132,6 +160,132 @@ class _IconPainter extends CustomPainter {
             ..lineTo(8, 6),
           p,
         );
+      case NbGlyph.grid:
+        for (final o in const [Offset(4, 4), Offset(11, 4), Offset(4, 11), Offset(11, 11)]) {
+          canvas.drawRRect(RRect.fromLTRBR(o.dx, o.dy, o.dx + 5, o.dy + 5, const Radius.circular(1.2)), p);
+        }
+      case NbGlyph.doc:
+        canvas.drawPath(
+          Path()
+            ..moveTo(5, 3)
+            ..lineTo(11.5, 3)
+            ..lineTo(15, 6.5)
+            ..lineTo(15, 17)
+            ..lineTo(5, 17)
+            ..close(),
+          p,
+        );
+        canvas.drawLine(const Offset(7.5, 10), const Offset(12.5, 10), p);
+        canvas.drawLine(const Offset(7.5, 13), const Offset(12.5, 13), p);
+      case NbGlyph.image:
+        canvas.drawRRect(RRect.fromLTRBR(3, 4, 17, 16, const Radius.circular(2)), p);
+        canvas.drawPath(
+          Path()
+            ..moveTo(3.5, 14)
+            ..lineTo(8, 9.5)
+            ..lineTo(11.5, 13)
+            ..lineTo(13.5, 11)
+            ..lineTo(16.5, 14),
+          p,
+        );
+        canvas.drawCircle(const Offset(13, 7.5), 1.2, p);
+      case NbGlyph.media:
+        canvas.drawRRect(RRect.fromLTRBR(3, 4.5, 17, 15.5, const Radius.circular(2)), p);
+        canvas.drawPath(
+          Path()
+            ..moveTo(8.5, 7.5)
+            ..lineTo(12.5, 10)
+            ..lineTo(8.5, 12.5)
+            ..close(),
+          p,
+        );
+      case NbGlyph.code:
+        canvas.drawPath(
+          Path()
+            ..moveTo(7, 6)
+            ..lineTo(3, 10)
+            ..lineTo(7, 14),
+          p,
+        );
+        canvas.drawPath(
+          Path()
+            ..moveTo(13, 6)
+            ..lineTo(17, 10)
+            ..lineTo(13, 14),
+          p,
+        );
+        canvas.drawLine(const Offset(11.2, 4.5), const Offset(8.8, 15.5), p);
+      case NbGlyph.download:
+        canvas.drawLine(const Offset(10, 3.5), const Offset(10, 12), p);
+        canvas.drawPath(
+          Path()
+            ..moveTo(6.5, 8.5)
+            ..lineTo(10, 12)
+            ..lineTo(13.5, 8.5),
+          p,
+        );
+        canvas.drawPath(
+          Path()
+            ..moveTo(4, 13)
+            ..lineTo(4, 16)
+            ..lineTo(16, 16)
+            ..lineTo(16, 13),
+          p,
+        );
+      case NbGlyph.clock:
+        canvas.drawCircle(const Offset(10, 10), 6.5, p);
+        canvas.drawPath(
+          Path()
+            ..moveTo(10, 6.5)
+            ..lineTo(10, 10)
+            ..lineTo(12.5, 11.5),
+          p,
+        );
+      case NbGlyph.sliders:
+        for (final (y, x) in const [(6.0, 7.0), (10.0, 13.0), (14.0, 9.0)]) {
+          canvas.drawLine(Offset(3.5, y), Offset(16.5, y), p);
+          canvas.drawCircle(Offset(x, y), 1.6, p..style = PaintingStyle.fill);
+          p.style = PaintingStyle.stroke;
+        }
+      case NbGlyph.drive:
+        canvas.drawRRect(RRect.fromLTRBR(3, 7, 17, 14, const Radius.circular(2)), p);
+        canvas.drawCircle(const Offset(13.5, 10.5), .9, p..style = PaintingStyle.fill);
+        p.style = PaintingStyle.stroke;
+        canvas.drawLine(const Offset(5.5, 10.5), const Offset(9.5, 10.5), p);
+      case NbGlyph.chip:
+        canvas.drawRRect(RRect.fromLTRBR(5.5, 5.5, 14.5, 14.5, const Radius.circular(1.6)), p);
+        for (final v in const [8.0, 12.0]) {
+          canvas.drawLine(Offset(v, 3), Offset(v, 5.5), p);
+          canvas.drawLine(Offset(v, 14.5), Offset(v, 17), p);
+          canvas.drawLine(Offset(3, v), Offset(5.5, v), p);
+          canvas.drawLine(Offset(14.5, v), Offset(17, v), p);
+        }
+      case NbGlyph.gauge:
+        canvas.drawArc(Rect.fromCircle(center: const Offset(10, 12), radius: 7), 3.4, 2.62, false, p);
+        canvas.drawLine(const Offset(10, 12), const Offset(13, 8), p);
+      case NbGlyph.shield:
+        canvas.drawPath(
+          Path()
+            ..moveTo(10, 3)
+            ..lineTo(16, 5.5)
+            ..lineTo(16, 10)
+            ..cubicTo(16, 13.5, 13.5, 16, 10, 17)
+            ..cubicTo(6.5, 16, 4, 13.5, 4, 10)
+            ..lineTo(4, 5.5)
+            ..close(),
+          p,
+        );
+      case NbGlyph.keyboard:
+        canvas.drawRRect(RRect.fromLTRBR(2.5, 5.5, 17.5, 14.5, const Radius.circular(2)), p);
+        canvas.drawLine(const Offset(6.5, 11.5), const Offset(13.5, 11.5), p);
+        for (final x in const [6.0, 9.0, 12.0, 15.0]) {
+          canvas.drawCircle(Offset(x - .5, 8.5), .55, p..style = PaintingStyle.fill);
+        }
+        p.style = PaintingStyle.stroke;
+      case NbGlyph.info:
+        canvas.drawCircle(const Offset(10, 10), 7, p);
+        canvas.drawLine(const Offset(10, 9), const Offset(10, 13.5), p);
+        canvas.drawCircle(const Offset(10, 6.5), .7, p..style = PaintingStyle.fill);
     }
   }
 

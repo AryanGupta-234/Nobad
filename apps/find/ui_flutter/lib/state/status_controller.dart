@@ -11,6 +11,7 @@ import 'package:flutter/foundation.dart';
 import '../engine/engine_api.dart';
 import '../engine/events.dart';
 import '../engine/models/format.dart';
+import '../engine/models/scope_info.dart';
 import '../engine/models/status.dart';
 
 class StatusController extends ChangeNotifier {
@@ -25,8 +26,12 @@ class StatusController extends ChangeNotifier {
   IndexDetails? _details;
   List<ActivityEntry> _activity = const [];
   final _downloads = <String, ModelState>{};
+  TurboState? _turbo;
   var _watchers = 0;
   var _disposed = false;
+
+  /// The turbo index (null: an engine without it, or not asked yet; the Index page asks).
+  TurboState? get turbo => _turbo;
 
   /// The short status (level, reason, phase, files, paused).
   EngineStatus? get status => _status;
@@ -79,6 +84,12 @@ class StatusController extends ChangeNotifier {
       if (subscribe) await engine.watchDetails(true);
       _takeFull(await engine.statusFull());
       _changed();
+      try {
+        _turbo = await engine.turboState();
+      } on RpcException {
+        _turbo = null; // an engine without the turbo index: no line
+      }
+      _changed();
     } on Object {
       // offline: the page says so
     }
@@ -108,6 +119,8 @@ class StatusController extends ChangeNotifier {
         _activity = [entry, ..._activity.take(49)];
       case DownloadEvent():
         _downloads[e.id] = e.asState;
+      case TurboEvent(:final state):
+        _turbo = state;
       case ShowEvent() || NoticeEvent() || HereEvent() || QuittingEvent() || ModelsEvent():
         return;
     }

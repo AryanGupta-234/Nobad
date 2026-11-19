@@ -13,6 +13,7 @@ import 'package:flutter/foundation.dart';
 import 'engine_api.dart';
 import 'events.dart';
 import 'models/models_info.dart';
+import 'models/scope_info.dart';
 import 'models/result.dart';
 import 'models/settings.dart';
 import 'models/status.dart';
@@ -133,6 +134,15 @@ class PipeEngine implements EngineApi {
   Future<AutoConfig> autoConfigure() => _pipe.autoConfigure();
   @override
   Future<ActionResult> modelLanguage(String focus) => _pipe.modelLanguage(focus);
+  @override
+  Future<ScopeInfo> scopeInfo() => _pipe.scopeInfo();
+  @override
+  Future<TurboState> turboState() => _pipe.turboState();
+  @override
+  Future<TurboSet> turboSet(bool on) {
+    if (on && _pipe.enginePid != 0) beforeDialog?.call(_pipe.enginePid); // Windows' permission prompt
+    return _pipe.turboSet(on);
+  }
 
   @override
   Future<ActionResult> openWith(int id) {

@@ -3,6 +3,8 @@
 #include <dwmapi.h>
 #include <flutter_windows.h>
 
+#include <cwchar>
+
 #include "resource.h"
 
 namespace {
@@ -25,6 +27,101 @@ constexpr const wchar_t kWindowClassName[] = L"FLUTTER_RUNNER_WIN32_WINDOW";
 constexpr const wchar_t kGetPreferredBrightnessRegKey[] =
   L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize";
 constexpr const wchar_t kGetPreferredBrightnessRegValue[] = L"AppsUseLightTheme";
+
+// The main window's designed size range (logical px, client area): no maximize, no full screen.
+constexpr int kMinW = 860, kMinH = 600, kMaxW = 1440, kMaxH = 900;
+constexpr const wchar_t kPlacementKey[] = L"Software\\NOBAD\\Find\\UIWindow";
+
+// Development runs next to a demo (NOBAD_FIND_UI_ALLOW_SECOND=1) neither read nor write the saved placement.
+bool PlacementKept() {
+  wchar_t v[4] = {};
+  return !(GetEnvironmentVariableW(L"NOBAD_FIND_UI_ALLOW_SECOND", v, 4) > 0 && wcscmp(v, L"1") == 0);
+}
+
+UINT DpiFor(HWND hwnd) {
+  const UINT dpi = GetDpiForWindow(hwnd);
+  return dpi == 0 ? 96 : dpi;
+}
+
+// The frame around a client area of this style at this DPI.
+SIZE FrameExtra(DWORD style, DWORD ex_style, UINT dpi) {
+  RECT r{0, 0, 0, 0};
+  AdjustWindowRectExForDpi(&r, style, FALSE, ex_style, dpi);
+  return SIZE{r.right - r.left, r.bottom - r.top};
+}
+
+int Clamp(int v, int lo, int hi) { return v < lo ? lo : (v > hi ? hi : v); }
+
+// The saved top-left (physical) and client size (logical), if any.
+bool ReadPlacement(int* x, int* y, int* w, int* h) {
+  DWORD v[4] = {};
+  const wchar_t* names[4] = {L"x", L"y", L"w", L"h"};
+  for (int i = 0; i < 4; i++) {
+    DWORD size = sizeof(DWORD);
+    if (RegGetValueW(HKEY_CURRENT_USER, kPlacementKey, names[i], RRF_RT_REG_DWORD, nullptr, &v[i], &size) !=
+        ERROR_SUCCESS) {
+      return false;
+    }
+  }
+  *x = static_cast<int>(static_cast<LONG>(v[0]));
+  *y = static_cast<int>(static_cast<LONG>(v[1]));
+  *w = static_cast<int>(v[2]);
+  *h = static_cast<int>(v[3]);
+  return *w > 0 && *h > 0;
+}
+
+void SavePlacement(HWND hwnd) {
+  if (!PlacementKept() || IsIconic(hwnd)) return;
+  WINDOWPLACEMENT wp{};
+  wp.length = sizeof(wp);
+  RECT client{};
+  if (!GetWindowPlacement(hwnd, &wp) || !GetClientRect(hwnd, &client)) return;
+  const double scale = DpiFor(hwnd) / 96.0;
+  const DWORD v[4] = {static_cast<DWORD>(wp.rcNormalPosition.left), static_cast<DWORD>(wp.rcNormalPosition.top),
+                      static_cast<DWORD>((client.right - client.left) / scale + 0.5),
+                      static_cast<DWORD>((client.bottom - client.top) / scale + 0.5)};
+  const wchar_t* names[4] = {L"x", L"y", L"w", L"h"};
+  for (int i = 0; i < 4; i++) {
+    RegSetKeyValueW(HKEY_CURRENT_USER, kPlacementKey, names[i], REG_DWORD, &v[i], sizeof(DWORD));
+  }
+}
+
+// The main window's place: where it was last time if that is still on a monitor, else centred on the monitor
+// with the mouse; its size in the designed range and inside the monitor's work area (per-monitor DPI).
+void PlaceMain(HWND hwnd, int want_w, int want_h, DWORD style, DWORD ex_style) {
+  int x = 0, y = 0, w = want_w, h = want_h;
+  HMONITOR monitor = nullptr;
+  if (PlacementKept() && ReadPlacement(&x, &y, &w, &h)) {
+    monitor = MonitorFromPoint(POINT{x + 40, y + 20}, MONITOR_DEFAULTTONULL);
+  }
+  const bool saved = monitor != nullptr;
+  if (!saved) {
+    POINT pt{};
+    GetCursorPos(&pt);
+    monitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
+    w = want_w;
+    h = want_h;
+  }
+  MONITORINFO info{};
+  info.cbSize = sizeof(info);
+  if (!GetMonitorInfo(monitor, &info)) return;
+  const UINT dpi = FlutterDesktopGetDpiForMonitor(monitor);
+  const double scale = dpi / 96.0;
+  const SIZE extra = FrameExtra(style, ex_style, dpi);
+  const RECT& work = info.rcWork;
+  const int work_w = work.right - work.left, work_h = work.bottom - work.top;
+  int pw = static_cast<int>(Clamp(w, kMinW, kMaxW) * scale + 0.5) + extra.cx;
+  int ph = static_cast<int>(Clamp(h, kMinH, kMaxH) * scale + 0.5) + extra.cy;
+  if (pw > work_w) pw = work_w;
+  if (ph > work_h) ph = work_h;
+  if (!saved) {
+    x = work.left + (work_w - pw) / 2;
+    y = work.top + (work_h - ph) / 2;
+  }
+  x = Clamp(x, work.left, work.right - pw);
+  y = Clamp(y, work.top, work.bottom - ph);
+  SetWindowPos(hwnd, nullptr, x, y, pw, ph, SWP_NOZORDER | SWP_NOACTIVATE);
+}
 
 // The number of Win32Window objects that currently exist.
 static int g_active_window_count = 0;
@@ -135,7 +232,8 @@ bool Win32Window::Create(const std::wstring& title,
   double scale_factor = dpi / 96.0;
 
   // The quick find bar is a frameless tool window on top (no taskbar button, no Alt+Tab entry).
-  const DWORD style = popup_ ? WS_POPUP : WS_OVERLAPPEDWINDOW;
+  // The main window has no maximize box: it keeps its designed size range (WM_GETMINMAXINFO).
+  const DWORD style = popup_ ? WS_POPUP : (WS_OVERLAPPEDWINDOW & ~WS_MAXIMIZEBOX);
   const DWORD ex_style = popup_ ? (WS_EX_TOOLWINDOW | WS_EX_TOPMOST) : 0;
   HWND window = CreateWindowEx(
       ex_style, window_class, title.c_str(), style,
@@ -148,6 +246,9 @@ bool Win32Window::Create(const std::wstring& title,
   }
 
   UpdateTheme(window);
+  if (!popup_) {
+    PlaceMain(window, size.width, size.height, style, ex_style);
+  }
   if (popup_) {
     const DWORD corner = 2;  // DWMWA_WINDOW_CORNER_PREFERENCE = DWMWCP_ROUND (Windows 11)
     DwmSetWindowAttribute(window, 33, &corner, sizeof(corner));
@@ -191,6 +292,32 @@ Win32Window::MessageHandler(HWND hwnd,
                             WPARAM const wparam,
                             LPARAM const lparam) noexcept {
   switch (message) {
+    case WM_GETMINMAXINFO: {
+      if (popup_) break;
+      auto mm = reinterpret_cast<MINMAXINFO*>(lparam);
+      const UINT dpi = DpiFor(hwnd);
+      const double scale = dpi / 96.0;
+      const SIZE extra = FrameExtra(static_cast<DWORD>(GetWindowLongPtr(hwnd, GWL_STYLE)),
+                                    static_cast<DWORD>(GetWindowLongPtr(hwnd, GWL_EXSTYLE)), dpi);
+      mm->ptMinTrackSize = POINT{static_cast<LONG>(kMinW * scale) + extra.cx, static_cast<LONG>(kMinH * scale) + extra.cy};
+      mm->ptMaxTrackSize = POINT{static_cast<LONG>(kMaxW * scale) + extra.cx, static_cast<LONG>(kMaxH * scale) + extra.cy};
+      mm->ptMaxSize = mm->ptMaxTrackSize;
+      return 0;
+    }
+    case WM_SYSCOMMAND:
+      // no maximize (Win+Up, the system menu, a title-bar double-click)
+      if (!popup_ && (wparam & 0xFFF0) == SC_MAXIMIZE) return 0;
+      break;
+    case WM_NCLBUTTONDBLCLK:
+      if (!popup_ && wparam == HTCAPTION) return 0;
+      break;
+    case WM_EXITSIZEMOVE:
+      if (!popup_) SavePlacement(hwnd);
+      break;
+    case WM_CLOSE:
+      if (!popup_) SavePlacement(hwnd);
+      break;
+
     case WM_DESTROY:
       window_handle_ = nullptr;
       Destroy();

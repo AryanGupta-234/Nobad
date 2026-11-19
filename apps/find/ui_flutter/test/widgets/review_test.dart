@@ -46,7 +46,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('SETTINGS'), findsOneWidget);
+    expect(find.text('GENERAL'), findsOneWidget);
   });
 
   testWidgets('no engine: Index shows no numbers and no actions, Settings says so and is read-only', (tester) async {
@@ -70,7 +70,7 @@ void main() {
   testWidgets('Esc clears the words, then the filters, then hides', (tester) async {
     final engine = FakeEngine();
     final w = await pumpApp(tester, engine);
-    await tester.tap(find.text('PDFs'));
+    await tester.tap(find.text('Documents').last);
     await tester.pumpAndSettle();
     await type(tester, 'tax');
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);

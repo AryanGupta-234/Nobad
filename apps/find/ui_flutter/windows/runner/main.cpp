@@ -88,7 +88,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   window.SetPopup(bar);
   Win32Window::Point origin(80, 60);
   Win32Window::Size size = bar ? Win32Window::Size(640, 64)
-                               : Win32Window::Size(1080, 720);
+                               : Win32Window::Size(1180, 760);  // client size; placed and clamped by Create
   if (!window.Create(bar ? L"NOBAD Find bar" : L"NOBAD Find", origin, size)) {
     return EXIT_FAILURE;
   }

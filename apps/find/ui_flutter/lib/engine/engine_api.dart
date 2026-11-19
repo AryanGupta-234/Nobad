@@ -14,6 +14,7 @@ import 'package:flutter/foundation.dart';
 
 import 'events.dart';
 import 'models/models_info.dart';
+import 'models/scope_info.dart';
 import 'models/result.dart';
 import 'models/settings.dart';
 import 'models/status.dart';
@@ -118,6 +119,13 @@ abstract class EngineApi {
 
   /// "English first", "Many languages" or "Hindi + English": changes the recommendation only.
   Future<ActionResult> modelLanguage(String focus);
+
+  // ---- what is indexed, and the turbo index (an older engine: -32601) ----
+  Future<ScopeInfo> scopeInfo();
+  Future<TurboState> turboState();
+
+  /// On: Windows asks for administrator permission (no time limit); off: the helper ends.
+  Future<TurboSet> turboSet(bool on);
 
   /// Windows' "Open with" dialog for the result.
   Future<ActionResult> openWith(int id);

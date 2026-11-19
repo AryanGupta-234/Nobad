@@ -78,7 +78,7 @@ class Glass extends StatelessWidget {
     super.key,
     required this.child,
     this.level = GlassLevel.card,
-    this.radius = 20,
+    this.radius = 12,
     this.padding,
     this.fill,
     this.rim,
@@ -113,18 +113,18 @@ class Glass extends StatelessWidget {
     final shadow = switch (level) {
       GlassLevel.card => [
         BoxShadow(
-          color: c.float.withValues(alpha: c.float.a * (.35 + .65 * lift)),
-          blurRadius: 18 + 22 * lift,
-          offset: Offset(0, 6 + 10 * lift),
-          spreadRadius: -8,
+          color: c.float.withValues(alpha: c.float.a * (.22 + .5 * lift)),
+          blurRadius: 8 + 10 * lift,
+          offset: Offset(0, 2 + 4 * lift),
+          spreadRadius: -4,
         ),
       ],
       _ => [
         BoxShadow(
-          color: c.float.withValues(alpha: c.float.a * .7),
-          blurRadius: 56,
-          offset: const Offset(0, 14),
-          spreadRadius: -18,
+          color: c.float.withValues(alpha: c.float.a * .45),
+          blurRadius: 24,
+          offset: const Offset(0, 6),
+          spreadRadius: -10,
         ),
       ],
     };

@@ -59,16 +59,15 @@ class _IndexingScreenState extends State<IndexingScreen> {
         return LayoutBuilder(
           builder: (context, box) {
             final wide = box.maxWidth >= NbSpace.wide;
-            return SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(NbSpace.x6, NbSpace.x8, NbSpace.x6, NbSpace.x10),
-              child: Center(
+            final body = SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(NbSpace.gutter, 0, NbSpace.gutter, NbSpace.x6),
+              child: Align(
+                alignment: Alignment.topLeft,
                 child: ConstrainedBox(
                   constraints: BoxConstraints(maxWidth: wide ? NbSpace.maxContent : NbSpace.column),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const PageTitle('Index'),
-                      const SizedBox(height: NbSpace.x6),
                       if (!s.settings.settings.flag('bg_notice_seen')) ...[
                         NoticeBar(
                           text:
@@ -80,6 +79,14 @@ class _IndexingScreenState extends State<IndexingScreen> {
                         const SizedBox(height: NbSpace.x4),
                       ],
                       _Now(status: st, connected: s.status.connected),
+                      if (s.status.turbo != null && s.status.connected)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8, left: 2),
+                          child: Text(
+                            s.status.turbo!.line,
+                            style: NbType.data(11.5, s.status.turbo!.running ? c.orange : c.dim),
+                          ),
+                        ),
                       if (!s.status.connected)
                         Padding(
                           padding: const EdgeInsets.only(top: NbSpace.x4),
@@ -92,6 +99,19 @@ class _IndexingScreenState extends State<IndexingScreen> {
                   ),
                 ),
               ),
+            );
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                PageHeader(
+                  'Index',
+                  crumb: 'Status',
+                  trailing: s.status.connected
+                      ? NbButton('Rescan now', kind: NbButtonKind.ghost, small: true, onPressed: s.settings.rescan)
+                      : null,
+                ),
+                Expanded(child: body),
+              ],
             );
           },
         );
@@ -136,7 +156,7 @@ class _IndexingScreenState extends State<IndexingScreen> {
     final r = d.resources;
     final phaseLabel = s.status.status?.phaseLabel ?? '';
     return [
-      const SectionTitle('What it is doing'),
+      const SectionTitle('What it is doing', top: NbSpace.x4),
       NbPanel(
         padding: EdgeInsets.zero,
         clip: true,
@@ -172,10 +192,7 @@ class _IndexingScreenState extends State<IndexingScreen> {
       TileGrid(min: 250, children: [for (final m in d.models) _ModelCardView(m)]),
       const SectionTitle('Recent decisions'),
       _Activity(s.status.activity),
-      SectionTitle(
-        'Index at a glance',
-        trailing: NbButton('Rescan now', kind: NbButtonKind.ghost, small: true, onPressed: s.settings.rescan),
-      ),
+      const SectionTitle('Index at a glance'),
       TileGrid(
         min: 170,
         children: [
@@ -235,23 +252,23 @@ class _Now extends StatelessWidget {
     final label = connected ? EngineStatus.levelLabels[lv]! : 'Not connected';
     return NbPanel(
       live: lv == 'full',
-      padding: const EdgeInsets.fromLTRB(22, 20, 18, 20),
+      padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
       child: Row(
         children: [
-          LevelGlyph(level: lv, color: c.orange, dim: c.dim, size: 18),
-          const SizedBox(width: 18),
+          LevelGlyph(level: lv, color: c.orange, dim: c.dim, size: 14),
+          const SizedBox(width: 14),
           Expanded(
             child: Semantics(
               liveRegion: true,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(label.toUpperCase(), style: NbType.display(26, paused ? c.muted : c.text)),
+                  Text(label, style: NbType.text(15, paused ? c.muted : c.text, weight: FontWeight.w700, height: 1.3)),
                   if (st.reason.isNotEmpty && connected) ...[
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 2),
                     ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 600),
-                      child: Text(st.reason, style: NbType.text(14, c.muted, height: 1.5)),
+                      child: Text(st.reason, style: NbType.text(12.5, c.muted, height: 1.4)),
                     ),
                   ],
                 ],

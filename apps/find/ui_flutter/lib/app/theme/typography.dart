@@ -4,7 +4,7 @@
 /// - Segoe UI Variable Text: everything people read.
 /// - Cascadia Mono: data only (paths, sizes, counts, times, key caps).
 ///
-/// The scale is the classic 11 / 12 / 13 / 14 / 16 / 18 / 21 / 28 / 44 ladder.
+/// A compact desktop scale: 11 / 12 / 13.5 / 14.5 / 16, and the one display line at 22 to 26.
 library;
 
 import 'dart:io';
@@ -42,14 +42,14 @@ Future<void> loadDisplayFont() async {
 
 abstract final class NbSize {
   static const micro = 10.5;
-  static const caption = 11.5;
-  static const small = 12.5;
-  static const body = 14.0;
-  static const title = 16.0;
-  static const lead = 18.0;
-  static const field = 21.0;
-  static const page = 28.0;
-  static const hero = 44.0;
+  static const caption = 11.0;
+  static const small = 12.0;
+  static const body = 13.5;
+  static const title = 14.5;
+  static const lead = 16.0;
+  static const field = 15.0;
+  static const page = 22.0;
+  static const hero = 26.0;
 }
 
 abstract final class NbType {

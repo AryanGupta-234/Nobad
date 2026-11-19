@@ -12,7 +12,9 @@ import 'package:flutter/foundation.dart';
 
 import 'engine_api.dart';
 import 'events.dart';
+import 'models/json.dart';
 import 'models/models_info.dart';
+import 'models/scope_info.dart';
 import 'models/result.dart';
 import 'models/settings.dart';
 import 'models/status.dart';
@@ -27,10 +29,18 @@ class FakeEngine implements EngineApi {
   }) : files = files ?? sampleFiles(),
        _clock = clock ?? (() => DateTime(2026, 11, 19, 14, 30)) {
     _link.value = link;
-    _settings = {...Settings.defaults, ...settings};
+    _settings = {...Settings.defaults, ...scopeDefaults, ...settings};
     _brief = const EngineStatus(level: 'gentle', reason: _gentle, phase: 'text', files: 48210);
     if (live) _ticker = Timer.periodic(const Duration(seconds: 2), (_) => _tick());
   }
+
+  /// The find-turbo-index settings (an engine with `scope_info`); `turbo` is read-only (turbo_set changes it).
+  static const scopeDefaults = <String, Object?>{
+    'scope': 'my_files',
+    'include_system': false,
+    'include_caches': false,
+    'include_secrets': false,
+  };
 
   static const _gentle = "Gentle: you're using the PC, so NOBAD Find works with 2 of 16 threads.";
 
@@ -268,8 +278,9 @@ class FakeEngine implements EngineApi {
     settingsSet.add(changes);
     final changed = <String>[];
     for (final e in changes.entries) {
-      if (e.key == 'wsearch_prev' || !Settings.defaults.containsKey(e.key)) continue;
-      final want = Settings.defaults[e.key];
+      final known = {...Settings.defaults, ...scopeDefaults};
+      if (e.key == 'wsearch_prev' || !known.containsKey(e.key)) continue;
+      final want = known[e.key];
       final fits = switch (want) {
         bool _ => e.value is bool,
         int _ => e.value is int && (e.value as int) >= 0,
@@ -431,6 +442,108 @@ class FakeEngine implements EngineApi {
         if (m.recommended) AutoStep(feature: m.feature, id: m.id, needsDownload: !m.onDisk),
     ];
     return AutoConfig(tier: modelsInfo.tierRecommended, steps: steps);
+  });
+
+  // ---------- what is indexed, and the turbo index ----------
+  /// The categories as the engine lists them (nobadfind, find-turbo-index), switched by the settings.
+  ScopeInfo get scope {
+    final sc = IndexScope.parse(_settings['scope']) ?? IndexScope.myFiles;
+    bool on(String k, {bool d = false}) => _settings[k] is bool ? _settings[k] as bool : d;
+    return ScopeInfo(
+      scope: sc,
+      roots: sc == IndexScope.custom
+          ? [for (final r in jStrs(_settings['roots'])) r]
+          : (sc == IndexScope.wholePc ? const [r'C:\', r'D:\'] : const [r'C:\Users\me']),
+      categories: [
+        ScopeCategory(
+          id: 'system',
+          name: 'Windows and programs',
+          why: "Windows' own files and installed programs: rarely what you look for, and many of them.",
+          examples: const [r'C:\Windows', r'C:\Program Files', r'C:\ProgramData'],
+          included: sc == IndexScope.wholePc && on('include_system'),
+          locked: sc != IndexScope.wholePc,
+          count: sc == IndexScope.wholePc && on('include_system') ? 412880 : 0,
+        ),
+        ScopeCategory(
+          id: 'caches',
+          name: 'App data and caches',
+          why: 'Settings, temporary files and build folders apps keep for themselves.',
+          examples: const [r'C:\Users\me\AppData', r'C:\Users\me\AppData\Local\Temp', r'…\node_modules', r'…\.git'],
+          included: on('include_caches'),
+          count: on('include_caches') ? 96214 : 0,
+        ),
+        ScopeCategory(
+          id: 'secrets',
+          name: 'Keys and password stores',
+          why: 'SSH keys, password databases, wallets. Names only if you turn it on; their contents are never read.',
+          examples: const [r'C:\Users\me\.ssh', r'…\*.kdbx', r'…\wallet.dat'],
+          included: on('include_secrets'),
+          count: on('include_secrets') ? 14 : 0,
+        ),
+        const ScopeCategory(
+          id: 'other_profiles',
+          name: "Other people's files",
+          why: "Other accounts on this PC, recycle bins and System Volume Information: never indexed.",
+          examples: [r'C:\Users\guest', r'C:\$Recycle.Bin', r'C:\System Volume Information'],
+          locked: true,
+        ),
+        ScopeCategory(
+          id: 'removable',
+          name: 'USB and external drives',
+          why: 'Indexed while plugged in; their files stay findable, marked "not connected", when you unplug them.',
+          examples: const [r'E:\'],
+          included: on('index_removable'),
+          locked: sc == IndexScope.custom,
+          count: on('index_removable') ? 2210 : null,
+        ),
+        ScopeCategory(
+          id: 'network',
+          name: 'Network drives',
+          why: 'Mapped network drives. Big shares take a while and use your network.',
+          examples: const [r'Z:\'],
+          included: on('index_network'),
+          locked: sc == IndexScope.custom,
+        ),
+      ],
+    );
+  }
+
+  late TurboState turbo = const TurboState(
+    available: true,
+    volumes: [
+      TurboVolume(drive: 'C:', ntfs: true, files: 0),
+      TurboVolume(drive: 'D:', ntfs: true, files: 0),
+      TurboVolume(drive: 'E:', files: 0),
+    ],
+  );
+
+  /// The answer at Windows' permission prompt (tests: false = "No").
+  bool turboPromptYes = true;
+
+  @override
+  Future<ScopeInfo> scopeInfo() => _new('scope_info', () => scope);
+
+  @override
+  Future<TurboState> turboState() => _new('turbo_state', () => turbo);
+
+  @override
+  Future<TurboSet> turboSet(bool on) => _new('turbo_set', () {
+    if (on && !turboPromptYes) {
+      return TurboSet(false, error: "Windows didn't give permission, so the normal folder walk is used.", state: turbo);
+    }
+    turbo = TurboState(
+      available: true,
+      enabled: on,
+      running: on,
+      volumes: [
+        TurboVolume(drive: 'C:', ntfs: true, files: on ? 612408 : 0, usnOk: on, lastScan: on ? 1795500000 : null),
+        TurboVolume(drive: 'D:', ntfs: true, files: on ? 88120 : 0, usnOk: on, lastScan: on ? 1795500000 : null),
+        const TurboVolume(drive: 'E:', files: 0),
+      ],
+    );
+    _settings['turbo'] = on;
+    emit(TurboEvent(turbo));
+    return TurboSet(true, state: turbo);
   });
 
   @override
