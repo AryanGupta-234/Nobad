@@ -1,6 +1,5 @@
-// Replays the engine's recorded contract sessions (apps/find/contract/transcripts, copied to
-// test/fixtures/contract from branch find-engine-rpc) through this UI's models and its pipe client, so wiring the
-// real engine is a swap. `engine` and `note` lines are the engine's side and are skipped.
+// Replays the engine's recorded contract sessions (apps/find/contract/transcripts, the same files the Python
+// contract test replays) through this UI's models and its pipe client. `engine` and `note` lines are the engine's side and are skipped.
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -17,12 +16,12 @@ import '../engine/rpc_test.dart' show FakeTransport;
 typedef Line = Map<String, Object?>;
 
 List<Line> readTranscript(String name) => [
-      for (final l in File('test/fixtures/contract/$name').readAsLinesSync())
+      for (final l in File('../contract/transcripts/$name').readAsLinesSync())
         if (l.trim().isNotEmpty) jsonDecode(l) as Line,
     ];
 
 final transcripts = [
-  for (final f in Directory('test/fixtures/contract').listSync()..sort((a, b) => a.path.compareTo(b.path)))
+  for (final f in Directory('../contract/transcripts').listSync()..sort((a, b) => a.path.compareTo(b.path)))
     if (f.path.endsWith('.jsonl')) f.uri.pathSegments.last,
 ];
 
