@@ -1,0 +1,18 @@
+{"note": "Events: the engine broadcasts, a subscribed UI gets a notification named after the event; unknown or unsubscribed events don't arrive."}
+{"send": {"jsonrpc": "2.0", "id": 1, "method": "subscribe", "params": {"events": ["traffic", "error_action", "show"]}}}
+{"recv": {"jsonrpc": "2.0", "id": 1, "result": {"events": ["error_action", "show", "traffic"]}}}
+{"engine": {"broadcast": "traffic", "payload": {"rx_bps": 4200000.5, "tx_bps": 310000.0, "rx_total": 81234567, "tx_total": 9123456, "hs_age": 12, "endpoint": "203.0.113.9:51820"}}}
+{"recv": {"jsonrpc": "2.0", "method": "traffic", "params": {"rx_bps": 4200000.5, "tx_bps": 310000.0, "rx_total": 81234567, "tx_total": 9123456, "hs_age": 12, "endpoint": "203.0.113.9:51820"}}}
+{"engine": {"broadcast": "health", "payload": {"rtt": 61.0, "loss": 0, "jitter": 2.0, "q": "great"}}}
+{"engine": {"broadcast": "error_action", "payload": {"code": "handshake", "title": "JP-FREE-3 never completed a handshake", "detail": "Check the keys and the endpoint address/port.", "name": "JP-FREE-3", "ts": 1763550000, "actions": [{"id": "retry", "label": "Retry"}, {"id": "check_endpoint", "label": "Check endpoint"}]}}}
+{"recv": {"jsonrpc": "2.0", "method": "error_action", "params": {"code": "handshake", "title": "JP-FREE-3 never completed a handshake", "detail": "Check the keys and the endpoint address/port.", "name": "JP-FREE-3", "ts": 1763550000, "actions": [{"id": "retry", "label": "Retry"}, {"id": "check_endpoint", "label": "Check endpoint"}]}}}
+{"send": {"jsonrpc": "2.0", "id": 2, "method": "ui_show", "params": {"window": "mini"}}}
+{"recv": {"jsonrpc": "2.0", "id": 2, "result": {"ok": true, "shown": false, "launched": false}}}
+{"send": {"jsonrpc": "2.0", "id": 3, "method": "ui_hidden", "params": {"window": "mini"}}}
+{"recv": {"jsonrpc": "2.0", "id": 3, "result": {"ok": true}}}
+{"send": {"jsonrpc": "2.0", "id": 4, "method": "ui_show", "params": {"window": "mini"}}}
+{"recv": {"jsonrpc": "2.0", "method": "show", "params": {"window": "mini"}}}
+{"recv": {"jsonrpc": "2.0", "id": 4, "result": {"ok": true, "shown": true, "launched": false}}}
+{"send": {"jsonrpc": "2.0", "id": 5, "method": "unsubscribe", "params": {"events": ["traffic"]}}}
+{"recv": {"jsonrpc": "2.0", "id": 5, "result": {"events": ["error_action", "show"]}}}
+{"engine": {"broadcast": "traffic", "payload": {"rx_bps": 1.0, "tx_bps": 1.0}}}

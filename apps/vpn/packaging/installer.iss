@@ -39,6 +39,8 @@ SignedUninstaller=yes
 #endif
 
 [Files]
+; dist\NobadVPN holds the app, nobadvpn\data\geoip-country.bin (the map's offline country database) and ui\ (the
+; 2.0 window, nobad_vpn_ui.exe and its Flutter files), so all of them land under {app}, which only admins can change.
 Source: "..\dist\NobadVPN\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
 ; Licensing: NOBAD's MIT license and the notices for every bundled third-party component.
 Source: "..\..\..\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreversion

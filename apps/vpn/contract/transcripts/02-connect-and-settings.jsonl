@@ -1,0 +1,21 @@
+{"note": "Connect, a server the engine doesn't have, a name that tries to be a path, favourites and settings."}
+{"send": {"jsonrpc": "2.0", "id": 1, "method": "connect", "params": {"name": "JP-FREE-3"}}}
+{"recv": {"jsonrpc": "2.0", "id": 1, "result": {"ok": true}}}
+{"send": {"jsonrpc": "2.0", "id": 2, "method": "connect", "params": {"name": "US-FREE-9"}}}
+{"recv": {"jsonrpc": "2.0", "id": 2, "result": {"ok": false, "error": "unknown server"}}}
+{"send": {"jsonrpc": "2.0", "id": 3, "method": "connect", "params": {"name": "..\\..\\Windows\\win.ini"}}, "expect_error": true}
+{"recv": {"jsonrpc": "2.0", "id": 3, "error": {"code": -32602, "message": "'name' has an unexpected form"}}}
+{"send": {"jsonrpc": "2.0", "id": 4, "method": "favorite", "params": {"name": "JP-FREE-3"}}}
+{"recv": {"jsonrpc": "2.0", "id": 4, "result": {"ok": true}}}
+{"send": {"jsonrpc": "2.0", "id": 5, "method": "settings", "params": {"key": "kill_switch", "value": true}}}
+{"recv": {"jsonrpc": "2.0", "id": 5, "result": {"ok": true}}}
+{"send": {"jsonrpc": "2.0", "id": 6, "method": "settings", "params": {"key": "dpapi_runtime_ok", "value": false}}}
+{"recv": {"jsonrpc": "2.0", "id": 6, "result": {"ok": false, "error": "unknown setting"}}}
+{"send": {"jsonrpc": "2.0", "id": 7, "method": "settings", "params": {"key": "fallback_dns", "value": "1.1.1.1, not-an-ip"}}}
+{"recv": {"jsonrpc": "2.0", "id": 7, "result": {"ok": false, "error": "fallback DNS must be a comma-separated list of IP addresses"}}}
+{"send": {"jsonrpc": "2.0", "id": 8, "method": "settings", "params": {"key": "kill_switch", "value": {"on": true}}}, "expect_error": true}
+{"recv": {"jsonrpc": "2.0", "id": 8, "error": {"code": -32602, "message": "'value' must be true/false, text, or a list of names"}}}
+{"send": {"jsonrpc": "2.0", "id": 9, "method": "disconnect", "params": {}}}
+{"recv": {"jsonrpc": "2.0", "id": 9, "result": {"ok": true}}}
+{"send": {"jsonrpc": "2.0", "id": 10, "method": "window", "params": {"do": "show"}}, "expect_error": true}
+{"recv": {"jsonrpc": "2.0", "id": 10, "error": {"code": -32601, "message": "Method not found"}}}

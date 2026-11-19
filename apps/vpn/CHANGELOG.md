@@ -2,6 +2,19 @@
 
 All notable changes to NOBAD VPN. Versions follow [semantic versioning](https://semver.org/).
 
+## Unreleased (2.0.0, in progress)
+
+### New
+- **A new window, in Flutter, that runs as you, not as administrator.** The engine still runs elevated (it creates
+  the tunnel and the firewall rules); the window talks to it over a private pipe only you, SYSTEM and administrators
+  can open, and every request is checked against a fixed list. Frosted glass over the old NOBAD theme, compact, with
+  the protection state as one large line and a connect ring you press. Off by default until it can do everything
+  the current window does (`NOBAD_VPN_UI=flutter` to try it).
+- **Servers on a live world map.** Every server is placed from its endpoint address with a database that ships with
+  the app, so nothing is looked up online; one NOBAD can't place says "location unknown". Hover for details, click to
+  pick, double-click to connect, wheel to zoom.
+- **The tray pop-up** is a frosted pane next to the tray, and says plainly when NOBAD isn't running.
+
 ## 1.6.2 · 2026-11-18
 
 ### Fixed

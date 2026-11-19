@@ -17,6 +17,7 @@ class _Ctx:
     eviltwin = None   # trust check of the joined network (eviltwin.EvilTwin)
     niagent = None    # Network Intelligence fix agent (netintel.agent.FixAgent)
     windows = None
+    rpc = None        # the engine pipe for the Flutter UI (rpc.Rpc), when NOBAD_VPN_UI picks it
     updater = None
     quitting = False
     state_hooks = []  # callables returning extra keys for the UI state

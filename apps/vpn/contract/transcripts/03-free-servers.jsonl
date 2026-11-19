@@ -1,0 +1,13 @@
+{"note": "The free-server guide: open a provider's page in the user's browser, look in Downloads, refuse a path."}
+{"send": {"jsonrpc": "2.0", "id": 1, "method": "open_url", "params": {"key": "proton_signup"}}}
+{"recv": {"jsonrpc": "2.0", "id": 1, "result": {"ok": true}}}
+{"send": {"jsonrpc": "2.0", "id": 2, "method": "open_url", "params": {"key": "https://evil.example/"}}, "expect_error": true}
+{"recv": {"jsonrpc": "2.0", "id": 2, "error": {"code": -32602, "message": "'key' must be one of 'wireguard_install', 'neverssl', 'firewall_settings', 'proton_signup', 'proton_downloads', 'warp_app', 'portal'"}}}
+{"send": {"jsonrpc": "2.0", "id": 3, "method": "free_scan", "params": {}}}
+{"recv": {"jsonrpc": "2.0", "id": 3, "result": {"ok": true, "folder": "<Downloads>", "files": []}}}
+{"send": {"jsonrpc": "2.0", "id": 4, "method": "free_import", "params": {"files": ["wg-JP-FREE-3.conf"]}}}
+{"recv": {"jsonrpc": "2.0", "id": 4, "result": {"ok": false, "imported": [], "errors": ["wg-JP-FREE-3.conf: not found"], "error": "wg-JP-FREE-3.conf: not found"}}}
+{"send": {"jsonrpc": "2.0", "id": 5, "method": "free_import", "params": {"files": ["C:\\Users\\me\\Downloads\\x.conf"]}}, "expect_error": true}
+{"recv": {"jsonrpc": "2.0", "id": 5, "error": {"code": -32602, "message": "'files[0]' has an unexpected form"}}}
+{"send": {"jsonrpc": "2.0", "id": 6, "method": "wizard_done", "params": {}}}
+{"recv": {"jsonrpc": "2.0", "id": 6, "result": {"ok": true}}}

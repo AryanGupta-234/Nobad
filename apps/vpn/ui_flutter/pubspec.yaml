@@ -1,0 +1,27 @@
+name: nobad_vpn_ui
+description: "NOBAD VPN window (Flutter). Runs as the signed-in user; talks only to the elevated engine's pipe."
+publish_to: 'none'
+
+# The window's own version; the engine reports the app's version in `hello`.
+version: 2.0.0+1
+
+environment:
+  sdk: ^3.14.0
+
+dependencies:
+  ffi: ^2.2.0
+  flutter:
+    sdk: flutter
+  image: ^4.13.1
+  material_ui: ^1.1.0
+  zxing2: ^0.2.4
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/nobad-mark.png

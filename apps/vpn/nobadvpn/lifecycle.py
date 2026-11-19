@@ -34,12 +34,13 @@ def mark_clean_exit():
         pass
 
 
-def write_instance(port, token=None):
+def write_instance(port, token=None, pipe=False):
     """Advertise the running copy. The file lives in ProgramData\\NobadVPN, which is locked to SYSTEM and
     Administrators, so only another elevated NOBAD can read the control token."""
     try:
         with open(INSTANCE_PATH, "w") as f:
-            json.dump({"port": port, "pid": os.getpid(), "ts": __import__("time").time(), "token": token}, f)
+            json.dump({"port": port, "pid": os.getpid(), "ts": __import__("time").time(), "token": token,
+                       "pipe": bool(pipe)}, f)   # pipe: the engine serves rpc too; hand-off and repair use it first
     except OSError:
         pass
 
@@ -104,7 +105,13 @@ def is_nobad_process(pid, image=None):
     return os.path.normcase(os.path.abspath(path)) == os.path.normcase(os.path.abspath(os.sys.executable))
 
 
-def handoff_to_running(show=True, timeout=2.5, pid_alive=None, post=None, image=None):
+def pipe_call(method, params, timeout):
+    """One request to the running engine over its pipe (rpc.client). Raises on any failure."""
+    from .rpc import client
+    return client.call(method, params, timeout=timeout)
+
+
+def handoff_to_running(show=True, timeout=2.5, pid_alive=None, post=None, image=None, pipe=None):
     """Second launch: if NOBAD is already running and responsive, bring its window forward and return True
     (the caller just exits; nothing is re-initialised, so this takes well under a second).
     If the running copy does not answer, it is replaced (killed with its watchdog) and False is returned."""
@@ -120,6 +127,13 @@ def handoff_to_running(show=True, timeout=2.5, pid_alive=None, post=None, image=
         return False
     if not pid or pid in (os.getpid(), os.getppid()) or not pid_alive(pid):
         return False
+    if inst.get("pipe"):                      # the engine serves its pipe: ask there first (no token, no port)
+        try:
+            r = (pipe or pipe_call)("ui_show" if show else "hello", {"window": "main"} if show else {}, timeout)
+            if isinstance(r, dict) and (r.get("ok") or r.get("protocol")):
+                return True
+        except Exception:
+            pass
     if port and token:
         try:
             if post(port, token, "/api/window", {"do": "show" if show else "noop"}, timeout).get("ok"):

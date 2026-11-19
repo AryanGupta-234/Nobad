@@ -481,6 +481,7 @@ const GROUPS = [
     { k: "guardian", n: "Keep guarding after the window closes", d: "Stays in the background so auto-repair and the kill switch keep working." },
     { k: "notifications", n: "Windows notifications", d: "Toasts for connect, drop, failover and kill-switch events.", kw: "toast alerts" },
     { k: "visual_effects", n: "Visual effects", d: "Frosted glass and ambient animations. Off keeps NOBAD light on CPU, GPU and battery.", kw: "performance animation blur battery lag" },
+    { k: "ui_flutter", n: "Try the new NOBAD VPN 2.0 window (preview)", d: "Uses the new window, which runs without administrator rights, from the next start. Turn it off to come back to this one.", kw: "flutter new window preview 2.0" },
     { k: "custom_titlebar", n: "NOBAD title bar", d: "NOBAD's own top bar with minimise, maximise and close. Off brings back the standard Windows title bar. Applies the next time NOBAD starts.", kw: "window title bar frame buttons" } ] },
   { id: "connectivity", title: "Connectivity", rows: [
     { k: "net_adapt", n: "Adapt to network blocks automatically", d: "If this network blocks a service NOBAD uses (by its name or through DNS), NOBAD switches to the service's official alternative name or looks it up with encrypted DNS, and remembers what works. Doesn't change Windows settings or your VPN traffic.", kw: "isp block dns doh alternative adapt auto" },

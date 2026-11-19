@@ -1,0 +1,3 @@
+# Built by packaging/make_geoip.py from DB-IP Country Lite (CC BY 4.0); not committed (about 10 MB).
+geoip-country.bin
+*.tmp

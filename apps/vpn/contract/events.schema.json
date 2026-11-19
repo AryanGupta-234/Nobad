@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "NOBAD VPN engine pipe: events and the state snapshot",
+  "protocol": 1,
+  "description": "Events are JSON-RPC notifications: {jsonrpc, method: <event>, params: <payload>}. Only the events the Flutter UI reads are described in detail; every other name in nobadvpn/rpc/events.py EVENTS carries the same payload the WebView's /events stream carries (ARCHITECTURE.md 7.3). Unknown keys may appear and must be ignored.",
+  "events": {
+    "state": {"$ref": "#/$defs/State"},
+    "traffic": {
+      "type": "object",
+      "required": ["rx_bps", "tx_bps"],
+      "properties": {
+        "rx_bps": {"type": "number", "minimum": 0},
+        "tx_bps": {"type": "number", "minimum": 0},
+        "rx_total": {"type": "integer"},
+        "tx_total": {"type": "integer"},
+        "hs_age": {"type": ["integer", "null"]},
+        "endpoint": {"type": ["string", "null"]}
+      }
+    },
+    "health": {"$ref": "#/$defs/Health"},
+    "direct_health": {
+      "type": "object",
+      "properties": {"rtt": {"type": ["number", "null"]}, "loss": {"type": ["number", "null"]}}
+    },
+    "probe": {
+      "type": "object",
+      "required": ["name", "ping"],
+      "properties": {"name": {"type": "string"}, "ping": {"$ref": "#/$defs/Ping"}}
+    },
+    "log": {"$ref": "#/$defs/LogEntry"},
+    "error_action": {"$ref": "#/$defs/Error"},
+    "notify": {
+      "type": "object",
+      "properties": {"title": {"type": "string"}, "msg": {"type": "string"}, "kind": {"type": "string"}}
+    },
+    "fix_result": {
+      "type": "object",
+      "required": ["ok"],
+      "properties": {"ok": {"type": "boolean"}, "message": {"type": "string"}}
+    },
+    "task_done": {
+      "type": "object",
+      "required": ["key"],
+      "properties": {"key": {"type": "string"}, "error": {"type": ["string", "null"]}}
+    },
+    "ipinfo": {"type": ["object", "null"]},
+    "show": {
+      "type": "object",
+      "required": ["window"],
+      "properties": {"window": {"enum": ["main", "mini"]}}
+    },
+    "quitting": {"type": "object"}
+  },
+  "$defs": {
+    "Ping": {
+      "type": ["object", "null"],
+      "properties": {
+        "rtt": {"type": ["number", "null"]},
+        "loss": {"type": ["number", "null"]},
+        "jitter": {"type": ["number", "null"]},
+        "est": {"type": "boolean"},
+        "src": {"type": "string"}
+      }
+    },
+    "Health": {
+      "type": ["object", "null"],
+      "properties": {
+        "rtt": {"type": ["number", "null"]},
+        "loss": {"type": ["number", "null"]},
+        "jitter": {"type": ["number", "null"]},
+        "q": {"enum": ["great", "fair", "poor", "bad", "good"]}
+      }
+    },
+    "LogEntry": {
+      "type": "object",
+      "required": ["ts", "msg", "level"],
+      "properties": {"ts": {"type": "string"}, "msg": {"type": "string"}, "level": {"enum": ["ok", "info", "warn", "bad"]}}
+    },
+    "Error": {
+      "type": ["object", "null"],
+      "properties": {
+        "code": {"type": "string"},
+        "title": {"type": "string"},
+        "detail": {"type": "string"},
+        "name": {"type": ["string", "null"]},
+        "ts": {"type": "integer"},
+        "portal": {"type": "string"},
+        "actions": {
+          "type": "array",
+          "items": {"type": "object", "required": ["id", "label"],
+                    "properties": {"id": {"type": "string"}, "label": {"type": "string"}}}
+        }
+      }
+    },
+    "Region": {
+      "type": "object",
+      "required": ["name", "host", "port"],
+      "properties": {
+        "name": {"type": "string"},
+        "host": {"type": "string"},
+        "port": {"type": ["integer", "string", "null"]},
+        "ping": {"$ref": "#/$defs/Ping"},
+        "geo": {"type": ["object", "null"], "properties": {"country": {"type": "string"}, "city": {"type": "string"}}},
+        "full": {"type": "boolean"},
+        "v6": {"type": "boolean"},
+        "dns": {"type": "boolean"},
+        "enc": {"type": "boolean"}
+      }
+    },
+    "State": {
+      "description": "engine.Tunnel.state() plus api.extra_state(): the answer of the `state` method and the payload of the `state` event.",
+      "type": "object",
+      "required": ["connected", "connecting", "regions", "settings", "admin", "wireguard"],
+      "properties": {
+        "connected": {"type": "boolean"},
+        "connecting": {"type": ["string", "null"]},
+        "note": {"type": ["string", "null"]},
+        "active": {"type": ["string", "null"]},
+        "since": {"type": ["number", "null"]},
+        "ks_active": {"type": "boolean"},
+        "dns_active": {"type": "boolean"},
+        "fw_off": {"type": "boolean"},
+        "giveup": {"type": "boolean"},
+        "settings": {"type": "object"},
+        "regions": {"type": "array", "items": {"$ref": "#/$defs/Region"}},
+        "admin": {"type": "boolean"},
+        "wireguard": {"type": "boolean"},
+        "wg_installing": {"type": "boolean"},
+        "wg_cli": {"type": "boolean"},
+        "exit": {"type": ["object", "null"]},
+        "health": {"$ref": "#/$defs/Health"},
+        "home": {"type": ["object", "null"]},
+        "sessions": {"type": "array"},
+        "error": {"$ref": "#/$defs/Error"},
+        "log": {"type": "array", "items": {"$ref": "#/$defs/LogEntry"}},
+        "tray": {"type": "boolean"},
+        "autostart": {"type": "boolean"},
+        "update": {"type": ["object", "null"]},
+        "crash_pending": {"type": "integer"},
+        "network": {"type": ["object", "null"]},
+        "frozen": {"type": "boolean"},
+        "eviltwin": {"type": ["object", "null"]}
+      }
+    }
+  }
+}

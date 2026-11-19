@@ -149,6 +149,7 @@ DEFAULTS = {
     "si_my_services": [],          # TMDB provider ids the user subscribes to (optional filter)
     "si_language": "en-US",
     "custom_titlebar": True,
+    "ui_flutter": False,           # NOBAD VPN 2.0 preview: the Flutter window instead of this one (next start)
     "net_adapt": True,             # NOBAD's own downloads adapt to blocked hostnames/DNS (alternate names, encrypted DNS)       # NOBAD's own top bar with window buttons (off = classic Windows title bar)
     "encrypt_configs": False,
     "dpapi_runtime_ok": True,      # flipped off automatically if WireGuard refuses .dpapi files

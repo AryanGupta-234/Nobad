@@ -27,6 +27,8 @@ def parse_args(argv=None):
     p.add_argument("--version", action="store_true")
     p.add_argument("--install-tasks", action="store_true", help=argparse.SUPPRESS)  # run by the installer (elevated)
     p.add_argument("--autostart", choices=("on", "off"), help=argparse.SUPPRESS)
+    p.add_argument("--set-url", nargs=2, metavar=("update|crash", "URL"),
+                   help="set the update manifest or crash report address (administrator; the window can only clear them)")
     args, _unknown = p.parse_known_args(argv)
     return args
 
@@ -241,6 +243,28 @@ def install_tasks(autostart_mode=None):
     return 0 if ok else 1
 
 
+def set_url(kind, url):
+    """`--set-url update|crash <https link>`: the two addresses a window may only clear (rpc/params.ADMIN_ONLY_URLS),
+    because they decide where NOBAD downloads its updates from and where it sends crash reports. Administrator only;
+    "" clears it. Exit code 0 when saved."""
+    from .settings import Settings, coerce
+    key = {"update": "update_url", "crash": "crash_report_url"}.get(kind)
+    if not key:
+        print("use: --set-url update|crash <https link>")
+        return 2
+    if os.name == "nt" and not is_admin():
+        print("Administrator rights are needed.")
+        return 2
+    ok, val = coerce(key, url)
+    if not ok:
+        print(val)
+        return 1
+    os.makedirs(DATA_DIR, exist_ok=True)
+    Settings(SETTINGS_PATH, LEGACY_SETTINGS_PATH).set(key, val)
+    print(f"{key} = {val or '(none)'}")
+    return 0
+
+
 def _cli_repair(args):
     """`--panic` (Start-menu "Restore internet", uninstaller) and `--repair-network`: no window, works offline.
     If NOBAD is running, the running engine does the work (so auto-repair can't fight the reset); otherwise it is
@@ -253,9 +277,9 @@ def _cli_repair(args):
         return 1
     os.makedirs(DATA_DIR, exist_ok=True)
     inst = lifecycle.read_instance() or {}
-    if _instance_alive() and inst.get("port") and inst.get("token"):
+    if _instance_alive() and (inst.get("pipe") or (inst.get("port") and inst.get("token"))):
         try:
-            r = lifecycle._post_local(inst["port"], inst["token"], "/api/net_repair", {"level": level}, 5)
+            r = _forward_repair(inst, level)
             if r.get("ok"):
                 msg = "NOBAD is running, so it is doing this itself. Results appear in the app."
                 print(msg)
@@ -273,6 +297,20 @@ def _cli_repair(args):
                      text + ("\n\nRestart Windows to finish the network reset." if res["restart_needed"] else ""),
                      ok=res["ok"])
     return 0 if res["ok"] else 1
+
+
+def _forward_repair(inst, level):
+    """Ask the running engine to do the repair: over its pipe when it serves one, else the loopback route."""
+    if inst.get("pipe"):
+        try:
+            r = lifecycle.pipe_call("net_repair", {"level": level}, 5)
+            if isinstance(r, dict) and r.get("ok"):
+                return r
+        except Exception:
+            pass
+    if inst.get("port") and inst.get("token"):
+        return lifecycle._post_local(inst["port"], inst["token"], "/api/net_repair", {"level": level}, 5)
+    return {"ok": False}
 
 
 def _instance_alive():
@@ -297,7 +335,7 @@ def _message_box(title, text, ok=True):
 def _run_main_process(args):
     from . import splash
     from .server import TOKEN, make_server
-    from .window import WindowManager, set_dpi_awareness
+    from .window import set_dpi_awareness
     want_window = (not args.background) or autostart.consume_show_flag()
     if lifecycle.handoff_to_running(show=want_window):
         splash.close()
@@ -323,7 +361,7 @@ def _run_main_process(args):
         splash.close()
     url = f"http://127.0.0.1:{port}"
     set_dpi_awareness()
-    wm = WindowManager(url)
+    wm = _windows(url)
     ctx.windows = wm
     spawn(_background_start, tunnel)
     clean = False
@@ -350,7 +388,7 @@ def _run_main_process(args):
         clean = True
     finally:
         splash.close()
-        for step in (wm.save_state, ctx.netwatch.stop, tunnel.flush_usage, tunnel.stop, ctx.tray.stop,
+        for step in (wm.save_state, ctx.netwatch.stop, tunnel.flush_usage, tunnel.stop, ctx.tray.stop, _stop_rpc,
                      lifecycle.remove_instance):
             try:
                 step()
@@ -358,6 +396,40 @@ def _run_main_process(args):
                 log(f"shutdown step {getattr(step, '__name__', step)} failed: {e}", "warn")
         if clean:
             lifecycle.mark_clean_exit()  # tells the watchdog (and the next start) this was a normal exit
+
+
+def _windows(url):
+    """NOBAD's windows for this launch (rpc.launch.ui_mode): the WebView windows (today's default), or the Flutter
+    UI over the engine pipe, which then is the only window the user sees ("flutter"), or both side by side
+    ("both", for checking parity). The pipe never starts unless NOBAD_VPN_UI asks for it and the UI is there."""
+    from .window import WindowManager
+    from .rpc import launch
+    mode = launch.ui_mode()
+    if mode != "webview":
+        from . import rpc
+        ctx.rpc = rpc.start(mode)
+        if ctx.rpc is not None:                    # a second launch and the Start-menu repair use the pipe first
+            from .server import TOKEN
+            lifecycle.write_instance(port_of(url), TOKEN, pipe=True)
+        if ctx.rpc is None:
+            log("NOBAD's Flutter window couldn't get its pipe: using the classic window", "warn")
+        elif mode == "flutter":
+            log("NOBAD's window is the Flutter UI (engine pipe)", "info")
+            return rpc.FlutterWindows(ctx.rpc)
+    return WindowManager(url)
+
+
+def port_of(url):
+    try:
+        return int(url.rsplit(":", 1)[1])
+    except (IndexError, ValueError):
+        return 0
+
+
+def _stop_rpc():
+    if ctx.rpc is not None:
+        ctx.rpc.stop()
+        ctx.rpc = None
 
 
 def main(argv=None):
@@ -380,6 +452,8 @@ def main(argv=None):
         os.makedirs(DATA_DIR, exist_ok=True)
         recovery.boot_guard()
         return 0
+    if args.set_url:
+        return set_url(*args.set_url)
     cli_fix = args.panic or args.repair_network
     if os.name == "nt" and not is_admin():
         if not cli_fix and autostart.launch_via_task(show_window=not args.background):

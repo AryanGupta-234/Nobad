@@ -333,7 +333,8 @@ class Tunnel(ProtectionMixin, FailsafeMixin):
     def _write_runtime(self, region, body, encrypted):
         self._secure_runtime_dir()
         path = os.path.join(RUNTIME_DIR, region["name"] + (confparse.EXT_ENC if encrypted else confparse.EXT_PLAIN))
-        confparse.write_conf_text(path, body, encrypted=encrypted)
+        # every candidate (tuned, plain, or the untuned "orig" fallback) loses its script hooks here
+        confparse.write_conf_text(path, confparse.strip_script_hooks(body), encrypted=encrypted)
         return path
 
     def _rm_tmp(self):
@@ -401,24 +402,49 @@ class Tunnel(ProtectionMixin, FailsafeMixin):
         lat, lon = (float(x) for x in d["loc"].split(","))
         return {"lat": lat, "lon": lon, "city": d.get("city"), "country": d.get("country"), "ip": d.get("ip")}
 
-    def geo_refresh(self):
-        """Look up where each server is (once; cached on disk). Only the public endpoint IP is sent — and only if
-        the 'IP lookup' privacy setting is on."""
-        if not ctx.settings.get("ip_lookup"):
-            return
+    def _known_ips(self, host):
+        """Addresses for `host` without a new lookup: an IP literal, or what the last resolve found (memory, disk)."""
+        try:
+            ipaddress.ip_address(host)
+            return [host]
+        except ValueError:
+            pass
+        c = self._ep_cache.get(host)
+        return list(c[1]) if c else []
+
+    def geo_refresh(self, resolve=False, only=None):
+        """Find where each server is (once per endpoint; cached on disk). Offline first: the bundled IP-to-country
+        file (geoip.py) answers without sending anything. Only with the 'IP lookup' privacy setting on is the public
+        endpoint IP also sent to ipinfo.io, for a city. Without it no new DNS lookup is made here: hostnames are placed
+        from the address the last connect (or the import, `resolve=True`) found. Endpoints neither can place stay unknown (not cached, so a
+        newer file can place them), and the window says "location unknown" instead of guessing."""
+        from . import geoip
+        online = bool(ctx.settings.get("ip_lookup"))
         changed = False
         for r in list(self._regions):
+            if only is not None and r["name"] != only:
+                continue                   # an import or a save places that config only, never resolves the rest
             h = r["host"]
-            if not h or h in self.geo:
+            have = self.geo.get(h) if h else None
+            if not h or (have and (have.get("source") != "offline" or not online)):
                 continue
-            ips = self._resolve(h)
+            # offline only, no new DNS lookup: the address the engine already has for connecting. `resolve`: a
+            # config was just imported or saved, so resolving it now is the lookup the import does anyway.
+            ips = self._resolve(h) if (resolve or online) else self._known_ips(h)
             if not ips:
                 continue
-            try:
-                self.geo[h] = self._ipinfo(ips[0] + "/")
+            got = None
+            if online:
+                try:
+                    got = self._ipinfo(ips[0] + "/")
+                except Exception:
+                    got = None
+            if got is None and not have:
+                cc = geoip.lookup(ips[0])
+                got = {"country": cc, "source": "offline"} if cc else None
+            if got:
+                self.geo[h] = got
                 changed = True
-            except Exception:
-                continue
         if changed:
             try:
                 with open(GEO_PATH, "w", encoding="utf-8") as f:
