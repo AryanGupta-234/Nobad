@@ -53,7 +53,7 @@ class _ShellState extends State<Shell> {
     _splashDone = !widget.splash || s.engine.link.value != Link.connecting;
     if (!_splashDone) s.engine.link.addListener(_linkChanged);
     unawaited(s.find.loadHere());
-    widget.demo?.tour(s);
+    widget.demo?.start(s);
   }
 
   void _linkChanged() {

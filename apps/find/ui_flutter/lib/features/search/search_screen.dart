@@ -18,6 +18,7 @@ import '../../engine/engine_api.dart' show maxTextLength;
 import '../../engine/events.dart';
 import '../../engine/models/result.dart';
 import '../../state/search_controller.dart';
+import '../../platform/demo.dart';
 import '../../widgets/dialogs.dart';
 import '../../widgets/icons.dart';
 import '../../widgets/motion.dart';
@@ -50,6 +51,7 @@ class _SearchScreenState extends State<SearchScreen> {
     s = AppScope.of(context);
     if (_wired) return;
     _wired = true;
+    Demo.mainBox = box;
     box.addListener(() => s.find.setText(box.text));
     s.find.addListener(_follow);
     _shows = s.engine.events.listen((e) {
@@ -103,6 +105,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
   @override
   void dispose() {
+    if (identical(Demo.mainBox, box)) Demo.mainBox = null;
     _shows?.cancel();
     s.find.removeListener(_follow);
     box.dispose();
@@ -343,7 +346,7 @@ class _Meta extends StatelessWidget {
         TextSpan(
           text: a.results.isEmpty
               ? 'Nothing found. Try fewer or other words, or fewer filters.'
-              : '${a.results.length}${a.more ? '+' : ''} results · ${a.ms} ms',
+              : '${a.results.length}${a.more ? '+' : ''} ${a.results.length == 1 && !a.more ? 'result' : 'results'} · ${a.ms} ms',
         ),
       );
       for (final n in a.notes) {

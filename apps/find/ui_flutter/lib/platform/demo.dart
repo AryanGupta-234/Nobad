@@ -74,6 +74,18 @@ class Demo {
     after?.call();
   }
 
+  /// The main window's search box, for the typing demo (set by the search screen).
+  static TextEditingController? mainBox;
+
+  /// Starts the demo for the main window: the screenshot tour, or the typing demo in the search box.
+  Future<void> start(AppScope s) async {
+    if (!isTour) {
+      await _until(() => mainBox != null);
+      return run(s.engine, mainBox!, s.find, 'main');
+    }
+    return tour(s);
+  }
+
   /// The screenshot tour of the main window.
   Future<void> tour(AppScope s) async {
     if (!isTour) return;
