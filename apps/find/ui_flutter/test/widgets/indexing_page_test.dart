@@ -45,7 +45,7 @@ void main() {
       'enabled': true,
       'running': true,
       'volumes': [
-        {'drive': 'C:', 'ntfs': true, 'files': 5, 'usn_ok': true, 'last_scan': 1.5},
+        {'drive': r'C:\', 'ntfs': true, 'files': 5, 'usn_ok': true, 'last_scan': 1.5},
       ],
       'error': '',
     });

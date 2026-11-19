@@ -18,6 +18,7 @@ import '../../engine/models/result.dart';
 import '../../state/categories.dart';
 import '../../widgets/common.dart';
 import '../../widgets/glass.dart';
+import '../../widgets/icons.dart';
 import '../../widgets/panels.dart';
 import '../../widgets/pressable.dart';
 
@@ -51,6 +52,7 @@ class _HomeViewState extends State<HomeView> {
   bool _failed = false;
 
   void _linkChanged() {
+    if (mounted) setState(() {}); // the list says what the link is
     if (_scope!.engine.link.value == Link.connected) unawaited(_load());
   }
 
@@ -144,6 +146,8 @@ class _HomeViewState extends State<HomeView> {
                     ),
                     _RecentList(
                       files: _recent,
+                      link: s.engine.link.value,
+                      failed: _failed,
                       onOpen: (r) async {
                         final res = await s.engine.open(r.id);
                         if (!res.ok) {
@@ -175,6 +179,17 @@ const categoryBadges = {
   SearchCategory.recent: 'NEW',
 };
 
+/// The icon of a tile: its kind, else a time, a size, or the folder it narrows to.
+NbGlyph tileGlyph(SearchFilters f) => switch (f) {
+  SearchFilters(folder: 'downloads', kind: '') => NbGlyph.download,
+  SearchFilters(kind: 'pdf' || 'document' || 'spreadsheet' || 'slides' || 'text' || 'email' || 'ebook') => NbGlyph.doc,
+  SearchFilters(kind: 'image') => NbGlyph.image,
+  SearchFilters(kind: 'video' || 'audio') => NbGlyph.media,
+  SearchFilters(kind: 'code' || 'archive' || 'app') => NbGlyph.code,
+  SearchFilters(modified: != '') => NbGlyph.clock,
+  _ => NbGlyph.grid,
+};
+
 /// A strip of starting tiles (Home's categories, a category's narrower searches): compact, never stretched.
 class CategoryTiles extends StatelessWidget {
   const CategoryTiles({super.key, required this.tiles, required this.onTile, this.current});
@@ -189,15 +204,14 @@ class CategoryTiles extends StatelessWidget {
     spacing: 8,
     runSpacing: 8,
     children: [
-      for (final (label, badge, f) in tiles)
-        _Tile(badge: badge, label: label, on: current == f, onTap: () => onTile(f)),
+      for (final (label, _, f) in tiles) _Tile(filters: f, label: label, on: current == f, onTap: () => onTile(f)),
     ],
   );
 }
 
 class _Tile extends StatelessWidget {
-  const _Tile({required this.badge, required this.label, required this.onTap, this.on = false});
-  final String badge;
+  const _Tile({required this.filters, required this.label, required this.onTap, this.on = false});
+  final SearchFilters filters;
   final String label;
   final bool on;
   final VoidCallback onTap;
@@ -224,14 +238,11 @@ class _Tile extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 30,
+              width: 28,
               height: 28,
               alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: c.orangeA(.08),
-                borderRadius: const BorderRadius.all(Radius.circular(6)),
-              ),
-              child: Text(badge, style: NbType.data(9.5, c.orange, weight: FontWeight.w700)),
+              decoration: BoxDecoration(color: c.cardHover, borderRadius: const BorderRadius.all(Radius.circular(4))),
+              child: NbIcon(tileGlyph(filters), size: 16, color: on ? c.orange : c.muted),
             ),
             const SizedBox(width: 10),
             Text(label, style: NbType.text(13, c.text, weight: FontWeight.w600, height: 1.2)),
@@ -243,9 +254,18 @@ class _Tile extends StatelessWidget {
 }
 
 class _RecentList extends StatelessWidget {
-  const _RecentList({required this.files, required this.onOpen});
+  const _RecentList({required this.files, required this.onOpen, required this.link, required this.failed});
   final List<FileResult>? files;
   final ValueChanged<FileResult> onOpen;
+  final Link link;
+
+  /// The last try failed (the engine was busy or gone): say so instead of "nothing yet".
+  final bool failed;
+
+  Widget _say(NbColors c, String text) => Padding(
+    padding: const EdgeInsets.fromLTRB(10, 8, 10, 12),
+    child: Text(text, style: NbType.text(13, c.dim, height: 1.4)),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -253,13 +273,16 @@ class _RecentList extends StatelessWidget {
     final list = files;
     return ClipRRect(
       borderRadius: NbRadius.rowAll,
-      child: list == null
-          ? const SizedBox(height: 48)
+      child: link == Link.offline
+          ? _say(c, "NOBAD Find's engine isn't running, so there is nothing to show. It comes back with the engine.")
+          : link == Link.incompatible
+          ? _say(c, 'This window and the engine are different versions. Update NOBAD Find.')
+          : list == null
+          ? _say(c, link == Link.connecting ? 'Connecting to the engine…' : 'Looking for what changed…')
+          : list.isEmpty && failed
+          ? _say(c, "Couldn't ask the engine just now. Trying again with the next update.")
           : list.isEmpty
-          ? Padding(
-              padding: const EdgeInsets.all(14),
-              child: Text('Files you change will show up here once they are indexed.', style: NbType.text(13, c.dim)),
-            )
+          ? _say(c, 'Files you change will show up here once they are indexed.')
           : Column(
               children: [
                 for (var i = 0; i < list.length; i++) ...[

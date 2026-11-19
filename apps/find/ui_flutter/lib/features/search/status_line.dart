@@ -59,13 +59,17 @@ class StatusLine extends StatelessWidget {
               const SizedBox(width: 10),
               Flexible(
                 flex: keys ? 0 : 1,
-                child: Semantics(
-                  liveRegion: false,
-                  child: Text(
-                    keys && ok ? (st?.phaseLabel ?? '') : s.status.line,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: NbType.data(NbSize.caption, s.status.link == Link.offline ? c.warn : c.muted),
+                // beside the keys only the phase, and never more than a short line: the keys come first
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: keys ? 220 : double.infinity),
+                  child: Semantics(
+                    liveRegion: false,
+                    child: Text(
+                      keys && ok ? (st?.phaseLabel ?? '') : s.status.line,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: NbType.text(NbSize.caption, s.status.link == Link.offline ? c.warn : c.muted),
+                    ),
                   ),
                 ),
               ),

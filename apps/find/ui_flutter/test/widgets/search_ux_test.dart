@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart' show TextField;
 import 'package:nobad_find/app/app.dart';
+import 'package:nobad_find/engine/engine_api.dart' show Link;
 import 'package:nobad_find/state/recent_searches.dart';
 
 import '../support/fake_engine.dart';
@@ -81,5 +82,10 @@ void main() {
     expect(engine.channels.first, 'home');
     await type(tester, 'tax');
     expect(engine.channels.last, 'main');
+  });
+
+  testWidgets("Home without the engine says so instead of an empty list", (tester) async {
+    await pumpApp(tester, FakeEngine(link: Link.offline));
+    expect(find.textContaining("engine isn't running, so there is nothing to show"), findsOneWidget);
   });
 }

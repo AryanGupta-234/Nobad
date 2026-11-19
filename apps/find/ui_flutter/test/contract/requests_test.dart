@@ -101,6 +101,12 @@ Future<Object?> make(EngineClient c, String m, Map<String, Object?> p) {
       return c.uiShown(p['window'] as String? ?? 'main');
     case 'ui_hidden':
       return c.uiHidden(p['window'] as String? ?? 'main');
+    case 'scope_info':
+      return c.scopeInfo();
+    case 'turbo_state':
+      return c.turboState();
+    case 'turbo_set' when p['on'] is bool:
+      return c.turboSet(p['on'] as bool);
   }
   return c.call(m, p);
 }

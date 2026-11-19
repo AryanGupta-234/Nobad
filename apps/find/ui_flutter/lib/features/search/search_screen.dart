@@ -561,7 +561,7 @@ class _SearchBoxState extends State<_SearchBox> {
                 decoration: InputDecoration(
                   isDense: true,
                   border: InputBorder.none,
-                  hintText: 'Describe it: “rent pdf from last week”, “beach photos in march”, “budget.xlsx”',
+                  hintText: 'Describe it: “rent pdf from last week”, “budget.xlsx”',
                   hintStyle: NbType.text(NbSize.field, c.dim),
                   prefixIcon: Padding(
                     padding: const EdgeInsets.only(left: 12, right: 10),

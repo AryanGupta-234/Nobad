@@ -85,6 +85,9 @@ class ScopeInfo {
 class TurboVolume {
   const TurboVolume({required this.drive, this.ntfs = false, this.files = 0, this.usnOk = false, this.lastScan});
   final String drive;
+
+  /// "C:" (the engine may send "C:" with a backslash).
+  String get label => drive.endsWith(r'\') ? drive.substring(0, drive.length - 1) : drive;
   final bool ntfs;
   final int files;
 
@@ -135,7 +138,7 @@ class TurboState {
     if (running) {
       final d = [
         for (final v in volumes)
-          if (v.ntfs) v.drive,
+          if (v.ntfs) v.label,
       ];
       return 'Turbo: on${d.isEmpty ? '' : ' (${d.join(', ')} NTFS)'}';
     }

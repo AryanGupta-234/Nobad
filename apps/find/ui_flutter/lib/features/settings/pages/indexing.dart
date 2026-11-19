@@ -302,7 +302,7 @@ class _TurboTable extends StatelessWidget {
               padding: const EdgeInsets.only(top: 3),
               child: Row(
                 children: [
-                  cell(v.drive, w: 60),
+                  cell(v.label, w: 60),
                   cell(v.ntfs ? 'NTFS' : 'Not NTFS'),
                   cell(v.files > 0 ? groupDigits(v.files) : '—'),
                   cell(v.usnOk ? 'Change journal' : (v.ntfs ? 'Folder walk' : '—'), w: 120),
