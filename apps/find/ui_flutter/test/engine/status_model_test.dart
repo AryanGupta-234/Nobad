@@ -47,6 +47,11 @@ void main() {
       expect(s.details, isNull);
     });
 
+    test('a pause the engine already words as "Paused: …" is not said twice', () {
+      const s = EngineStatus(level: 'paused', phase: 'text', paused: 'Paused: waiting a moment before starting again');
+      expect(s.phaseLabel, 'Paused: waiting a moment before starting again');
+    });
+
     test('paused shows why', () {
       expect(const EngineStatus(phase: 'text', paused: 'on battery').phaseLabel, 'Paused · on battery');
     });

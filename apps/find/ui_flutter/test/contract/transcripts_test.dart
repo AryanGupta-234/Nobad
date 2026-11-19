@@ -93,7 +93,11 @@ void main() {
         case 'get_settings':
           final s = Settings.fromJson(r);
           expect(s.text('theme'), anyOf('dark', 'light'));
-          expect(s.flag('welcome_seen'), isTrue); // an engine without the key never shows the welcome again
+          expect(s.values.containsKey('welcome_seen'), isTrue); // the engine keeps the welcome's state
+          expect(
+            Settings.fromJson(const {'theme': 'dark'}).flag('welcome_seen'),
+            isTrue,
+          ); // an older engine: no nagging
         case 'set_settings':
           expect(SettingsChange.fromJson(r).settings.values, isNotEmpty);
         case 'learned_apps':

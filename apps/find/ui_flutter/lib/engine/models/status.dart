@@ -67,7 +67,9 @@ class EngineStatus {
     'paused': 'Paused',
   };
 
-  String get phaseLabel => paused.isNotEmpty ? 'Paused · $paused' : (phaseLabels[phase] ?? phase);
+  String get phaseLabel => paused.isEmpty
+      ? (phaseLabels[phase] ?? phase)
+      : (paused.startsWith('Paused') ? paused : 'Paused · $paused'); // the engine may word it already
   String get levelLabel => levelLabels[level] ?? '';
 
   /// One of full/gentle/light/paused (an unknown level is shown as light, like 0.7.0).

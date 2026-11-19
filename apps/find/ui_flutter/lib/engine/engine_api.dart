@@ -2,11 +2,10 @@
 /// this interface only.
 ///
 /// Implementations:
-/// - [WiredEngine] (wiring.dart): the app's engine. A method the running engine lists in `hello.methods` goes over
-///   the pipe; one it doesn't serve yet (the 2026-11-18 prototype engine) is answered by [FakeEngine]. That
-///   routing lives in wiring.dart only.
-/// - [FakeEngine] (fake_engine.dart): an in-memory engine with the contract's shapes, for tests, screenshots and
-///   the methods an older engine doesn't serve.
+/// - [PipeEngine] (wiring.dart): the app's engine, over the pipe only. Offline: [EngineOffline]; a method the
+///   engine doesn't serve: [RpcException] -32601. Never made-up answers.
+/// - [FakeEngine] (fake_engine.dart): an in-memory engine with the contract's shapes, only for tests, goldens and
+///   the explicit `NOBAD_FIND_FAKE_ENGINE=1` demo.
 ///
 /// Files are always named by result id, never by a path from the UI (the engine looks the path up).
 library;

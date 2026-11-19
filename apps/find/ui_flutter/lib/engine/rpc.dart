@@ -51,9 +51,14 @@ class RpcSession {
   Future<Object?> call(String method, [Map<String, Object?> params = const {}, Duration? timeout]) {
     if (!isOpen) return Future.error(const EngineOffline());
     final id = _next++;
+    final String line;
+    try {
+      line = jsonEncode({'jsonrpc': '2.0', 'id': id, 'method': method, 'params': params});
+    } on Object {
+      return Future.error(const RpcException(-32600, "That request couldn't be sent."));
+    }
     final c = Completer<Object?>();
     _pending[id] = c;
-    final line = jsonEncode({'jsonrpc': '2.0', 'id': id, 'method': method, 'params': params});
     try {
       _t.send(line);
     } catch (_) {
@@ -94,6 +99,18 @@ class RpcSession {
       }
       return;
     }
+    if (msg.containsKey('id') && msg['id'] == null && msg['error'] is Map) {
+      final err = msg['error'] as Map;
+      final e = RpcException(
+        err['code'] is int ? err['code'] as int : -32700,
+        err['message'] is String ? err['message'] as String : 'The engine could not read a request.',
+      );
+      for (final c in _pending.values) {
+        c.completeError(e);
+      }
+      _pending.clear();
+      return;
+    }
     final method = msg['method'];
     if (method is String && !msg.containsKey('id')) {
       final ev = EngineEvent.parse(method, msg['params']);
@@ -116,7 +133,8 @@ class RpcSession {
 }
 
 /// The real engine over the pipe: the connection, its events, and a typed call for every contract method.
-/// Screens never use it directly; [WiredEngine] (wiring.dart) decides which [EngineApi] call comes here.
+/// Screens use it through [PipeEngine] (wiring.dart). A call the connected engine doesn't serve fails with
+/// -32601; with no engine connected every call fails with [EngineOffline]. Nothing is ever made up.
 class EngineClient {
   EngineClient(
     this._connect, {
@@ -154,6 +172,25 @@ class EngineClient {
   var _started = false;
   var _quitting = false;
   var _watching = false;
+
+  /// Is this UI's window on screen? Reported again after a reconnect (the engine starts idle until a window shows).
+  late bool _shown = window == 'main';
+  bool get shown => _shown;
+
+  /// Order-sensitive calls of one kind wait for the previous one (the engine answers on a pool of threads).
+  final _queues = <String, Future<void>>{};
+
+  Future<T> _inOrder<T>(String kind, Future<T> Function() f) {
+    final prev = _queues[kind] ?? Future<void>.value();
+    final next = prev.then((_) => f());
+    _queues[kind] = next.then((_) {}, onError: (_) {});
+    return next;
+  }
+
+  /// Methods every engine has (no need to be listed).
+  static const _always = {'hello', 'subscribe', 'unsubscribe'};
+
+  bool serves(String method) => _always.contains(method) || served.contains(method);
 
   /// What the connected engine serves (`hello.methods`); the prototype engine's list when it doesn't say.
   Set<String> served = const {};
@@ -209,9 +246,11 @@ class EngineClient {
         });
         _rpc = rpc;
         attempt = 0;
+        _thumbs.clear(); // the index may have changed while we were away
         _link.value = Link.connected;
         unawaited(rpc.call('status').then((s) => _event(StatusEvent(EngineStatus.fromJson(s))), onError: (_) {}));
-        if (served.contains('ui_shown') && window == 'main') {
+        // what the window really is: a new connection counts as not shown until it says so
+        if (_shown && served.contains('ui_shown')) {
           unawaited(rpc.call('ui_shown', {'window': window}).then((_) {}, onError: (_) {}));
         }
         await rpc.done;
@@ -239,8 +278,14 @@ class EngineClient {
   Future<Object?> call(String method, [Map<String, Object?> params = const {}, bool wait = true]) {
     final rpc = _rpc;
     if (rpc == null || !rpc.isOpen) return Future.error(const EngineOffline());
+    if (!serves(method)) return Future.error(const RpcException(-32601, notServed));
     return rpc.call(method, params, wait ? null : const Duration(days: 1));
   }
+
+  static const notServed = "This version of NOBAD Find's engine can't do that yet. Update NOBAD Find.";
+
+  /// Forget every preview (after a wipe, a forget, or a reconnect).
+  void clearThumbs() => _thumbs.clear();
 
   Future<ActionResult> _ok(String method, [Map<String, Object?> params = const {}, bool wait = true]) async =>
       ActionResult.fromJson(await call(method, params, wait));
@@ -250,7 +295,12 @@ class EngineClient {
       SearchAnswer.fromJson(await call('search', {'text': _cap(text), 'filters': filters.toJson()}));
   Future<ActionResult> open(int id) => _ok('open', {'id': id});
   Future<ActionResult> reveal(int id) => _ok('reveal', {'id': id});
-  Future<ActionResult> forget(int id) => _ok('forget', {'id': id});
+  Future<ActionResult> forget(int id) async {
+    final r = await _ok('forget', {'id': id});
+    _thumbs.remove(id);
+    return r;
+  }
+
   Future<String> pathOf(int id) async => jStr(jMap(await call('path_of', {'id': id}))['path']);
   Future<String> hereFolder() async => jStr(jMap(await call('here_folder'))['path']);
   Future<void> toMain(String text) => call('to_main', {'text': _cap(text)});
@@ -275,11 +325,14 @@ class EngineClient {
     return EngineStatus.fromJson({...m, 'phases': m['phases'] ?? const []});
   }
 
-  Future<void> watchDetails(bool on) async {
+  Future<void> watchDetails(bool on) {
     _watching = on;
-    if (!served.contains('status_full')) return;
-    await call(on ? 'subscribe' : 'unsubscribe', {
-      'events': ['status_full'],
+    if (!served.contains('status_full')) return Future.value();
+    return _inOrder('details', () async {
+      if (_watching != on) return; // a newer wish came in while waiting
+      await call(on ? 'subscribe' : 'unsubscribe', {
+        'events': ['status_full'],
+      });
     });
   }
 
@@ -291,11 +344,15 @@ class EngineClient {
 
   // ---- settings and the index ----
   Future<Settings> getSettings() async => Settings.fromJson(await call('get_settings'));
-  Future<SettingsChange> setSettings(Map<String, Object?> changes) async =>
-      SettingsChange.fromJson(await call('set_settings', {'changes': changes}));
+  Future<SettingsChange> setSettings(Map<String, Object?> changes) =>
+      _inOrder('settings', () async => SettingsChange.fromJson(await call('set_settings', {'changes': changes})));
   Future<FolderPick> pickFolder() async => FolderPick.fromJson(await call('pick_folder', const {}, false));
   Future<ActionResult> rescan() => _ok('rescan');
-  Future<ActionResult> wipe(String confirm) => _ok('wipe', {'confirm': confirm});
+  Future<ActionResult> wipe(String confirm) async {
+    final r = await _ok('wipe', {'confirm': confirm});
+    if (r.ok) _thumbs.clear();
+    return r;
+  }
 
   // ---- models ----
   Future<ActionResult> downloadModel(String model) => _ok(model == 'photo' ? 'download_photo_model' : 'download_model');
@@ -305,8 +362,16 @@ class EngineClient {
   Future<ActionResult> useInsteadOfWindowsSearch(bool on) => _ok('use_instead_of_windows_search', {'on': on}, false);
 
   // ---- the window ----
-  Future<void> uiShown(String window) => call('ui_shown', {'window': window});
-  Future<void> uiHidden(String window) => call('ui_hidden', {'window': window});
+  Future<void> uiShown(String window) {
+    _shown = true;
+    return _inOrder('window', () => _shown ? call('ui_shown', {'window': window}) : Future.value());
+  }
+
+  Future<void> uiHidden(String window) {
+    _shown = false;
+    return _inOrder('window', () => _shown ? Future.value() : call('ui_hidden', {'window': window}));
+  }
+
   Future<ActionResult> quit() => _ok('quit', {'confirm': 'QUIT'});
 
   Future<Uint8List?> thumbnail(int id) {

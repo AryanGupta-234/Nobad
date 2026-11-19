@@ -10,9 +10,8 @@ class Settings {
   const Settings(this.values);
   final Map<String, Object?> values;
 
-  /// const.DEFAULTS in nobadfind (contract `$defs/settings`), plus `welcome_seen` for the first-run welcome.
-  /// `welcome_seen` isn't in the engine's DEFAULTS yet: an engine whose settings don't have it counts as "seen"
-  /// (see [fromJson]), so the welcome never nags; FakeEngine has it.
+  /// const.DEFAULTS in nobadfind (contract `$defs/settings`), `welcome_seen` included. An older engine whose
+  /// settings don't have `welcome_seen` counts as "seen" (see [fromJson]), so its users are never nagged.
   static const defaults = <String, Object?>{
     'roots': <String>[],
     'exclude': <String>[],

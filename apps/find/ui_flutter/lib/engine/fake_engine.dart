@@ -1,6 +1,5 @@
 /// An in-memory engine with the contract's shapes (apps/find/contract, protocol 1) and a small made-up index. Used
-/// by the tests, by `NOBAD_FIND_FAKE_ENGINE=1` (screenshots without an engine), and by [WiredEngine] for whatever
-/// an older engine doesn't serve yet.
+/// only by the tests, the goldens and the explicit `NOBAD_FIND_FAKE_ENGINE=1` demo; the app never falls back to it.
 ///
 /// With [live] it also does what the engine does on its own: `status` every 2 s, `status_full` every 2 s while
 /// watched, and download progress. That's the engine's side; the UI still only listens.
@@ -59,6 +58,12 @@ class FakeEngine implements EngineApi {
   bool openOk = true;
   bool pickBusy = false;
   bool offline = false;
+
+  /// The next set_settings fails with this (tests).
+  RpcException? failNext;
+
+  /// wipe answers ok: false with this sentence (tests).
+  String wipeError = '';
   String here = '';
   String pickAnswer = r'C:\Users\me\Projects';
   List<LearnedApp> learned = [
@@ -250,6 +255,11 @@ class FakeEngine implements EngineApi {
   /// Like settings.coerce: a value that doesn't fit becomes the default; unknown names and wsearch_prev are ignored.
   @override
   Future<SettingsChange> setSettings(Map<String, Object?> changes) => _answer('set_settings', () {
+    final fail = failNext;
+    if (fail != null) {
+      failNext = null;
+      throw fail;
+    }
     settingsSet.add(changes);
     final changed = <String>[];
     for (final e in changes.entries) {
@@ -280,8 +290,14 @@ class FakeEngine implements EngineApi {
   Future<ActionResult> rescan() => _answer('rescan', () => _ok);
 
   @override
-  Future<ActionResult> wipe(String confirm) =>
-      _answer('wipe', () => confirm == 'DELETE' ? _ok : const ActionResult(false));
+  Future<ActionResult> wipe(String confirm) => _answer(
+    'wipe',
+    () => wipeError.isNotEmpty
+        ? ActionResult(false, wipeError)
+        : confirm == 'DELETE'
+        ? _ok
+        : const ActionResult(false),
+  );
 
   // ---------- models ----------
   @override

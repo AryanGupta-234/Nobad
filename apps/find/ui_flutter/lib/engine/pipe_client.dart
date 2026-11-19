@@ -175,10 +175,9 @@ bool _ownedByMe(int handle) {
       sd,
     );
     if (err != 0 || owner.value == nullptr) return false;
-    final same = _withUserSid((me) => _equalSid(owner.value, me) != 0);
-    _localFree(sd.value);
-    return same;
+    return _withUserSid((me) => _equalSid(owner.value, me) != 0);
   } finally {
+    if (sd.value != nullptr) _localFree(sd.value); // on every path, the null-owner and throw ones too
     calloc.free(owner);
     calloc.free(sd);
   }
@@ -235,6 +234,11 @@ class PipeTransport implements Transport {
   var _readerDone = false;
   var _closed = false;
 
+  /// Set by close(); the reader isolate checks it before every read (a cancel between two reads finds nothing to
+  /// cancel). Shared native memory, freed once the reader is done.
+  final _stop = calloc<Int32>();
+  Timer? _forceClose;
+
   @override
   Stream<String> get lines => _lines.stream;
 
@@ -254,7 +258,14 @@ class PipeTransport implements Transport {
         close();
       }
     });
-    await Isolate.spawn(_readLoop, (_handle, port.sendPort), debugName: 'engine-pipe-reader');
+    try {
+      await Isolate.spawn(_readLoop, (_handle, port.sendPort, _stop.address), debugName: 'engine-pipe-reader');
+    } on Object {
+      _readerDone = true; // no reader: nothing else will release the handle
+      _closed = true;
+      _release();
+      rethrow;
+    }
   }
 
   @override
@@ -286,33 +297,53 @@ class PipeTransport implements Transport {
       return;
     }
     _closed = true;
+    _stop.value = 1;
     _cancelIoEx(_handle, nullptr); // wakes the reader isolate, which then reports done
-    if (_readerDone) _release();
+    if (_readerDone) {
+      _release();
+    } else {
+      // a read that started just after the cancel would wait forever: closing the handle ends it
+      _forceClose = Timer(const Duration(milliseconds: 500), () {
+        if (_readerDone) return;
+        _cancelIoEx(_handle, nullptr);
+        _closeHandleOnce();
+      });
+    }
     if (!_lines.isClosed) await _lines.close();
   }
 
   var _released = false;
+  var _handleClosed = false;
+  void _closeHandleOnce() {
+    if (_handleClosed) return;
+    _handleClosed = true;
+    _closeHandle(_handle);
+  }
+
   void _release() {
     if (_released) return;
     _released = true;
+    _forceClose?.cancel();
     _port?.close();
-    _closeHandle(_handle);
+    _closeHandleOnce();
     _closeHandle(_wov.ref.hEvent);
     calloc.free(_wov);
     calloc.free(_written);
+    calloc.free(_stop);
   }
 }
 
 /// The reader isolate: overlapped ReadFile + wait, forever, sending each chunk back. Ends on any failure or a
 /// zero-byte read (the pipe closed, or the UI cancelled the read to disconnect).
-void _readLoop((int, SendPort) args) {
-  final (handle, port) = args;
+void _readLoop((int, SendPort, int) args) {
+  final (handle, port, stopAddress) = args;
+  final stop = Pointer<Int32>.fromAddress(stopAddress);
   final ov = calloc<_OVERLAPPED>();
   final buf = calloc<Uint8>(_bufSize);
   final got = calloc<Uint32>();
   ov.ref.hEvent = _createEvent(nullptr, 1, 0, nullptr);
   try {
-    while (true) {
+    while (stop.value == 0) {
       ov.ref
         ..internal = 0
         ..internalHigh = 0;
