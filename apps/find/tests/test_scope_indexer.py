@@ -165,3 +165,34 @@ def test_the_watching_loop_counts_the_index_at_most_every_half_minute(tmp_path):
     ix._refresh_stats()
     assert len(calls) == 2 and ix.status["files"] == 1
     s.close()
+
+
+def test_status_counts_cost_at_most_a_twentieth_of_a_core(tmp_path):
+    """A whole PC is about a million rows: every COUNT reads the whole table. The Indexing page polls status every
+    2 s, so the counts are cached for 10 s, or 20 times as long as they took (5% of one core at most)."""
+    a, s = make_api(tmp_path)
+    now = [100.0]
+    a._clock = lambda: now[0]
+    took = [0.0]
+    calls = []
+    real = s.stats
+
+    def slow_stats():
+        calls.append(1)
+        now[0] += took[0]                       # the counting itself takes time on the clock
+        return real()
+    s.stats = slow_stats
+    a._stats()
+    a._stats()
+    assert len(calls) == 1
+    now[0] += api_mod.STATS_TTL + 0.1
+    took[0] = 3.0                               # a big index: 3 s to count
+    a._stats()
+    assert len(calls) == 2
+    now[0] += 30                                # within 20 x 3 s of the last count
+    a._stats()
+    assert len(calls) == 2
+    now[0] += 31
+    a._stats()
+    assert len(calls) == 3
+    s.close()

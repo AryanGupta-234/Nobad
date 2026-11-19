@@ -348,3 +348,17 @@ def test_a_catch_up_is_at_most_a_day_after_a_full_read(env):
     link.sent.clear()
     t.scan([PROF, DRIVE], 2, lambda rows: None, threading.Event())
     assert [m for m in link.sent if m["t"] == "scan"][0]["since"] is None
+
+
+def test_helper_command_line(monkeypatch):
+    import subprocess
+    import sys
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    assert turbo.helper_argv() == [sys.executable, "--turbo", "serve"]
+    monkeypatch.setattr(sys, "frozen", False)
+    argv = turbo.helper_argv()
+    assert argv[:3] == [sys.executable, "-I", "-c"] and argv[-2:] == ["--turbo", "serve"]
+    # from source, isolated (-I: no user site, no current folder), the package found by an explicit path
+    out = subprocess.run(argv[:4] + ["--version"], capture_output=True, text=True, timeout=120,
+                         cwd=os.path.expanduser("~"))
+    assert out.returncode == 0 and "NOBAD Find" in out.stdout

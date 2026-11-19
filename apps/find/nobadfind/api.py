@@ -20,6 +20,8 @@ from .search import SORTS, search
 
 MAX_QUERY = 500
 TOTALS_TTL = 10                  # seconds: the phase counts are COUNT queries, too heavy for every 2 s poll
+STATS_TTL = 10                   # seconds the index counts (Store.stats) are reused by status()
+COUNT_SHARE = 20                 # and at least 20x as long as they took to count: <= 5% of a core on a big index
 RATE_WINDOW = 15                 # status polls a progress rate is measured over (about 30 s)
 MAX_PAUSE_S = 24 * 3600
 QUIT_TIMEOUT = 15                # seconds a quit may take before the process ends anyway
@@ -135,7 +137,7 @@ class Api:
     # ---------- status and settings ----------
     def status(self):
         st = dict(self._indexer.status)
-        st.update(self._store.stats())
+        st.update(self._stats())
         st["version"] = APP_VER
         st["model"] = dict(self._model)
         st["photo_model"] = dict(self._photo_model)
@@ -148,6 +150,18 @@ class Api:
         with self._slock:
             self._transparency(st)
         return st
+
+    def _stats(self):
+        """Store.stats (six COUNTs over the whole index: seconds on a whole PC), reused for STATS_TTL seconds or
+        COUNT_SHARE times as long as the last count took, whichever is longer."""
+        at, ttl, cached = getattr(self, "_stats_cache", (None, 0.0, None))
+        now = self._clock()
+        if cached is not None and now - at < ttl:
+            return cached
+        cached = self._store.stats()
+        took = self._clock() - now
+        self._stats_cache = (now, max(STATS_TTL, COUNT_SHARE * took), cached)
+        return cached
 
     def status_brief(self):
         """The few status fields a status line needs, cheap enough for every 2 s (the pipe's status event)."""
@@ -214,7 +228,8 @@ class Api:
         at, k, counts = self._totals
         if not counts:
             return self._refresh(now, key)                  # the very first call computes inline
-        if (k != key or now - at >= TOTALS_TTL) and not (self._refresher and self._refresher.is_alive()):
+        ttl = max(TOTALS_TTL, COUNT_SHARE * getattr(self, "_totals_took", 0.0))
+        if (k != key or now - at >= ttl) and not (self._refresher and self._refresher.is_alive()):
             self._refresher = threading.Thread(target=self._refresh, args=(now, key), daemon=True, name="counts")
             self._refresher.start()                         # the COUNT queries never hold up a status poll
         return counts
@@ -226,6 +241,7 @@ class Api:
         if not s.get("src_mail"):
             text_ext -= {".eml", ".mbox"}
         mx = s.get("content_max_mb") * 1024 * 1024
+        t0 = time.monotonic()
         try:
             counts = {"text": (st.count_readable(text_ext, mx), st.count_needs_text(text_ext, mx)),
                       "ocr": (st.count_readable(ocr.OCR_EXT, mx, ocr.MIN_IMAGE_BYTES),
@@ -237,6 +253,7 @@ class Api:
         except Exception as e:
             log(f"status counts failed: {type(e).__name__}", "warn")
             counts = counts or {p: (0, 0) for p in ("text", "ocr", "meaning", "photos")}
+        self._totals_took = time.monotonic() - t0
         self._totals = (now, key, counts)
         return counts
 

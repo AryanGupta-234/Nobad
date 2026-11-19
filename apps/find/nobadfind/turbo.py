@@ -399,6 +399,18 @@ def _win():
     return _W["k"]
 
 
+def helper_argv():
+    """The elevated helper's command line: the exe with a fixed word, or (from source) the same Python, isolated
+    (-I: no user site-packages, no current folder on the path) with the package folder given explicitly."""
+    import sys
+    if getattr(sys, "frozen", False):
+        return [sys.executable, "--turbo", "serve"]
+    pkg_parent = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    code = (f"import sys; sys.path.insert(0, {pkg_parent!r}); import runpy; "
+            "runpy.run_module('nobadfind', run_name='__main__', alter_sys=True)")
+    return [sys.executable, "-I", "-c", code, "--turbo", "serve"]
+
+
 def start_elevated(argv):
     """ShellExecuteEx "runas" (the UAC prompt), not waiting: the helper's process handle. Raises Declined."""
     sei = winapi._SEI()
@@ -448,7 +460,7 @@ class PipeLink:
         if not h or h == srv.INVALID_HANDLE:
             raise ctypes.WinError(ctypes.get_last_error())
         try:
-            proc = start_elevated(winapi.self_command("--turbo", "serve"))
+            proc = start_elevated(helper_argv())
         except BaseException:
             k.CloseHandle(h)
             raise
