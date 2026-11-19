@@ -394,7 +394,7 @@ def _exposed(obj, base="", out=None, seen=None):
 API_METHODS = {"download_model", "download_photo_model", "downloads", "forget", "get_settings", "hardware", "heartbeat",
                "here_folder", "hide", "learned_apps", "open", "page_visible", "path_of", "pause_for", "pick_folder",
                "quit", "rescan", "reset_learned", "resume", "reveal", "search", "set_settings", "status",
-               "status_brief", "thumbnail", "ui_shown",
+               "status_brief", "thumbnail", "ui_shown", "scope_info", "turbo_state", "turbo_set",
                "use_instead_of_windows_search", "wipe", "wsearch_set", "wsearch_state",
                # 0.8.0: Open with and the model tiers (the WebView page may call them like any Api method)
                "open_with", "models", "model_use", "model_download", "model_remove", "auto_configure",

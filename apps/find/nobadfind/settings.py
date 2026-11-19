@@ -8,6 +8,7 @@ from .const import DEFAULTS
 
 _HOTKEY = re.compile(r"^(?:(?:ctrl|alt|shift|win)\+){1,3}(?:[a-z0-9]|space|f(?:[1-9]|1[0-2]))$")
 WSEARCH_STARTS = ("", "auto", "delayed-auto", "demand", "disabled")
+SCOPES = ("whole_pc", "my_files", "custom")
 
 
 def _paths(v):
@@ -49,6 +50,8 @@ def coerce(key, value):
         return value if value in WSEARCH_STARTS else d
     if key == "theme":
         return value if value in ("dark", "light") else d
+    if key == "scope":
+        return value if value in SCOPES else d
     if isinstance(d, bool):
         return value if isinstance(value, bool) else d
     return d
@@ -68,6 +71,8 @@ class Settings:
                         self.data[k] = coerce(k, raw[k])
                 if raw.get("pause_fullscreen") is False and "games_mode" not in raw:
                     self.data["games_mode"] = "off"
+                if "scope" not in raw:          # before scopes: a folder list meant exactly those folders
+                    self.data["scope"] = "custom" if self.data["roots"] else "whole_pc"
         except (OSError, ValueError):
             pass
 

@@ -6,7 +6,7 @@ The shapes are contract/methods.schema.json (tests/test_rpc_contract.py holds th
 from . import models, search, settings, status, system
 
 # They wait for the user (a folder dialog, a permission prompt): the server answers them on threads of their own.
-SLOW = {"pick_folder", "wsearch_set", "use_instead_of_windows_search"}
+SLOW = {"pick_folder", "wsearch_set", "use_instead_of_windows_search", "turbo_set"}
 
 
 def methods(api, events=None, about=system.about):

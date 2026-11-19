@@ -30,6 +30,8 @@ class FakeApi:
         self.dl = {"meaning": {"state": "missing", "got": 0, "size": 0, "error": ""},
                    "photo": {"state": "missing", "got": 0, "size": 0, "error": ""}}
         self.ready = set()                       # model ids "downloaded" in this fake
+        self.turbo = {"available": True, "enabled": False, "running": False, "error": "",
+                      "volumes": [{"drive": "C:\\", "ntfs": True, "files": 0, "usn_ok": False, "last_scan": None}]}
 
     def _note(self, *call):
         self.calls.append(call)
@@ -109,7 +111,7 @@ class FakeApi:
 
     def set_settings(self, changes):
         """Like Settings.update: every value through the real settings.coerce."""
-        new = {k: coerce(k, v) for k, v in changes.items() if k in DEFAULTS and k != "wsearch_prev"}
+        new = {k: coerce(k, v) for k, v in changes.items() if k in DEFAULTS and k not in ("wsearch_prev", "turbo")}
         changed = [k for k, v in new.items() if self.settings[k] != v]
         self.settings.update(new)
         return {"changed": changed}
@@ -223,6 +225,32 @@ class FakeApi:
     def use_instead_of_windows_search(self, on):
         return self.wsearch_set(bool(on))
 
+    # what is indexed, and the turbo index
+    def scope_info(self):
+        mine = self.settings["scope"] == "my_files"
+        cats = [dict(c, included=False, locked=True) if mine and c["id"] == "system" else
+                dict(c, included=self.settings["include_secrets"]) if c["id"] == "secrets" else dict(c)
+                for c in SCOPE_INFO["categories"]]
+        return dict(SCOPE_INFO, scope=self.settings["scope"], categories=cats,
+                    roots=SCOPE_INFO["roots"][:1] if mine else list(SCOPE_INFO["roots"]))
+
+    def turbo_state(self):
+        return dict(self.turbo, enabled=self.settings["turbo"], volumes=[dict(v, usn_ok=v["usn_ok"] and self.turbo["running"])
+                                                                  for v in self.turbo["volumes"]])
+
+    def turbo_set(self, on):
+        """The permission prompt is answered No for on, like the real one in a test: never a UAC prompt."""
+        self._note("turbo_set", on)
+        if on:
+            self.turbo["error"] = ("Windows didn't get permission (the prompt was closed or answered No). NOBAD Find "
+                                   "keeps using its normal folder walk.")
+            return {"ok": False, "error": self.turbo["error"], "state": self.turbo_state()}
+        self.settings["turbo"] = False
+        self.turbo.update(running=False, error="")
+        for v in self.turbo["volumes"]:
+            v["usn_ok"] = False
+        return {"ok": True, "error": "", "state": self.turbo_state()}
+
     # window
     def ui_shown(self):
         self._note("ui_shown")
@@ -238,6 +266,25 @@ class FakeApi:
             self.on_quit()                      # engine.py: the quitting event, then the engine stops
         return {"ok": True}
 
+
+SCOPE_INFO = {
+    "scope": "whole_pc", "roots": ["C:\\Users\\me", "C:\\"],
+    "categories": [
+        {"id": "system", "name": "Windows and programs", "why": "Windows itself and installed programs.",
+         "examples": ["C:\\Windows", "C:\\Program Files"], "included": True, "locked": False, "count": 412000},
+        {"id": "caches", "name": "App data, caches and code folders", "why": "Settings and caches apps keep.",
+         "examples": ["C:\\Users\\me\\AppData", "...\\node_modules"], "included": True, "locked": False,
+         "count": 230000},
+        {"id": "secrets", "name": "Keys and password stores", "why": "Off by default; names only when on.",
+         "examples": ["C:\\Users\\me\\.ssh", "...\\vault.kdbx"], "included": False, "locked": False,
+         "count": None},
+        {"id": "other_profiles", "name": "Other people's files", "why": "Never indexed, not even by turbo.",
+         "examples": ["C:\\Users\\<another account>", "C:\\System Volume Information"], "included": False,
+         "locked": True, "count": 0},
+        {"id": "removable", "name": "USB sticks and SD cards", "why": "Indexed while plugged in.",
+         "examples": ["E:\\"], "included": False, "locked": False, "count": None},
+        {"id": "network", "name": "Network drives", "why": "Mapped network drives.", "examples": ["Z:\\"],
+         "included": False, "locked": False, "count": None}]}
 
 STATUS_FULL = {
     "phase": "text", "files": 1200, "texts": 310, "vectors": 0, "paused": "", "rate": 0, "errors": 0,
@@ -322,5 +369,12 @@ class Engine:
             self.events.notice(t["text"])
         elif do == "quitting":
             self.events.quitting()
+        elif do == "turbo":
+            self.api.turbo.update({k: t[k] for k in ("running", "error") if k in t})
+            if t.get("running"):
+                self.api.settings["turbo"] = True          # the user said yes at the prompt
+            if "volume" in t:
+                self.api.turbo["volumes"] = [dict(t["volume"])]
+            self.events.turbo(self.api.turbo_state())
         else:
             raise ValueError(f"unknown engine trigger {do!r}")

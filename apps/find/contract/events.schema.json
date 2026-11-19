@@ -136,6 +136,10 @@
       "type": "object",
       "additionalProperties": false
     },
+    "turbo": {
+      "description": "The turbo index changed: started, stopped, a drive read, the change journal lost (rescan), an error. Same shape as turbo_state.",
+      "$ref": "methods.schema.json#/$defs/turbo_state"
+    },
     "models": {
       "description": "The models result changed (a download moved to another state, a model was chosen, removed or became active). Same object as the models method.",
       "$ref": "methods.schema.json#/$defs/models"

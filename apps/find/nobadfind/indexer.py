@@ -15,13 +15,14 @@ import time
 
 import numpy as np
 
-from . import embed, extract, models, ocr, photo, winapi
+from . import embed, extract, models, ocr, photo, scope, winapi
 from .governor import FULL, PAUSED, workers_for
 from .kinds import READABLE_EXT, kind_of
 from .log import log
-from .walker import Walker, default_roots
+from .walker import Walker
 
 RESCAN_EVERY = 6 * 3600
+NAMES_ONLY = "names only"         # text_err / photo err of a secret: its content is never read (scope.Rules)
 DEBOUNCE = 2.0
 PHOTO_BATCH = 8                  # photos sent to the photo reader at a time
 MEANING_BACKOFF = (30, 1800)     # seconds before trying a failed meaning worker again: doubling, capped
@@ -38,6 +39,15 @@ NAME_KINDS = {"pdf", "document", "spreadsheet", "slides", "text", "email", "imag
               "ebook", "folder"}
 SKIP_NAME_DIRS = ("\\program files", "\\windows\\", "\\appdata\\", "\\$recycle.bin")
 IDLE_AFTER = 120                 # seconds without keyboard or mouse input: you're away, work at full speed
+
+
+STATS_EVERY = 30                 # seconds between index counts while watching (_refresh_stats)
+NAME_BATCH = 2000                # rows per batch of the names walk (Walker's default)
+
+
+def drive_root(path):
+    d = os.path.splitdrive(path)[0]
+    return d.upper() + "\\" if len(d) == 2 else ""
 
 
 def _kill_pool(pool):
@@ -104,6 +114,8 @@ class Indexer:
         self._suspects = []              # jobs in flight when a reader crashed (re-read one at a time)
         self._pause = (0.0, "")          # (checked at, reason): the checks cost a registry walk
         self._watched = None             # roots the live watcher covers
+        self._stats_at = None            # when _refresh_stats last counted the index
+        self.turbo = None                # turbo.Turbo (engine.py): the optional elevated NTFS reader, or None
         self._walked = {}                # removable root -> when it was last walked
         self.drive_list = []
         self._photo_one_by_one = False   # after a photo stopped the reader: find which one
@@ -115,15 +127,26 @@ class Indexer:
 
     # ---------- control ----------
     def roots(self, drives=None):
-        """What to index: the folders in Settings, or your profile + fixed drives (+ plugged-in and network
-        drives when those settings are on)."""
-        if self.settings.get("roots"):
-            return list(self.settings.get("roots"))
+        """What to index (scope.roots_for): Whole PC = your profile + fixed drives, My files = your own folders,
+        Custom = the folders in Settings; plus plugged-in and network drives when those settings are on."""
         drives = winapi.drives() if drives is None else drives
-        extra = [d["root"] for d in drives
-                 if (d["type"] == "removable" and self.settings.get("index_removable"))
-                 or (d["type"] == "network" and self.settings.get("index_network"))]
-        return default_roots([d["root"] for d in drives if d["type"] == "fixed"]) + extra
+        return scope.roots_for(self.settings, drives)
+
+    def rules(self):
+        """What's in and out inside the roots (scope.Rules): the categories in Settings."""
+        return scope.Rules.from_settings(self.settings)
+
+    def _skip_secrets(self, rows, mark):
+        """Names only (scope.Rules.names_only): secrets, browser profiles and app databases. Rows (id, path, ...)
+        for one of them are marked, never read, whatever the switches say."""
+        rules = self.rules()
+        keep = []
+        for r in rows:
+            if rules.names_only(r[1]):
+                mark(r)
+            else:
+                keep.append(r)
+        return keep
 
     def known_drives(self):
         """Every drive the index has files from, with its kind and name, and whether it's plugged in now."""
@@ -177,6 +200,8 @@ class Indexer:
 
     def rescan(self):
         self.store.set_meta("last_scan", 0)
+        if self.turbo is not None:
+            self.turbo.forget_place()               # read everything again, not just the journal since last time
         self.wake.set()
 
     def _pause_reason(self):
@@ -307,6 +332,8 @@ class Indexer:
                 self._load_embedder()
             if self.photo_text is None:
                 self._load_photo()
+            if self.turbo is not None:
+                self.turbo.ensure()                 # turbo on: one permission prompt per engine run
             self.known_drives()
             if time.time() - float(self.store.meta("last_scan", 0) or 0) <= RESCAN_EVERY:
                 self._start_watcher()               # a recent index: just keep it fresh from now on
@@ -328,7 +355,7 @@ class Indexer:
                     self._wait_while_paused()
                     continue
                 self.status["phase"] = "watching"
-                self.status.update(self.store.stats())
+                self._refresh_stats()
                 self._tidy_vectors()
                 self.release_idle_models()
                 self.known_drives()
@@ -339,6 +366,16 @@ class Indexer:
             log(f"indexer stopped: {type(e).__name__}: {e}", "error")
             self.status["phase"] = "error"
             self.status["error"] = f"{type(e).__name__}"
+
+    def _refresh_stats(self):
+        """The index counts for the status (six COUNTs over every row: about a second at a million entries), at
+        most every STATS_EVERY seconds. Changes arriving all the time (a whole PC with caches) must not make the
+        watching loop count the whole index each round."""
+        now = self._clock()
+        if self._stats_at is not None and now - self._stats_at < STATS_EVERY:
+            return
+        self._stats_at = now
+        self.status.update(self.store.stats())
 
     def _removable_roots(self, roots):
         rem = {d["root"].lower() for d in winapi.drives() if d["type"] == "removable"}
@@ -375,17 +412,33 @@ class Indexer:
             seen[0] += len(rows)
             self.status["files"] = seen[0]
             self.status["rate"] = int(seen[0] / max(0.1, time.time() - t0))
+            if len(rows) >= NAME_BATCH:             # a whole PC is a long walk: it steps aside like the rest
+                if self._pause_reason():
+                    self._wait_while_paused()
+                else:
+                    self._breathe()
 
-        w = Walker(roots, exclude=self.settings.get("exclude"), threads=self.status["plan"]["walk_threads"],
-                   gen=gen, on_batch=batch, stop=self.stop_ev)
+        read, caught = set(), set()
+        if self.turbo is not None and not only:
+            read, caught = self.turbo.scan(roots, gen, batch, self.stop_ev)
+        covered = read | caught
+        walk = [r for r in roots if drive_root(r) not in covered]
+        w = Walker(walk, exclude=self.settings.get("exclude"), threads=self.status["plan"]["walk_threads"],
+                   gen=gen, on_batch=batch, stop=self.stop_ev, rules=self.rules())
         w.run()
         if self.stop_ev.is_set():
             return
         # a drive that isn't plugged in keeps its files in the index (shown as "not connected"); a USB or
         # network drive that had read errors (pulled out, network dropped) keeps them until a clean walk
         fixed = {d["root"].lower() for d in winapi.drives() if d["type"] == "fixed"}
-        removed = sum(self.store.drop_unseen(r, gen) for r in roots if os.path.isdir(r) and (
-            not w.errors or os.path.splitdrive(r)[0].lower() + "\\" in fixed))
+        # a drive turbo caught up from its change journal wasn't read again: its rows keep their generation
+        removed = sum(self.store.drop_unseen(r, gen) for r in roots if os.path.isdir(r) and drive_root(r) not in
+                      caught and (not w.errors or os.path.splitdrive(r)[0].lower() + "\\" in fixed))
+        if not only:
+            # a full scan walked everything in scope on the fixed drives: what it didn't see there is gone, or out
+            # of the scope now (Whole PC -> My files, system folders turned off)
+            removed += sum(self.store.drop_unseen(d, gen) for d in sorted(fixed)
+                           if os.path.isdir(d) and drive_root(d) not in caught)
         for r in self._removable_roots(roots):
             self._walked[os.path.normcase(r)] = time.time()
         self.store.set_meta("gen", gen)
@@ -393,7 +446,8 @@ class Indexer:
             self.store.set_meta("last_scan", time.time())
         self.status["last_scan"] = time.time()
         self.status["errors"] = w.errors
-        log(f"names: {w.count} entries in {time.time() - t0:.1f}s, {removed} gone, {w.errors} unreadable")
+        log(f"names: {seen[0]} entries in {time.time() - t0:.1f}s ({len(read)} drive(s) by turbo, {len(caught)} "
+            f"caught up), {removed} gone, {w.errors} unreadable")
 
     def _read_texts(self, images=False):
         """Read the text inside files in worker processes. images=True: the OCR pass (photos, screenshots),
@@ -452,8 +506,10 @@ class Indexer:
                         queued = [self._suspects.pop(0)]
                 elif not queued and len(inflight) < limit:
                     skip = {job[0] for job, _t in inflight.values()}
-                    queued = [(fid, p, ext, mt, max_bytes, use_ocr) for fid, p, ext, _size, mt in
-                              self.store.needs_text(exts, max_bytes, limit=full * 16, min_bytes=min_bytes)
+                    todo = self._skip_secrets(
+                        self.store.needs_text(exts, max_bytes, limit=full * 16, min_bytes=min_bytes),
+                        lambda r: self.store.set_text(r[0], r[4], [], NAMES_ONLY))
+                    queued = [(fid, p, ext, mt, max_bytes, use_ocr) for fid, p, ext, _size, mt in todo
                               if fid not in skip]
                 if not queued and not inflight:
                     return
@@ -755,8 +811,10 @@ class Indexer:
                 if go is RECYCLE:
                     self._recycle(pool, "photo reader")
                     return
-                rows = self.store.photos_to_read(photo.PHOTO_EXT, photo.MIN_PHOTO_BYTES, photo.MAX_PHOTO_BYTES,
-                                                 limit=PHOTO_BATCH if self._photo_one_by_one else 64)
+                rows = self._skip_secrets(
+                    self.store.photos_to_read(photo.PHOTO_EXT, photo.MIN_PHOTO_BYTES, photo.MAX_PHOTO_BYTES,
+                                              limit=PHOTO_BATCH if self._photo_one_by_one else 64),
+                    lambda r: self.store.set_photo_vector(r[0], r[2], b"", NAMES_ONLY))
                 if not rows:
                     return
                 self.status["phase"] = "photos"
@@ -886,6 +944,9 @@ class Indexer:
         self.wake.set()
 
     def _on_overflow(self, root):
+        if self.turbo is not None and self.turbo.follows(root):
+            log(f"too many changes at once under {root}; the turbo change journal has them all")
+            return
         log(f"too many changes at once under {root}; rescanning it")
         self.store.set_meta("last_scan", 0)
         self.wake.set()
@@ -899,7 +960,7 @@ class Indexer:
         gen = int(self.store.meta("gen", 0) or 0)
         gone, dirs = [], []
         rows = []
-        w = Walker(self.roots(), exclude=self.settings.get("exclude"), gen=gen)
+        w = Walker(self.roots(), exclude=self.settings.get("exclude"), gen=gen, rules=self.rules())
         for p in paths:
             if w.excluded(p):
                 continue
@@ -920,4 +981,4 @@ class Indexer:
             self.store.remove_paths(gone)
         for d in dirs[:50]:                         # a new or moved folder: pick up what's inside it
             Walker([d], exclude=self.settings.get("exclude"), threads=4, gen=gen,
-                   on_batch=self.store.upsert_files, stop=self.stop_ev).run()
+                   on_batch=self.store.upsert_files, stop=self.stop_ev, rules=self.rules()).run()

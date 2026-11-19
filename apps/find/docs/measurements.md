@@ -193,6 +193,72 @@ are typed one letter at a time through `search.search()`; the cache is warm.
 - e5's 256 MB tokenizer in each process: a smaller tokenizer (or one shared process for the question encoders) would
   bring the many-languages tiers down a lot.
 - #79's "closed engine at about one core" from its backlog wasn't reproduced here (this branch doesn't have #79).
+## 2026-11-19 (evening): a whole PC by name (the new default scope), and the turbo helper's own parts
+
+- **Why:** the new defaults (maintainer decision 2026-11-19) index Windows, Program Files, ProgramData and AppData too
+  (`include_system`, `include_caches` on), which 0.7.0's walk skipped, so the budgets were checked on the real fixed
+  drives of the reference PC (16 threads, 15.7 GB, SSD). 0.7.0's own count on this PC wasn't measured. The walk is
+  read-only, and the index went to a throwaway folder in %TEMP%, never the real one.
+- **How:** `python tools/measure.py --whole-pc --files 20 --levels full ...` (new option: names only, real Whole PC
+  scope, level fixed at Full, engine from source). Other agents were using the PC at the same time, so times vary
+  run to run (436-534 s for the same scan).
+- **The turbo index was not run:** it needs an elevated process (a UAC prompt for the maintainer). These are the
+  walker's numbers to compare it with, plus the turbo helper's pure-Python parts on synthetic buffers of the same size.
+
+### Walker only, no store (the walk itself, one process)
+
+| | Entries | Folders | Time | CPU | Peak private |
+|---|---|---|---|---|---|
+| `Walker`, 32 threads, Whole PC rules, C: only, nothing written | 853 845 | 182 670 | 63 s | 124 CPU-s (2.0 cores) | 37 MB |
+| same, writing into the encrypted store | 854 297 | 182 845 | 266 s | 292 CPU-s (1.1 cores) | 314 MB |
+
+The store is the bottleneck, not the walk: about 3 200 rows/s into SQLCipher with the FTS5 trigram index on names.
+The index is 953 MB for 854k names. **Turbo can only take away the 63 s walk part**; the inserts stay.
+
+### The engine, a whole PC by name (`--whole-pc`, level Full)
+
+| Commit | Entries | Name scan | Private MB while indexing (mean / max) | CPU while indexing | Idle, window open: CPU, reads | Window closed: CPU, reads | Search keystroke p50 / p90 / max |
+|---|---|---|---|---|---|---|---|
+| `a02d96f` (scope, before the two fixes below) | 941 697 | 436 s | 292 / 373 | 1.5 cores | 108 %, 145 MB/s | 219 %, 274 MB/s | 10.7 ms / 3 783 ms / 7 843 ms |
+| `2e65ac1` (own data folder out, watching loop counts every 30 s) | 941 080 | 534 s | 313 / 375 | 1.4 cores | 99 %, 109 MB/s | 103 %, 112 MB/s | (not recorded) |
+| `ece6784` (status counts cached by their cost) | 822 000 | 435 s | 289 / 353 | 1.0 core | **46 %, 48 MB/s** | 100 %, 129 MB/s | 13.4 ms / 2 505 ms / 13 011 ms |
+
+CPU in % of one core. Idle with no UI: 0.4 % and 49 MB private in every run. The entry count changes between runs
+because other programs (and agents) created and deleted files on the PC meanwhile.
+
+Against the ROADMAP budgets:
+- **Indexing ≤ 600 MB private: met** (max 353-375 MB for a whole PC by name, one process).
+- **Window open, idle, engine ≤ 120 MB: at the edge** (119 MB mean, 132 MB max).
+- **Search ≤ 80 ms for names: missed on a whole PC.** The median is fine (13 ms), but a question of one or two letters
+  (each keystroke of "i", "in") is a `name LIKE '%i%'` over every row sorted by name length: 2.5 s at the 90th
+  percentile, up to 13 s. Those searches queue on the pipe's 4 threads, which is most likely also the ~1 core and
+  ~130 MB/s still seen "closed" (the closed scenario starts right after the typing). Open item for `search.py`
+  (not changed here): skip or bound one- and two-letter name scans, and drop a search the next keystroke replaced.
+- **Closed ≤ 60 MB: missed** (135 MB private; see the search backlog above, re-measure after the search fix).
+
+### The turbo helper's Python work, synthetic (183 000 folders, 671 000 files, paths ~120 characters)
+
+| Step | Time | Note |
+|---|---|---|
+| Parse the `FSCTL_ENUM_USN_DATA` buffers (854k `USN_RECORD_V2`) | 3.7 s per pass | two passes: folders first, then everything |
+| Folder pass (the tree) | 4.5 s | |
+| Filter and paths for every entry (scope rules, other profiles, metafiles) | 16.5 s | per folder once, per file a dict look-up |
+| Parse one MFT record (fixups, `$STANDARD_INFORMATION`, `$DATA`) | 8.7 µs | 7.5 s for 854k; the `FSCTL_GET_NTFS_FILE_RECORD` calls themselves are on top and need the elevated run |
+| Memory for the tree, the filter and the paths | +81 MB | in the helper process, not the engine |
+
+About 35 s of one core in Python before the ioctls, against the walker's 63 s on two cores. The real comparison
+(enumeration time, ioctl cost per file for both size/time options, change-journal latency) is what
+`python -m nobadfind --turbo selftest` prints from an elevated terminal: to be added after the maintainer's run.
+
+### Two fixes this found
+
+- **Indexing its own database:** with AppData included and the index in %TEMP% (`NOBAD_FIND_DATA_DIR`), the engine
+  indexed its own database writes, a feedback loop. NOBAD Find's data folder is now always out (`scope.Rules.own`);
+  the real one was already out through the `nobad` name.
+- **Counting a million rows on every poll:** after the scan, the engine still used ~1 core and read ~100 MB/s while
+  idle (first two runs above). `Api.status` ran `Store.stats` (six `COUNT`s over every row) on every 2 s poll of the
+  Indexing page, and the watching loop ran it every round. Now counts are reused for 10 s or 20x as long as they took
+  (`api.STATS_TTL`, `COUNT_SHARE`; `indexer.STATS_EVERY`).
 
 ## 2026-11-19 (later): with both models, every process, and ONNX Runtime tuning
 

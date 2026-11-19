@@ -462,7 +462,11 @@ def pipe_base():
 
 
 # ---------- one run ----------
-def settings_for(corpus, models=False):
+def settings_for(corpus, models=False, whole_pc=False, turbo=False):
+    if whole_pc:            # names only, this PC's real Whole PC scope (read-only walk; the index is in the temp folder)
+        return {"scope": "whole_pc", "roots": [], "content": False, "ocr": False, "semantic": False,
+                "photo_meaning": False, "bar": False, "hotkey": "ctrl+alt+shift+f9", "keep_background": False,
+                "autostart": False, "bg_notice_seen": True, "turbo": bool(turbo)}
     return {"roots": [corpus], "semantic": models, "photo_meaning": models, "ocr": True,
             "allow_model_download": models, "allow_photo_model_download": models, "bar": False,
             "hotkey": "ctrl+alt+shift+f9", "keep_background": False, "autostart": False, "bg_notice_seen": True}
@@ -521,7 +525,7 @@ def run_level(level, corpus, work, full, args, searches):
     shutil.rmtree(data, ignore_errors=True)
     os.makedirs(data)
     with open(os.path.join(data, "settings.json"), "w", encoding="utf-8") as f:
-        json.dump(settings_for(corpus, bool(args.models)), f)
+        json.dump(settings_for(corpus, bool(args.models), args.whole_pc or args.turbo_uac, args.turbo_uac), f)
     if args.models:
         place_models(args.models, data)
     env = dict(os.environ, NOBAD_FIND_DATA_DIR=data, NOBAD_FIND_MEASURE_LEVEL=level, NOBAD_FIND_MEASURE_PIPE=tag)
@@ -779,6 +783,11 @@ def main(argv=None):
                          "workers the way NobadFind.exe does (each runs the entry script again)")
     ap.add_argument("--out", default="")
     ap.add_argument("--keep", action="store_true", help="keep the temp corpus and data folders")
+    ap.add_argument("--whole-pc", action="store_true", help="index this PC's real Whole PC scope, names only (the "
+                    "walk is read-only; the index is in the temp folder). Use a long --index-timeout")
+    ap.add_argument("--turbo-uac", action="store_true", help="like --whole-pc with the turbo index on: Windows "
+                    "shows a permission prompt (for the maintainer to answer; never in an unattended run). From source it needs "
+                    "NOBAD_FIND_DEV_TURBO=1 set with setx (the elevated helper doesn't inherit this terminal's variables)")
     ap.add_argument("--models", default="", help="a data folder with both models downloaded (model/, photo-model/): "
                     "meaning, photo meaning and OCR on, models linked into each run's fresh index")
     ap.add_argument("--photos", type=int, default=0, help="extra camera-style JPEGs (needs Pillow)")

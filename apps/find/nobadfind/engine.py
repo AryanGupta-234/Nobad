@@ -230,12 +230,17 @@ def main(stop=None):
     governor.start()
     indexer = Indexer(store, settings, vindex, governor=governor, activity=activity)
     ui["indexer"] = indexer
+    from .turbo import Turbo
+    turbo = Turbo(settings, store, indexer)         # the optional elevated NTFS reader; off unless turned on
+    indexer.turbo = turbo
     stop = stop or threading.Event()
     api = Api(store, settings, indexer, vindex, lambda: None)
     api._watchdog, api.visible = watchdog, False          # no page heartbeats: the pipe closing tells instead
     api._governor, api._activity, api._apps = governor, activity, apps
+    api._turbo = turbo
     ui["api"] = api
     rpc = Rpc(api, name=measure["pipe"], activity=activity)
+    turbo._push = rpc.events.turbo
     wiring = Wiring(api, settings, indexer, rpc.events, stop, rpc.ui_pids)
     if not rpc.start():
         print("The NOBAD Find pipe is in use: another engine is running for this user.")
@@ -262,6 +267,7 @@ def main(stop=None):
     for hk in keys:
         hk.stop()
     rpc.stop()
+    turbo.stop()                    # the helper ends with the engine (it also watches the engine's process)
     indexer.stop()
     governor.stop()
     indexer.join(5)                 # database writes are committed first
