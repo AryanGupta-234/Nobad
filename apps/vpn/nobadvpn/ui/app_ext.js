@@ -315,6 +315,11 @@ function serversTools() {
   ["dragenter", "dragover"].forEach(ev => t2.addEventListener(ev, e => { if (e.dataTransfer && [...e.dataTransfer.types].includes("Files")) { e.preventDefault(); t2.style.outline = "2px dashed var(--cy)"; } }));
   ["dragleave", "drop"].forEach(ev => t2.addEventListener(ev, () => { t2.style.outline = ""; }));
   t2.addEventListener("drop", e => { if (e.dataTransfer && e.dataTransfer.files.length) { e.preventDefault(); importFiles([...e.dataTransfer.files]); } });
+  // Anywhere else a dropped file or link would navigate the whole window away from NOBAD (the configs tab above
+  // has already accepted its own drop; text fields keep their normal drop).
+  const editable = e => e.target && e.target.closest && e.target.closest("input,textarea,[contenteditable]");
+  document.addEventListener("dragover", e => { if (e.defaultPrevented || editable(e)) return; e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = "none"; });
+  document.addEventListener("drop", e => { if (!editable(e)) e.preventDefault(); });
   document.addEventListener("paste", e => {
     const tag = (document.activeElement && document.activeElement.tagName) || "";
     if (tag === "INPUT" || tag === "TEXTAREA" || !$("#t2").classList.contains("a")) return;
