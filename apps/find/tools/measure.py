@@ -786,7 +786,8 @@ def main(argv=None):
     ap.add_argument("--whole-pc", action="store_true", help="index this PC's real Whole PC scope, names only (the "
                     "walk is read-only; the index is in the temp folder). Use a long --index-timeout")
     ap.add_argument("--turbo-uac", action="store_true", help="like --whole-pc with the turbo index on: Windows "
-                    "shows a permission prompt (for the maintainer to answer; never in an unattended run)")
+                    "shows a permission prompt (for the maintainer to answer; never in an unattended run). From source it needs "
+                    "NOBAD_FIND_DEV_TURBO=1 set with setx (the elevated helper doesn't inherit this terminal's variables)")
     ap.add_argument("--models", default="", help="a data folder with both models downloaded (model/, photo-model/): "
                     "meaning, photo meaning and OCR on, models linked into each run's fresh index")
     ap.add_argument("--photos", type=int, default=0, help="extra camera-style JPEGs (needs Pillow)")

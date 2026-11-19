@@ -12,6 +12,9 @@
   A lost journal (reset, wrapped) means a full read again (Indexer.rescan). A helper that ends is reported and the
   folder notifications (watcher.py) carry on alone.
 - State in the contract's turbo_state shape; every change is pushed as the `turbo` event.
+- From source this is development only: without NOBAD_FIND_DEV_TURBO=1 the engine shows no permission prompt and
+  says why (DEV_ONLY). From source the prompt would name python.exe and the elevated interpreter would import from the
+  user-writable source tree (ntfs.py docstring). The installed exe is unaffected.
 """
 import ctypes
 import hashlib
@@ -39,6 +42,14 @@ ENDED = "The turbo helper stopped; NOBAD Find went back to its normal folder wal
 
 class Declined(Exception):
     """The user said no at the UAC prompt."""
+
+
+class DevOnly(PermissionError):
+    """From source without NOBAD_FIND_DEV_TURBO=1 (ntfs.py docstring): no permission prompt is shown."""
+
+
+DEV_ONLY = ("The turbo index runs from NOBAD Find's installed app. From source it is for development only: set "
+            "NOBAD_FIND_DEV_TURBO=1 (see nobadfind/ntfs.py).")
 
 
 def drive_of(path):
@@ -124,6 +135,9 @@ class Turbo:
                 link = self._launch()
             except Declined:
                 self.error = DECLINED
+                return self._failed(keep_on_failure)
+            except DevOnly:
+                self.error = DEV_ONLY
                 return self._failed(keep_on_failure)
             except (OSError, PermissionError, TimeoutError) as e:
                 log(f"turbo helper didn't start: {type(e).__name__} {getattr(e, 'winerror', '') or ''}", "warn")
@@ -411,6 +425,41 @@ def helper_argv():
     return [sys.executable, "-I", "-c", code, "--turbo", "serve"]
 
 
+def dev_allowed():
+    """The exe always; from source only with NOBAD_FIND_DEV_TURBO=1 (the prompt would name python.exe, and the
+    elevated interpreter would import from the user-writable source tree)."""
+    import sys
+    return bool(getattr(sys, "frozen", False)) or os.environ.get(ntfs.DEV_ENV) == "1"
+
+
+def make_pipe(name, sid):
+    """The engine's end: DACL for this user's SID only (network logons denied, nothing inherited), one instance,
+    FILE_FLAG_FIRST_PIPE_INSTANCE (fails if anyone holds the name), no remote clients. Raises OSError."""
+    from .rpc import server as srv
+    k, a = srv._dlls()
+    sd = ctypes.c_void_p()
+    if not a.ConvertStringSecurityDescriptorToSecurityDescriptorW(srv.sddl_for(sid), 1, ctypes.byref(sd), None):
+        raise ctypes.WinError(ctypes.get_last_error())
+    try:
+        sa = srv._SA(ctypes.sizeof(srv._SA), sd, False)
+        h = k.CreateNamedPipeW(name, srv.PIPE_ACCESS_DUPLEX | srv.FILE_FLAG_OVERLAPPED |
+                               srv.FILE_FLAG_FIRST_PIPE_INSTANCE, srv.PIPE_REJECT_REMOTE_CLIENTS, 1, srv.BUF, srv.BUF,
+                               0, ctypes.byref(sa))
+    finally:
+        k.LocalFree(sd)
+    if not h or h == srv.INVALID_HANDLE:
+        raise ctypes.WinError(ctypes.get_last_error())
+    return h
+
+
+def client_ok(h, pid, session):
+    """The engine's check: the pipe's client is the process it started (pid), in the engine's session."""
+    w = _win()
+    cpid, csess = wintypes.DWORD(), wintypes.DWORD()
+    return bool(w.GetNamedPipeClientProcessId(h, ctypes.byref(cpid)) and cpid.value == pid
+                and w.GetNamedPipeClientSessionId(h, ctypes.byref(csess)) and csess.value == session)
+
+
 def start_elevated(argv):
     """ShellExecuteEx "runas" (the UAC prompt), not waiting: the helper's process handle. Raises Declined."""
     sei = winapi._SEI()
@@ -445,20 +494,13 @@ class PipeLink:
 
     @classmethod
     def start(cls, turbo, timeout=CONNECT_TIMEOUT):
+        if not dev_allowed():
+            raise DevOnly("from source without NOBAD_FIND_DEV_TURBO=1")
         from .rpc import server as srv
-        k, a = srv._dlls()
+        k, _a = srv._dlls()
         w = _win()
         sid = srv.user_sid()
-        name = ntfs.pipe_name(sid, os.getpid())
-        sd = ctypes.c_void_p()
-        if not a.ConvertStringSecurityDescriptorToSecurityDescriptorW(srv.sddl_for(sid), 1, ctypes.byref(sd), None):
-            raise ctypes.WinError(ctypes.get_last_error())
-        sa = srv._SA(ctypes.sizeof(srv._SA), sd, False)
-        h = k.CreateNamedPipeW(name, srv.PIPE_ACCESS_DUPLEX | srv.FILE_FLAG_OVERLAPPED | srv.FILE_FLAG_FIRST_PIPE_INSTANCE,
-                               srv.PIPE_REJECT_REMOTE_CLIENTS, 1, srv.BUF, srv.BUF, 0, ctypes.byref(sa))
-        k.LocalFree(sd)
-        if not h or h == srv.INVALID_HANDLE:
-            raise ctypes.WinError(ctypes.get_last_error())
+        h = make_pipe(ntfs.pipe_name(sid, os.getpid()), sid)
         try:
             proc = start_elevated(helper_argv())
         except BaseException:
@@ -486,10 +528,9 @@ class PipeLink:
                 raise ctypes.WinError(err)
         finally:
             k.CloseHandle(ov.hEvent)
-        cpid, csess, mine = wintypes.DWORD(), wintypes.DWORD(), wintypes.DWORD()
+        mine = wintypes.DWORD()
         w.ProcessIdToSessionId(w.GetCurrentProcessId(), ctypes.byref(mine))
-        if not (w.GetNamedPipeClientProcessId(h, ctypes.byref(cpid)) and cpid.value == pid) or not (
-                w.GetNamedPipeClientSessionId(h, ctypes.byref(csess)) and csess.value == mine.value):
+        if not client_ok(h, pid, mine.value):
             k.DisconnectNamedPipe(h)
             k.CloseHandle(h)
             raise PermissionError("the pipe's client isn't the helper NOBAD Find started")

@@ -152,7 +152,7 @@ class Walker:
                         q.put(e.path)
                     else:
                         ext = os.path.splitext(e.name)[1].lower()
-                        if self.rules.skip_file(e.name):
+                        if self.rules.skip_file(e.path):
                             continue
                         self._emit((e.path, e.name, d, ext, kind_of(e.name), st.st_size, st.st_mtime, _created(st),
                                     self.gen))

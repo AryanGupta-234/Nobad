@@ -714,7 +714,7 @@
         "scope": {"enum": ["whole_pc", "my_files", "custom"], "description": "What to index: whole_pc = your profile and every fixed drive, my_files = your own folders, custom = the folders in roots."},
         "include_system": {"type": "boolean", "description": "Windows, Program Files, ProgramData, Recovery, PerfLogs."},
         "include_caches": {"type": "boolean", "description": "AppData, caches, temp, node_modules, .git, venv."},
-        "include_secrets": {"type": "boolean", "description": "Keys, password stores, .ssh, wallets: names only, never their content."},
+        "include_secrets": {"type": "boolean", "description": "Keys, browser passwords/cookies/history, Windows Credentials, chat and developer tokens, password vaults, wallets: names only, never their content. Browser profiles and app databases are names only even with this off and caches on."},
         "turbo": {"type": "boolean", "description": "Read-only: the turbo index is turned on and off with turbo_set (it needs the permission prompt); set_settings ignores it."}
       },
       "required": ["roots", "exclude", "content", "content_max_mb", "semantic", "photo_meaning",

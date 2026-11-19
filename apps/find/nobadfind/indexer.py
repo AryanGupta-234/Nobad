@@ -121,10 +121,9 @@ class Indexer:
         return scope.Rules.from_settings(self.settings)
 
     def _skip_secrets(self, rows, mark):
-        """Secrets are indexed by name only: rows (id, path, ...) for one of them are marked, never read."""
+        """Names only (scope.Rules.names_only): secrets, browser profiles and app databases. Rows (id, path, ...)
+        for one of them are marked, never read, whatever the switches say."""
         rules = self.rules()
-        if not rules.secrets:
-            return rows                         # none are indexed
         keep = []
         for r in rows:
             if rules.names_only(r[1]):

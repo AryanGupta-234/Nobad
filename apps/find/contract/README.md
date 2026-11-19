@@ -143,8 +143,9 @@ be `""` when not). Files are always named by a result **`id`** from `search`, ne
   indexes, for Settings. Nothing is skipped silently: every category is listed. `Category` = `{id, name, why,
   examples: [string], included: bool, locked: bool, count: int|null}`, `id` one of `system` (Windows, Program Files,
   ProgramData: setting `include_system`), `caches` (AppData, temp, node_modules, .git, venv: `include_caches`),
-  `secrets` (keys, password stores, .ssh, wallets: `include_secrets`, **off by default, names only**, the content is
-  never read), `other_profiles` (other accounts' files, recycle bins, System Volume Information: always out, `locked`),
+  `secrets` (keys, browser passwords, cookies and history, Windows Credentials/Vault/Protect, chat and developer
+  tokens, password vaults, wallets: `include_secrets`, **off by default, names only**, the content is never read;
+  browser profiles and app databases are names only in `caches` too), `other_profiles` (other accounts' files, recycle bins, System Volume Information: always out, `locked`),
   `removable` (`index_removable`), `network` (`index_network`). `locked` = the user can't change it here (other
   people's files; system folders aren't part of My files; USB/network in Custom come from the folder list). `count`
   = entries of that category in the index, `null` when it can't be counted cheaply. Show `name`, `why` and

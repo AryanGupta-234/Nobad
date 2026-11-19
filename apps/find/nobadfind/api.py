@@ -400,17 +400,20 @@ class Api:
 
     def _remove_secrets(self):
         """Every secret (scope category) out of the index: key files by extension, secret folders by name."""
-        from .const import SECRET_EXT, SECRET_NAMES
+        from .const import BROWSER_SECRET_FILES, SECRET_EXT, SECRET_FILES, SECRET_NAMES, SECRET_PATHS
         rules = scope.Rules.from_settings(self._settings)
         exts = sorted(SECRET_EXT)
-        marks = ",".join("?" * len(exts))
-        like = " OR ".join(["lower(path) LIKE ? ESCAPE '!'"] * len(SECRET_NAMES))
-        names = ["%\\" + n.replace("!", "!!").replace("%", "!%").replace("_", "!_") + "\\%"
-                 for n in sorted(SECRET_NAMES)]
-        rows = self._store.q(f"SELECT path FROM files WHERE ext IN ({marks}) OR lower(name) IN "
-                             f"({','.join('?' * len(SECRET_NAMES))}) OR {like}",
-                             (*exts, *sorted(SECRET_NAMES), *names))
-        gone = [r[0] for r in rows if rules.names_only(r[0])]
+        names = sorted(SECRET_NAMES | SECRET_FILES | BROWSER_SECRET_FILES)
+        names += [n + t for n in sorted(SECRET_FILES | BROWSER_SECRET_FILES) for t in ("-journal", "-wal", "-shm")]
+
+        def esc(t):
+            return t.replace("!", "!!").replace("%", "!%").replace("_", "!_")
+        folders = ["%\\" + esc(n) + "\\%" for n in sorted(SECRET_NAMES)]
+        folders += ["%\\" + esc("\\".join(p)) + "\\%" for p in SECRET_PATHS]
+        like = " OR ".join(["lower(path) LIKE ? ESCAPE '!'"] * len(folders))
+        rows = self._store.q(f"SELECT path FROM files WHERE ext IN ({','.join('?' * len(exts))}) OR lower(name) IN "
+                             f"({','.join('?' * len(names))}) OR {like}", (*exts, *names, *folders))
+        gone = [r[0] for r in rows if rules.category(r[0]) == "secrets"]
         if gone:
             self._store.remove_paths(gone)
         return len(gone)

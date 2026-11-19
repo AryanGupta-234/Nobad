@@ -20,7 +20,8 @@ Rules is the one place the walker (walker.Walker), live changes (Walker.excluded
 """
 import os
 
-from .const import CACHE_NAMES, DATA_DIR, DEFAULTS, FIXED_NAMES, SECRET_EXT, SECRET_NAMES, SYSTEM_NAMES
+from .const import (BROWSER_SECRET_FILES, CACHE_NAMES, DATA_DIR, DEFAULTS, FIXED_NAMES, NAMES_ONLY_EXT,
+                    NAMES_ONLY_PATHS, SECRET_EXT, SECRET_FILES, SECRET_NAMES, SECRET_PATHS, SYSTEM_NAMES)
 
 SCOPES = ("whole_pc", "my_files", "custom")
 CATEGORIES = ("system", "caches", "secrets", "other_profiles", "removable", "network")
@@ -52,6 +53,20 @@ def system_dirs():
     out = [os.path.normpath(os.environ.get("SystemRoot", r"C:\Windows"))]
     out += [os.path.join(drive, d) for d in SYSTEM_DIRS[1:]]
     return out
+
+
+def _has_run(parts, pat):
+    """pat (folder names) appears one after the other in parts."""
+    k = len(pat)
+    return any(tuple(parts[i:i + k]) == pat for i in range(len(parts) - k + 1))
+
+
+def _base_name(low):
+    """A database's -journal/-wal/-shm twin counts as the database ("login data-journal")."""
+    for tail in ("-journal", "-wal", "-shm"):
+        if low.endswith(tail):
+            return low[:-len(tail)]
+    return low
 
 
 def _under(n, prefix):
@@ -137,9 +152,25 @@ class Rules:
             return "other_profiles"                     # Default, stale profiles, anyone ProfileList missed
         if n in self.system_set:
             return "system"
+        parts = n.split("\\")
+        if any(tuple(parts[-len(pat):]) == pat for pat in SECRET_PATHS):
+            return "secrets"                            # Windows Credentials/Vault/Protect, chat app tokens
         if n == self.appdata:
             return "caches"
         return None
+
+    @staticmethod
+    def _secret_file(n):
+        """A credential store by its own name (n normcased): key files, browser password/cookie/history databases,
+        developer tokens, wallets."""
+        parts = n.split("\\")
+        low = parts[-1]
+        if os.path.splitext(low)[1] in SECRET_EXT:
+            return True
+        base = _base_name(low)
+        if base in SECRET_FILES:
+            return True
+        return base in BROWSER_SECRET_FILES and any(_has_run(parts[:-1], pat) for pat in NAMES_ONLY_PATHS)
 
     def _allowed(self, cat):
         return cat is None or (cat == "system" and self.system) or (cat == "caches" and self.caches) or (
@@ -156,7 +187,8 @@ class Rules:
         return not self._allowed(self._path_cat(n))
 
     def skip_file(self, path):
-        return not self.secrets and os.path.splitext(path)[1].lower() in SECRET_EXT
+        """A file the walk leaves out (path: the whole path, so a browser's "Cookies" is told from yours)."""
+        return not self.secrets and self._secret_file(norm(path))
 
     def category(self, path, base=""):
         """The category a path falls in (by its folders and its name), or None for ordinary files. base: a root the
@@ -172,7 +204,7 @@ class Rules:
             c = self._path_cat(p) or self._name_cat(parts[i - 1])
             if c is not None and _rank(c) > _rank(cat):
                 cat = c
-        if os.path.splitext(n)[1] in SECRET_EXT and _rank(cat) < _rank("secrets"):
+        if _rank(cat) < _rank("secrets") and self._secret_file(n):
             cat = "secrets"                              # a key file inside a cache folder is still a key file
         return cat
 
@@ -184,8 +216,13 @@ class Rules:
         return not self._allowed(cat)
 
     def names_only(self, path):
-        """Secrets are indexed by name only: never read their content, whatever else is on."""
-        return self.category(path) == "secrets"
+        """Never read the content: secrets (whatever else is on), and browser profiles and app databases (SQLite,
+        LevelDB: binary noise, and they hold cookies and history)."""
+        if self.category(path) == "secrets":
+            return True
+        n = norm(path)
+        parts = n.split("\\")
+        return os.path.splitext(n)[1] in NAMES_ONLY_EXT or any(_has_run(parts[:-1], pat) for pat in NAMES_ONLY_PATHS)
 
 
 def _rank(cat):
@@ -281,15 +318,25 @@ def info(s, drives, store=None, known=None, real_case=real_case, rules=None):
          "locked": not drive_walked, "count": count(sysdirs)},
         {"id": "caches", "name": "App data, caches and code folders",
          "why": "Settings and caches apps keep for themselves (AppData), temp folders and developer folders "
-                "(node_modules, .git, venv). Lots of small files that change all the time.",
+                "(node_modules, .git, venv). Lots of small files that change all the time. Browser profiles and app "
+                "databases (SQLite, LevelDB) are listed by name only: NOBAD Find never reads what's inside them.",
          "examples": [os.path.join(prof, "AppData"), os.path.join(prof, "AppData", "Local", "Temp"),
                       os.path.join("...", "node_modules"), os.path.join("...", ".git")],
          "included": rules.caches, "locked": False, "count": count([real_case(os.path.join(prof, "AppData"))])},
         {"id": "secrets", "name": "Keys and password stores",
-         "why": "SSH and GPG keys, certificates, cloud credentials, password manager vaults and wallets. Off by "
-                "default. When on, only their names are indexed: NOBAD Find never reads what's inside them.",
-         "examples": [os.path.join(prof, ".ssh"), os.path.join(prof, ".aws"),
-                      os.path.join("...", "vault.kdbx"), os.path.join("...", "server.pem")],
+         "why": "SSH and GPG keys and certificates (.pem, .pfx, .key); browser passwords, cookies, history and form "
+                "data (Chrome, Edge, Brave and Opera Login Data, Cookies, History, Web Data, Local State; Firefox "
+                "key4.db, logins.json, cookies.sqlite, places.sqlite, formhistory.sqlite); Windows Credentials, "
+                "Vault and Protect folders; password manager vaults (.kdbx, .1pux, 1Password, Bitwarden, KeePass); "
+                "Discord, Slack and Teams sign-in tokens; developer tokens (.npmrc, .pypirc, .netrc, "
+                ".git-credentials, .aws, .azure, gcloud); crypto wallet files. Off by default. When on, only their "
+                "names are indexed: NOBAD Find never reads what's inside them.",
+         "examples": [os.path.join(prof, ".ssh"),
+                      os.path.join(prof, "AppData", "Local", "Google", "Chrome", "User Data", "Default", "Login Data"),
+                      os.path.join(prof, "AppData", "Roaming", "Mozilla", "Firefox", "Profiles", "...", "logins.json"),
+                      os.path.join(prof, "AppData", "Roaming", "Microsoft", "Credentials"),
+                      os.path.join(prof, ".npmrc"), os.path.join("...", "vault.kdbx"),
+                      os.path.join("...", "wallet.dat")],
          "included": rules.secrets, "locked": False, "count": None},
         {"id": "other_profiles", "name": "Other people's files",
          "why": "Other accounts on this PC (their profiles and recycle bins) and Windows' restore points (System "

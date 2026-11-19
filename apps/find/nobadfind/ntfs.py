@@ -46,9 +46,18 @@ The pipe
   (GetNamedPipeServerSessionId), and the pipe name carries that process's own token SID.
 - The helper opens the pipe with SECURITY_IDENTIFICATION, so the engine (and anything pretending to be it) can't
   impersonate the elevated helper.
+- Both checks are small functions (turbo.client_ok, server_ok) tested on a real pipe without elevation.
 - Messages: one JSON object per line, ASCII, capped at MAX_LINE (Lines). The helper accepts only `config`, `scan`
   and `stop`; every field is checked (parse_config, parse_drive, parse_since). Paths from the engine are only ever
   compared as strings, never opened.
+
+From source (development only)
+The shipped exe is the only supported way to run the helper. From source, the UAC prompt names python.exe, not NOBAD
+Find, and the elevated interpreter imports nobadfind from the source tree, a folder the user can write to (sys.path[0]
+is the repository). So from source the helper refuses to run unless NOBAD_FIND_DEV_TURBO=1 is set (DEV_ENV), and the
+engine doesn't ask Windows for permission without it either. An elevated process doesn't inherit the caller's
+environment: set it for the user (`setx NOBAD_FIND_DEV_TURBO 1`, then a new terminal), or in the admin terminal for
+`--turbo selftest`. Frozen builds ignore it.
 """
 import ctypes
 import json
@@ -64,6 +73,7 @@ from ctypes import wintypes
 from . import scope, winapi
 
 WORDS = ("serve", "selftest")
+DEV_ENV = "NOBAD_FIND_DEV_TURBO"         # from source only: "1" lets the helper run (module docstring)
 PROTOCOL = 1
 MAX_LINE = 8 * 1024 * 1024
 ROWS_PER_MESSAGE = 1000
@@ -741,6 +751,8 @@ class Lister:
         priv = ctypes.create_string_buffer(256)
         plen = wintypes.DWORD(256)
         granted, status = wintypes.DWORD(), wintypes.BOOL()
+        # FILE_LIST_DIRECTORY (0x1) on each folder is enough: Filter asks top-down and never looks inside a folder
+        # whose parent was refused, so every ancestor of a folder that's sent passed this same check
         ok = a.AccessCheck(sd, self.token, 0x1, mapping, priv, ctypes.byref(plen), ctypes.byref(granted),
                            ctypes.byref(status))
         result = bool(ok and status.value and granted.value & 0x1)
@@ -780,6 +792,14 @@ class _Pipe:
         return buf.raw[:n.value]
 
 
+def server_ok(h, ppid, session):
+    """The helper's check: the pipe at h is served by its parent process, in its own session."""
+    spid, ssess = wintypes.DWORD(), wintypes.DWORD()
+    k = _k32()
+    return bool(k.GetNamedPipeServerProcessId(h, ctypes.byref(spid)) and spid.value == ppid
+                and k.GetNamedPipeServerSessionId(h, ctypes.byref(ssess)) and ssess.value == session)
+
+
 def _connect_to_parent():
     """Open the engine's pipe, after checking the engine is who the pipe name and Windows say it is.
     Returns (_Pipe, parent process handle, the user's SID, the user's token for AccessCheck)."""
@@ -810,13 +830,9 @@ def _connect_to_parent():
                       0x00100000 | 0x00010000, None)          # SECURITY_SQOS_PRESENT | SECURITY_IDENTIFICATION
     if not h or h == INVALID_HANDLE:
         raise PermissionError(f"pipe not there ({ctypes.get_last_error()})")
-    spid, ssess = wintypes.DWORD(), wintypes.DWORD()
-    if not (k.GetNamedPipeServerProcessId(h, ctypes.byref(spid)) and spid.value == ppid):
+    if not server_ok(h, ppid, session_of(me)):
         k.CloseHandle(h)
-        raise PermissionError("the pipe isn't served by the parent")
-    if not (k.GetNamedPipeServerSessionId(h, ctypes.byref(ssess)) and ssess.value == session_of(me)):
-        k.CloseHandle(h)
-        raise PermissionError("the pipe is served from another session")
+        raise PermissionError("the pipe isn't served by the parent in this session")
     return _Pipe(h), hp, sid, imp
 
 
@@ -1058,6 +1074,10 @@ def helper_main(word):
     """`--turbo <word>`. Only the words in WORDS; only elevated (the helper is pointless and refused otherwise)."""
     if word not in WORDS:
         return 2
+    if not getattr(sys, "frozen", False) and os.environ.get(DEV_ENV) != "1":
+        print(f"turbo helper from source is for development only: set {DEV_ENV}=1 (see nobadfind/ntfs.py)",
+              file=sys.stderr)
+        return 6
     if not winapi.is_admin():
         return 3
     try:

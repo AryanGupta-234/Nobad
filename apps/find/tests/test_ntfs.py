@@ -365,6 +365,7 @@ def test_fixed_words_only():
 
 
 def test_helper_refuses_to_run_without_admin(monkeypatch):
+    monkeypatch.setenv(ntfs.DEV_ENV, "1")
     monkeypatch.setattr(ntfs.winapi, "is_admin", lambda: False)
     assert ntfs.helper_main("serve") == 3
     assert ntfs.helper_main("selftest") == 3
@@ -389,3 +390,51 @@ def test_enum_input_is_the_padded_v1_struct():
     import inspect
     assert '"<QqqHH4x"' in inspect.getsource(ntfs.Volume.enum)
     assert struct.calcsize("<QqqHH4x") == 32
+
+
+# ---------- security review of #79: the engine's config can't open another profile ----------
+@pytest.mark.parametrize("roots", [["C:\\Users\\Bob"], ["C:\\Users\\Bob\\Documents"],
+                                   ["C:\\Users\\Bob", "C:\\Users\\Bob\\Documents", "C:\\"]])
+def test_a_config_naming_another_profile_still_gets_nothing_from_it(roots):
+    t = tree()
+    t.add_dir(frn(45), frn(43), "Documents")                        # C:\\Users\\Bob\\Documents
+    rules = scope.Rules(profile="C:\\Users\\me", others=["C:\\Users\\Bob"], secrets=True)
+    f = ntfs.Filter(rules, roots=roots, exclude=[])
+    for ref in (frn(43), frn(45)):
+        assert f.dir_state(t, ref) == ntfs.OUT
+        assert f.keep_dir(t, ref) is None
+        assert f.keep_file(t, ref, "tax.pdf") is None
+    recs = [ntfs.UsnRecord(frn(90), frn(45), 1, 0, ntfs.R_CREATE, 0, "new.docx"),
+            ntfs.UsnRecord(frn(46), frn(43), 2, 0, ntfs.R_CREATE, ntfs.DIR, "Secret plans")]
+    assert ntfs.apply_changes(t, f, recs) == []
+
+
+def test_a_config_naming_a_profile_missing_from_profilelist_still_gets_nothing():
+    """Default, stale profiles, anything in the profiles folder that isn't yours or Public."""
+    t = tree()
+    rules = scope.Rules(profile="C:\\Users\\me", others=[])          # ProfileList didn't list Bob
+    f = ntfs.Filter(rules, roots=["C:\\Users\\Bob"], exclude=[])
+    assert f.dir_state(t, frn(43)) == ntfs.OUT and f.keep_file(t, frn(43), "x.txt") is None
+
+
+# ---------- security review of #79: from source the helper is dev only ----------
+def test_from_source_the_helper_needs_the_dev_switch(monkeypatch):
+    monkeypatch.setattr(ntfs.sys, "frozen", False, raising=False)
+    monkeypatch.setattr(ntfs.winapi, "is_admin", lambda: True)
+    monkeypatch.delenv(ntfs.DEV_ENV, raising=False)
+    ran = []
+    monkeypatch.setattr(ntfs, "_serve", lambda: ran.append("serve") or 0)
+    monkeypatch.setattr(ntfs, "_selftest", lambda: ran.append("selftest") or 0)
+    assert ntfs.helper_main("serve") == 6 and ntfs.helper_main("selftest") == 6 and ran == []
+    monkeypatch.setenv(ntfs.DEV_ENV, "yes")                         # only exactly "1"
+    assert ntfs.helper_main("serve") == 6
+    monkeypatch.setenv(ntfs.DEV_ENV, "1")
+    assert ntfs.helper_main("serve") == 0 and ran == ["serve"]
+
+
+def test_the_exe_needs_no_dev_switch(monkeypatch):
+    monkeypatch.setattr(ntfs.sys, "frozen", True, raising=False)
+    monkeypatch.setattr(ntfs.winapi, "is_admin", lambda: True)
+    monkeypatch.delenv(ntfs.DEV_ENV, raising=False)
+    monkeypatch.setattr(ntfs, "_serve", lambda: 0)
+    assert ntfs.helper_main("serve") == 0

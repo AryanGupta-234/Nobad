@@ -250,3 +250,90 @@ def test_finds_own_data_folder_is_never_indexed_wherever_it_is(tmp_path, monkeyp
     assert r.skip_dir(str(data), "data")
     assert r.out(str(data / "index.db-wal"))
     assert not r.out(str(tmp_path / "somewhere" / "other.txt"))
+
+
+# ---------- security review of #79: credential stores inside AppData ----------
+LOCAL = os.path.join(PROF, "AppData", "Local")
+ROAMING = os.path.join(PROF, "AppData", "Roaming")
+CHROME = os.path.join(LOCAL, "Google", "Chrome", "User Data", "Default")
+FIREFOX = os.path.join(ROAMING, "Mozilla", "Firefox", "Profiles", "abcd.default-release")
+CREDENTIAL_STORES = [
+    os.path.join(CHROME, "Login Data"), os.path.join(CHROME, "Login Data-journal"), os.path.join(CHROME, "Cookies"),
+    os.path.join(CHROME, "Network", "Cookies"), os.path.join(CHROME, "History"), os.path.join(CHROME, "Web Data"),
+    os.path.join(LOCAL, "Google", "Chrome", "User Data", "Local State"),
+    os.path.join(LOCAL, "Microsoft", "Edge", "User Data", "Default", "Login Data"),
+    os.path.join(LOCAL, "BraveSoftware", "Brave-Browser", "User Data", "Default", "Cookies"),
+    os.path.join(ROAMING, "Opera Software", "Opera Stable", "Login Data"),
+    os.path.join(FIREFOX, "key4.db"), os.path.join(FIREFOX, "logins.json"), os.path.join(FIREFOX, "cookies.sqlite"),
+    os.path.join(FIREFOX, "places.sqlite"), os.path.join(FIREFOX, "formhistory.sqlite"),
+    os.path.join(ROAMING, "Microsoft", "Credentials", "DFBE70A7E5CC19A398EBF1B96859CE5D"),
+    os.path.join(LOCAL, "Microsoft", "Vault", "4BF4C442-9B8A-41A0-B380-DD4A704DDB28", "Policy.vpol"),
+    os.path.join(ROAMING, "Microsoft", "Protect", "S-1-5-21-1-2-3-1001", "Preferred"),
+    os.path.join(PROF, "Documents", "vault.kdbx"), os.path.join(PROF, "Documents", "export.1pux"),
+    os.path.join(ROAMING, "discord", "Local Storage", "leveldb", "000005.ldb"),
+    os.path.join(ROAMING, "Slack", "Local Storage", "leveldb", "000003.log"),
+    os.path.join(ROAMING, "Microsoft", "Teams", "Local Storage", "leveldb", "000003.log"),
+    os.path.join(PROF, ".npmrc"), os.path.join(PROF, ".pypirc"), os.path.join(PROF, ".netrc"),
+    os.path.join(PROF, ".git-credentials"), os.path.join(PROF, ".config", "gcloud", "credentials.db"),
+    os.path.join(PROF, ".aws", "credentials"), os.path.join(PROF, ".azure", "msal_token_cache.json"),
+    os.path.join(ROAMING, "Bitcoin", "wallets", "wallet.dat"), os.path.join(ROAMING, "Exodus", "exodus.wallet"),
+]
+
+
+@pytest.mark.parametrize("path", CREDENTIAL_STORES)
+def test_credential_stores_are_secrets_even_with_caches_on(path):
+    r = rules(include_caches=True, include_system=True, include_secrets=False)
+    assert r.category(path) == "secrets", path
+    assert r.out(path), path
+
+
+@pytest.mark.parametrize("path", CREDENTIAL_STORES)
+def test_credential_stores_are_names_only_when_secrets_are_on(path):
+    r = rules(include_caches=True, include_secrets=True)
+    assert not r.out(path) and r.names_only(path), path
+
+
+def test_ordinary_files_with_similar_names_are_not_secrets():
+    r = rules()
+    for p in (os.path.join(PROF, "Documents", "History of Rome.docx"), os.path.join(PROF, "Documents", "cookies.txt"),
+              os.path.join(PROF, "Documents", "Vault", "plan.docx"), os.path.join(PROF, "Music", "Protect.mp3"),
+              os.path.join(PROF, "Documents", "Credentials", "letter.docx")):
+        assert r.category(p) is None and not r.names_only(p), p
+
+
+def test_browser_profile_databases_never_reach_text_extraction():
+    """SQLite and LevelDB files in browser profiles are binary noise: names only even with every switch on."""
+    r = rules(include_caches=True, include_secrets=True)
+    for p in (os.path.join(CHROME, "Favicons"), os.path.join(CHROME, "IndexedDB", "x.leveldb", "000003.log"),
+              os.path.join(CHROME, "Sync Data", "LevelDB", "000004.ldb"), os.path.join(FIREFOX, "storage.sqlite"),
+              os.path.join(FIREFOX, "prefs.js"), os.path.join(LOCAL, "Some App", "data", "state.sqlite"),
+              os.path.join(LOCAL, "Some App", "cache.db")):
+        assert not r.out(p) and r.names_only(p), p
+    assert not r.names_only(os.path.join(PROF, "Documents", "notes.txt"))
+
+
+def test_walker_skips_secret_files_by_name(tmp_path):
+    root = tmp_path / "r"
+    prof = root / "Google" / "Chrome" / "User Data" / "Default"
+    prof.mkdir(parents=True)
+    (prof / "Login Data").write_text("x")
+    (prof / "Preferences").write_text("x")
+    (root / ".npmrc").write_text("x")
+    (root / "Login Data").write_text("x")                     # outside a browser: an ordinary file
+    rel = os.path.join("Google", "Chrome", "User Data", "Default")
+    got = walk(root)
+    assert os.path.join(rel, "Preferences") in got and "Login Data" in got
+    assert os.path.join(rel, "Login Data") not in got and ".npmrc" not in got
+    assert os.path.join(rel, "Login Data") in walk(root, include_secrets=True)
+
+
+def test_scope_info_names_the_credential_stores(tmp_path):
+    s = Store(str(tmp_path / "i.db"), encrypt=False)
+    cats = {c["id"]: c for c in scope.info(dict(DEFAULTS), DRIVES, s, known=lambda n: None,
+                                          real_case=lambda p: p)["categories"]}
+    why = cats["secrets"]["why"]
+    for word in ("Login Data", "Cookies", "History", "key4.db", "logins.json", "Credentials", ".npmrc", "wallet"):
+        assert word in why, word
+    assert any("Login Data" in e for e in cats["secrets"]["examples"])
+    assert "never reads" in cats["caches"]["why"]                   # browser databases: names only
+    s.close()

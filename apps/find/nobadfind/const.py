@@ -37,7 +37,23 @@ ALWAYS_EXCLUDE_EXT = {".kdbx", ".kdb", ".pem", ".key", ".pfx", ".p12", ".ppk", "
 # skipped silently, the user sees every category and chooses). Each name is in exactly one group.
 SECRET_NAMES = {".ssh", ".gnupg", ".aws", ".azure", ".kube", ".docker", "1password", "bitwarden", "keepass",
                 "keepassxc", "lastpass", "dashlane"}
-SECRET_EXT = set(ALWAYS_EXCLUDE_EXT)
+SECRET_NAMES |= {"gcloud"}
+SECRET_EXT = set(ALWAYS_EXCLUDE_EXT) | {".1pux", ".1pif", ".wallet"}
+# Credential stores inside AppData and the profile, by exact file name (a "-journal"/"-wal"/"-shm" twin too): browser
+# passwords, cookies, history and form data (Chromium and Firefox), developer tokens, wallets. Security review of #79.
+SECRET_FILES = {"key3.db", "key4.db", "logins.json", "cookies.sqlite", "places.sqlite", "formhistory.sqlite",
+                "signons.sqlite", ".npmrc", ".pypirc", ".netrc", "_netrc", ".git-credentials", "wallet.dat"}
+# Generic names that are secrets inside a browser profile (NAMES_ONLY_PATHS) only: "History" elsewhere is yours
+BROWSER_SECRET_FILES = {"login data", "login data for account", "cookies", "history", "web data", "local state"}
+# ... and by folder: these folder names one after the other anywhere in a path (lower case)
+SECRET_PATHS = (("microsoft", "credentials"), ("microsoft", "vault"), ("microsoft", "protect"),
+                ("discord", "local storage"), ("slack", "local storage"), ("teams", "local storage"))
+# Browser profiles and app databases: caches, not secrets, but their content is never read (binary noise)
+NAMES_ONLY_PATHS = (("chrome", "user data"), ("chromium", "user data"), ("edge", "user data"),
+                    ("brave-browser", "user data"), ("vivaldi", "user data"), ("opera software",),
+                    ("firefox", "profiles"), ("thunderbird", "profiles"), ("leveldb",), ("indexeddb",))
+NAMES_ONLY_EXT = {".sqlite", ".sqlite3", ".db", ".ldb", ".sqlite-wal", ".sqlite-shm", ".db-wal", ".db-shm",
+                  ".db-journal", ".leveldb"}
 CACHE_NAMES = {"node_modules", "__pycache__", ".git", ".svn", ".hg", ".venv", "venv", ".cache", "cache", "cache2",
                "code cache", "gpucache", "temp", "tmp"}
 SYSTEM_NAMES = {"windowsapps", "winsxs", "$windows.~bt", "$windows.~ws"}

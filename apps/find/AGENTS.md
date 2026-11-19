@@ -17,7 +17,9 @@ Specific to this app:
     Information, NTFS metafiles, everything outside the user's scope and categories, and folders the user couldn't
     list (AccessCheck with the user's token) before anything leaves it; the engine applies its own rules again. Read
     the module docstring before changing it. Content reading (text, OCR, models) stays in the normal-user workers.
-  Tests never trigger UAC: the turbo tests use fake links and synthetic USN/MFT buffers.
+  Tests never trigger UAC: the turbo tests use fake links and synthetic USN/MFT buffers (the pipe's DACL and PID
+  checks are tested on a real, unelevated pipe). From source the helper is dev only and refuses without
+  `NOBAD_FIND_DEV_TURBO=1`; don't relax that (the prompt would name python.exe, imports come from the source tree).
 - **Out of scope (maintainer decision 2026-11-17):** no activity timeline or usage history (Recent items, browser
   history, event logs, programs run). Indexing is the normal-user folder walk (`walker.py`) plus folder-change
   notifications (`watcher.py`); the turbo helper above is the one optional exception for names and changes.
@@ -25,8 +27,10 @@ Specific to this app:
   `esc()`; FTS queries only through `store.fts_quote`; nothing builds a shell string; files are never executed
   except by the user's explicit Open (by result id, never a path from the page).
 - What's indexed follows `scope.Rules` (maintainer decision 2026-11-19: nothing skipped silently; every category
-  is shown by `scope_info`): system folders and caches are user choices (default on), secrets (`const.SECRET_*`) are
-  off by default and **names only** when on (never read, never thumbnailed), other people's files and
+  is shown by `scope_info`): system folders and caches are user choices (default on), secrets (`const.SECRET_*`:
+  keys, browser passwords/cookies/history, Windows Credentials/Vault/Protect, chat and developer tokens, wallets) are
+  off by default and **names only** when on (never read, never thumbnailed), browser profiles and app databases
+  (`const.NAMES_ONLY_*`) are names only even with caches on, other people's files and
   `const.FIXED_NAMES` are always out. The walk, `Walker.excluded` (live changes) and the turbo helper's `ntfs.Filter`
   all use `scope.Rules`; keep them in step.
 - OCR (`ocr.py`) uses only the Windows built-in `Windows.Media.Ocr` through the pinned `winrt-*` 3.2.1 packages

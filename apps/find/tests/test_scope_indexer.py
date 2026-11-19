@@ -196,3 +196,30 @@ def test_status_counts_cost_at_most_a_twentieth_of_a_core(tmp_path):
     a._stats()
     assert len(calls) == 3
     s.close()
+
+
+def test_browser_profile_files_are_never_read_even_with_caches_on_and_secrets_off(tmp_path):
+    s = Store(str(tmp_path / "i.db"), encrypt=False)
+    ff = os.path.join(PROF, "AppData", "Roaming", "Mozilla", "Firefox", "Profiles", "x.default")
+    s.upsert_files([(os.path.join(ff, "prefs.js"), "prefs.js", ff, ".js", "code", 10, 5.0, 5.0, 1),
+                    (os.path.join(PROF, "app.js"), "app.js", PROF, ".js", "code", 10, 5.0, 5.0, 1)])
+    ix = indexer.Indexer(s, S(include_caches=True, include_secrets=False))
+    keep = ix._skip_secrets(s.needs_text({".js"}, 1 << 20), lambda r: s.set_text(r[0], r[4], [], indexer.NAMES_ONLY))
+    assert [r[1] for r in keep] == [os.path.join(PROF, "app.js")]
+    assert s.one("SELECT text_err FROM files WHERE name='prefs.js'") == indexer.NAMES_ONLY
+    s.close()
+
+
+def test_turning_secrets_off_removes_browser_credential_stores(tmp_path):
+    a, s = make_api(tmp_path)
+    a.set_settings({"include_secrets": True})
+    chrome = os.path.join(PROF, "AppData", "Local", "Google", "Chrome", "User Data", "Default")
+    cred = os.path.join(PROF, "AppData", "Roaming", "Microsoft", "Credentials")
+    s.upsert_files([(os.path.join(chrome, "Login Data"), "Login Data", chrome, "", "other", 1, 5.0, 5.0, 1),
+                    (os.path.join(chrome, "Preferences"), "Preferences", chrome, "", "other", 1, 5.0, 5.0, 1),
+                    (os.path.join(cred, "DFBE70A7"), "DFBE70A7", cred, "", "other", 1, 5.0, 5.0, 1),
+                    (os.path.join(PROF, ".npmrc"), ".npmrc", PROF, "", "other", 1, 5.0, 5.0, 1),
+                    (os.path.join(PROF, "History"), "History", PROF, "", "other", 1, 5.0, 5.0, 1)])
+    a.set_settings({"include_secrets": False})
+    assert {r[0] for r in s.q("SELECT name FROM files")} == {"Preferences", "History"}
+    s.close()
