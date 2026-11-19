@@ -25,8 +25,14 @@ enum AppMode { main, bar }
 const appVersion = '0.8.0';
 
 class NobadFindApp extends StatefulWidget {
-  const NobadFindApp({super.key, required this.engine, this.mode = AppMode.main, this.window = const NoWindow(),
-      this.demo, this.splash = true});
+  const NobadFindApp({
+    super.key,
+    required this.engine,
+    this.mode = AppMode.main,
+    this.window = const NoWindow(),
+    this.demo,
+    this.splash = true,
+  });
   final EngineApi engine;
   final AppMode mode;
   final WindowControl window;
@@ -109,14 +115,22 @@ class _NobadFindAppState extends State<NobadFindApp> {
               nav: nav,
               window: widget.window,
               version: appVersion,
-              child: DefaultTextStyle(style: TextStyle(color: c.text, fontSize: 14), child: child!),
+              child: DefaultTextStyle(
+                style: TextStyle(color: c.text, fontSize: 14),
+                child: child!,
+              ),
             ),
           ),
           home: Material(
             type: MaterialType.transparency,
             child: bar
                 ? BarWindow(engine: widget.engine, window: widget.window, demo: widget.demo)
-                : _Keys(nav: nav, window: widget.window, engine: widget.engine, child: Shell(splash: widget.splash, demo: widget.demo)),
+                : _Keys(
+                    nav: nav,
+                    window: widget.window,
+                    engine: widget.engine,
+                    child: Shell(splash: widget.splash, demo: widget.demo),
+                  ),
           ),
         );
       },
@@ -148,8 +162,8 @@ class _KeysState extends State<_Keys> {
 
   /// Search focuses its own box; the other pages start with the window keys focused.
   void _moved() => WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && widget.nav.tab != AppTab.search) _focus.requestFocus();
-      });
+    if (mounted && widget.nav.tab != AppTab.search) _focus.requestFocus();
+  });
 
   @override
   void dispose() {
@@ -160,16 +174,16 @@ class _KeysState extends State<_Keys> {
 
   @override
   Widget build(BuildContext context) => CallbackShortcuts(
-        bindings: {
-          const SingleActivator(LogicalKeyboardKey.digit1, control: true): () => widget.nav.go(AppTab.search),
-          const SingleActivator(LogicalKeyboardKey.digit2, control: true): () => widget.nav.go(AppTab.indexing),
-          const SingleActivator(LogicalKeyboardKey.digit3, control: true): () => widget.nav.go(AppTab.settings),
-          const SingleActivator(LogicalKeyboardKey.escape): () {
-            if (widget.nav.tab == AppTab.search) return;
-            widget.window.hide();
-            unawaited(widget.engine.uiHidden('main').catchError((Object _) {}));
-          },
-        },
-        child: Focus(focusNode: _focus, child: widget.child),
-      );
+    bindings: {
+      const SingleActivator(LogicalKeyboardKey.digit1, control: true): () => widget.nav.go(AppTab.search),
+      const SingleActivator(LogicalKeyboardKey.digit2, control: true): () => widget.nav.go(AppTab.indexing),
+      const SingleActivator(LogicalKeyboardKey.digit3, control: true): () => widget.nav.go(AppTab.settings),
+      const SingleActivator(LogicalKeyboardKey.escape): () {
+        if (widget.nav.tab == AppTab.search) return;
+        widget.window.hide();
+        unawaited(widget.engine.uiHidden('main').catchError((Object _) {}));
+      },
+    },
+    child: Focus(focusNode: _focus, child: widget.child),
+  );
 }

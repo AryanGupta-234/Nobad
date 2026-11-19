@@ -31,10 +31,10 @@ abstract class Transport {
 
 typedef Connector = Future<Transport> Function();
 
-
 /// One connection's request/response bookkeeping.
 class RpcSession {
-  RpcSession(this._t, {required void Function(EngineEvent) onEvent}) : _onEvent = onEvent {  // ignore: prefer_initializing_formals
+  // ignore: prefer_initializing_formals
+  RpcSession(this._t, {required void Function(EngineEvent) onEvent}) : _onEvent = onEvent {
     _sub = _t.lines.listen(_line, onDone: _closed, onError: (_) => _closed());
   }
 
@@ -61,10 +61,13 @@ class RpcSession {
       _closed();
       return Future.error(const EngineOffline());
     }
-    return c.future.timeout(timeout ?? const Duration(seconds: 15), onTimeout: () {
-      _pending.remove(id);
-      throw const RpcException(-32000, 'The engine took too long to answer.');
-    });
+    return c.future.timeout(
+      timeout ?? const Duration(seconds: 15),
+      onTimeout: () {
+        _pending.remove(id);
+        throw const RpcException(-32000, 'The engine took too long to answer.');
+      },
+    );
   }
 
   void _line(String line) {
@@ -80,8 +83,12 @@ class RpcSession {
       final c = _pending.remove(id)!;
       final err = msg['error'];
       if (err is Map) {
-        c.completeError(RpcException(err['code'] is int ? err['code'] as int : -32603,
-            err['message'] is String ? err['message'] as String : 'Error'));
+        c.completeError(
+          RpcException(
+            err['code'] is int ? err['code'] as int : -32603,
+            err['message'] is String ? err['message'] as String : 'Error',
+          ),
+        );
       } else {
         c.complete(msg['result']);
       }
@@ -111,13 +118,21 @@ class RpcSession {
 /// The real engine over the pipe: the connection, its events, and a typed call for every contract method.
 /// Screens never use it directly; [WiredEngine] (wiring.dart) decides which [EngineApi] call comes here.
 class EngineClient {
-  EngineClient(this._connect, {List<Duration>? backoff, this.log, this.subscribeTo = EngineEvent.mainWindow,
-      this.window = 'main'})
-      : _backoff = backoff ??
-            const [
-              Duration(milliseconds: 200), Duration(milliseconds: 500), Duration(seconds: 1),
-              Duration(seconds: 2), Duration(seconds: 4),
-            ];
+  EngineClient(
+    this._connect, {
+    List<Duration>? backoff,
+    this.log,
+    this.subscribeTo = EngineEvent.mainWindow,
+    this.window = 'main',
+  }) : _backoff =
+           backoff ??
+           const [
+             Duration(milliseconds: 200),
+             Duration(milliseconds: 500),
+             Duration(seconds: 1),
+             Duration(seconds: 2),
+             Duration(seconds: 4),
+           ];
 
   final Connector _connect;
   final List<Duration> _backoff;
@@ -182,7 +197,12 @@ class EngineClient {
           continue;
         }
         final methods = h['methods'];
-        served = methods is List ? {for (final m in methods) if (m is String) m} : prototypeMethods;
+        served = methods is List
+            ? {
+                for (final m in methods)
+                  if (m is String) m,
+              }
+            : prototypeMethods;
         enginePid = h['pid'] is int ? h['pid'] as int : 0;
         await rpc.call('subscribe', {
           'events': [...subscribeTo, if (_watching && served.contains('status_full')) 'status_full'],
@@ -258,7 +278,9 @@ class EngineClient {
   Future<void> watchDetails(bool on) async {
     _watching = on;
     if (!served.contains('status_full')) return;
-    await call(on ? 'subscribe' : 'unsubscribe', {'events': ['status_full']});
+    await call(on ? 'subscribe' : 'unsubscribe', {
+      'events': ['status_full'],
+    });
   }
 
   Future<ActionResult> pauseFor(Duration d) => _ok('pause_for', {'seconds': d.inSeconds.clamp(1, 86400)});
@@ -276,13 +298,11 @@ class EngineClient {
   Future<ActionResult> wipe(String confirm) => _ok('wipe', {'confirm': confirm});
 
   // ---- models ----
-  Future<ActionResult> downloadModel(String model) =>
-      _ok(model == 'photo' ? 'download_photo_model' : 'download_model');
+  Future<ActionResult> downloadModel(String model) => _ok(model == 'photo' ? 'download_photo_model' : 'download_model');
 
   // ---- Windows Search ----
   Future<WsearchState> wsearchState() async => WsearchState.fromJson(await call('wsearch_state'));
-  Future<ActionResult> useInsteadOfWindowsSearch(bool on) =>
-      _ok('use_instead_of_windows_search', {'on': on}, false);
+  Future<ActionResult> useInsteadOfWindowsSearch(bool on) => _ok('use_instead_of_windows_search', {'on': on}, false);
 
   // ---- the window ----
   Future<void> uiShown(String window) => call('ui_shown', {'window': window});

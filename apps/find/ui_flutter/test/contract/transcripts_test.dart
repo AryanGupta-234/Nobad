@@ -16,9 +16,9 @@ import '../engine/rpc_test.dart' show FakeTransport;
 typedef Line = Map<String, Object?>;
 
 List<Line> readTranscript(String name) => [
-      for (final l in File('../contract/transcripts/$name').readAsLinesSync())
-        if (l.trim().isNotEmpty) jsonDecode(l) as Line,
-    ];
+  for (final l in File('../contract/transcripts/$name').readAsLinesSync())
+    if (l.trim().isNotEmpty) jsonDecode(l) as Line,
+];
 
 final transcripts = [
   for (final f in Directory('../contract/transcripts').listSync()..sort((a, b) => a.path.compareTo(b.path)))
@@ -68,8 +68,10 @@ void main() {
         }
       }
     }
-    expect(seen, containsAll(['status', 'status_full', 'level', 'activity', 'download', 'notice', 'show', 'here',
-        'quitting']));
+    expect(
+      seen,
+      containsAll(['status', 'status_full', 'level', 'activity', 'download', 'notice', 'show', 'here', 'quitting']),
+    );
   });
 
   test('every answer parses with the model the UI uses for it', () {
@@ -100,9 +102,19 @@ void main() {
           expect(Hardware.fromJson(r)!.threads, 16);
         case 'wsearch_state':
           expect(WsearchState.fromJson(r).start, 'delayed-auto');
-        case 'open' || 'reveal' || 'forget' || 'wipe' || 'quit' || 'rescan' || 'pause_for' || 'resume' ||
-              'reset_learned' || 'download_model' || 'download_photo_model' || 'wsearch_set' ||
-              'use_instead_of_windows_search':
+        case 'open' ||
+            'reveal' ||
+            'forget' ||
+            'wipe' ||
+            'quit' ||
+            'rescan' ||
+            'pause_for' ||
+            'resume' ||
+            'reset_learned' ||
+            'download_model' ||
+            'download_photo_model' ||
+            'wsearch_set' ||
+            'use_instead_of_windows_search':
           final a = ActionResult.fromJson(r);
           if (!a.ok) expect(a.error, isA<String>());
         case 'thumbnail':
@@ -161,7 +173,9 @@ void main() {
 
     Map<String, Object?> params(String m) =>
         (t.sent.lastWhere((x) => x['method'] == m)['params'] as Map).cast<String, Object?>();
-    expect(params('set_settings'), {'changes': {'theme': 'light', 'content_max_mb': 50}});
+    expect(params('set_settings'), {
+      'changes': {'theme': 'light', 'content_max_mb': 50},
+    });
     expect(params('wipe'), {'confirm': 'DELETE'});
     expect(params('quit'), {'confirm': 'QUIT'});
     expect(params('pause_for'), {'seconds': 3600});
@@ -181,12 +195,18 @@ void main() {
   });
 
   test('watching the Indexing page subscribes to status_full, and stops', () async {
-    final t = FakeTransport(autoReply: (m, p) => switch (m) {
-          'hello' => {'protocol': 1, 'pid': 1, 'methods': ['hello', 'subscribe', 'unsubscribe', 'status', 'status_full']},
-          'subscribe' || 'unsubscribe' => {'events': <String>[]},
-          'status' => {'level': 'gentle', 'reason': 'r', 'phase': 'text', 'files': 1, 'paused': ''},
-          _ => null,
-        });
+    final t = FakeTransport(
+      autoReply: (m, p) => switch (m) {
+        'hello' => {
+          'protocol': 1,
+          'pid': 1,
+          'methods': ['hello', 'subscribe', 'unsubscribe', 'status', 'status_full'],
+        },
+        'subscribe' || 'unsubscribe' => {'events': <String>[]},
+        'status' => {'level': 'gentle', 'reason': 'r', 'phase': 'text', 'files': 1, 'paused': ''},
+        _ => null,
+      },
+    );
     final c = EngineClient(() async => t, backoff: const [Duration(milliseconds: 1)])..start();
     await pumpEventQueue();
     unawaited(c.watchDetails(true));

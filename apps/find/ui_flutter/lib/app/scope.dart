@@ -1,7 +1,6 @@
 /// What every screen of the main window shares: the engine, the controllers, the window, and where you are.
 library;
 
-
 import 'package:flutter/widgets.dart';
 
 import '../engine/engine_api.dart';

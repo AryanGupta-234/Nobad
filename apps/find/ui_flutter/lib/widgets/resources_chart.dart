@@ -11,6 +11,7 @@ import '../app/theme/colors.dart';
 import '../app/theme/typography.dart';
 import '../engine/models/format.dart';
 import '../engine/models/status.dart';
+import 'motion.dart';
 
 class ResourcesChart extends StatefulWidget {
   const ResourcesChart({super.key, required this.history, this.height = 120});
@@ -34,42 +35,52 @@ class _ResourcesChartState extends State<ResourcesChart> {
     final i = _hover >= 0 && _hover < n ? _hover : n - 1;
     final x = n == 0 ? null : h[i];
     final when = i == n - 1 ? 'now' : '${span((n - 1 - i) * 2).replaceFirst('about ', '')} ago';
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Semantics(
-        label: 'NOBAD Find processor and memory use over the last 5 minutes',
-        image: true,
-        child: MouseRegion(
-          onHover: (e) {
-            if (n < 2) return;
-            final box = context.findRenderObject() as RenderBox?;
-            final w = box?.size.width ?? 1;
-            final slot = (e.localPosition.dx / w * (ResourcesChart.slots - 1)).round();
-            setState(() => _hover = (slot - (ResourcesChart.slots - n)).clamp(0, n - 1));
-          },
-          onExit: (_) => setState(() => _hover = -1),
-          child: SizedBox(
-            height: widget.height,
-            child: CustomPaint(
-              painter: _ChartPainter(h, i, c, NbType.data(10, c.dim)),
-              size: Size.infinite,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Semantics(
+          label: 'NOBAD Find processor and memory use over the last 5 minutes',
+          image: true,
+          child: MouseRegion(
+            onHover: (e) {
+              if (n < 2) return;
+              final box = context.findRenderObject() as RenderBox?;
+              final w = box?.size.width ?? 1;
+              final slot = (e.localPosition.dx / w * (ResourcesChart.slots - 1)).round();
+              setState(() => _hover = (slot - (ResourcesChart.slots - n)).clamp(0, n - 1));
+            },
+            onExit: (_) => setState(() => _hover = -1),
+            child: SizedBox(
+              height: widget.height,
+              // a new sample slides the lines one step left instead of jumping
+              child: TweenAnimationBuilder<double>(
+                key: ValueKey(n == 0 ? 0.0 : h.last.t),
+                tween: Tween(begin: reduceMotion(context) || n < 2 ? 0 : 1, end: 0),
+                duration: const Duration(milliseconds: 650),
+                curve: Curves.easeOutCubic,
+                builder: (context, shift, _) =>
+                    CustomPaint(painter: _ChartPainter(h, i, c, NbType.data(10, c.dim), shift), size: Size.infinite),
+              ),
             ),
           ),
         ),
-      ),
-      const SizedBox(height: 8),
-      if (n < 2)
-        Text('Collecting the first readings…', style: NbType.text(NbSize.small, c.dim))
-      else
-        Row(children: [
-          _Key(solid: true, color: c.orange),
-          Text('Processor ${pct(x!.findCpu)}', style: NbType.data(NbSize.caption, c.muted)),
-          const SizedBox(width: 16),
-          _Key(solid: false, color: c.dim),
-          Text('Memory ${mb(x.findMb)}', style: NbType.data(NbSize.caption, c.muted)),
-          const Spacer(),
-          Text('$when · last 5 minutes', style: NbType.data(NbSize.caption, c.dim)),
-        ]),
-    ]);
+        const SizedBox(height: 8),
+        if (n < 2)
+          Text('Collecting the first readings…', style: NbType.text(NbSize.small, c.dim))
+        else
+          Row(
+            children: [
+              _Key(solid: true, color: c.orange),
+              Text('Processor ${pct(x!.findCpu)}', style: NbType.data(NbSize.caption, c.muted)),
+              const SizedBox(width: 16),
+              _Key(solid: false, color: c.dim),
+              Text('Memory ${mb(x.findMb)}', style: NbType.data(NbSize.caption, c.muted)),
+              const Spacer(),
+              Text('$when · last 5 minutes', style: NbType.data(NbSize.caption, c.dim)),
+            ],
+          ),
+      ],
+    );
   }
 }
 
@@ -80,9 +91,9 @@ class _Key extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(right: 6),
-        child: CustomPaint(size: const Size(14, 2), painter: _KeyPainter(solid, color)),
-      );
+    padding: const EdgeInsets.only(right: 6),
+    child: CustomPaint(size: const Size(14, 2), painter: _KeyPainter(solid, color)),
+  );
 }
 
 class _KeyPainter extends CustomPainter {
@@ -107,11 +118,14 @@ class _KeyPainter extends CustomPainter {
 }
 
 class _ChartPainter extends CustomPainter {
-  _ChartPainter(this.h, this.focus, this.c, this.labelStyle);
+  _ChartPainter(this.h, this.focus, this.c, this.labelStyle, this.shift);
   final List<HistoryPoint> h;
   final int focus;
   final NbColors c;
   final TextStyle labelStyle;
+
+  /// 1 → 0 while a new sample comes in: the lines sit one step to the right and slide into place.
+  final double shift;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -133,13 +147,17 @@ class _ChartPainter extends CustomPainter {
     }
     maxCpu = (maxCpu / 10).ceil() * 10.0;
     maxMb *= 1.1;
-    final tp = TextPainter(text: TextSpan(text: '${maxCpu.round()}%', style: labelStyle),
-        textDirection: TextDirection.ltr)
-      ..layout();
+    final tp = TextPainter(
+      text: TextSpan(text: '${maxCpu.round()}%', style: labelStyle),
+      textDirection: TextDirection.ltr,
+    )..layout();
     tp.paint(canvas, const Offset(4, padT + 3));
     tp.dispose();
     if (n < 2) return;
-    double X(int i) => w - (n - 1 - i) / (ResourcesChart.slots - 1) * w;
+    final step = w / (ResourcesChart.slots - 1);
+    double X(int i) => w - (n - 1 - i) * step + shift * step;
+    canvas.save();
+    canvas.clipRect(Offset.zero & size);
     double Y(double v, double m) => padT + H - (v / m) * H;
 
     final mem = Path();
@@ -167,28 +185,38 @@ class _ChartPainter extends CustomPainter {
       ..lineTo(X(0), padT + H)
       ..close();
     canvas.drawPath(
-        area,
-        Paint()
-          ..shader = LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter,
-                  colors: [c.orangeA(c.isDark ? .28 : .18), c.orangeA(0)])
-              .createShader(Rect.fromLTWH(0, padT, w, H)));
+      area,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [c.orangeA(c.isDark ? .28 : .18), c.orangeA(0)],
+        ).createShader(Rect.fromLTWH(0, padT, w, H)),
+    );
     canvas.drawPath(
-        cpu,
-        Paint()
-          ..color = c.orange
-          ..strokeWidth = 1.75
-          ..style = PaintingStyle.stroke
-          ..strokeJoin = StrokeJoin.round);
+      cpu,
+      Paint()
+        ..color = c.orange
+        ..strokeWidth = 1.75
+        ..style = PaintingStyle.stroke
+        ..strokeJoin = StrokeJoin.round,
+    );
 
     final fx = X(focus);
     if (focus != n - 1) {
-      canvas.drawLine(Offset(fx, padT), Offset(fx, padT + H), Paint()
-        ..color = c.line2
-        ..strokeWidth = 1);
+      canvas.drawLine(
+        Offset(fx, padT),
+        Offset(fx, padT + H),
+        Paint()
+          ..color = c.line2
+          ..strokeWidth = 1,
+      );
     }
     canvas.drawCircle(Offset(fx, Y(h[focus].findCpu, maxCpu)), 3.5, Paint()..color = c.orange);
+    canvas.restore();
   }
 
   @override
-  bool shouldRepaint(_ChartPainter old) => !identical(old.h, h) || old.focus != focus || old.c != c;
+  bool shouldRepaint(_ChartPainter old) =>
+      !identical(old.h, h) || old.focus != focus || old.c != c || old.shift != shift;
 }

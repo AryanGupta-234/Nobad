@@ -48,39 +48,49 @@ class _ResultTileState extends State<ResultTile> {
     final d = NbMotion.of(context, NbMotion.base);
     Widget body = Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        ResultThumb(engine: widget.engine, result: r),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(r.name, style: NbType.text(15, c.text, weight: FontWeight.w600, height: 1.3)),
-            if (r.dir.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: Text(r.dir, style: NbType.data(NbSize.caption, c.dim, height: 1.35)),
-              ),
-            if (r.snippet.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Text.rich(
-                    TextSpan(children: snippetSpans(r.snippet, NbType.text(13, c.muted, height: 1.55), c)),
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis),
-              ),
-            if (r.why.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 7),
-                child: Wrap(spacing: 5, runSpacing: 5, children: [for (final w in r.why) _Why(w)]),
-              ),
-          ]),
-        ),
-        const SizedBox(width: 14),
-        Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-          if (r.ago.isNotEmpty) Text(r.ago, style: NbType.data(NbSize.caption, lit ? c.muted : c.dim, height: 1.6)),
-          if (humanSize(r.size).isNotEmpty)
-            Text(humanSize(r.size), style: NbType.data(NbSize.caption, c.dim, height: 1.6)),
-        ]),
-      ]),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ResultThumb(engine: widget.engine, result: r),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(r.name, style: NbType.text(15, c.text, weight: FontWeight.w600, height: 1.3)),
+                if (r.dir.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(r.dir, style: NbType.data(NbSize.caption, c.dim, height: 1.35)),
+                  ),
+                if (r.snippet.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text.rich(
+                      TextSpan(children: snippetSpans(r.snippet, NbType.text(13, c.muted, height: 1.55), c)),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                if (r.why.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 7),
+                    child: Wrap(spacing: 5, runSpacing: 5, children: [for (final w in r.why) _Why(w)]),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 14),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              if (r.ago.isNotEmpty) Text(r.ago, style: NbType.data(NbSize.caption, lit ? c.muted : c.dim, height: 1.6)),
+              if (humanSize(r.size).isNotEmpty)
+                Text(humanSize(r.size), style: NbType.data(NbSize.caption, c.dim, height: 1.6)),
+            ],
+          ),
+        ],
+      ),
     );
     Widget tile = AnimatedContainer(
       duration: d,
@@ -93,21 +103,25 @@ class _ResultTileState extends State<ResultTile> {
           stops: const [0, .72],
         ),
       ),
-      child: Stack(children: [
-        body,
-        Positioned(
-          left: 0,
-          top: 12,
-          bottom: 12,
-          child: AnimatedContainer(
-            duration: d,
-            curve: NbMotion.curve,
-            width: sel ? 3 : 0,
-            decoration: BoxDecoration(
-                color: c.orange, borderRadius: const BorderRadius.horizontal(right: Radius.circular(3))),
+      child: Stack(
+        children: [
+          body,
+          Positioned(
+            left: 0,
+            top: 12,
+            bottom: 12,
+            child: AnimatedContainer(
+              duration: d,
+              curve: NbMotion.curve,
+              width: sel ? 3 : 0,
+              decoration: BoxDecoration(
+                color: c.orange,
+                borderRadius: const BorderRadius.horizontal(right: Radius.circular(3)),
+              ),
+            ),
           ),
-        ),
-      ]),
+        ],
+      ),
     );
     if (r.weak && !lit) tile = Opacity(opacity: .62, child: tile);
     return MouseRegion(
@@ -133,7 +147,10 @@ class _Why extends StatelessWidget {
     final c = NbColors.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
-      decoration: BoxDecoration(border: Border.all(color: c.line2), borderRadius: NbRadius.pillAll),
+      decoration: BoxDecoration(
+        border: Border.all(color: c.line2),
+        borderRadius: NbRadius.pillAll,
+      ),
       child: Text(text, style: NbType.text(NbSize.micro + .5, c.dim, height: 1.5)),
     );
   }
@@ -148,11 +165,13 @@ class LessSure extends StatelessWidget {
     final c = NbColors.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
-      child: Row(children: [
-        Text('Less sure', style: NbType.text(NbSize.small, c.dim, weight: FontWeight.w600)),
-        const SizedBox(width: 12),
-        Expanded(child: Container(height: 1, color: c.line)),
-      ]),
+      child: Row(
+        children: [
+          Text('Less sure', style: NbType.text(NbSize.small, c.dim, weight: FontWeight.w600)),
+          const SizedBox(width: 12),
+          Expanded(child: Container(height: 1, color: c.line)),
+        ],
+      ),
     );
   }
 }

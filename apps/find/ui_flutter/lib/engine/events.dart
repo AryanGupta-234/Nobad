@@ -31,8 +31,14 @@ sealed class EngineEvent {
       case 'download':
         final id = jStr(m['id']);
         if (id.isEmpty) return null;
-        return DownloadEvent(id: id, state: jStr(m['state']), gotMb: jNum(m['got_mb']), sizeMb: jNum(m['size_mb']),
-            mbS: jNum(m['mb_s']), error: jStr(m['error']));
+        return DownloadEvent(
+          id: id,
+          state: jStr(m['state']),
+          gotMb: jNum(m['got_mb']),
+          sizeMb: jNum(m['size_mb']),
+          mbS: jNum(m['mb_s']),
+          error: jStr(m['error']),
+        );
       case 'notice':
         return jStr(m['text']).isEmpty ? null : NoticeEvent(jStr(m['text']));
       case 'show':
@@ -88,8 +94,14 @@ class ActivityEvent extends EngineEvent {
 
 /// A model download moved on: [id] "meaning" or "photo"; [state] downloading | ready | missing (failed: [error]).
 class DownloadEvent extends EngineEvent {
-  const DownloadEvent({required this.id, required this.state, this.gotMb = 0, this.sizeMb = 0, this.mbS = 0,
-      this.error = ''});
+  const DownloadEvent({
+    required this.id,
+    required this.state,
+    this.gotMb = 0,
+    this.sizeMb = 0,
+    this.mbS = 0,
+    this.error = '',
+  });
   final String id;
   final String state;
   final double gotMb;
@@ -97,8 +109,13 @@ class DownloadEvent extends EngineEvent {
   final double mbS;
   final String error;
 
-  ModelState get asState => ModelState(state: state, got: (gotMb * 1048576).round(),
-      size: (sizeMb * 1048576).round(), error: error, mbS: mbS);
+  ModelState get asState => ModelState(
+    state: state,
+    got: (gotMb * 1048576).round(),
+    size: (sizeMb * 1048576).round(),
+    error: error,
+    mbS: mbS,
+  );
 }
 
 /// A sentence for a toast.

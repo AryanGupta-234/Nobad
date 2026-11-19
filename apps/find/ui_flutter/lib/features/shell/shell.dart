@@ -76,44 +76,60 @@ class _ShellState extends State<Shell> {
     final c = NbColors.of(context);
     return ColoredBox(
       color: c.canvas,
-      child: Stack(children: [
-        Positioned.fill(
-          child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            const Rail(),
-            Expanded(
-              child: ListenableBuilder(
-                listenable: s.nav,
-                builder: (context, _) => AnimatedSwitcher(
-                  duration: NbMotion.of(context, NbMotion.base),
-                  switchInCurve: NbMotion.curve,
-                  transitionBuilder: (child, a) => FadeTransition(opacity: a, child: child),
-                  child: switch (s.nav.tab) {
-                    AppTab.search => const SearchScreen(key: ValueKey('search')),
-                    AppTab.indexing => const IndexingScreen(key: ValueKey('index')),
-                    AppTab.settings => const SettingsScreen(key: ValueKey('settings')),
-                  },
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Rail(),
+                Expanded(
+                  child: ListenableBuilder(
+                    listenable: s.nav,
+                    builder: (context, _) => AnimatedSwitcher(
+                      duration: NbMotion.of(context, NbMotion.base),
+                      switchInCurve: NbMotion.curve,
+                      transitionBuilder: (child, a) => FadeTransition(
+                        opacity: a,
+                        child: SlideTransition(
+                          position: Tween(begin: const Offset(0, .012), end: Offset.zero).animate(a),
+                          child: child,
+                        ),
+                      ),
+                      child: switch (s.nav.tab) {
+                        AppTab.search => const SearchScreen(key: ValueKey('search')),
+                        AppTab.indexing => const IndexingScreen(key: ValueKey('index')),
+                        AppTab.settings => const SettingsScreen(key: ValueKey('settings')),
+                      },
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          ]),
-        ),
-        Positioned(left: 92, right: 0, bottom: 52, child: Center(child: ToastHost(toasts: s.toasts))),
-        ListenableBuilder(
-          listenable: s.settings,
-          builder: (context, _) => s.settings.loaded && !s.settings.settings.flag('welcome_seen')
-              ? const Positioned.fill(child: Welcome())
-              : const SizedBox.shrink(),
-        ),
-        Positioned.fill(
-          child: IgnorePointer(
-            ignoring: _splashDone,
-            child: AnimatedSwitcher(
-              duration: NbMotion.of(context, NbMotion.slow),
-              child: _splashDone ? const SizedBox.expand() : const Splash(),
+              ],
             ),
           ),
-        ),
-      ]),
+          Positioned(
+            left: 92,
+            right: 0,
+            bottom: 52,
+            child: Center(child: ToastHost(toasts: s.toasts)),
+          ),
+          ListenableBuilder(
+            listenable: s.settings,
+            builder: (context, _) => s.settings.loaded && !s.settings.settings.flag('welcome_seen')
+                ? const Positioned.fill(child: Welcome())
+                : const SizedBox.shrink(),
+          ),
+          Positioned.fill(
+            child: IgnorePointer(
+              ignoring: _splashDone,
+              child: AnimatedSwitcher(
+                duration: NbMotion.of(context, NbMotion.slow),
+                child: _splashDone ? const SizedBox.expand() : const Splash(),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

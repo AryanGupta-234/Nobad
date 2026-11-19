@@ -18,8 +18,15 @@ class NbMark extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final px = (size * MediaQuery.devicePixelRatioOf(context)).round();
-    return Image.asset('assets/nobad-mark.png', width: size, height: size, cacheWidth: px, cacheHeight: px,
-        semanticLabel: 'NOBAD', filterQuality: FilterQuality.medium);
+    return Image.asset(
+      'assets/nobad-mark.png',
+      width: size,
+      height: size,
+      cacheWidth: px,
+      cacheHeight: px,
+      semanticLabel: 'NOBAD',
+      filterQuality: FilterQuality.medium,
+    );
   }
 }
 
@@ -36,10 +43,17 @@ class KindBadge extends StatelessWidget {
       width: size,
       height: size,
       alignment: Alignment.center,
-      decoration: BoxDecoration(color: c.raised.withValues(alpha: .6), border: Border.all(color: c.line2),
-          borderRadius: NbRadius.rowAll),
-      child: Text(kindTag(kind),
-          style: NbType.data(9.5, c.orange, weight: FontWeight.w700), maxLines: 1, softWrap: false),
+      decoration: BoxDecoration(
+        color: c.raised.withValues(alpha: .6),
+        border: Border.all(color: c.line2),
+        borderRadius: NbRadius.rowAll,
+      ),
+      child: Text(
+        kindTag(kind),
+        style: NbType.data(9.5, c.orange, weight: FontWeight.w700),
+        maxLines: 1,
+        softWrap: false,
+      ),
     );
   }
 }
@@ -87,15 +101,29 @@ class _ResultThumbState extends State<ResultThumb> {
     final c = NbColors.of(context);
     final b = _bytes;
     final s = widget.size;
-    if (b == null) return SizedBox(width: s, child: Align(alignment: Alignment.topLeft, child: KindBadge(widget.result.kind)));
+    if (b == null) {
+      return SizedBox(
+        width: s,
+        child: Align(alignment: Alignment.topLeft, child: KindBadge(widget.result.kind)),
+      );
+    }
     final px = (s * MediaQuery.devicePixelRatioOf(context)).round();
     return Container(
       width: s,
       height: s,
       clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(color: c.shadow, border: Border.all(color: c.line), borderRadius: NbRadius.rowAll),
-      child: Image.memory(b, fit: BoxFit.cover, cacheWidth: px, gaplessPlayback: true,
-          errorBuilder: (_, _, _) => KindBadge(widget.result.kind)),
+      decoration: BoxDecoration(
+        color: c.shadow,
+        border: Border.all(color: c.line),
+        borderRadius: NbRadius.rowAll,
+      ),
+      child: Image.memory(
+        b,
+        fit: BoxFit.cover,
+        cacheWidth: px,
+        gaplessPlayback: true,
+        errorBuilder: (_, _, _) => KindBadge(widget.result.kind),
+      ),
     );
   }
 }
@@ -112,7 +140,16 @@ List<TextSpan> snippetSpans(String s, TextStyle base, NbColors c) {
     buf.clear();
   }
 
+  var space = false, any = false;
   for (final ch in s.runes) {
+    final ws = ch == 0x20 || ch == 0x09 || ch == 0x0A || ch == 0x0D;
+    if (ws) {
+      if (!space && any) buf.write(' ');
+      space = true;
+      continue;
+    }
+    space = false;
+    if (ch != 2 && ch != 3) any = true;
     if (ch == 2 || ch == 3) {
       flush();
       on = ch == 2;
@@ -133,32 +170,36 @@ class TailText extends StatelessWidget {
   final TextAlign textAlign;
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(builder: (context, c) {
-        final scaler = MediaQuery.textScalerOf(context);
-        bool fits(String s) {
-          final tp = TextPainter(text: TextSpan(text: s, style: style), textDirection: TextDirection.ltr,
-              maxLines: 1, textScaler: scaler)
-            ..layout();
-          final ok = tp.width <= c.maxWidth;
-          tp.dispose();
-          return ok;
-        }
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, c) {
+      final scaler = MediaQuery.textScalerOf(context);
+      bool fits(String s) {
+        final tp = TextPainter(
+          text: TextSpan(text: s, style: style),
+          textDirection: TextDirection.ltr,
+          maxLines: 1,
+          textScaler: scaler,
+        )..layout();
+        final ok = tp.width <= c.maxWidth;
+        tp.dispose();
+        return ok;
+      }
 
-        var shown = text;
-        if (c.maxWidth.isFinite && !fits(text)) {
-          var lo = 0, hi = text.length; // keep text.substring(i) for the smallest i that fits
-          while (lo < hi) {
-            final mid = (lo + hi) ~/ 2;
-            if (fits('…${text.substring(mid)}')) {
-              hi = mid;
-            } else {
-              lo = mid + 1;
-            }
+      var shown = text;
+      if (c.maxWidth.isFinite && !fits(text)) {
+        var lo = 0, hi = text.length; // keep text.substring(i) for the smallest i that fits
+        while (lo < hi) {
+          final mid = (lo + hi) ~/ 2;
+          if (fits('…${text.substring(mid)}')) {
+            hi = mid;
+          } else {
+            lo = mid + 1;
           }
-          if (lo < text.length && (text.codeUnitAt(lo) & 0xFC00) == 0xDC00) lo++; // never half a character
-          shown = '…${text.substring(lo)}';
         }
-        return Text(shown, style: style, maxLines: 1, softWrap: false, overflow: TextOverflow.clip,
-            textAlign: textAlign);
-      });
+        if (lo < text.length && (text.codeUnitAt(lo) & 0xFC00) == 0xDC00) lo++; // never half a character
+        shown = '…${text.substring(lo)}';
+      }
+      return Text(shown, style: style, maxLines: 1, softWrap: false, overflow: TextOverflow.clip, textAlign: textAlign);
+    },
+  );
 }

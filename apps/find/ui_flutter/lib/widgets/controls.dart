@@ -14,8 +14,15 @@ enum NbButtonKind { primary, ghost, danger, quiet }
 
 /// A button that says exactly what happens ("Download", "Pause for 1 hour"). Sentence case.
 class NbButton extends StatelessWidget {
-  const NbButton(this.label, {super.key, this.onPressed, this.kind = NbButtonKind.primary, this.icon,
-      this.small = false, this.autofocus = false});
+  const NbButton(
+    this.label, {
+    super.key,
+    this.onPressed,
+    this.kind = NbButtonKind.primary,
+    this.icon,
+    this.small = false,
+    this.autofocus = false,
+  });
   final String label;
   final VoidCallback? onPressed;
   final NbButtonKind kind;
@@ -33,26 +40,22 @@ class NbButton extends StatelessWidget {
       builder: (context, s) {
         final enabled = s.enabled;
         final (Color bg, Color fg, Color edge) = switch (kind) {
-          NbButtonKind.primary => (
-              s.down ? Color.lerp(c.orange, c.shadow, .12)! : c.orange,
-              c.onOrange,
-              c.orange,
-            ),
+          NbButtonKind.primary => (s.down ? Color.lerp(c.orange, c.shadow, .12)! : c.orange, c.onOrange, c.orange),
           NbButtonKind.ghost => (
-              s.lit ? c.orangeA(.06) : const Color(0x00000000),
-              c.text,
-              s.lit ? c.orangeA(.8) : c.line2,
-            ),
+            s.lit ? c.orangeA(.06) : const Color(0x00000000),
+            c.text,
+            s.lit ? c.orangeA(.8) : c.line2,
+          ),
           NbButtonKind.danger => (
-              s.lit ? c.danger.withValues(alpha: .08) : const Color(0x00000000),
-              c.danger,
-              c.danger.withValues(alpha: s.lit ? .9 : .5),
-            ),
+            s.lit ? c.danger.withValues(alpha: .08) : const Color(0x00000000),
+            c.danger,
+            c.danger.withValues(alpha: s.lit ? .9 : .5),
+          ),
           NbButtonKind.quiet => (
-              s.lit ? c.orangeA(.08) : const Color(0x00000000),
-              s.lit ? c.orange : c.muted,
-              const Color(0x00000000),
-            ),
+            s.lit ? c.orangeA(.08) : const Color(0x00000000),
+            s.lit ? c.orange : c.muted,
+            const Color(0x00000000),
+          ),
         };
         return AnimatedOpacity(
           opacity: enabled ? 1 : .45,
@@ -71,10 +74,13 @@ class NbButton extends StatelessWidget {
                   BoxShadow(color: c.orangeA(.45), blurRadius: 18, offset: const Offset(0, 6), spreadRadius: -8),
               ],
             ),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              if (icon != null) ...[NbIcon(icon!, size: small ? 14 : 16, color: fg), const SizedBox(width: 7)],
-              Text(label, style: NbType.text(small ? NbSize.small : 13.5, fg, weight: FontWeight.w600, height: 1.2)),
-            ]),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (icon != null) ...[NbIcon(icon!, size: small ? 14 : 16, color: fg), const SizedBox(width: 7)],
+                Text(label, style: NbType.text(small ? NbSize.small : 13.5, fg, weight: FontWeight.w600, height: 1.2)),
+              ],
+            ),
           ),
         );
       },
@@ -128,8 +134,16 @@ class NbSwitch extends StatelessWidget {
 
 /// A drop-down choice: [options] are (value, label). [highlight] marks a choice that filters (orange edge).
 class NbSelect extends StatefulWidget {
-  const NbSelect({super.key, required this.value, required this.options, required this.onChanged,
-      this.highlight = false, this.compact = false, this.label, this.maxWidth = 260});
+  const NbSelect({
+    super.key,
+    required this.value,
+    required this.options,
+    required this.onChanged,
+    this.highlight = false,
+    this.compact = false,
+    this.label,
+    this.maxWidth = 260,
+  });
   final String value;
   final List<(String, String)> options;
   final ValueChanged<String> onChanged;
@@ -160,15 +174,22 @@ class _NbSelectState extends State<NbSelect> {
               padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 12)),
               minimumSize: const WidgetStatePropertyAll(Size(180, 34)),
               backgroundColor: WidgetStateProperty.resolveWith(
-                  (s) => s.contains(WidgetState.hovered) || s.contains(WidgetState.focused) ? c.orangeA(.1) : null),
+                (s) => s.contains(WidgetState.hovered) || s.contains(WidgetState.focused) ? c.orangeA(.1) : null,
+              ),
               overlayColor: const WidgetStatePropertyAll(Color(0x00000000)),
             ),
             leadingIcon: SizedBox(
-                width: 16,
-                child: o.$1 == widget.value ? NbIcon(NbGlyph.check, size: 15, color: c.orange) : null),
-            child: Text(o.$2,
-                style: NbType.text(13, o.$1 == widget.value ? c.orange : c.text,
-                    weight: o.$1 == widget.value ? FontWeight.w600 : FontWeight.w400)),
+              width: 16,
+              child: o.$1 == widget.value ? NbIcon(NbGlyph.check, size: 15, color: c.orange) : null,
+            ),
+            child: Text(
+              o.$2,
+              style: NbType.text(
+                13,
+                o.$1 == widget.value ? c.orange : c.text,
+                weight: o.$1 == widget.value ? FontWeight.w600 : FontWeight.w400,
+              ),
+            ),
           ),
       ],
       builder: (context, menu, _) => Pressable(
@@ -186,17 +207,30 @@ class _NbSelectState extends State<NbSelect> {
               border: Border.all(color: on ? c.orangeA(.75) : (s.lit ? c.orangeA(.6) : c.line2)),
               borderRadius: NbRadius.controlAll,
             ),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Flexible(
-                child: Text(current.$2,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: NbType.text(widget.compact ? NbSize.small : 13, on ? c.orange : (s.lit ? c.text : c.muted),
-                        weight: on ? FontWeight.w600 : FontWeight.w400, height: 1.2)),
+            child: AnimatedSize(
+              duration: NbMotion.of(context, NbMotion.base),
+              curve: NbMotion.curve,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      current.$2,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: NbType.text(
+                        widget.compact ? NbSize.small : 13,
+                        on ? c.orange : (s.lit ? c.text : c.muted),
+                        weight: on ? FontWeight.w600 : FontWeight.w400,
+                        height: 1.2,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  NbIcon(NbGlyph.chevron, size: 16, color: on ? c.orange : c.dim),
+                ],
               ),
-              const SizedBox(width: 4),
-              NbIcon(NbGlyph.chevron, size: 16, color: on ? c.orange : c.dim),
-            ]),
+            ),
           );
         },
       ),
@@ -206,8 +240,15 @@ class _NbSelectState extends State<NbSelect> {
 
 /// A filter that's a button rather than a list (Any folder, Here, Clear filters).
 class NbChipButton extends StatelessWidget {
-  const NbChipButton(this.label, {super.key, required this.onTap, this.on = false, this.dashed = false,
-      this.icon, this.tooltip});
+  const NbChipButton(
+    this.label, {
+    super.key,
+    required this.onTap,
+    this.on = false,
+    this.dashed = false,
+    this.icon,
+    this.tooltip,
+  });
   final String label;
   final VoidCallback onTap;
   final bool on;
@@ -234,16 +275,29 @@ class NbChipButton extends StatelessWidget {
         foregroundDecoration: dashed
             ? _DashedBorder(color: s.lit ? c.orangeA(.7) : c.line2, radius: NbRadius.control)
             : null,
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          if (icon != null) ...[NbIcon(icon!, size: 15, color: on ? c.orange : c.dim), const SizedBox(width: 6)],
-          Flexible(
-            child: Text(label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: NbType.text(NbSize.small, on ? c.orange : (s.lit ? c.text : c.muted),
-                    weight: on ? FontWeight.w600 : FontWeight.w400, height: 1.2)),
+        child: AnimatedSize(
+          duration: NbMotion.of(context, NbMotion.base),
+          curve: NbMotion.curve,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null) ...[NbIcon(icon!, size: 15, color: on ? c.orange : c.dim), const SizedBox(width: 6)],
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: NbType.text(
+                    NbSize.small,
+                    on ? c.orange : (s.lit ? c.text : c.muted),
+                    weight: on ? FontWeight.w600 : FontWeight.w400,
+                    height: 1.2,
+                  ),
+                ),
+              ),
+            ],
           ),
-        ]),
+        ),
       ),
     );
     if (tooltip != null) w = Tooltip(message: tooltip, child: w);
@@ -280,8 +334,14 @@ class _DashedPainter extends BoxPainter {
 
 /// A text or whole-number field for the Settings rows. Saves on Enter and when it loses focus.
 class NbField extends StatefulWidget {
-  const NbField({super.key, required this.value, required this.onSubmit, this.number = false, this.width = 190,
-      required this.label});
+  const NbField({
+    super.key,
+    required this.value,
+    required this.onSubmit,
+    this.number = false,
+    this.width = 190,
+    required this.label,
+  });
   final String value;
   final ValueChanged<String> onSubmit;
   final bool number;
@@ -325,8 +385,10 @@ class _NbFieldState extends State<NbField> {
   @override
   Widget build(BuildContext context) {
     final c = NbColors.of(context);
-    OutlineInputBorder edge(Color col) =>
-        OutlineInputBorder(borderRadius: NbRadius.controlAll, borderSide: BorderSide(color: col));
+    OutlineInputBorder edge(Color col) => OutlineInputBorder(
+      borderRadius: NbRadius.controlAll,
+      borderSide: BorderSide(color: col),
+    );
     return SizedBox(
       width: widget.number ? 96 : widget.width,
       child: Semantics(
@@ -368,8 +430,11 @@ class Kbd extends StatelessWidget {
         color: c.panel,
         borderRadius: NbRadius.keyAll,
         border: Border(
-            top: BorderSide(color: c.line2), left: BorderSide(color: c.line2), right: BorderSide(color: c.line2),
-            bottom: BorderSide(color: c.line2, width: 2)),
+          top: BorderSide(color: c.line2),
+          left: BorderSide(color: c.line2),
+          right: BorderSide(color: c.line2),
+          bottom: BorderSide(color: c.line2, width: 2),
+        ),
       ),
       child: Text(label, style: NbType.data(NbSize.micro, c.text, height: 1.5)),
     );
@@ -390,11 +455,14 @@ class KeyHints extends StatelessWidget {
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         for (final (keys, what) in hints)
-          Row(mainAxisSize: MainAxisSize.min, children: [
-            for (final k in keys) ...[Kbd(k), const SizedBox(width: 3)],
-            const SizedBox(width: 3),
-            Text(what, style: NbType.text(NbSize.small, c.dim, height: 1.2)),
-          ]),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final k in keys) ...[Kbd(k), const SizedBox(width: 3)],
+              const SizedBox(width: 3),
+              Text(what, style: NbType.text(NbSize.small, c.dim, height: 1.2)),
+            ],
+          ),
       ],
     );
   }

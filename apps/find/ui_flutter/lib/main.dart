@@ -31,15 +31,20 @@ Future<void> main(List<String> args) async {
   final mode = args.contains('--bar') ? AppMode.bar : AppMode.main;
   final EngineApi engine;
   if (Platform.environment['NOBAD_FIND_FAKE_ENGINE'] == '1') {
-    engine = FakeEngine(files: demoFiles(), live: true, settings: {
-      'welcome_seen': Platform.environment['NOBAD_FIND_FAKE_WELCOME'] == '0',
-      if (Platform.environment['NOBAD_FIND_FAKE_GLASS'] == '0') 'glass': false,
-    });
+    engine = FakeEngine(
+      files: demoFiles(),
+      live: true,
+      settings: {
+        'welcome_seen': Platform.environment['NOBAD_FIND_FAKE_WELCOME'] == '0',
+        if (Platform.environment['NOBAD_FIND_FAKE_GLASS'] == '0') 'glass': false,
+      },
+    );
   } else {
-    final pipe = EngineClient(PipeTransport.connect,
-        subscribeTo: mode == AppMode.bar ? EngineEvent.bar : EngineEvent.mainWindow,
-        window: mode == AppMode.bar ? 'bar' : 'main')
-      ..start();
+    final pipe = EngineClient(
+      PipeTransport.connect,
+      subscribeTo: mode == AppMode.bar ? EngineEvent.bar : EngineEvent.mainWindow,
+      window: mode == AppMode.bar ? 'bar' : 'main',
+    )..start();
     engine = WiredEngine(pipe, beforeDialog: allowSetForeground);
   }
   runApp(NobadFindApp(engine: engine, mode: mode, window: Win32Window.create(), demo: Demo.fromEnvironment()));

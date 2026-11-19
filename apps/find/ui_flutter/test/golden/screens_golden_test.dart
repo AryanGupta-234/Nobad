@@ -12,9 +12,8 @@ import 'package:nobad_find/platform/window.dart';
 
 import '../support/fake_engine.dart';
 
-FakeEngine engineFor(String theme, {bool welcome = false}) => FakeEngine(
-    files: demoFiles(),
-    settings: {'theme': theme, 'welcome_seen': !welcome, 'bg_notice_seen': false});
+FakeEngine engineFor(String theme, {bool welcome = false}) =>
+    FakeEngine(files: demoFiles(), settings: {'theme': theme, 'welcome_seen': !welcome, 'bg_notice_seen': false});
 
 Future<void> shoot(WidgetTester tester, String name) async {
   await tester.pumpAndSettle();
@@ -52,8 +51,13 @@ void main() {
         await shoot(tester, 'index_$theme');
       });
 
-      for (final page in [SettingsPage.general, SettingsPage.models, SettingsPage.performance, SettingsPage.privacy,
-          SettingsPage.about]) {
+      for (final page in [
+        SettingsPage.general,
+        SettingsPage.models,
+        SettingsPage.performance,
+        SettingsPage.privacy,
+        SettingsPage.about,
+      ]) {
         testWidgets('settings ${page.name}', (tester) async {
           await pumpApp(tester, engineFor(theme), size: const Size(1080, 900));
           await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);

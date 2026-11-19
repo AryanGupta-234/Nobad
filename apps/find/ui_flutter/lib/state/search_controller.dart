@@ -16,9 +16,13 @@ import 'toast_controller.dart';
 Future<void> _clipboard(String text) => Clipboard.setData(ClipboardData(text: text));
 
 class FindController extends ChangeNotifier {
-  FindController(this.engine,
-      {this.limit, this.debounce = const Duration(milliseconds: 60), this.toasts, Future<void> Function(String)? copy})
-      : _copy = copy ?? _clipboard {
+  FindController(
+    this.engine, {
+    this.limit,
+    this.debounce = const Duration(milliseconds: 60),
+    this.toasts,
+    Future<void> Function(String)? copy,
+  }) : _copy = copy ?? _clipboard {
     _sub = engine.events.listen((e) {
       if (e is HereEvent && e.path != _here) {
         _here = e.path;
@@ -64,6 +68,9 @@ class FindController extends ChangeNotifier {
 
   /// A short line under the box: an engine error or "the engine isn't running".
   String get notice => _notice;
+
+  /// Bumped for every new answer (the result list animates each new answer in).
+  int serial = 0;
 
   /// The words as they were when the shown answer was asked for.
   String _askedFor = '';
@@ -143,15 +150,28 @@ class FindController extends ChangeNotifier {
     if (_disposed || my != _seq) return; // a newer search is on its way
     final lim = limit;
     var rows = a.results;
-    if (words.trim().isEmpty) rows = [for (final r in rows) if (!r.weak) r];
+    if (words.trim().isEmpty) rows = rows.where((r) => !r.weak).toList();
     _answer = lim != null && rows.length > lim
-        ? SearchAnswer(results: rows.sublist(0, lim), ms: a.ms, understood: a.understood, notes: a.notes,
-            more: true, error: a.error)
+        ? SearchAnswer(
+            results: rows.sublist(0, lim),
+            ms: a.ms,
+            understood: a.understood,
+            notes: a.notes,
+            more: true,
+            error: a.error,
+          )
         : (identical(rows, a.results)
-            ? a
-            : SearchAnswer(results: rows, ms: a.ms, understood: a.understood, notes: a.notes, more: a.more,
-                error: a.error));
+              ? a
+              : SearchAnswer(
+                  results: rows,
+                  ms: a.ms,
+                  understood: a.understood,
+                  notes: a.notes,
+                  more: a.more,
+                  error: a.error,
+                ));
     _askedFor = words;
+    serial++;
     _lastMs = clock.elapsedMilliseconds;
     _selected = 0;
     _notice = notice.isNotEmpty ? notice : a.error;

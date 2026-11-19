@@ -35,10 +35,14 @@ abstract final class WindowLook {
     if (_set != null) return true;
     try {
       final dwm = DynamicLibrary.open('dwmapi.dll');
-      _set = dwm.lookupFunction<Int32 Function(IntPtr, Uint32, Pointer<Void>, Uint32),
-          int Function(int, int, Pointer<Void>, int)>('DwmSetWindowAttribute');
+      _set = dwm
+          .lookupFunction<
+            Int32 Function(IntPtr, Uint32, Pointer<Void>, Uint32),
+            int Function(int, int, Pointer<Void>, int)
+          >('DwmSetWindowAttribute');
       _extend = dwm.lookupFunction<Int32 Function(IntPtr, Pointer<_MARGINS>), int Function(int, Pointer<_MARGINS>)>(
-          'DwmExtendFrameIntoClientArea');
+        'DwmExtendFrameIntoClientArea',
+      );
       return true;
     } on Object {
       return false;

@@ -52,17 +52,34 @@ abstract final class NbSize {
 
 abstract final class NbType {
   /// Reading text. Line height 1.5 for paragraphs; single lines pass [height] 1.3.
-  static TextStyle text(double size, Color color, {FontWeight weight = FontWeight.w400, double? height}) =>
-      TextStyle(fontFamily: NbFont.body, fontFamilyFallback: NbFont.bodyFallback, fontSize: size, fontWeight: weight,
-          color: color, height: height, letterSpacing: size >= NbSize.lead ? -0.01 * size : 0);
+  static TextStyle text(double size, Color color, {FontWeight weight = FontWeight.w400, double? height}) => TextStyle(
+    fontFamily: NbFont.body,
+    fontFamilyFallback: NbFont.bodyFallback,
+    fontSize: size,
+    fontWeight: weight,
+    color: color,
+    height: height,
+    letterSpacing: size >= NbSize.lead ? -0.01 * size : 0,
+  );
 
   /// Data: paths, numbers, times. Tabular figures so columns of numbers line up.
-  static TextStyle data(double size, Color color, {FontWeight weight = FontWeight.w400, double? height}) =>
-      TextStyle(fontFamily: NbFont.mono, fontFamilyFallback: NbFont.monoFallback, fontSize: size, fontWeight: weight,
-          color: color, height: height, fontFeatures: const [FontFeature.tabularFigures()]);
+  static TextStyle data(double size, Color color, {FontWeight weight = FontWeight.w400, double? height}) => TextStyle(
+    fontFamily: NbFont.mono,
+    fontFamilyFallback: NbFont.monoFallback,
+    fontSize: size,
+    fontWeight: weight,
+    color: color,
+    height: height,
+    fontFeatures: const [FontFeature.tabularFigures()],
+  );
 
   /// The one display line per screen. Callers upper-case the words (the 0.7.0 look).
-  static TextStyle display(double size, Color color) => TextStyle(fontFamily: NbFont.display,
-      fontFamilyFallback: NbFont.displayFallback, fontSize: size, color: color, height: 1.02,
-      letterSpacing: -0.03 * size);
+  static TextStyle display(double size, Color color) => TextStyle(
+    fontFamily: NbFont.display,
+    fontFamilyFallback: NbFont.displayFallback,
+    fontSize: size,
+    color: color,
+    height: 1.02,
+    letterSpacing: -0.03 * size,
+  );
 }

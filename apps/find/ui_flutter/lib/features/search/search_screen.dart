@@ -20,6 +20,7 @@ import '../../engine/models/result.dart';
 import '../../state/search_controller.dart';
 import '../../widgets/dialogs.dart';
 import '../../widgets/icons.dart';
+import '../../widgets/motion.dart';
 import 'filter_bar.dart';
 import 'home_view.dart';
 import 'result_tile.dart';
@@ -79,12 +80,17 @@ class _SearchScreenState extends State<SearchScreen> {
     if (ctx != null && ctx.mounted) {
       final ro = ctx.findRenderObject();
       final viewport = ro == null ? null : RenderAbstractViewport.maybeOf(ro);
-      final above = viewport != null && scroll.hasClients &&
+      final above =
+          viewport != null &&
+          scroll.hasClients &&
           viewport.getOffsetToReveal(ro!, 0).offset < scroll.offset; // the row starts above the top edge
-      Scrollable.ensureVisible(ctx, duration: NbMotion.of(context, NbMotion.fast),
-          alignmentPolicy: s.find.selected == 0 || above
-              ? ScrollPositionAlignmentPolicy.keepVisibleAtStart
-              : ScrollPositionAlignmentPolicy.keepVisibleAtEnd);
+      Scrollable.ensureVisible(
+        ctx,
+        duration: NbMotion.of(context, NbMotion.fast),
+        alignmentPolicy: s.find.selected == 0 || above
+            ? ScrollPositionAlignmentPolicy.keepVisibleAtStart
+            : ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+      );
       return;
     }
     if (!retry || !scroll.hasClients || s.find.results.isEmpty) return;
@@ -124,8 +130,9 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Future<void> _forget() async {
-    await s.find.forgetSelected((q) =>
-        confirmDialog(context, title: 'Forget this file?', question: q, yes: 'Forget', danger: true));
+    await s.find.forgetSelected(
+      (q) => confirmDialog(context, title: 'Forget this file?', question: q, yes: 'Forget', danger: true),
+    );
     if (mounted) focus.requestFocus();
   }
 
@@ -152,55 +159,73 @@ class _SearchScreenState extends State<SearchScreen> {
         const SingleActivator(LogicalKeyboardKey.delete, shift: true): _forget,
         const SingleActivator(LogicalKeyboardKey.escape): _escape,
       },
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Container(
-          padding: const EdgeInsets.fromLTRB(NbSpace.x6, NbSpace.x5, NbSpace.x6, NbSpace.x3),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            _SearchBox(controller: box, focus: focus),
-            const SizedBox(height: NbSpace.x3),
-            FilterBar(onDone: focus.requestFocus),
-          ]),
-        ),
-        ListenableBuilder(listenable: s.find, builder: (context, _) => _Meta(find: s.find)),
-        Expanded(
-          child: ListenableBuilder(
-            listenable: s.find,
-            builder: (context, _) => AnimatedSwitcher(
-              duration: NbMotion.of(context, NbMotion.fast),
-              child: !s.find.showingResults
-                  ? HomeView(
-                      key: const ValueKey('home'),
-                      onExample: (t) {
-                        box.text = t;
-                        box.selection = TextSelection.collapsed(offset: t.length);
-                        focus.requestFocus();
-                      },
-                      onTile: (words, f) {
-                        s.find.setFilters(f);
-                        box.text = words;
-                        focus.requestFocus();
-                      },
-                    )
-                  : _Results(
-                      key: const ValueKey('results'),
-                      scroll: scroll,
-                      selKey: _selKey,
-                      onTap: (i, reveal) {
-                        s.find.select(i);
-                        _open(reveal: reveal);
-                        focus.requestFocus();
-                      },
-                      onSecondary: (i) {
-                        s.find.select(i);
-                        _open(reveal: true);
-                      },
-                    ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.fromLTRB(NbSpace.x6, NbSpace.x5, NbSpace.x6, NbSpace.x3),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _SearchBox(controller: box, focus: focus),
+                const SizedBox(height: NbSpace.x3),
+                FilterBar(onDone: focus.requestFocus),
+              ],
             ),
           ),
-        ),
-        Container(height: 1, color: c.line),
-        const StatusLine(),
-      ]),
+          ListenableBuilder(
+            listenable: s.find,
+            builder: (context, _) => _Meta(find: s.find),
+          ),
+          Expanded(
+            child: ListenableBuilder(
+              listenable: s.find,
+              builder: (context, _) => AnimatedSwitcher(
+                duration: NbMotion.of(context, NbMotion.fast),
+                child: s.find.showingResults && s.find.busy && s.find.results.isEmpty && s.find.notice.isEmpty
+                    ? const Align(
+                        key: ValueKey('loading'),
+                        alignment: Alignment.topCenter,
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(horizontal: NbSpace.x4),
+                          child: SkeletonResults(),
+                        ),
+                      )
+                    : !s.find.showingResults
+                    ? HomeView(
+                        key: const ValueKey('home'),
+                        onExample: (t) {
+                          box.text = t;
+                          box.selection = TextSelection.collapsed(offset: t.length);
+                          focus.requestFocus();
+                        },
+                        onTile: (words, f) {
+                          s.find.setFilters(f);
+                          box.text = words;
+                          focus.requestFocus();
+                        },
+                      )
+                    : _Results(
+                        key: const ValueKey('results'),
+                        scroll: scroll,
+                        selKey: _selKey,
+                        onTap: (i, reveal) {
+                          s.find.select(i);
+                          _open(reveal: reveal);
+                          focus.requestFocus();
+                        },
+                        onSecondary: (i) {
+                          s.find.select(i);
+                          _open(reveal: true);
+                        },
+                      ),
+              ),
+            ),
+          ),
+          Container(height: 1, color: c.line),
+          const StatusLine(),
+        ],
+      ),
     );
   }
 }
@@ -233,8 +258,10 @@ class _SearchBoxState extends State<_SearchBox> {
   Widget build(BuildContext context) {
     final c = NbColors.of(context);
     final on = widget.focus.hasFocus;
-    OutlineInputBorder border(Color col) =>
-        OutlineInputBorder(borderRadius: NbRadius.panelAll, borderSide: BorderSide(color: col));
+    OutlineInputBorder border(Color col) => OutlineInputBorder(
+      borderRadius: NbRadius.panelAll,
+      borderSide: BorderSide(color: col),
+    );
     return AnimatedContainer(
       duration: NbMotion.of(context, NbMotion.base),
       decoration: BoxDecoration(
@@ -283,40 +310,53 @@ class _Meta extends StatelessWidget {
     if (f.notice.isNotEmpty) {
       spans.add(TextSpan(text: f.notice, style: NbType.text(NbSize.small, c.warn)));
     } else if (f.askedFor.isNotEmpty || f.filters.narrows) {
-      spans.add(TextSpan(
+      spans.add(
+        TextSpan(
           text: a.results.isEmpty
               ? 'Nothing found. Try fewer or other words, or fewer filters.'
-              : '${a.results.length}${a.more ? '+' : ''} results · ${a.ms} ms'));
+              : '${a.results.length}${a.more ? '+' : ''} results · ${a.ms} ms',
+        ),
+      );
       for (final n in a.notes) {
         spans.add(TextSpan(text: ' · $n', style: NbType.text(NbSize.small, c.warn)));
       }
     }
     return Padding(
       padding: const EdgeInsets.fromLTRB(NbSpace.x6 + 4, 0, NbSpace.x6, NbSpace.x2),
-      child: Wrap(spacing: 6, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
-        for (final u in a.understood)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-            decoration: BoxDecoration(
-              color: c.orangeA(.07),
-              border: Border.all(color: c.orangeA(.5)),
-              borderRadius: NbRadius.pillAll,
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          for (final u in a.understood)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+              decoration: BoxDecoration(
+                color: c.orangeA(.07),
+                border: Border.all(color: c.orangeA(.5)),
+                borderRadius: NbRadius.pillAll,
+              ),
+              child: Text(u, style: NbType.text(NbSize.small, c.orange, weight: FontWeight.w600, height: 1.3)),
             ),
-            child: Text(u, style: NbType.text(NbSize.small, c.orange, weight: FontWeight.w600, height: 1.3)),
-          ),
-        if (spans.isNotEmpty)
-          Padding(
-            padding: EdgeInsets.only(left: a.understood.isEmpty ? 0 : 6),
-            child: Text.rich(TextSpan(children: spans), style: NbType.data(NbSize.caption, c.dim)),
-          ),
-      ]),
+          if (spans.isNotEmpty)
+            Padding(
+              padding: EdgeInsets.only(left: a.understood.isEmpty ? 0 : 6),
+              child: Text.rich(TextSpan(children: spans), style: NbType.data(NbSize.caption, c.dim)),
+            ),
+        ],
+      ),
     );
   }
 }
 
 class _Results extends StatelessWidget {
-  const _Results({super.key, required this.scroll, required this.selKey, required this.onTap,
-      required this.onSecondary});
+  const _Results({
+    super.key,
+    required this.scroll,
+    required this.selKey,
+    required this.onTap,
+    required this.onSecondary,
+  });
   final ScrollController scroll;
   final GlobalKey selKey;
   final void Function(int index, bool reveal) onTap;
@@ -338,13 +378,18 @@ class _Results extends StatelessWidget {
           if (divider && i == firstWeak) return const LessSure();
           final idx = divider && i > firstWeak ? i - 1 : i;
           final sel = idx == s.find.selected;
-          return ResultTile(
-            key: sel ? selKey : ValueKey(rows[idx].id),
-            engine: s.engine,
-            result: rows[idx],
-            selected: sel,
-            onTap: (reveal) => onTap(idx, reveal),
-            onSecondary: () => onSecondary(idx),
+          // each new answer comes in as a short cascade; moving the selection doesn't replay it
+          return Appear(
+            key: ValueKey((s.find.serial, rows[idx].id)),
+            delay: Appear.stagger(i),
+            child: ResultTile(
+              key: sel ? selKey : ValueKey(rows[idx].id),
+              engine: s.engine,
+              result: rows[idx],
+              selected: sel,
+              onTap: (reveal) => onTap(idx, reveal),
+              onSecondary: () => onSecondary(idx),
+            ),
           );
         },
       ),

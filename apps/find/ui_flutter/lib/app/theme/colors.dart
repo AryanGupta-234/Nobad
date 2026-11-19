@@ -101,9 +101,22 @@ class NbColors extends ThemeExtension<NbColors> {
   NbColors withGlass(bool on) => on == glass
       ? this
       : NbColors(
-          brightness: brightness, orange: orange, onOrange: onOrange, bg: bg, surface: surface, raised: raised,
-          text: text, muted: muted, dim: dim, line: line, line2: line2, warn: warn, danger: danger, shadow: shadow,
-          glass: on);
+          brightness: brightness,
+          orange: orange,
+          onOrange: onOrange,
+          bg: bg,
+          surface: surface,
+          raised: raised,
+          text: text,
+          muted: muted,
+          dim: dim,
+          line: line,
+          line2: line2,
+          warn: warn,
+          danger: danger,
+          shadow: shadow,
+          glass: on,
+        );
 
   @override
   NbColors copyWith() => this;

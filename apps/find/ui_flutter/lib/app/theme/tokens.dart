@@ -4,7 +4,6 @@
 /// medium, panels are large, and pills are only for things you can toggle or that name a filter.
 library;
 
-
 import 'package:flutter/widgets.dart';
 
 abstract final class NbSpace {

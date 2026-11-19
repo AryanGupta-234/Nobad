@@ -171,8 +171,11 @@ void main() {
   testWidgets('status line follows the engine events', (tester) async {
     final engine = FakeEngine();
     await pumpApp(tester, engine);
-    engine.emit(const StatusEvent(EngineStatus(level: 'gentle', reason: "Gentle: you're using the PC",
-        phase: 'text', files: 12345)));
+    engine.emit(
+      const StatusEvent(
+        EngineStatus(level: 'gentle', reason: "Gentle: you're using the PC", phase: 'text', files: 12345),
+      ),
+    );
     await tester.pump();
     expect(find.text('12,345 files indexed · Working gently · Reading text'), findsOneWidget);
     expect(find.text("Gentle: you're using the PC"), findsOneWidget);

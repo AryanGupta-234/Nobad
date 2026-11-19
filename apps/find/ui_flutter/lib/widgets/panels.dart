@@ -11,8 +11,13 @@ import 'controls.dart';
 
 /// A grouped surface. [live] gives it the orange edge (the thing that's working now).
 class NbPanel extends StatelessWidget {
-  const NbPanel({super.key, required this.child, this.padding = const EdgeInsets.all(NbSpace.x4), this.live = false,
-      this.clip = false});
+  const NbPanel({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.all(NbSpace.x4),
+    this.live = false,
+    this.clip = false,
+  });
   final Widget child;
   final EdgeInsetsGeometry padding;
   final bool live;
@@ -46,11 +51,15 @@ class PageTitle extends StatelessWidget {
     final c = NbColors.of(context);
     return Semantics(
       header: true,
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-        Text(text.toUpperCase(), style: NbType.display(size, c.text)),
-        const SizedBox(height: 12),
-        const SignalRule(),
-      ]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(text.toUpperCase(), style: NbType.display(size, c.text)),
+          const SizedBox(height: 12),
+          const SignalRule(),
+        ],
+      ),
     );
   }
 }
@@ -86,15 +95,18 @@ class SectionTitle extends StatelessWidget {
     final c = NbColors.of(context);
     return Padding(
       padding: EdgeInsets.only(top: top, bottom: NbSpace.x3),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-        Expanded(
-          child: Semantics(
-            header: true,
-            child: Text(text, style: NbType.text(NbSize.title, c.text, weight: FontWeight.w600, height: 1.25)),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Expanded(
+            child: Semantics(
+              header: true,
+              child: Text(text, style: NbType.text(NbSize.title, c.text, weight: FontWeight.w600, height: 1.25)),
+            ),
           ),
-        ),
-        ?trailing,
-      ]),
+          ?trailing,
+        ],
+      ),
     );
   }
 }
@@ -111,18 +123,28 @@ class StatTile extends StatelessWidget {
     final c = NbColors.of(context);
     return NbPanel(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-        Text(value,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            value,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             // a number reads as data; a long name (a graphics card) reads better as text
             style: value.length > 12
                 ? NbType.text(15, live ? c.orange : c.text, weight: FontWeight.w600, height: 1.3)
-                : NbType.data(19, live ? c.orange : c.text, weight: FontWeight.w600, height: 1.25)),
-        const SizedBox(height: 3),
-        Text(label, maxLines: 3, overflow: TextOverflow.ellipsis,
-            style: NbType.text(NbSize.small, c.dim, height: 1.35)),
-      ]),
+                : NbType.data(19, live ? c.orange : c.text, weight: FontWeight.w600, height: 1.25),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            label,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: NbType.text(NbSize.small, c.dim, height: 1.35),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -135,13 +157,17 @@ class TileGrid extends StatelessWidget {
   final double gap;
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(builder: (context, box) {
-        final cols = ((box.maxWidth + gap) / (min + gap)).floor().clamp(1, 8);
-        final w = (box.maxWidth - gap * (cols - 1)) / cols;
-        return Wrap(spacing: gap, runSpacing: gap, children: [
-          for (final ch in children) SizedBox(width: w, child: ch),
-        ]);
-      });
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, box) {
+      final cols = ((box.maxWidth + gap) / (min + gap)).floor().clamp(1, 8);
+      final w = (box.maxWidth - gap * (cols - 1)) / cols;
+      return Wrap(
+        spacing: gap,
+        runSpacing: gap,
+        children: [for (final ch in children) SizedBox(width: w, child: ch)],
+      );
+    },
+  );
 }
 
 /// A progress bar. [busy]: working with no known end (a moving segment, only while it's really working).
@@ -231,18 +257,26 @@ class NoticeBar extends StatelessWidget {
     final c = NbColors.of(context);
     return Container(
       clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(color: c.panel, borderRadius: NbRadius.rowAll, border: Border.all(color: c.line2)),
-      child: Stack(children: [
-        Positioned(left: 0, top: 0, bottom: 0, width: 3, child: ColoredBox(color: c.orange)),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(18, 10, 10, 10),
-          child: Row(children: [
-            Expanded(child: Text(text, style: NbType.text(13, c.muted, height: 1.5))),
-            const SizedBox(width: NbSpace.x3),
-            NbButton(action, kind: NbButtonKind.ghost, small: true, onPressed: onAction),
-          ]),
-        ),
-      ]),
+      decoration: BoxDecoration(
+        color: c.panel,
+        borderRadius: NbRadius.rowAll,
+        border: Border.all(color: c.line2),
+      ),
+      child: Stack(
+        children: [
+          Positioned(left: 0, top: 0, bottom: 0, width: 3, child: ColoredBox(color: c.orange)),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 10, 10, 10),
+            child: Row(
+              children: [
+                Expanded(child: Text(text, style: NbType.text(13, c.muted, height: 1.5))),
+                const SizedBox(width: NbSpace.x3),
+                NbButton(action, kind: NbButtonKind.ghost, small: true, onPressed: onAction),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -278,8 +312,14 @@ class ToastHost extends StatelessWidget {
                     color: c.surface,
                     border: Border.all(color: c.orangeA(.5)),
                     borderRadius: NbRadius.rowAll,
-                    boxShadow: [BoxShadow(color: c.shadow.withValues(alpha: .5), blurRadius: 40,
-                        offset: const Offset(0, 16), spreadRadius: -14)],
+                    boxShadow: [
+                      BoxShadow(
+                        color: c.shadow.withValues(alpha: .5),
+                        blurRadius: 40,
+                        offset: const Offset(0, 16),
+                        spreadRadius: -14,
+                      ),
+                    ],
                   ),
                   child: Text(m ?? '', style: NbType.text(13.5, c.text, height: 1.4)),
                 ),

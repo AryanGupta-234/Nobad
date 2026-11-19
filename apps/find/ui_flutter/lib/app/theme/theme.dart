@@ -32,7 +32,10 @@ ThemeData nbTheme(NbColors c) {
     hoverColor: c.orangeA(.06),
     focusColor: c.orangeA(.14),
     textSelectionTheme: TextSelectionThemeData(
-        cursorColor: c.orange, selectionColor: c.orangeA(.38), selectionHandleColor: c.orange),
+      cursorColor: c.orange,
+      selectionColor: c.orangeA(.38),
+      selectionHandleColor: c.orange,
+    ),
     scrollbarTheme: ScrollbarThemeData(
       thumbColor: WidgetStatePropertyAll(c.line2),
       thickness: const WidgetStatePropertyAll(6),
@@ -42,7 +45,11 @@ ThemeData nbTheme(NbColors c) {
     tooltipTheme: TooltipThemeData(
       waitDuration: const Duration(milliseconds: 500),
       textStyle: NbType.text(NbSize.small, c.text),
-      decoration: BoxDecoration(color: c.raised, border: Border.all(color: c.line2), borderRadius: NbRadius.controlAll),
+      decoration: BoxDecoration(
+        color: c.raised,
+        border: Border.all(color: c.line2),
+        borderRadius: NbRadius.controlAll,
+      ),
     ),
     menuTheme: MenuThemeData(
       style: MenuStyle(
@@ -52,14 +59,21 @@ ThemeData nbTheme(NbColors c) {
         elevation: const WidgetStatePropertyAll(12),
         padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: NbSpace.x1)),
         shape: WidgetStatePropertyAll(
-            RoundedRectangleBorder(borderRadius: NbRadius.rowAll, side: BorderSide(color: c.line2))),
+          RoundedRectangleBorder(
+            borderRadius: NbRadius.rowAll,
+            side: BorderSide(color: c.line2),
+          ),
+        ),
       ),
     ),
     dialogTheme: DialogThemeData(
       backgroundColor: c.surface,
       surfaceTintColor: const Color(0x00000000),
       barrierColor: c.isDark ? const Color(0xB3000000) : const Color(0x66000000),
-      shape: RoundedRectangleBorder(borderRadius: NbRadius.panelAll, side: BorderSide(color: c.line2)),
+      shape: RoundedRectangleBorder(
+        borderRadius: NbRadius.panelAll,
+        side: BorderSide(color: c.line2),
+      ),
     ),
   );
 }

@@ -18,6 +18,7 @@ import '../../platform/demo.dart';
 import '../../platform/window.dart';
 import '../../state/search_controller.dart';
 import '../../widgets/common.dart';
+import '../../widgets/motion.dart';
 
 class BarWindow extends StatefulWidget {
   const BarWindow({super.key, required this.engine, this.window = const NoWindow(), this.demo});
@@ -30,8 +31,11 @@ class BarWindow extends StatefulWidget {
 }
 
 class _BarWindowState extends State<BarWindow> {
-  late final FindController find =
-      FindController(widget.engine, limit: BarSize.maxRows, debounce: const Duration(milliseconds: 90));
+  late final FindController find = FindController(
+    widget.engine,
+    limit: BarSize.maxRows,
+    debounce: const Duration(milliseconds: 90),
+  );
   final box = TextEditingController();
   final focus = FocusNode(debugLabel: 'bar box');
   late final StreamSubscription<EngineEvent> _shows;
@@ -63,8 +67,17 @@ class _BarWindowState extends State<BarWindow> {
     }
   }
 
+  /// The bar's content opens with a quick fade and settle, and fades before the window hides.
+  bool _open = true;
+  Timer? _hiding;
+
   void show() {
+    _hiding?.cancel();
     box.clear();
+    setState(() => _open = false);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() => _open = true);
+    });
 
     _rows = -1;
     widget.window.showBar();
@@ -74,9 +87,17 @@ class _BarWindowState extends State<BarWindow> {
   }
 
   void hide() {
+    unawaited(widget.engine.uiHidden('bar').catchError((Object _) {}));
+    if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) return _gone();
+    setState(() => _open = false);
+    _hiding?.cancel();
+    _hiding = Timer(const Duration(milliseconds: 110), _gone);
+  }
+
+  void _gone() {
     widget.window.hide();
     box.clear();
-    unawaited(widget.engine.uiHidden('bar').catchError((Object _) {}));
+    if (mounted) setState(() => _open = true);
   }
 
   Future<void> _act({bool reveal = false}) async {
@@ -101,6 +122,7 @@ class _BarWindowState extends State<BarWindow> {
   @override
   void dispose() {
     _shows.cancel();
+    _hiding?.cancel();
     find.dispose();
     box.dispose();
     focus.dispose();
@@ -110,6 +132,15 @@ class _BarWindowState extends State<BarWindow> {
   @override
   Widget build(BuildContext context) {
     final c = NbColors.of(context);
+    final d = NbMotion.of(context, const Duration(milliseconds: 140));
+    return AnimatedOpacity(
+      opacity: _open ? 1 : 0,
+      duration: d,
+      child: AnimatedScale(scale: _open ? 1 : .985, duration: d, curve: NbMotion.curve, child: _frame(c)),
+    );
+  }
+
+  Widget _frame(NbColors c) {
     return Container(
       decoration: BoxDecoration(
         color: c.glass ? c.bg.withValues(alpha: c.isDark ? .55 : .7) : c.bg,
@@ -127,34 +158,51 @@ class _BarWindowState extends State<BarWindow> {
           const SingleActivator(LogicalKeyboardKey.enter, alt: true): _toMain,
           const SingleActivator(LogicalKeyboardKey.escape): hide,
         },
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          SizedBox(height: BarSize.field - 2, child: _Field(box: box, focus: focus, find: find)),
-          Expanded(
-            child: ListenableBuilder(
-              listenable: find,
-              builder: (context, _) {
-                if (rowsNeeded == 0) return const SizedBox.shrink();
-                return Container(
-                  decoration: BoxDecoration(border: Border(top: BorderSide(color: c.line))),
-                  child: find.results.isEmpty
-                      ? _NoMatch(find.notice.isNotEmpty ? find.notice : find.askedFor.trim(),
-                          isError: find.notice.isNotEmpty)
-                      : Column(children: [
-                          for (var i = 0; i < find.results.length; i++)
-                            _Row(
-                              result: find.results[i],
-                              selected: i == find.selected,
-                              onTap: (reveal) {
-                                find.select(i);
-                                _act(reveal: reveal);
-                              },
-                            ),
-                        ]),
-                );
-              },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              height: BarSize.field - 2,
+              child: _Field(box: box, focus: focus, find: find),
             ),
-          ),
-        ]),
+            Expanded(
+              child: ListenableBuilder(
+                listenable: find,
+                builder: (context, _) {
+                  if (rowsNeeded == 0) return const SizedBox.shrink();
+                  return Container(
+                    decoration: BoxDecoration(
+                      border: Border(top: BorderSide(color: c.line)),
+                    ),
+                    child: find.results.isEmpty
+                        ? _NoMatch(
+                            find.notice.isNotEmpty ? find.notice : find.askedFor.trim(),
+                            isError: find.notice.isNotEmpty,
+                          )
+                        : Column(
+                            children: [
+                              for (var i = 0; i < find.results.length; i++)
+                                Appear(
+                                  key: ValueKey((find.serial, find.results[i].id)),
+                                  delay: Appear.stagger(i),
+                                  lift: 3,
+                                  child: _Row(
+                                    result: find.results[i],
+                                    selected: i == find.selected,
+                                    onTap: (reveal) {
+                                      find.select(i);
+                                      _act(reveal: reveal);
+                                    },
+                                  ),
+                                ),
+                            ],
+                          ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -188,62 +236,70 @@ class _FieldState extends State<_Field> {
   @override
   Widget build(BuildContext context) {
     final c = NbColors.of(context);
-    return Stack(children: [
-      Padding(
-        padding: const EdgeInsets.only(left: 16, right: 20),
-        child: Row(children: [
-          const NbMark(size: 30),
-          const SizedBox(width: 14),
-          Expanded(
-            child: TextField(
-              controller: widget.box,
-              focusNode: widget.focus,
-              autofocus: true,
-              cursorColor: c.orange,
-              inputFormatters: [LengthLimitingTextInputFormatter(maxTextLength)],
-              style: NbType.text(NbSize.field, c.text),
-              decoration: InputDecoration(
-                isCollapsed: true,
-                border: InputBorder.none,
-                hintText: 'Find a file',
-                hintStyle: NbType.text(NbSize.field, c.dim),
+    return Stack(
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 16, right: 20),
+          child: Row(
+            children: [
+              const NbMark(size: 30),
+              const SizedBox(width: 14),
+              Expanded(
+                child: TextField(
+                  controller: widget.box,
+                  focusNode: widget.focus,
+                  autofocus: true,
+                  cursorColor: c.orange,
+                  inputFormatters: [LengthLimitingTextInputFormatter(maxTextLength)],
+                  style: NbType.text(NbSize.field, c.text),
+                  decoration: InputDecoration(
+                    isCollapsed: true,
+                    border: InputBorder.none,
+                    hintText: 'Find a file',
+                    hintStyle: NbType.text(NbSize.field, c.dim),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        // the one loud thing: an orange line under the box while it has focus
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: 2,
+          child: AnimatedScale(
+            scale: widget.focus.hasFocus ? 1 : 0,
+            alignment: Alignment.centerLeft,
+            duration: NbMotion.of(context, const Duration(milliseconds: 250)),
+            curve: NbMotion.curve,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [c.orange, c.orangeA(0)], stops: const [0, .85]),
               ),
             ),
           ),
-        ]),
-      ),
-      // the one loud thing: an orange line under the box while it has focus
-      Positioned(
-        left: 0,
-        right: 0,
-        bottom: 0,
-        height: 2,
-        child: AnimatedScale(
-          scale: widget.focus.hasFocus ? 1 : 0,
-          alignment: Alignment.centerLeft,
-          duration: NbMotion.of(context, const Duration(milliseconds: 250)),
-          curve: NbMotion.curve,
-          child: DecoratedBox(
-            decoration: BoxDecoration(gradient: LinearGradient(colors: [c.orange, c.orangeA(0)], stops: const [0, .85])),
+        ),
+        Positioned(
+          right: 20,
+          bottom: 4,
+          child: IgnorePointer(
+            child: ListenableBuilder(
+              listenable: widget.find,
+              builder: (context, _) => widget.find.results.isEmpty
+                  ? const SizedBox.shrink()
+                  : widget.find.notice.isNotEmpty
+                  ? Text(widget.find.notice, style: NbType.text(NbSize.micro, c.warn))
+                  : Text(
+                      'Enter opens · Ctrl+Enter shows in folder · Alt+Enter full window · Esc hides',
+                      style: NbType.text(NbSize.micro - .5, c.dim),
+                    ),
+            ),
           ),
         ),
-      ),
-      Positioned(
-        right: 20,
-        bottom: 4,
-        child: IgnorePointer(
-          child: ListenableBuilder(
-            listenable: widget.find,
-            builder: (context, _) => widget.find.results.isEmpty
-                ? const SizedBox.shrink()
-                : widget.find.notice.isNotEmpty
-                    ? Text(widget.find.notice, style: NbType.text(NbSize.micro, c.warn))
-                    : Text('Enter opens · Ctrl+Enter shows in folder · Alt+Enter full window · Esc hides',
-                        style: NbType.text(NbSize.micro - .5, c.dim)),
-          ),
-        ),
-      ),
-    ]);
+      ],
+    );
   }
 }
 
@@ -277,47 +333,64 @@ class _RowState extends State<_Row> {
           label: widget.result.name,
           child: SizedBox(
             height: BarSize.row.toDouble(),
-            child: Stack(children: [
-              Positioned.fill(
-                child: AnimatedOpacity(
-                  opacity: lit ? (widget.selected ? 1 : .6) : 0,
-                  duration: NbMotion.of(context, NbMotion.fast),
-                  child: DecoratedBox(
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: AnimatedOpacity(
+                    opacity: lit ? (widget.selected ? 1 : .6) : 0,
+                    duration: NbMotion.of(context, NbMotion.fast),
+                    child: DecoratedBox(
                       decoration: BoxDecoration(
-                          gradient: LinearGradient(colors: [c.orangeA(.16), c.orangeA(0)], stops: const [0, .75]))),
-                ),
-              ),
-              Positioned(
-                left: 0,
-                top: 8,
-                bottom: 8,
-                width: 3,
-                child: AnimatedScale(
-                  scale: widget.selected ? 1 : 0,
-                  duration: NbMotion.of(context, const Duration(milliseconds: 150)),
-                  child: DecoratedBox(
-                      decoration: BoxDecoration(color: c.orange,
-                          borderRadius: const BorderRadius.horizontal(right: Radius.circular(3)))),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(left: 18, right: 20),
-                child: Row(children: [
-                  SizedBox(
-                      width: 46,
-                      child: Text(kindTag(widget.result.kind),
-                          style: NbType.data(9.5, c.orange, weight: FontWeight.w700))),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    flex: 6,
-                    child: Text(widget.result.name, maxLines: 1, overflow: TextOverflow.ellipsis, softWrap: false,
-                        style: NbType.text(14.5, c.text, weight: FontWeight.w600)),
+                        gradient: LinearGradient(colors: [c.orangeA(.16), c.orangeA(0)], stops: const [0, .75]),
+                      ),
+                    ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(flex: 4, child: TailText(widget.result.dir, style: NbType.data(11, c.dim))),
-                ]),
-              ),
-            ]),
+                ),
+                Positioned(
+                  left: 0,
+                  top: 8,
+                  bottom: 8,
+                  width: 3,
+                  child: AnimatedScale(
+                    scale: widget.selected ? 1 : 0,
+                    duration: NbMotion.of(context, const Duration(milliseconds: 150)),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: c.orange,
+                        borderRadius: const BorderRadius.horizontal(right: Radius.circular(3)),
+                      ),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(left: 18, right: 20),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 46,
+                        child: Text(
+                          kindTag(widget.result.kind),
+                          style: NbType.data(9.5, c.orange, weight: FontWeight.w700),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 6,
+                        child: Text(
+                          widget.result.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          softWrap: false,
+                          style: NbType.text(14.5, c.text, weight: FontWeight.w600),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(flex: 4, child: TailText(widget.result.dir, style: NbType.data(11, c.dim))),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -340,10 +413,15 @@ class _NoMatch extends StatelessWidget {
       child: isError
           ? Text(words, style: NbType.text(13, c.warn), maxLines: 1, overflow: TextOverflow.ellipsis)
           : Text.rich(
-              TextSpan(children: [
-                const TextSpan(text: 'No match for '),
-                TextSpan(text: words, style: NbType.text(13, c.text, weight: FontWeight.w600)),
-              ]),
+              TextSpan(
+                children: [
+                  const TextSpan(text: 'No match for '),
+                  TextSpan(
+                    text: words,
+                    style: NbType.text(13, c.text, weight: FontWeight.w600),
+                  ),
+                ],
+              ),
               style: NbType.text(13, c.muted),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,

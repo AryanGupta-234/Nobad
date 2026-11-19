@@ -24,24 +24,30 @@ class SettingsGroup extends StatelessWidget {
     final c = NbColors.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: NbSpace.x6),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 2, bottom: NbSpace.x2),
-          child: Semantics(
-            header: true,
-            child: Text(title, style: NbType.text(NbSize.small, c.dim, weight: FontWeight.w600)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 2, bottom: NbSpace.x2),
+            child: Semantics(
+              header: true,
+              child: Text(title, style: NbType.text(NbSize.small, c.dim, weight: FontWeight.w600)),
+            ),
           ),
-        ),
-        Container(
-          decoration: BoxDecoration(color: c.panel, border: Border.all(color: c.line), borderRadius: NbRadius.panelAll),
-          child: Column(children: [
-            for (var i = 0; i < rows.length; i++) ...[
-              if (i > 0) Container(height: 1, color: c.line),
-              rows[i],
-            ],
-          ]),
-        ),
-      ]),
+          Container(
+            decoration: BoxDecoration(
+              color: c.panel,
+              border: Border.all(color: c.line),
+              borderRadius: NbRadius.panelAll,
+            ),
+            child: Column(
+              children: [
+                for (var i = 0; i < rows.length; i++) ...[if (i > 0) Container(height: 1, color: c.line), rows[i]],
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -60,27 +66,37 @@ class SettingRow extends StatelessWidget {
     final c = NbColors.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 13, 16, 13),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              if (label.isNotEmpty) Text(label, style: NbType.text(14, c.text, weight: FontWeight.w600, height: 1.35)),
-              if (helpWidget != null)
-                Padding(padding: const EdgeInsets.only(top: 2), child: helpWidget!)
-              else if (help.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 560),
-                    child: Text(help, style: NbType.text(NbSize.small, c.dim, height: 1.5)),
-                  ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (label.isNotEmpty)
+                      Text(label, style: NbType.text(14, c.text, weight: FontWeight.w600, height: 1.35)),
+                    if (helpWidget != null)
+                      Padding(padding: const EdgeInsets.only(top: 2), child: helpWidget!)
+                    else if (help.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 560),
+                          child: Text(help, style: NbType.text(NbSize.small, c.dim, height: 1.5)),
+                        ),
+                      ),
+                  ],
                 ),
-            ]),
+              ),
+              if (control != null) ...[const SizedBox(width: NbSpace.x5), control!],
+            ],
           ),
-          if (control != null) ...[const SizedBox(width: NbSpace.x5), control!],
-        ]),
-        if (below != null) ...[const SizedBox(height: NbSpace.x3), below!],
-      ]),
+          if (below != null) ...[const SizedBox(height: NbSpace.x3), below!],
+        ],
+      ),
     );
   }
 }
@@ -121,8 +137,13 @@ class ChoiceSetting extends StatelessWidget {
     return SettingRow(
       label: label,
       help: help,
-      control: NbSelect(label: label, value: s.settings.text(k), options: options, maxWidth: 230,
-          onChanged: (v) => s.set(k, v)),
+      control: NbSelect(
+        label: label,
+        value: s.settings.text(k),
+        options: options,
+        maxWidth: 230,
+        onChanged: (v) => s.set(k, v),
+      ),
     );
   }
 }
@@ -170,30 +191,42 @@ class FoldersSetting extends StatelessWidget {
     return SettingRow(
       label: label,
       help: help,
-      control: NbButton('Add folder', kind: NbButtonKind.ghost, small: true, icon: NbGlyph.plus,
-          onPressed: () => unawaited(s.pickAndAdd(k))),
+      control: NbButton(
+        'Add folder',
+        kind: NbButtonKind.ghost,
+        small: true,
+        icon: NbGlyph.plus,
+        onPressed: () => unawaited(s.pickAndAdd(k)),
+      ),
       below: list.isEmpty
           ? null
-          : Column(children: [
-              for (var i = 0; i < list.length; i++)
-                Container(
-                  margin: const EdgeInsets.only(bottom: 6),
-                  padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
-                  decoration: BoxDecoration(border: Border.all(color: c.line), borderRadius: NbRadius.controlAll),
-                  child: Row(children: [
-                    Expanded(child: Text(list[i], style: NbType.data(12, c.muted))),
-                    Pressable(
-                      onTap: () => s.removeFolder(k, i),
-                      semanticLabel: 'Remove ${list[i]}',
-                      tooltip: 'Remove',
-                      builder: (context, p) => Padding(
-                        padding: const EdgeInsets.all(6),
-                        child: NbIcon(NbGlyph.close, size: 14, color: p.lit ? c.orange : c.dim),
-                      ),
+          : Column(
+              children: [
+                for (var i = 0; i < list.length; i++)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 6),
+                    padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: c.line),
+                      borderRadius: NbRadius.controlAll,
                     ),
-                  ]),
-                ),
-            ]),
+                    child: Row(
+                      children: [
+                        Expanded(child: Text(list[i], style: NbType.data(12, c.muted))),
+                        Pressable(
+                          onTap: () => s.removeFolder(k, i),
+                          semanticLabel: 'Remove ${list[i]}',
+                          tooltip: 'Remove',
+                          builder: (context, p) => Padding(
+                            padding: const EdgeInsets.all(6),
+                            child: NbIcon(NbGlyph.close, size: 14, color: p.lit ? c.orange : c.dim),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
     );
   }
 }

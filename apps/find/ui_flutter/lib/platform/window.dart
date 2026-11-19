@@ -100,29 +100,43 @@ class Win32Window implements WindowControl {
   static final _u32 = DynamicLibrary.open('user32.dll');
   static final _k32 = DynamicLibrary.open('kernel32.dll');
   static final _shcore = DynamicLibrary.open('shcore.dll');
-  static final _findWindowEx = _u32.lookupFunction<IntPtr Function(IntPtr, IntPtr, Pointer<Utf16>, Pointer<Utf16>),
-      int Function(int, int, Pointer<Utf16>, Pointer<Utf16>)>('FindWindowExW');
-  static final _windowPid = _u32.lookupFunction<Uint32 Function(IntPtr, Pointer<Uint32>),
-      int Function(int, Pointer<Uint32>)>('GetWindowThreadProcessId');
+  static final _findWindowEx = _u32
+      .lookupFunction<
+        IntPtr Function(IntPtr, IntPtr, Pointer<Utf16>, Pointer<Utf16>),
+        int Function(int, int, Pointer<Utf16>, Pointer<Utf16>)
+      >('FindWindowExW');
+  static final _windowPid = _u32
+      .lookupFunction<Uint32 Function(IntPtr, Pointer<Uint32>), int Function(int, Pointer<Uint32>)>(
+        'GetWindowThreadProcessId',
+      );
   static final _pid = _k32.lookupFunction<Uint32 Function(), int Function()>('GetCurrentProcessId');
-  static final _showAsync =
-      _u32.lookupFunction<Int32 Function(IntPtr, Int32), int Function(int, int)>('ShowWindowAsync');
-  static final _setPos = _u32.lookupFunction<Int32 Function(IntPtr, IntPtr, Int32, Int32, Int32, Int32, Uint32),
-      int Function(int, int, int, int, int, int, int)>('SetWindowPos');
+  static final _showAsync = _u32.lookupFunction<Int32 Function(IntPtr, Int32), int Function(int, int)>(
+    'ShowWindowAsync',
+  );
+  static final _setPos = _u32
+      .lookupFunction<
+        Int32 Function(IntPtr, IntPtr, Int32, Int32, Int32, Int32, Uint32),
+        int Function(int, int, int, int, int, int, int)
+      >('SetWindowPos');
   static final _dpiForWindow = _u32.lookupFunction<Uint32 Function(IntPtr), int Function(int)>('GetDpiForWindow');
-  static final _cursor =
-      _u32.lookupFunction<Int32 Function(Pointer<_POINT>), int Function(Pointer<_POINT>)>('GetCursorPos');
-  static final _monitorFromPoint =
-      _u32.lookupFunction<IntPtr Function(_POINT, Uint32), int Function(_POINT, int)>('MonitorFromPoint');
-  static final _monitorInfo = _u32.lookupFunction<Int32 Function(IntPtr, Pointer<_MONITORINFO>),
-      int Function(int, Pointer<_MONITORINFO>)>('GetMonitorInfoW');
-  static final _dpiForMonitor = _shcore.lookupFunction<Int32 Function(IntPtr, Int32, Pointer<Uint32>, Pointer<Uint32>),
-      int Function(int, int, Pointer<Uint32>, Pointer<Uint32>)>('GetDpiForMonitor');
-  static final _setForeground =
-      _u32.lookupFunction<Int32 Function(IntPtr), int Function(int)>('SetForegroundWindow');
+  static final _cursor = _u32.lookupFunction<Int32 Function(Pointer<_POINT>), int Function(Pointer<_POINT>)>(
+    'GetCursorPos',
+  );
+  static final _monitorFromPoint = _u32.lookupFunction<IntPtr Function(_POINT, Uint32), int Function(_POINT, int)>(
+    'MonitorFromPoint',
+  );
+  static final _monitorInfo = _u32
+      .lookupFunction<Int32 Function(IntPtr, Pointer<_MONITORINFO>), int Function(int, Pointer<_MONITORINFO>)>(
+        'GetMonitorInfoW',
+      );
+  static final _dpiForMonitor = _shcore
+      .lookupFunction<
+        Int32 Function(IntPtr, Int32, Pointer<Uint32>, Pointer<Uint32>),
+        int Function(int, int, Pointer<Uint32>, Pointer<Uint32>)
+      >('GetDpiForMonitor');
+  static final _setForeground = _u32.lookupFunction<Int32 Function(IntPtr), int Function(int)>('SetForegroundWindow');
   static final _currentProcess = _k32.lookupFunction<IntPtr Function(), int Function()>('GetCurrentProcess');
-  static final _emptyWorkingSet =
-      _k32.lookupFunction<Int32 Function(IntPtr), int Function(int)>('K32EmptyWorkingSet');
+  static final _emptyWorkingSet = _k32.lookupFunction<Int32 Function(IntPtr), int Function(int)>('K32EmptyWorkingSet');
 
   static const _swHide = 0, _swRestore = 9;
   static const _noSize = 0x1, _noMove = 0x2, _noZOrder = 0x4, _noActivate = 0x10, _showWindow = 0x40;
@@ -176,8 +190,15 @@ class Win32Window implements WindowControl {
   void fitBar(int rows) {
     if (hwnd == 0) return;
     final s = _scale;
-    _setPos(hwnd, 0, 0, 0, (BarSize.width * s).round(), (BarSize.height(rows) * s).round(),
-        _noMove | _noZOrder | _noActivate | _async);
+    _setPos(
+      hwnd,
+      0,
+      0,
+      0,
+      (BarSize.width * s).round(),
+      (BarSize.height(rows) * s).round(),
+      _noMove | _noZOrder | _noActivate | _async,
+    );
   }
 
   @override
@@ -213,8 +234,8 @@ class Win32Window implements WindowControl {
   bool look({required bool dark, required bool glass, required int canvasRgb}) =>
       WindowLook.apply(hwnd, dark: dark, glass: glass, canvasRgb: canvasRgb);
 
-  static final _postMessage = _u32.lookupFunction<Int32 Function(IntPtr, Uint32, IntPtr, IntPtr),
-      int Function(int, int, int, int)>('PostMessageW');
+  static final _postMessage = _u32
+      .lookupFunction<Int32 Function(IntPtr, Uint32, IntPtr, IntPtr), int Function(int, int, int, int)>('PostMessageW');
 
   @override
   void close() {

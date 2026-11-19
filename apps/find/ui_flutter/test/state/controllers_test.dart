@@ -43,10 +43,13 @@ void main() {
       expect(toasts.message, 'Path copied.');
 
       String? asked;
-      expect(await f.forgetSelected((q) async {
-        asked = q;
-        return false;
-      }), isFalse);
+      expect(
+        await f.forgetSelected((q) async {
+          asked = q;
+          return false;
+        }),
+        isFalse,
+      );
       expect(asked, 'Forget "tax return 2025.pdf" and keep it out of the index from now on?');
       expect(e.forgotten, isEmpty);
 

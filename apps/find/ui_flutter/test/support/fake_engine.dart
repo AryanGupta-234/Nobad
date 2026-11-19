@@ -34,7 +34,12 @@ class FakeWindow implements WindowControl {
 }
 
 /// The main window at 1080 x 720, connected to [engine].
-Future<FakeWindow> pumpApp(WidgetTester tester, FakeEngine engine, {FakeWindow? window, Size size = const Size(1080, 720)}) async {
+Future<FakeWindow> pumpApp(
+  WidgetTester tester,
+  FakeEngine engine, {
+  FakeWindow? window,
+  Size size = const Size(1080, 720),
+}) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);

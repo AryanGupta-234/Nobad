@@ -40,11 +40,8 @@ import 'rpc.dart';
 
 class WiredEngine implements EngineApi {
   WiredEngine(this._pipe, {FakeEngine? fake, this.beforeDialog})
-      : _fake = fake ?? FakeEngine(files: const [], live: true, settings: const {}) {
-    _subs = [
-      _pipe.events.listen(_fromPipe),
-      _fake.events.listen(_fromFake),
-    ];
+    : _fake = fake ?? FakeEngine(files: const [], live: true, settings: const {}) {
+    _subs = [_pipe.events.listen(_fromPipe), _fake.events.listen(_fromFake)];
   }
 
   final EngineClient _pipe;
@@ -60,14 +57,14 @@ class WiredEngine implements EngineApi {
 
   /// The events a prototype engine doesn't push (a full engine lists them in hello.events and pushes them all).
   bool _pipeSends(EngineEvent e) => switch (e) {
-        StatusEvent() || ShowEvent() => true,
-        StatusFullEvent() => _serves('status_full'),
-        DownloadEvent() => _serves('download_model'),
-        HereEvent() => _serves('here_folder'),
-        QuittingEvent() => _serves('quit'),
-        LevelEvent() || ActivityEvent() => _serves('status_full'),
-        NoticeEvent() => _serves('status_full'),
-      };
+    StatusEvent() || ShowEvent() => true,
+    StatusFullEvent() => _serves('status_full'),
+    DownloadEvent() => _serves('download_model'),
+    HereEvent() => _serves('here_folder'),
+    QuittingEvent() => _serves('quit'),
+    LevelEvent() || ActivityEvent() => _serves('status_full'),
+    NoticeEvent() => _serves('status_full'),
+  };
 
   @override
   ValueListenable<Link> get link => _pipe.link;
@@ -174,8 +171,8 @@ class WiredEngine implements EngineApi {
   @override
   Future<ActionResult> downloadModel(String model) =>
       _serves(model == 'photo' ? 'download_photo_model' : 'download_model')
-          ? _pipe.downloadModel(model)
-          : _fake.downloadModel(model);
+      ? _pipe.downloadModel(model)
+      : _fake.downloadModel(model);
 
   // ---- Windows Search ----
   @override

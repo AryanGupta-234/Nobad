@@ -9,8 +9,14 @@ import 'format.dart';
 import 'json.dart';
 
 class EngineStatus {
-  const EngineStatus({this.level = '', this.reason = '', this.phase = '', this.files = 0, this.paused = '',
-      this.details});
+  const EngineStatus({
+    this.level = '',
+    this.reason = '',
+    this.phase = '',
+    this.files = 0,
+    this.paused = '',
+    this.details,
+  });
 
   final String level;
   final String reason;
@@ -35,15 +41,30 @@ class EngineStatus {
   }
 
   /// The short fields from [brief] on top of these details (a real engine's brief status + fake details).
-  EngineStatus withBrief(EngineStatus brief) => EngineStatus(level: brief.level, reason: brief.reason,
-      phase: brief.phase, files: brief.files, paused: brief.paused, details: details);
+  EngineStatus withBrief(EngineStatus brief) => EngineStatus(
+    level: brief.level,
+    reason: brief.reason,
+    phase: brief.phase,
+    files: brief.files,
+    paused: brief.paused,
+    details: details,
+  );
 
   static const phaseLabels = {
-    'starting': 'Starting', 'names': 'Finding files', 'text': 'Reading text', 'images': 'Reading photos and scans',
-    'photos': 'Understanding photos', 'meaning': 'Learning meaning', 'watching': 'Up to date', 'error': 'Stopped',
+    'starting': 'Starting',
+    'names': 'Finding files',
+    'text': 'Reading text',
+    'images': 'Reading photos and scans',
+    'photos': 'Understanding photos',
+    'meaning': 'Learning meaning',
+    'watching': 'Up to date',
+    'error': 'Stopped',
   };
   static const levelLabels = {
-    'full': 'Working at full speed', 'gentle': 'Working gently', 'light': 'Working very lightly', 'paused': 'Paused',
+    'full': 'Working at full speed',
+    'gentle': 'Working gently',
+    'light': 'Working very lightly',
+    'paused': 'Paused',
   };
 
   String get phaseLabel => paused.isNotEmpty ? 'Paused · $paused' : (phaseLabels[phase] ?? phase);
@@ -55,8 +76,13 @@ class EngineStatus {
 
   @override
   bool operator ==(Object other) =>
-      other is EngineStatus && other.level == level && other.reason == reason && other.phase == phase &&
-      other.files == files && other.paused == paused && identical(other.details, details);
+      other is EngineStatus &&
+      other.level == level &&
+      other.reason == reason &&
+      other.phase == phase &&
+      other.files == files &&
+      other.paused == paused &&
+      identical(other.details, details);
 
   @override
   int get hashCode => Object.hash(level, reason, phase, files, paused, details);
@@ -162,8 +188,11 @@ class WorkPlan {
   final bool? ssd;
 
   static WorkPlan fromJson(Map<String, Object?> m) => WorkPlan(
-      cpu: jInt(m['cpu']), textWorkers: jInt(m['text_workers']), textWorkersIdle: jInt(m['text_workers_idle']),
-      ssd: m['ssd'] is bool ? m['ssd'] as bool : null);
+    cpu: jInt(m['cpu']),
+    textWorkers: jInt(m['text_workers']),
+    textWorkersIdle: jInt(m['text_workers_idle']),
+    ssd: m['ssd'] is bool ? m['ssd'] as bool : null,
+  );
 }
 
 class Drive {
@@ -174,15 +203,18 @@ class Drive {
   final bool present;
 
   static const typeLabels = {
-    'fixed': 'this PC', 'removable': 'USB / external', 'network': 'network', 'cd': 'disc', 'ram': 'RAM disk',
+    'fixed': 'this PC',
+    'removable': 'USB / external',
+    'network': 'network',
+    'cd': 'disc',
+    'ram': 'RAM disk',
   };
   String get typeLabel => typeLabels[type] ?? type;
 
   static Drive? fromJson(Object? v) {
     final m = jMap(v);
     if (jStr(m['root']).isEmpty) return null;
-    return Drive(root: jStr(m['root']), label: jStr(m['label']), type: jStr(m['type']),
-        present: m['present'] != false);
+    return Drive(root: jStr(m['root']), label: jStr(m['label']), type: jStr(m['type']), present: m['present'] != false);
   }
 }
 
@@ -205,8 +237,12 @@ class ModelState {
 
   static ModelState fromJson(Object? v) {
     final m = jMap(v);
-    return ModelState(state: jStr(m['state']).isEmpty ? 'missing' : jStr(m['state']), got: jInt(m['got']),
-        size: jInt(m['size']), error: jStr(m['error']));
+    return ModelState(
+      state: jStr(m['state']).isEmpty ? 'missing' : jStr(m['state']),
+      got: jInt(m['got']),
+      size: jInt(m['size']),
+      error: jStr(m['error']),
+    );
   }
 }
 
@@ -220,8 +256,11 @@ class HistoryPoint {
   static HistoryPoint? fromJson(Object? v) {
     if (v is! Map) return null;
     final m = jMap(v);
-    return HistoryPoint(t: jNum(m['t']), findCpu: jNum(m['find_cpu']).clamp(0, 100).toDouble(),
-        findMb: jNum(m['find_mb']).clamp(0, double.maxFinite).toDouble());
+    return HistoryPoint(
+      t: jNum(m['t']),
+      findCpu: jNum(m['find_cpu']).clamp(0, 100).toDouble(),
+      findMb: jNum(m['find_mb']).clamp(0, double.maxFinite).toDouble(),
+    );
   }
 }
 
@@ -235,8 +274,7 @@ class ProcessUse {
   static ProcessUse? fromJson(Object? v) {
     final m = jMap(v);
     if (m.isEmpty) return null;
-    return ProcessUse(name: jStr(m['name']), pid: jInt(m['pid']), cpu: jNum(m['cpu']),
-        memoryMb: jNum(m['memory_mb']));
+    return ProcessUse(name: jStr(m['name']), pid: jInt(m['pid']), cpu: jNum(m['cpu']), memoryMb: jNum(m['memory_mb']));
   }
 }
 
@@ -252,17 +290,28 @@ class Resources {
 
   static Resources fromJson(Object? v) {
     final m = jMap(v);
-    return Resources(cpu: jNumOrNull(m['cpu']), memoryMb: jNumOrNull(m['memory_mb']),
-        readMbS: jNumOrNull(m['read_mb_s']), gpu: jNumOrNull(m['gpu']),
-        processes: jList(m['processes'], ProcessUse.fromJson));
+    return Resources(
+      cpu: jNumOrNull(m['cpu']),
+      memoryMb: jNumOrNull(m['memory_mb']),
+      readMbS: jNumOrNull(m['read_mb_s']),
+      gpu: jNumOrNull(m['gpu']),
+      processes: jList(m['processes'], ProcessUse.fromJson),
+    );
   }
 }
 
 enum PhaseState { waiting, running, done, off }
 
 class PhaseRow {
-  const PhaseRow({required this.id, required this.label, this.state = PhaseState.waiting, this.done = 0,
-      this.total, this.rate = 0, this.etaS});
+  const PhaseRow({
+    required this.id,
+    required this.label,
+    this.state = PhaseState.waiting,
+    this.done = 0,
+    this.total,
+    this.rate = 0,
+    this.etaS,
+  });
   final String id;
   final String label;
   final PhaseState state;
@@ -272,12 +321,19 @@ class PhaseRow {
   final int? etaS;
 
   static const stateLabels = {
-    PhaseState.waiting: 'Waiting', PhaseState.running: 'Working', PhaseState.done: 'Done', PhaseState.off: 'Off',
+    PhaseState.waiting: 'Waiting',
+    PhaseState.running: 'Working',
+    PhaseState.done: 'Done',
+    PhaseState.off: 'Off',
   };
   String get stateLabel => stateLabels[state]!;
 
   bool get known => (total ?? 0) > 0;
-  double get fraction => state == PhaseState.done ? 1 : known ? (done / total!).clamp(0, 1).toDouble() : 0;
+  double get fraction => state == PhaseState.done
+      ? 1
+      : known
+      ? (done / total!).clamp(0, 1).toDouble()
+      : 0;
 
   /// Running but with no total: an indeterminate meter.
   bool get busy => state == PhaseState.running && !known;
@@ -323,8 +379,18 @@ class DownloadProgress {
 }
 
 class ModelCard {
-  const ModelCard({required this.id, required this.name, this.license = '', this.sizeMb = 0, this.onDisk = false,
-      this.loaded = false, this.memoryMb, this.device = '', this.items = 0, this.download});
+  const ModelCard({
+    required this.id,
+    required this.name,
+    this.license = '',
+    this.sizeMb = 0,
+    this.onDisk = false,
+    this.loaded = false,
+    this.memoryMb,
+    this.device = '',
+    this.items = 0,
+    this.download,
+  });
   final String id;
   final String name;
   final String license;
@@ -346,11 +412,11 @@ class ModelCard {
   }
 
   String get facts => [
-        sizeMb > 0 ? '${mb(sizeMb)} download' : 'Built into Windows',
-        license,
-        if (loaded && memoryMb != null && memoryMb! > 0) '${mb(memoryMb)} of memory',
-        if (items > 0) '${groupDigits(items)} items made',
-      ].where((s) => s.isNotEmpty).join(' · ');
+    sizeMb > 0 ? '${mb(sizeMb)} download' : 'Built into Windows',
+    license,
+    if (loaded && memoryMb != null && memoryMb! > 0) '${mb(memoryMb)} of memory',
+    if (items > 0) '${groupDigits(items)} items made',
+  ].where((s) => s.isNotEmpty).join(' · ');
 
   static ModelCard? fromJson(Object? v) {
     final m = jMap(v);

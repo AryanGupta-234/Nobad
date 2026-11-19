@@ -20,7 +20,10 @@ import '../../widgets/panels.dart';
 import '../../widgets/pressable.dart';
 
 const homeExamples = [
-  'rent pdf from last week', 'beach photos in march', 'budget.xlsx', 'newest in my downloads',
+  'rent pdf from last week',
+  'beach photos in march',
+  'budget.xlsx',
+  'newest in my downloads',
   'video bigger than 100 mb',
 ];
 
@@ -73,7 +76,12 @@ class _HomeViewState extends State<HomeView> {
     try {
       final a = await _scope!.engine.search('', filters: const SearchFilters(sort: 'newest'));
       if (!mounted) return;
-      setState(() => _recent = [for (final r in a.results) if (r.kind != 'folder') r].take(8).toList());
+      setState(
+        () => _recent = [
+          for (final r in a.results)
+            if (r.kind != 'folder') r,
+        ].take(8).toList(),
+      );
     } on Object {
       if (mounted) setState(() => _recent ??= const []);
     }
@@ -95,56 +103,68 @@ class _HomeViewState extends State<HomeView> {
         alignment: Alignment.topLeft,
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 800),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Semantics(
-              header: true,
-              child: Text('Find anything on this PC.'.toUpperCase(), style: NbType.display(NbSize.hero, c.text)),
-            ),
-            const SizedBox(height: NbSpace.x4),
-            const SignalRule(),
-            const SizedBox(height: NbSpace.x4),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 560),
-              child: Text(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Semantics(
+                header: true,
+                child: Text('Find anything on this PC.'.toUpperCase(), style: NbType.display(NbSize.hero, c.text)),
+              ),
+              const SizedBox(height: NbSpace.x4),
+              const SignalRule(),
+              const SizedBox(height: NbSpace.x4),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 560),
+                child: Text(
                   'Search by name, by the words inside a file, or by what it was about. Add a kind, a time, a folder '
                   'or a size to the words, or pick filters above.',
-                  style: NbType.text(NbSize.body, c.muted, height: 1.55)),
-            ),
-            const SizedBox(height: NbSpace.x5),
-            Semantics(
-              label: 'Examples to try',
-              container: true,
-              child: Wrap(spacing: 8, runSpacing: 8, children: [
-                for (final e in homeExamples) _Example(e, onTap: () => widget.onExample(e)),
+                  style: NbType.text(NbSize.body, c.muted, height: 1.55),
+                ),
+              ),
+              const SizedBox(height: NbSpace.x5),
+              Semantics(
+                label: 'Examples to try',
+                container: true,
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [for (final e in homeExamples) _Example(e, onTap: () => widget.onExample(e))],
+                ),
+              ),
+              const SectionTitle('Browse', top: NbSpace.x8),
+              Semantics(
+                label: 'Browse by kind',
+                container: true,
+                child: TileGrid(
+                  min: 200,
+                  children: [
+                    for (final (badge, label, words, f) in homeTiles)
+                      _Tile(badge: badge, label: label, onTap: () => widget.onTile(words, f)),
+                  ],
+                ),
+              ),
+              const SectionTitle('Recently changed'),
+              _RecentList(
+                files: _recent,
+                onOpen: (r) async {
+                  final res = await s.engine.open(r.id);
+                  if (!res.ok) {
+                    s.toasts.show(res.error.isNotEmpty ? res.error : "That file isn't there any more.");
+                  } else if (s.settings.settings.flag('hide_after_open')) {
+                    s.window.hide();
+                  }
+                },
+              ),
+              const SizedBox(height: NbSpace.x6),
+              const KeyHints([
+                (['↑', '↓'], 'move'),
+                (['Enter'], 'open'),
+                (['Ctrl', 'Enter'], 'show in folder'),
+                (['Ctrl', 'C'], 'copy path'),
+                (['Esc'], 'hide'),
               ]),
-            ),
-            const SectionTitle('Browse', top: NbSpace.x8),
-            Semantics(
-              label: 'Browse by kind',
-              container: true,
-              child: TileGrid(min: 200, children: [
-                for (final (badge, label, words, f) in homeTiles)
-                  _Tile(badge: badge, label: label, onTap: () => widget.onTile(words, f)),
-              ]),
-            ),
-            const SectionTitle('Recently changed'),
-            _RecentList(files: _recent, onOpen: (r) async {
-              final res = await s.engine.open(r.id);
-              if (!res.ok) {
-                s.toasts.show(res.error.isNotEmpty ? res.error : "That file isn't there any more.");
-              } else if (s.settings.settings.flag('hide_after_open')) {
-                s.window.hide();
-              }
-            }),
-            const SizedBox(height: NbSpace.x6),
-            const KeyHints([
-              (['↑', '↓'], 'move'),
-              (['Enter'], 'open'),
-              (['Ctrl', 'Enter'], 'show in folder'),
-              (['Ctrl', 'C'], 'copy path'),
-              (['Esc'], 'hide'),
-            ]),
-          ]),
+            ],
+          ),
         ),
       ),
     );
@@ -198,17 +218,24 @@ class _Tile extends StatelessWidget {
           border: Border.all(color: p.lit ? c.orangeA(.6) : c.line),
           borderRadius: NbRadius.rowAll,
         ),
-        child: Row(children: [
-          Container(
-            width: 38,
-            height: 38,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(border: Border.all(color: c.line2), borderRadius: NbRadius.controlAll),
-            child: Text(badge, style: NbType.data(9.5, c.orange, weight: FontWeight.w700)),
-          ),
-          const SizedBox(width: 12),
-          Expanded(child: Text(label, style: NbType.text(14, c.text, weight: FontWeight.w600))),
-        ]),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                border: Border.all(color: c.line2),
+                borderRadius: NbRadius.controlAll,
+              ),
+              child: Text(badge, style: NbType.data(9.5, c.orange, weight: FontWeight.w700)),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(label, style: NbType.text(14, c.text, weight: FontWeight.w600)),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -229,40 +256,54 @@ class _RecentList extends StatelessWidget {
       child: list == null
           ? const SizedBox(height: 48)
           : list.isEmpty
-              ? Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Text('Files you change will show up here once they are indexed.',
-                      style: NbType.text(13, c.dim)),
-                )
-              : Column(children: [
-                  for (var i = 0; i < list.length; i++) ...[
-                    if (i > 0) Container(height: 1, color: c.line),
-                    Pressable(
-                      onTap: () => onOpen(list[i]),
-                      semanticLabel: list[i].name,
-                      focusRing: false,
-                      builder: (context, p) => AnimatedContainer(
-                        duration: NbMotion.of(context, NbMotion.fast),
-                        color: p.lit ? c.orangeA(.07) : const Color(0x00000000),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        child: Row(children: [
+          ? Padding(
+              padding: const EdgeInsets.all(14),
+              child: Text('Files you change will show up here once they are indexed.', style: NbType.text(13, c.dim)),
+            )
+          : Column(
+              children: [
+                for (var i = 0; i < list.length; i++) ...[
+                  if (i > 0) Container(height: 1, color: c.line),
+                  Pressable(
+                    onTap: () => onOpen(list[i]),
+                    semanticLabel: list[i].name,
+                    focusRing: false,
+                    builder: (context, p) => AnimatedContainer(
+                      duration: NbMotion.of(context, NbMotion.fast),
+                      color: p.lit ? c.orangeA(.07) : const Color(0x00000000),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      child: Row(
+                        children: [
                           KindBadge(list[i].kind, size: 34),
                           const SizedBox(width: 12),
                           Expanded(
-                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              Text(list[i].name, maxLines: 1, overflow: TextOverflow.ellipsis,
-                                  style: NbType.text(13.5, p.focus ? c.orange : c.text, weight: FontWeight.w600)),
-                              Text(list[i].dir, maxLines: 1, overflow: TextOverflow.ellipsis,
-                                  style: NbType.data(NbSize.micro + .5, c.dim)),
-                            ]),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  list[i].name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: NbType.text(13.5, p.focus ? c.orange : c.text, weight: FontWeight.w600),
+                                ),
+                                Text(
+                                  list[i].dir,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: NbType.data(NbSize.micro + .5, c.dim),
+                                ),
+                              ],
+                            ),
                           ),
                           const SizedBox(width: 12),
                           Text(list[i].ago, style: NbType.data(NbSize.micro + .5, c.dim)),
-                        ]),
+                        ],
                       ),
                     ),
-                  ],
-                ]),
+                  ),
+                ],
+              ],
+            ),
     );
   }
 }

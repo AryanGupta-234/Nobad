@@ -55,10 +55,12 @@ class _PressableState extends State<Pressable> {
   bool get _enabled => widget.onTap != null;
 
   late final _actions = <Type, Action<Intent>>{
-    ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) {
-      widget.onTap?.call();
-      return null;
-    }),
+    ActivateIntent: CallbackAction<ActivateIntent>(
+      onInvoke: (_) {
+        widget.onTap?.call();
+        return null;
+      },
+    ),
   };
 
   @override
@@ -71,8 +73,11 @@ class _PressableState extends State<Pressable> {
         position: DecorationPosition.foreground,
         decoration: BoxDecoration(
           borderRadius: widget.ringRadius,
-          border: Border.all(color: _focus && _enabled ? c.orange : const Color(0x00000000), width: 2,
-              strokeAlign: BorderSide.strokeAlignOutside),
+          border: Border.all(
+            color: _focus && _enabled ? c.orange : const Color(0x00000000),
+            width: 2,
+            strokeAlign: BorderSide.strokeAlignOutside,
+          ),
         ),
         child: child,
       );

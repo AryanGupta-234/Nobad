@@ -43,8 +43,13 @@ class Demo {
 
   static Future<void> _wait([int ms = 900]) => Future<void>.delayed(Duration(milliseconds: ms));
 
-  Future<void> run(EngineApi engine, TextEditingController box, FindController find, String mode,
-      {void Function()? after}) async {
+  Future<void> run(
+    EngineApi engine,
+    TextEditingController box,
+    FindController find,
+    String mode, {
+    void Function()? after,
+  }) async {
     if (isTour) return;
     await _until(() => engine.link.value == Link.connected);
     await _wait(1000);
@@ -56,8 +61,10 @@ class Demo {
         await _wait(120);
       }
       await _wait(900);
-      recordTiming('search $mode #$n chars=${q.length} results=${find.results.length} ui_ms=${find.lastMs} '
-          'engine_ms=${find.answer.ms}');
+      recordTiming(
+        'search $mode #$n chars=${q.length} results=${find.results.length} ui_ms=${find.lastMs} '
+        'engine_ms=${find.answer.ms}',
+      );
       find.move(1);
       await _wait(200);
       if (n < 2) await _shot('nobadfind-flutter-$mode-$n.png');
@@ -92,8 +99,13 @@ class Demo {
       s.nav.go(AppTab.indexing);
       await _wait(1500);
       await _shot('tour-index-$theme.png');
-      for (final p in [SettingsPage.general, SettingsPage.models, SettingsPage.performance, SettingsPage.privacy,
-          SettingsPage.about]) {
+      for (final p in [
+        SettingsPage.general,
+        SettingsPage.models,
+        SettingsPage.performance,
+        SettingsPage.privacy,
+        SettingsPage.about,
+      ]) {
         s.nav.openSettings(p);
         await _wait(800);
         await _shot('tour-settings-${p.name}-$theme.png');

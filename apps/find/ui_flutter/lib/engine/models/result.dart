@@ -8,7 +8,12 @@ export 'format.dart' show humanSize;
 
 String _str(Object? v) => v is String ? v : '';
 int? _int(Object? v) => v is int ? v : (v is double && v.isFinite ? v.toInt() : null);
-List<String> _strs(Object? v) => v is List ? [for (final x in v) if (x is String) x] : const [];
+List<String> _strs(Object? v) => v is List
+    ? [
+        for (final x in v)
+          if (x is String) x,
+      ]
+    : const [];
 
 class FileResult {
   const FileResult({
@@ -100,9 +105,21 @@ class SearchAnswer {
 }
 
 const kindTags = {
-  'pdf': 'PDF', 'document': 'DOC', 'spreadsheet': 'XLS', 'slides': 'PPT', 'text': 'TXT', 'code': '</>',
-  'email': 'MAIL', 'image': 'IMG', 'video': 'VID', 'audio': 'AUD', 'archive': 'ZIP', 'app': 'APP',
-  'ebook': 'BOOK', 'folder': 'DIR', 'other': 'FILE',
+  'pdf': 'PDF',
+  'document': 'DOC',
+  'spreadsheet': 'XLS',
+  'slides': 'PPT',
+  'text': 'TXT',
+  'code': '</>',
+  'email': 'MAIL',
+  'image': 'IMG',
+  'video': 'VID',
+  'audio': 'AUD',
+  'archive': 'ZIP',
+  'app': 'APP',
+  'ebook': 'BOOK',
+  'folder': 'DIR',
+  'other': 'FILE',
 };
 
 String kindTag(String kind) => kindTags[kind] ?? 'FILE';
@@ -123,20 +140,29 @@ class SearchFilters {
   bool get narrows => kind.isNotEmpty || modified.isNotEmpty || size.isNotEmpty || folder.isNotEmpty;
   bool get isEmpty => !narrows && sort.isEmpty;
 
-  SearchFilters copyWith({String? kind, String? modified, String? size, String? folder, String? sort}) =>
-      SearchFilters(kind: kind ?? this.kind, modified: modified ?? this.modified, size: size ?? this.size,
-          folder: folder ?? this.folder, sort: sort ?? this.sort);
+  SearchFilters copyWith({String? kind, String? modified, String? size, String? folder, String? sort}) => SearchFilters(
+    kind: kind ?? this.kind,
+    modified: modified ?? this.modified,
+    size: size ?? this.size,
+    folder: folder ?? this.folder,
+    sort: sort ?? this.sort,
+  );
 
   /// The `filters` object of the `search` call (the same keys as 0.7.0's page sent).
   Map<String, Object?> toJson() => {
-        'kind': kind, 'modified': modified, 'size': size,
-        'folder': folder.length > 2000 ? '' : folder, // the engine refuses longer (contract: at most 2000)
-        'sort': sort,
-      };
+    'kind': kind, 'modified': modified, 'size': size,
+    'folder': folder.length > 2000 ? '' : folder, // the engine refuses longer (contract: at most 2000)
+    'sort': sort,
+  };
 
   @override
-  bool operator ==(Object other) => other is SearchFilters && other.kind == kind && other.modified == modified &&
-      other.size == size && other.folder == folder && other.sort == sort;
+  bool operator ==(Object other) =>
+      other is SearchFilters &&
+      other.kind == kind &&
+      other.modified == modified &&
+      other.size == size &&
+      other.folder == folder &&
+      other.sort == sort;
 
   @override
   int get hashCode => Object.hash(kind, modified, size, folder, sort);
@@ -145,18 +171,35 @@ class SearchFilters {
 /// The filter bar's choices, with the 0.7.0 labels.
 abstract final class FilterChoices {
   static const kind = [
-    ('', 'Any kind'), ('pdf', 'PDFs'), ('document', 'Documents'), ('spreadsheet', 'Spreadsheets'),
-    ('slides', 'Slides'), ('text', 'Text and notes'), ('code', 'Code'), ('email', 'E-mail'), ('image', 'Images'),
-    ('video', 'Videos'), ('audio', 'Audio'), ('archive', 'Archives'), ('ebook', 'E-books'), ('app', 'Programs'),
+    ('', 'Any kind'),
+    ('pdf', 'PDFs'),
+    ('document', 'Documents'),
+    ('spreadsheet', 'Spreadsheets'),
+    ('slides', 'Slides'),
+    ('text', 'Text and notes'),
+    ('code', 'Code'),
+    ('email', 'E-mail'),
+    ('image', 'Images'),
+    ('video', 'Videos'),
+    ('audio', 'Audio'),
+    ('archive', 'Archives'),
+    ('ebook', 'E-books'),
+    ('app', 'Programs'),
     ('folder', 'Folders'),
   ];
   static const modified = [
-    ('', 'Any time'), ('today', 'Today'), ('week', 'Last 7 days'), ('month', 'Last 30 days'),
+    ('', 'Any time'),
+    ('today', 'Today'),
+    ('week', 'Last 7 days'),
+    ('month', 'Last 30 days'),
     ('year', 'Last 12 months'),
   ];
   static const size = [('', 'Any size'), ('small', 'Under 1 MB'), ('medium', '1 to 100 MB'), ('large', 'Over 100 MB')];
   static const sort = [
-    ('', 'Best match'), ('newest', 'Newest first'), ('oldest', 'Oldest first'), ('largest', 'Largest first'),
+    ('', 'Best match'),
+    ('newest', 'Newest first'),
+    ('oldest', 'Oldest first'),
+    ('largest', 'Largest first'),
     ('name', 'By name'),
   ];
 }

@@ -109,11 +109,11 @@ class StatusController extends ChangeNotifier {
 
   /// The status line: "12,345 files indexed · Working gently · Up to date", or what's wrong with the link.
   String get line => switch (link) {
-        Link.connecting => 'Connecting to the engine…',
-        Link.offline => "The engine isn't running. Trying again…",
-        Link.incompatible => 'This window and the engine are different versions. Update NOBAD Find.',
-        Link.connected => _connectedLine(),
-      };
+    Link.connecting => 'Connecting to the engine…',
+    Link.offline => "The engine isn't running. Trying again…",
+    Link.incompatible => 'This window and the engine are different versions. Update NOBAD Find.',
+    Link.connected => _connectedLine(),
+  };
 
   String _connectedLine() {
     final s = _status;

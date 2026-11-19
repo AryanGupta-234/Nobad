@@ -59,13 +59,13 @@ void main() {
     await type(tester, 'tax');
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200)); // the bar fades, then hides
     expect(engine.opened, [2]);
     expect(w.calls, ['hide']);
 
     await type(tester, 'tax');
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
     expect(w.calls, ['hide', 'hide']);
     expect(engine.opened, [2]);
   });
@@ -77,7 +77,7 @@ void main() {
     await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
     expect(engine.calls, contains('to_main'));
     expect(w.calls, ['hide']);
     expect(engine.opened, isEmpty);

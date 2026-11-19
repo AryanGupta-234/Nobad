@@ -52,44 +52,52 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final c = NbColors.of(context);
     return ListenableBuilder(
       listenable: Listenable.merge([s.nav, s.settings, s.status]),
-      builder: (context, _) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Container(
-          padding: const EdgeInsets.fromLTRB(NbSpace.x8, NbSpace.x6, NbSpace.x8, 0),
-          decoration: BoxDecoration(border: Border(bottom: BorderSide(color: c.line))),
-          child: Align(
-            alignment: Alignment.topLeft,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: NbSpace.column),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const PageTitle('Settings'),
-                const SizedBox(height: NbSpace.x5),
-                _SubNav(page: s.nav.page, onPick: s.nav.showPage),
-              ]),
+      builder: (context, _) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.fromLTRB(NbSpace.x8, NbSpace.x6, NbSpace.x8, 0),
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: c.line)),
             ),
-          ),
-        ),
-        Expanded(
-          child: SingleChildScrollView(
-            key: PageStorageKey(s.nav.page),
-            padding: const EdgeInsets.fromLTRB(NbSpace.x8, NbSpace.x6, NbSpace.x8, NbSpace.x10),
             child: Align(
               alignment: Alignment.topLeft,
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: NbSpace.column),
-                // not const: a page rebuilds when the settings or the status change
-                child: switch (s.nav.page) {
-                  SettingsPage.general => GeneralPage(key: ValueKey(s.nav.page)),
-                  SettingsPage.indexing => IndexingPage(key: ValueKey(s.nav.page)),
-                  SettingsPage.models => ModelsPage(key: ValueKey(s.nav.page)),
-                  SettingsPage.performance => PerformancePage(key: ValueKey(s.nav.page)),
-                  SettingsPage.privacy => PrivacyPage(key: ValueKey(s.nav.page)),
-                  SettingsPage.about => AboutPage(key: ValueKey(s.nav.page)),
-                },
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const PageTitle('Settings'),
+                    const SizedBox(height: NbSpace.x5),
+                    _SubNav(page: s.nav.page, onPick: s.nav.showPage),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-      ]),
+          Expanded(
+            child: SingleChildScrollView(
+              key: PageStorageKey(s.nav.page),
+              padding: const EdgeInsets.fromLTRB(NbSpace.x8, NbSpace.x6, NbSpace.x8, NbSpace.x10),
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: NbSpace.column),
+                  // not const: a page rebuilds when the settings or the status change
+                  child: switch (s.nav.page) {
+                    SettingsPage.general => GeneralPage(key: ValueKey(s.nav.page)),
+                    SettingsPage.indexing => IndexingPage(key: ValueKey(s.nav.page)),
+                    SettingsPage.models => ModelsPage(key: ValueKey(s.nav.page)),
+                    SettingsPage.performance => PerformancePage(key: ValueKey(s.nav.page)),
+                    SettingsPage.privacy => PrivacyPage(key: ValueKey(s.nav.page)),
+                    SettingsPage.about => AboutPage(key: ValueKey(s.nav.page)),
+                  },
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -105,25 +113,33 @@ class _SubNav extends StatelessWidget {
     return Semantics(
       label: 'Settings pages',
       container: true,
-      child: Wrap(spacing: 4, children: [
-        for (final p in SettingsPage.values)
-          Pressable(
-            onTap: () => onPick(p),
-            selected: p == page,
-            semanticLabel: p.label,
-            builder: (context, st) => AnimatedContainer(
-              duration: NbMotion.of(context, NbMotion.base),
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 9),
-              decoration: BoxDecoration(
-                border: Border(
-                    bottom: BorderSide(color: p == page ? c.orange : const Color(0x00000000), width: 2)),
+      child: Wrap(
+        spacing: 4,
+        children: [
+          for (final p in SettingsPage.values)
+            Pressable(
+              onTap: () => onPick(p),
+              selected: p == page,
+              semanticLabel: p.label,
+              builder: (context, st) => AnimatedContainer(
+                duration: NbMotion.of(context, NbMotion.base),
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 9),
+                decoration: BoxDecoration(
+                  border: Border(bottom: BorderSide(color: p == page ? c.orange : const Color(0x00000000), width: 2)),
+                ),
+                child: Text(
+                  p.label,
+                  style: NbType.text(
+                    13.5,
+                    p == page ? c.orange : (st.lit ? c.text : c.dim),
+                    weight: FontWeight.w600,
+                    height: 1.2,
+                  ),
+                ),
               ),
-              child: Text(p.label,
-                  style: NbType.text(13.5, p == page ? c.orange : (st.lit ? c.text : c.dim),
-                      weight: FontWeight.w600, height: 1.2)),
             ),
-          ),
-      ]),
+        ],
+      ),
     );
   }
 }

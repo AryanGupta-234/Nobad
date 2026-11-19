@@ -14,13 +14,34 @@ class Settings {
   /// `welcome_seen` isn't in the engine's DEFAULTS yet: an engine whose settings don't have it counts as "seen"
   /// (see [fromJson]), so the welcome never nags; FakeEngine has it.
   static const defaults = <String, Object?>{
-    'roots': <String>[], 'exclude': <String>[], 'content': true, 'content_max_mb': 25, 'semantic': false,
-    'photo_meaning': false, 'allow_photo_model_download': false, 'allow_model_download': false, 'src_mail': true,
-    'ocr': true, 'index_removable': false, 'index_network': false, 'pause_on_battery': true,
-    'pause_fullscreen': true, 'games_mode': 'smart', 'keep_background': false, 'bar': true,
-    'bar_hotkey': 'ctrl+alt+space', 'pause_on_call': true, 'workers': 0, 'hotkey': 'win+shift+space',
-    'autostart': false, 'hide_after_open': false, 'wsearch_prev': '', 'theme': 'dark', 'glass': true,
-    'bg_notice_seen': false, 'welcome_seen': false,
+    'roots': <String>[],
+    'exclude': <String>[],
+    'content': true,
+    'content_max_mb': 25,
+    'semantic': false,
+    'photo_meaning': false,
+    'allow_photo_model_download': false,
+    'allow_model_download': false,
+    'src_mail': true,
+    'ocr': true,
+    'index_removable': false,
+    'index_network': false,
+    'pause_on_battery': true,
+    'pause_fullscreen': true,
+    'games_mode': 'smart',
+    'keep_background': false,
+    'bar': true,
+    'bar_hotkey': 'ctrl+alt+space',
+    'pause_on_call': true,
+    'workers': 0,
+    'hotkey': 'win+shift+space',
+    'autostart': false,
+    'hide_after_open': false,
+    'wsearch_prev': '',
+    'theme': 'dark',
+    'glass': true,
+    'bg_notice_seen': false,
+    'welcome_seen': false,
   };
 
   static const initial = Settings(defaults);
@@ -71,14 +92,29 @@ class LearnedApp {
   static LearnedApp? fromJson(Object? v) {
     final m = jMap(v);
     if (jStr(m['exe']).isEmpty) return null;
-    return LearnedApp(exe: jStr(m['exe']), seen: jInt(m['seen']), lagEvents: jInt(m['lag_events']),
-        startLevel: m['start_level'] is String ? m['start_level'] as String : null, reason: jStr(m['reason']));
+    return LearnedApp(
+      exe: jStr(m['exe']),
+      seen: jInt(m['seen']),
+      lagEvents: jInt(m['lag_events']),
+      startLevel: m['start_level'] is String ? m['start_level'] as String : null,
+      reason: jStr(m['reason']),
+    );
   }
 }
 
 class Hardware {
-  const Hardware({this.ramGb = 0, this.cores = 0, this.threads = 0, this.avx2 = false, this.avx512Vnni = false,
-      this.gpu = '', this.vramGb = 0, this.directml = false, this.diskFreeGb = 0, this.ssd});
+  const Hardware({
+    this.ramGb = 0,
+    this.cores = 0,
+    this.threads = 0,
+    this.avx2 = false,
+    this.avx512Vnni = false,
+    this.gpu = '',
+    this.vramGb = 0,
+    this.directml = false,
+    this.diskFreeGb = 0,
+    this.ssd,
+  });
   final double ramGb;
   final int cores;
   final int threads;
@@ -94,9 +130,15 @@ class Hardware {
     if (v is! Map) return null;
     final m = jMap(v);
     return Hardware(
-      ramGb: jNum(m['ram_gb']), cores: jInt(m['cores']), threads: jInt(m['threads']), avx2: jBool(m['avx2']),
-      avx512Vnni: jBool(m['avx512_vnni']), gpu: jStr(m['gpu']), vramGb: jNum(m['vram_gb']),
-      directml: jBool(m['directml']), diskFreeGb: jNum(m['disk_free_gb']),
+      ramGb: jNum(m['ram_gb']),
+      cores: jInt(m['cores']),
+      threads: jInt(m['threads']),
+      avx2: jBool(m['avx2']),
+      avx512Vnni: jBool(m['avx512_vnni']),
+      gpu: jStr(m['gpu']),
+      vramGb: jNum(m['vram_gb']),
+      directml: jBool(m['directml']),
+      diskFreeGb: jNum(m['disk_free_gb']),
       ssd: m['ssd'] is bool ? m['ssd'] as bool : null,
     );
   }

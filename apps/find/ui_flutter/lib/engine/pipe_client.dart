@@ -35,42 +35,82 @@ final class _OVERLAPPED extends Struct {
 final _k32 = DynamicLibrary.open('kernel32.dll');
 final _adv = DynamicLibrary.open('advapi32.dll');
 
-final _createFile = _k32.lookupFunction<
-    IntPtr Function(Pointer<Utf16>, Uint32, Uint32, Pointer<Void>, Uint32, Uint32, IntPtr),
-    int Function(Pointer<Utf16>, int, int, Pointer<Void>, int, int, int)>('CreateFileW');
-final _waitNamedPipe =
-    _k32.lookupFunction<Int32 Function(Pointer<Utf16>, Uint32), int Function(Pointer<Utf16>, int)>('WaitNamedPipeW');
-final _readFile = _k32.lookupFunction<
-    Int32 Function(IntPtr, Pointer<Uint8>, Uint32, Pointer<Uint32>, Pointer<_OVERLAPPED>),
-    int Function(int, Pointer<Uint8>, int, Pointer<Uint32>, Pointer<_OVERLAPPED>)>('ReadFile');
-final _writeFile = _k32.lookupFunction<
-    Int32 Function(IntPtr, Pointer<Uint8>, Uint32, Pointer<Uint32>, Pointer<_OVERLAPPED>),
-    int Function(int, Pointer<Uint8>, int, Pointer<Uint32>, Pointer<_OVERLAPPED>)>('WriteFile');
-final _getOverlappedResult = _k32.lookupFunction<
-    Int32 Function(IntPtr, Pointer<_OVERLAPPED>, Pointer<Uint32>, Int32),
-    int Function(int, Pointer<_OVERLAPPED>, Pointer<Uint32>, int)>('GetOverlappedResult');
-final _createEvent = _k32.lookupFunction<
-    IntPtr Function(Pointer<Void>, Int32, Int32, Pointer<Utf16>),
-    int Function(Pointer<Void>, int, int, Pointer<Utf16>)>('CreateEventW');
-final _cancelIoEx = _k32.lookupFunction<Int32 Function(IntPtr, Pointer<_OVERLAPPED>),
-    int Function(int, Pointer<_OVERLAPPED>)>('CancelIoEx');
+final _createFile = _k32
+    .lookupFunction<
+      IntPtr Function(Pointer<Utf16>, Uint32, Uint32, Pointer<Void>, Uint32, Uint32, IntPtr),
+      int Function(Pointer<Utf16>, int, int, Pointer<Void>, int, int, int)
+    >('CreateFileW');
+final _waitNamedPipe = _k32.lookupFunction<Int32 Function(Pointer<Utf16>, Uint32), int Function(Pointer<Utf16>, int)>(
+  'WaitNamedPipeW',
+);
+final _readFile = _k32
+    .lookupFunction<
+      Int32 Function(IntPtr, Pointer<Uint8>, Uint32, Pointer<Uint32>, Pointer<_OVERLAPPED>),
+      int Function(int, Pointer<Uint8>, int, Pointer<Uint32>, Pointer<_OVERLAPPED>)
+    >('ReadFile');
+final _writeFile = _k32
+    .lookupFunction<
+      Int32 Function(IntPtr, Pointer<Uint8>, Uint32, Pointer<Uint32>, Pointer<_OVERLAPPED>),
+      int Function(int, Pointer<Uint8>, int, Pointer<Uint32>, Pointer<_OVERLAPPED>)
+    >('WriteFile');
+final _getOverlappedResult = _k32
+    .lookupFunction<
+      Int32 Function(IntPtr, Pointer<_OVERLAPPED>, Pointer<Uint32>, Int32),
+      int Function(int, Pointer<_OVERLAPPED>, Pointer<Uint32>, int)
+    >('GetOverlappedResult');
+final _createEvent = _k32
+    .lookupFunction<
+      IntPtr Function(Pointer<Void>, Int32, Int32, Pointer<Utf16>),
+      int Function(Pointer<Void>, int, int, Pointer<Utf16>)
+    >('CreateEventW');
+final _cancelIoEx = _k32
+    .lookupFunction<Int32 Function(IntPtr, Pointer<_OVERLAPPED>), int Function(int, Pointer<_OVERLAPPED>)>(
+      'CancelIoEx',
+    );
 final _closeHandle = _k32.lookupFunction<Int32 Function(IntPtr), int Function(int)>('CloseHandle');
 final _localFree = _k32.lookupFunction<IntPtr Function(Pointer<Void>), int Function(Pointer<Void>)>('LocalFree');
 final _getCurrentProcess = _k32.lookupFunction<IntPtr Function(), int Function()>('GetCurrentProcess');
-final _openProcessToken = _adv.lookupFunction<Int32 Function(IntPtr, Uint32, Pointer<IntPtr>),
-    int Function(int, int, Pointer<IntPtr>)>('OpenProcessToken');
-final _getTokenInformation = _adv.lookupFunction<
-    Int32 Function(IntPtr, Int32, Pointer<Void>, Uint32, Pointer<Uint32>),
-    int Function(int, int, Pointer<Void>, int, Pointer<Uint32>)>('GetTokenInformation');
-final _convertSidToStringSid = _adv.lookupFunction<Int32 Function(Pointer<Void>, Pointer<Pointer<Utf16>>),
-    int Function(Pointer<Void>, Pointer<Pointer<Utf16>>)>('ConvertSidToStringSidW');
-final _equalSid = _adv.lookupFunction<Int32 Function(Pointer<Void>, Pointer<Void>),
-    int Function(Pointer<Void>, Pointer<Void>)>('EqualSid');
-final _getSecurityInfo = _adv.lookupFunction<
-    Uint32 Function(IntPtr, Int32, Uint32, Pointer<Pointer<Void>>, Pointer<Pointer<Void>>, Pointer<Pointer<Void>>,
-        Pointer<Pointer<Void>>, Pointer<Pointer<Void>>),
-    int Function(int, int, int, Pointer<Pointer<Void>>, Pointer<Pointer<Void>>, Pointer<Pointer<Void>>,
-        Pointer<Pointer<Void>>, Pointer<Pointer<Void>>)>('GetSecurityInfo');
+final _openProcessToken = _adv
+    .lookupFunction<Int32 Function(IntPtr, Uint32, Pointer<IntPtr>), int Function(int, int, Pointer<IntPtr>)>(
+      'OpenProcessToken',
+    );
+final _getTokenInformation = _adv
+    .lookupFunction<
+      Int32 Function(IntPtr, Int32, Pointer<Void>, Uint32, Pointer<Uint32>),
+      int Function(int, int, Pointer<Void>, int, Pointer<Uint32>)
+    >('GetTokenInformation');
+final _convertSidToStringSid = _adv
+    .lookupFunction<
+      Int32 Function(Pointer<Void>, Pointer<Pointer<Utf16>>),
+      int Function(Pointer<Void>, Pointer<Pointer<Utf16>>)
+    >('ConvertSidToStringSidW');
+final _equalSid = _adv
+    .lookupFunction<Int32 Function(Pointer<Void>, Pointer<Void>), int Function(Pointer<Void>, Pointer<Void>)>(
+      'EqualSid',
+    );
+final _getSecurityInfo = _adv
+    .lookupFunction<
+      Uint32 Function(
+        IntPtr,
+        Int32,
+        Uint32,
+        Pointer<Pointer<Void>>,
+        Pointer<Pointer<Void>>,
+        Pointer<Pointer<Void>>,
+        Pointer<Pointer<Void>>,
+        Pointer<Pointer<Void>>,
+      ),
+      int Function(
+        int,
+        int,
+        int,
+        Pointer<Pointer<Void>>,
+        Pointer<Pointer<Void>>,
+        Pointer<Pointer<Void>>,
+        Pointer<Pointer<Void>>,
+        Pointer<Pointer<Void>>,
+      )
+    >('GetSecurityInfo');
 
 const _genericReadWrite = 0xC0000000;
 const _openExisting = 3;
@@ -107,16 +147,16 @@ T _withUserSid<T>(T Function(Pointer<Void> sid) body) {
 
 /// The current user's SID as a string, e.g. S-1-5-21-…
 String userSid() => _withUserSid((sid) {
-      final out = calloc<Pointer<Utf16>>();
-      try {
-        if (_convertSidToStringSid(sid, out) == 0) throw StateError('ConvertSidToStringSid failed');
-        final s = out.value.toDartString();
-        _localFree(out.value.cast());
-        return s;
-      } finally {
-        calloc.free(out);
-      }
-    });
+  final out = calloc<Pointer<Utf16>>();
+  try {
+    if (_convertSidToStringSid(sid, out) == 0) throw StateError('ConvertSidToStringSid failed');
+    final s = out.value.toDartString();
+    _localFree(out.value.cast());
+    return s;
+  } finally {
+    calloc.free(out);
+  }
+});
 
 String enginePipeName([String? sid]) => r'\\.\pipe\NOBADFind-' + (sid ?? userSid());
 
@@ -124,8 +164,16 @@ bool _ownedByMe(int handle) {
   final owner = calloc<Pointer<Void>>();
   final sd = calloc<Pointer<Void>>();
   try {
-    final err = _getSecurityInfo(handle, _seKernelObject, _ownerSecurityInformation, owner, nullptr, nullptr,
-        nullptr, sd);
+    final err = _getSecurityInfo(
+      handle,
+      _seKernelObject,
+      _ownerSecurityInformation,
+      owner,
+      nullptr,
+      nullptr,
+      nullptr,
+      sd,
+    );
     if (err != 0 || owner.value == nullptr) return false;
     final same = _withUserSid((me) => _equalSid(owner.value, me) != 0);
     _localFree(sd.value);
@@ -168,8 +216,15 @@ class PipeTransport implements Transport {
     }
   }
 
-  static int _open(Pointer<Utf16> path) => _createFile(path, _genericReadWrite, 0, nullptr, _openExisting,
-      _fileFlagOverlapped | _securitySqosPresent | _securityIdentification, 0);
+  static int _open(Pointer<Utf16> path) => _createFile(
+    path,
+    _genericReadWrite,
+    0,
+    nullptr,
+    _openExisting,
+    _fileFlagOverlapped | _securitySqosPresent | _securityIdentification,
+    0,
+  );
 
   final int _handle;
   final _wov = calloc<_OVERLAPPED>();

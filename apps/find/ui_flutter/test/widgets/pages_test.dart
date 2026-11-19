@@ -101,7 +101,9 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Add folder').first);
       await tester.pumpAndSettle();
-      expect(engine.settingsSet.last, {'roots': [r'C:\Users\me\Projects']});
+      expect(engine.settingsSet.last, {
+        'roots': [r'C:\Users\me\Projects'],
+      });
       expect(find.text(r'C:\Users\me\Projects'), findsOneWidget);
 
       await tester.tap(find.text('Privacy'));

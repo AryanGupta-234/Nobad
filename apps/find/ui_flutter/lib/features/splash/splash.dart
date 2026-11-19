@@ -18,18 +18,25 @@ class Splash extends StatelessWidget {
     return ColoredBox(
       color: c.bg,
       child: Center(
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Transform.rotate(angle: -.12, child: const NbMark(size: 92)),
-          const SizedBox(width: 28),
-          Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('NOBAD', style: NbType.display(36, c.text)),
-            Text('FIND', style: NbType.display(36, c.orange)),
-            const SizedBox(height: 10),
-            const SignalRule(width: 38),
-            const SizedBox(height: 12),
-            Text('Private file search. Offline.', style: NbType.data(12, c.muted)),
-          ]),
-        ]),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Transform.rotate(angle: -.12, child: const NbMark(size: 92)),
+            const SizedBox(width: 28),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('NOBAD', style: NbType.display(36, c.text)),
+                Text('FIND', style: NbType.display(36, c.orange)),
+                const SizedBox(height: 10),
+                const SignalRule(width: 38),
+                const SizedBox(height: 12),
+                Text('Private file search. Offline.', style: NbType.data(12, c.muted)),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

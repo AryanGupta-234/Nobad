@@ -41,8 +41,7 @@ void main() {
 
   group('status', () {
     test('the brief status the prototype engine sends', () {
-      final s = EngineStatus.fromJson(
-          {'level': 'gentle', 'reason': 'r', 'phase': 'text', 'files': 12, 'paused': ''});
+      final s = EngineStatus.fromJson({'level': 'gentle', 'reason': 'r', 'phase': 'text', 'files': 12, 'paused': ''});
       expect(s.levelLabel, 'Working gently');
       expect(s.phaseLabel, 'Reading text');
       expect(s.details, isNull);
@@ -54,21 +53,66 @@ void main() {
 
     test('the full status (api.status) fills the details, odd values become safe defaults', () {
       final s = EngineStatus.fromJson({
-        'level': 'full', 'reason': 'Away', 'phase': 'watching', 'files': 48210, 'with_text': 9000,
-        'vectors': 100, 'name_vectors': 20, 'photo_vectors': 7, 'encrypted': true, 'db_bytes': 10485760,
-        'version': '0.7.0', 'roots': [r'C:\Users\me', 3], 'ocr': 'Windows OCR is missing',
-        'drives': [{'root': r'E:\', 'label': 'USB', 'type': 'removable', 'present': false}, 'junk'],
+        'level': 'full',
+        'reason': 'Away',
+        'phase': 'watching',
+        'files': 48210,
+        'with_text': 9000,
+        'vectors': 100,
+        'name_vectors': 20,
+        'photo_vectors': 7,
+        'encrypted': true,
+        'db_bytes': 10485760,
+        'version': '0.7.0',
+        'roots': [r'C:\Users\me', 3],
+        'ocr': 'Windows OCR is missing',
+        'drives': [
+          {'root': r'E:\', 'label': 'USB', 'type': 'removable', 'present': false},
+          'junk',
+        ],
         'plan': {'cpu': 16, 'text_workers': 4, 'text_workers_idle': 6, 'ssd': true},
         'speed': "gentle (you're using the PC)",
-        'resources': {'cpu': 3.5, 'memory_mb': 300, 'read_mb_s': 1.25, 'gpu': null,
-          'processes': [{'name': 'Main', 'pid': 1, 'cpu': 1.0, 'memory_mb': 120}]},
-        'history': [{'t': 1.0, 'find_cpu': 2.0, 'find_mb': 300}, {'t': 'x'}],
-        'phases': [{'id': 'names', 'label': 'Finding file names', 'state': 'done', 'done': 5, 'total': null,
-          'rate': 0, 'eta_s': null}],
-        'models': [{'id': 'meaning', 'name': 'Meaning search (all-MiniLM-L6-v2)', 'license': 'Apache-2.0',
-          'size_mb': 23, 'on_disk': true, 'loaded': false, 'memory_mb': null, 'device': 'CPU', 'items': 120,
-          'download': null}],
-        'activity': [{'t': 1700000000.0, 'kind': 'level', 'text': 'Gentle: you are using the PC'}],
+        'resources': {
+          'cpu': 3.5,
+          'memory_mb': 300,
+          'read_mb_s': 1.25,
+          'gpu': null,
+          'processes': [
+            {'name': 'Main', 'pid': 1, 'cpu': 1.0, 'memory_mb': 120},
+          ],
+        },
+        'history': [
+          {'t': 1.0, 'find_cpu': 2.0, 'find_mb': 300},
+          {'t': 'x'},
+        ],
+        'phases': [
+          {
+            'id': 'names',
+            'label': 'Finding file names',
+            'state': 'done',
+            'done': 5,
+            'total': null,
+            'rate': 0,
+            'eta_s': null,
+          },
+        ],
+        'models': [
+          {
+            'id': 'meaning',
+            'name': 'Meaning search (all-MiniLM-L6-v2)',
+            'license': 'Apache-2.0',
+            'size_mb': 23,
+            'on_disk': true,
+            'loaded': false,
+            'memory_mb': null,
+            'device': 'CPU',
+            'items': 120,
+            'download': null,
+          },
+        ],
+        'activity': [
+          {'t': 1700000000.0, 'kind': 'level', 'text': 'Gentle: you are using the PC'},
+        ],
         'model': {'state': 'downloading', 'got': 50, 'size': 100, 'error': ''},
         'memory_mb': double.nan,
       });
@@ -98,17 +142,29 @@ void main() {
       ModelCard card(Map<String, Object?> m) => ModelCard.fromJson({'name': 'x', ...m})!;
       expect(card({'loaded': true, 'device': 'GPU'}).stateLine, 'In use now on GPU');
       expect(card({'on_disk': false}).stateLine, 'Not downloaded');
-      expect(card({'download': {'got_mb': 5, 'size_mb': 23, 'mb_s': 1.5}}).stateLine,
-          'Downloading 5.0 MB of 23 MB at 1.5 MB/s');
-      expect(card({'size_mb': 23, 'license': 'Apache-2.0', 'items': 1200}).facts,
-          '23 MB download · Apache-2.0 · 1,200 items made');
+      expect(
+        card({
+          'download': {'got_mb': 5, 'size_mb': 23, 'mb_s': 1.5},
+        }).stateLine,
+        'Downloading 5.0 MB of 23 MB at 1.5 MB/s',
+      );
+      expect(
+        card({'size_mb': 23, 'license': 'Apache-2.0', 'items': 1200}).facts,
+        '23 MB download · Apache-2.0 · 1,200 items made',
+      );
       expect(card({'size_mb': 0, 'license': 'Windows'}).facts, 'Built into Windows · Windows');
     });
 
     test('a pipeline row: count and the extra line', () {
-      final p = PhaseRow.fromJson(
-          {'id': 'text', 'label': 'Reading documents', 'state': 'running', 'done': 50, 'total': 200, 'rate': 2.0,
-            'eta_s': 75})!;
+      final p = PhaseRow.fromJson({
+        'id': 'text',
+        'label': 'Reading documents',
+        'state': 'running',
+        'done': 50,
+        'total': 200,
+        'rate': 2.0,
+        'eta_s': 75,
+      })!;
       expect(p.fraction, .25);
       expect(p.count, '50 / 200');
       expect(p.extra, '2.0 files per second · done in about 1 min');
