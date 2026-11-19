@@ -116,6 +116,9 @@ abstract class EngineApi {
   Future<ActionResult> modelRemove(String id);
   Future<AutoConfig> autoConfigure();
 
+  /// "English first", "Many languages" or "Hindi + English": changes the recommendation only.
+  Future<ActionResult> modelLanguage(String focus);
+
   /// Windows' "Open with" dialog for the result.
   Future<ActionResult> openWith(int id);
 

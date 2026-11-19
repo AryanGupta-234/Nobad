@@ -34,7 +34,9 @@ void main() {
     tester.view.physicalSize = const Size(1080, 720);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    final recent = RecentSearches(null)..add('rent agreement')..add('budget');
+    final recent = RecentSearches(null)
+      ..add('rent agreement')
+      ..add('budget');
     await tester.pumpWidget(NobadFindApp(engine: FakeEngine(), window: FakeWindow(), splash: false, recent: recent));
     await tester.pumpAndSettle();
     expect(find.text('budget'), findsOneWidget);

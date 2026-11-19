@@ -37,8 +37,14 @@ void main() {
     tester.view.physicalSize = const Size(1080, 720);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(NobadFindApp(engine: FakeEngine(), window: FakeWindow(), splash: false,
-        startPage: AppPage.parse(['--page', 'settings'])));
+    await tester.pumpWidget(
+      NobadFindApp(
+        engine: FakeEngine(),
+        window: FakeWindow(),
+        splash: false,
+        startPage: AppPage.parse(['--page', 'settings']),
+      ),
+    );
     await tester.pumpAndSettle();
     expect(find.text('SETTINGS'), findsOneWidget);
   });

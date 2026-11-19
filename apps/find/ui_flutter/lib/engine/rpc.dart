@@ -382,6 +382,7 @@ class EngineClient {
   Future<ActionResult> modelDownload(String id) => _ok('model_download', {'id': id, 'consent': 'DOWNLOAD'});
   Future<ActionResult> modelRemove(String id) => _ok('model_remove', {'id': id});
   Future<AutoConfig> autoConfigure() async => AutoConfig.fromJson(await call('auto_configure'));
+  Future<ActionResult> modelLanguage(String focus) => _ok('model_language', {'focus': focus});
   Future<ActionResult> openWith(int id) => _ok('open_with', {'id': id}, false);
 
   Future<Uint8List?> thumbnail(int id) {

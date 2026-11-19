@@ -57,6 +57,7 @@ class EngineStatus {
     'images': 'Reading photos and scans',
     'photos': 'Understanding photos',
     'meaning': 'Learning meaning',
+    'rebuild': 'Rebuilding meaning',
     'watching': 'Up to date',
     'error': 'Stopped',
   };

@@ -27,7 +27,11 @@ final _rules = <TypedRule>[
   TypedRule(_w('zips?|archives?'), 'Kind: Archives', const SearchFilters(kind: 'archive')),
   TypedRule(_w('emails?|mails?'), 'Kind: E-mail', const SearchFilters(kind: 'email')),
   TypedRule(_w('today', lead: _timeLead), 'Changed: Today', const SearchFilters(modified: 'today')),
-  TypedRule(_w('(?:last|this|past) week', lead: _timeLead), 'Changed: Last 7 days', const SearchFilters(modified: 'week')),
+  TypedRule(
+    _w('(?:last|this|past) week', lead: _timeLead),
+    'Changed: Last 7 days',
+    const SearchFilters(modified: 'week'),
+  ),
   TypedRule(
     _w('(?:last|this|past) month', lead: _timeLead),
     'Changed: Last 30 days',

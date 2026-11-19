@@ -115,4 +115,48 @@ void main() {
     expect((EngineEvent.parse('show', {'what': 'index', 'text': null}) as ShowEvent).what, 'index');
     expect((EngineEvent.parse('show', {'what': 'nonsense'}) as ShowEvent).what, 'main');
   });
+
+  test('language focus, the language group of a text model, and quality scores when sent', () {
+    final m = ModelsInfo.fromJson({
+      ...sample,
+      'language_focus': 'hindi',
+      'models': [
+        {
+          'id': 'minilm-l6-v2',
+          'feature': 'text',
+          'languages': ['en'],
+        },
+        {
+          'id': 'multilingual-e5-small',
+          'feature': 'text',
+          'languages': ['en', 'hi', 'multilingual (about 100 languages)'],
+          'quality': {'recall5': 0.82, 'ndcg10': 0.71},
+        },
+        {
+          'id': 'labse',
+          'feature': 'text',
+          'languages': ['hi', 'en', 'multilingual'],
+        },
+        {
+          'id': 'bge-small',
+          'feature': 'text',
+          'languages': ['en'],
+          'focus': 'english',
+        },
+      ],
+    });
+    expect(m.languageFocus, LanguageFocus.hindi);
+    expect(m.models.map((x) => x.focus), [
+      LanguageFocus.english,
+      LanguageFocus.multilingual,
+      LanguageFocus.hindi,
+      LanguageFocus.english,
+    ]);
+    expect(m.models[1].quality!.recall5, 0.82);
+    expect(m.models.first.quality, isNull);
+    expect(m.models[1].languageText, 'English, Hindi, about 100 languages');
+    expect(ModelsInfo.fromJson(sample).languageFocus, isNull); // an engine without it: no control shown
+    expect(LanguageFocus.multilingual.wire, 'multilingual');
+    expect(LanguageFocus.hindi.label, 'Hindi + English');
+  });
 }

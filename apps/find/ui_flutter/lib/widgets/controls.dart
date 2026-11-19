@@ -467,3 +467,77 @@ class KeyHints extends StatelessWidget {
     );
   }
 }
+
+/// A row of choices, one lit (a small glass pill): Settings' "English first / Many languages / Hindi + English",
+/// "Whole PC / My files / Custom". [badge] marks one choice ("Recommended").
+class NbSegmented<T> extends StatelessWidget {
+  const NbSegmented({
+    super.key,
+    required this.value,
+    required this.options,
+    required this.onChanged,
+    this.badge,
+    this.badgeText = 'Recommended',
+  });
+  final T? value;
+  final List<(T, String)> options;
+  final ValueChanged<T>? onChanged;
+  final T? badge;
+  final String badgeText;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = NbColors.of(context);
+    Widget seg(T v, String label) {
+      final on = v == value;
+      return Pressable(
+        onTap: onChanged == null ? null : () => onChanged!(v),
+        selected: on,
+        semanticLabel: v == badge ? '$label, $badgeText' : label,
+        ringRadius: NbRadius.pillAll,
+        builder: (context, p) => AnimatedContainer(
+          duration: NbMotion.of(context, NbMotion.base),
+          curve: NbMotion.curve,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+          decoration: BoxDecoration(
+            color: on ? c.orangeA(c.isDark ? .16 : .12) : (p.lit ? c.cardHover : null),
+            border: Border.all(color: on ? c.orangeA(.55) : const Color(0x00000000)),
+            borderRadius: NbRadius.pillAll,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: NbType.text(
+                  13,
+                  on ? c.text : (p.lit ? c.muted : c.dim),
+                  weight: on ? FontWeight.w600 : FontWeight.w500,
+                  height: 1.2,
+                ),
+              ),
+              if (v == badge) ...[
+                const SizedBox(width: 7),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                  decoration: BoxDecoration(color: c.orangeA(.14), borderRadius: NbRadius.pillAll),
+                  child: Text(badgeText, style: NbType.text(10.5, c.orange, weight: FontWeight.w600, height: 1.3)),
+                ),
+              ],
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: c.card,
+        border: Border.all(color: c.line),
+        borderRadius: NbRadius.pillAll,
+      ),
+      child: Wrap(spacing: 2, runSpacing: 2, children: [for (final (v, l) in options) seg(v, l)]),
+    );
+  }
+}

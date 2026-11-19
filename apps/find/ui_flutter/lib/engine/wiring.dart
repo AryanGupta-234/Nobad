@@ -131,6 +131,8 @@ class PipeEngine implements EngineApi {
   Future<ActionResult> modelRemove(String id) => _pipe.modelRemove(id);
   @override
   Future<AutoConfig> autoConfigure() => _pipe.autoConfigure();
+  @override
+  Future<ActionResult> modelLanguage(String focus) => _pipe.modelLanguage(focus);
 
   @override
   Future<ActionResult> openWith(int id) {

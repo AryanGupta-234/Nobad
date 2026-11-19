@@ -373,15 +373,28 @@ class FakeEngine implements EngineApi {
   @override
   Future<ModelsInfo> models() => _new('models', () => modelsInfo);
 
+  /// Settings → Models' language choice (`model_language`): only the recommendation changes.
+  @override
+  Future<ActionResult> modelLanguage(String focus) => _new('model_language', () {
+    final f = LanguageFocus.parse(focus);
+    if (f == null) return const ActionResult(false, 'Choose English, many languages or Hindi.');
+    modelsInfo = demoModels(focus: f, from: modelsInfo);
+    emit(ModelsEvent(modelsInfo));
+    return _ok;
+  });
+
+  /// A text model was switched: the meaning vectors are rebuilt (status_full gets a "rebuild" phase).
+  bool rebuilding = false;
+
   @override
   Future<ModelUse> modelUse(String feature, String id) => _new('model_use', () {
     final m = modelsInfo.models.where((x) => x.id == id).firstOrNull;
     if (m == null) return const ModelUse(false, error: 'No such model.');
-    if (!m.onDisk) return const ModelUse(false, needsDownload: true);
+    if (!m.onDisk) return const ModelUse(true, needsDownload: true);
+    if (feature == 'text') rebuilding = true;
     _setModels(
       (x) => x.feature == feature
-          ? _with(
-              x,
+          ? x.withState(
               x.id == id ? ModelUseState.active : (x.state == ModelUseState.active ? ModelUseState.ready : x.state),
             )
           : x,
@@ -394,11 +407,11 @@ class FakeEngine implements EngineApi {
   Future<ActionResult> modelDownload(String id) => _new('model_download', () {
     final m = modelsInfo.models.where((x) => x.id == id).firstOrNull;
     if (m == null) return const ActionResult(false, 'No such model.');
-    _setModels((x) => x.id == id ? _with(x, ModelUseState.downloading) : x);
+    _setModels((x) => x.id == id ? x.withState(ModelUseState.downloading) : x);
     emit(DownloadEvent(id: id, state: 'downloading', sizeMb: m.sizeMb));
     if (live) {
       Timer(const Duration(seconds: 2), () {
-        _setModels((x) => x.id == id ? _with(x, ModelUseState.ready) : x);
+        _setModels((x) => x.id == id ? x.withState(ModelUseState.ready) : x);
         emit(DownloadEvent(id: id, state: 'ready', gotMb: m.sizeMb, sizeMb: m.sizeMb));
       });
     }
@@ -407,7 +420,7 @@ class FakeEngine implements EngineApi {
 
   @override
   Future<ActionResult> modelRemove(String id) => _new('model_remove', () {
-    _setModels((x) => x.id == id && !x.builtin ? _with(x, ModelUseState.notDownloaded) : x);
+    _setModels((x) => x.id == id && !x.builtin ? x.withState(ModelUseState.notDownloaded) : x);
     return _ok;
   });
 
@@ -431,29 +444,11 @@ class FakeEngine implements EngineApi {
       pc: modelsInfo.pc,
       tierRecommended: modelsInfo.tierRecommended,
       tierCurrent: tier ?? modelsInfo.tierCurrent,
+      languageFocus: modelsInfo.languageFocus,
       models: [for (final m in modelsInfo.models) f(m)],
     );
     emit(ModelsEvent(modelsInfo));
   }
-
-  static ModelInfo _with(ModelInfo m, ModelUseState s) => ModelInfo(
-    id: m.id,
-    feature: m.feature,
-    name: m.name,
-    tier: m.tier,
-    licence: m.licence,
-    source: m.source,
-    sizeMb: m.sizeMb,
-    ramMb: m.ramMb,
-    speedNote: m.speedNote,
-    languages: m.languages,
-    improves: m.improves,
-    builtin: m.builtin,
-    state: s,
-    capable: m.capable,
-    capableReason: m.capableReason,
-    recommended: m.recommended,
-  );
 
   @override
   Future<ActionResult> quit() => _answer('quit', () {
@@ -550,6 +545,16 @@ class FakeEngine implements EngineApi {
             state: meaning.ready ? PhaseState.waiting : PhaseState.off,
           ),
           PhaseRow(id: 'photos', label: 'Looking at photos', state: photoM.ready ? PhaseState.waiting : PhaseState.off),
+          if (rebuilding)
+            PhaseRow(
+              id: 'rebuild',
+              label: 'Rebuilding meaning for the new model (the old one works until it is done)',
+              state: PhaseState.running,
+              done: 9120 + shift * 40,
+              total: 48210,
+              rate: 38,
+              etaS: 1030 - shift * 2,
+            ),
           const PhaseRow(id: 'watching', label: 'Watching for changes', state: PhaseState.waiting),
         ],
         models: [
@@ -767,92 +772,148 @@ List<FileResult> manyFiles(int n) => [
     FileResult(id: 100 + i, name: 'report $i.pdf', dir: r'C:\Users\me\Reports\Quarterly\Archive', kind: 'pdf'),
 ];
 
-/// The model catalogue of a made-up 16-thread laptop (the shapes of the 0.8 contract).
-ModelsInfo demoModels() => const ModelsInfo(
-  pc: Hardware(
-    ramGb: 15.7,
-    cores: 12,
-    threads: 16,
-    avx2: true,
-    gpu: 'Intel(R) Iris(R) Xe Graphics',
-    vramGb: 0.1,
-    diskFreeGb: 211.4,
-    ssd: true,
-  ),
-  tierRecommended: 'balanced',
-  tierCurrent: 'light',
-  models: [
-    ModelInfo(
-      id: 'minilm',
-      feature: 'text',
+/// The engine's 0.8 catalogue (nobadfind/models.py) as a made-up 6-core laptop would see it: Balanced is
+/// recommended, the Best models need more than it has. [focus] picks the recommended text model like the engine's
+/// TEXT_CHOICE; [from] keeps the download and use states of an earlier catalogue.
+ModelsInfo demoModels({LanguageFocus focus = LanguageFocus.multilingual, ModelsInfo? from}) {
+  const best = 'Needs 16 GB of memory and 8 cores (or a graphics card with 4 GB for DirectML)';
+  final text = focus == LanguageFocus.english ? 'bge-small-en-v1.5' : 'multilingual-e5-small';
+  const hiEn = ['hi', 'en', 'multilingual'];
+  const many = ['en', 'hi', 'multilingual (about 100 languages)'];
+  final all = <ModelInfo>[
+    const ModelInfo(
+      id: 'minilm-l6-v2',
       name: 'all-MiniLM-L6-v2',
       tier: 'light',
       licence: 'Apache-2.0',
-      source: 'Hugging Face (sentence-transformers)',
-      sizeMb: 23,
-      ramMb: 90,
-      speedNote: 'Fast on any PC',
-      languages: ['English'],
+      source: 'https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2',
+      sizeMb: 87,
+      ramMb: 60,
+      speedNote: 'fast: about 40 pieces of text a second on this PC',
+      languages: ['en'],
       improves: 'Finds files by what they mean, in English',
       state: ModelUseState.active,
+      quality: ModelQuality(recall5: .71, ndcg10: .62),
     ),
-    ModelInfo(
-      id: 'e5-small',
-      feature: 'text',
+    const ModelInfo(
+      id: 'bge-small-en-v1.5',
+      name: 'BGE small (English) v1.5',
+      tier: 'light',
+      licence: 'MIT',
+      source: 'https://huggingface.co/BAAI/bge-small-en-v1.5 (ONNX: Xenova/bge-small-en-v1.5)',
+      sizeMb: 33,
+      languages: ['en'],
+      quality: ModelQuality(recall5: .78, ndcg10: .69),
+    ),
+    const ModelInfo(
+      id: 'bge-base-en-v1.5',
+      name: 'BGE base (English) v1.5',
+      tier: 'balanced',
+      licence: 'MIT',
+      source: 'https://huggingface.co/BAAI/bge-base-en-v1.5 (ONNX: Xenova/bge-base-en-v1.5)',
+      sizeMb: 106,
+      languages: ['en'],
+    ),
+    const ModelInfo(
+      id: 'multilingual-e5-small',
       name: 'multilingual-e5-small',
       tier: 'balanced',
       licence: 'MIT',
-      source: 'Hugging Face (intfloat)',
-      sizeMb: 118,
-      ramMb: 260,
-      speedNote: 'About half the speed of Light',
-      languages: ['100+ languages, Hindi and mixed included'],
-      improves: 'Meaning search in your languages',
-      recommended: true,
+      source: 'https://huggingface.co/intfloat/multilingual-e5-small (ONNX: Xenova/multilingual-e5-small)',
+      sizeMb: 129,
+      languages: many,
+      improves: 'Finds files by meaning in Hindi, mixed Hindi and English, and about 100 other languages',
+      quality: ModelQuality(recall5: .80, ndcg10: .70),
     ),
-    ModelInfo(
-      id: 'e5-base',
-      feature: 'text',
+    const ModelInfo(
+      id: 'multilingual-e5-base',
       name: 'multilingual-e5-base',
       tier: 'best',
       licence: 'MIT',
-      source: 'Hugging Face (intfloat)',
-      sizeMb: 278,
-      ramMb: 640,
-      speedNote: 'Slow without a graphics card',
-      languages: ['100+ languages'],
-      improves: 'The closest matches in many languages',
+      source: 'https://huggingface.co/intfloat/multilingual-e5-base (ONNX: Xenova/multilingual-e5-base)',
+      sizeMb: 282,
+      languages: many,
+      improves: 'The most accurate meaning search, in Hindi, mixed Hindi and English and about 100 languages',
       capable: false,
-      capableReason: 'Needs a graphics card that can run models, or 24 GB of memory',
+      capableReason: best,
     ),
-    ModelInfo(
-      id: 'siglip-base',
-      feature: 'photo',
-      name: 'SigLIP base (Google)',
+    const ModelInfo(
+      id: 'paraphrase-multilingual-minilm',
+      name: 'paraphrase-multilingual-MiniLM-L12-v2',
       tier: 'balanced',
       licence: 'Apache-2.0',
-      source: 'Hugging Face (google)',
-      sizeMb: 211,
-      ramMb: 420,
-      speedNote: 'A few photos per second the first time',
-      languages: ['English'],
-      improves: 'Finds photos by what is in them',
-      recommended: true,
+      source: 'https://huggingface.co/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2',
+      sizeMb: 122,
+      languages: hiEn,
     ),
-    ModelInfo(
-      id: 'winocr',
+    const ModelInfo(
+      id: 'labse',
+      name: 'LaBSE',
+      tier: 'best',
+      licence: 'Apache-2.0',
+      source: 'https://huggingface.co/sentence-transformers/LaBSE (ONNX: Xenova/LaBSE)',
+      sizeMb: 463,
+      languages: hiEn,
+      capable: false,
+      capableReason: best,
+    ),
+    const ModelInfo(
+      id: 'siglip-base',
+      feature: 'photo',
+      name: 'SigLIP base',
+      tier: 'balanced',
+      licence: 'Apache-2.0',
+      source: 'https://huggingface.co/google/siglip-base-patch16-224 (ONNX: Xenova/siglip-base-patch16-224)',
+      sizeMb: 211,
+      languages: ['en'],
+      improves: "Finds photos by what's in them (English questions)",
+    ),
+    const ModelInfo(
+      id: 'siglip2-base',
+      feature: 'photo',
+      name: 'SigLIP 2 base',
+      tier: 'best',
+      licence: 'Apache-2.0',
+      source:
+          'https://huggingface.co/google/siglip2-base-patch16-224 (ONNX: onnx-community/siglip2-base-patch16-224-ONNX)',
+      sizeMb: 393,
+      languages: ['en', 'hi', 'multilingual'],
+      improves: 'Finds photos more accurately, and with questions in many languages',
+      capable: false,
+      capableReason: best,
+    ),
+    const ModelInfo(
+      id: 'windows-ocr',
       feature: 'ocr',
       name: 'Windows OCR',
       tier: 'light',
-      licence: 'Part of Windows',
-      source: 'Built into Windows',
-      ramMb: 60,
-      speedNote: 'Runs after everything else',
-      languages: ['The languages installed in Windows'],
-      improves: 'Words in screenshots, photos and scans',
+      licence: 'Windows',
+      source: 'Windows (Windows.Media.Ocr)',
+      speedNote: 'built into Windows',
+      languages: ['the Windows language packs'],
+      improves: 'Reads words in photos, screenshots and scans',
       builtin: true,
       state: ModelUseState.active,
-      recommended: true,
     ),
-  ],
-);
+  ];
+  final was = {for (final m in from?.models ?? const <ModelInfo>[]) m.id: m.state};
+  return ModelsInfo(
+    pc: const Hardware(
+      ramGb: 15.7,
+      cores: 6,
+      threads: 12,
+      avx2: true,
+      gpu: 'Intel(R) Iris(R) Xe Graphics',
+      vramGb: 0.1,
+      diskFreeGb: 211.4,
+      ssd: true,
+    ),
+    tierRecommended: 'balanced',
+    tierCurrent: from?.tierCurrent ?? 'light',
+    languageFocus: focus,
+    models: [
+      for (final m in all)
+        m.withState(was[m.id] ?? m.state, recommended: m.id == text || m.id == 'siglip-base' || m.id == 'windows-ocr'),
+    ],
+  );
+}

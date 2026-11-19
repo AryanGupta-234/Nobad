@@ -14,6 +14,7 @@ import 'package:flutter/widgets.dart';
 
 abstract final class NbFont {
   static const body = 'Segoe UI Variable Text';
+
   /// Nirmala UI: Devanagari and the other Indic scripts (Hindi file names and snippets).
   static const bodyFallback = ['Segoe UI', 'Nirmala UI', 'Segoe UI Emoji', 'Segoe UI Symbol'];
   static const mono = 'Cascadia Mono';
