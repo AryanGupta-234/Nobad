@@ -24,7 +24,7 @@ abstract final class WindowLook {
   static const _darkMode = 20; // DWMWA_USE_IMMERSIVE_DARK_MODE
   static const _captionColor = 35; // DWMWA_CAPTION_COLOR
   static const _backdrop = 38; // DWMWA_SYSTEMBACKDROP_TYPE
-  static const _backdropNone = 1, _backdropMica = 2, _backdropAcrylic = 3;
+  static const _backdropNone = 1, _backdropAcrylic = 3; // (2 = Mica, used before 0.8.5)
   static const _corner = 33; // DWMWA_WINDOW_CORNER_PREFERENCE: 2 = round
   static const _colorDefault = 0xFFFFFFFF;
 
@@ -62,7 +62,9 @@ abstract final class WindowLook {
         v.value = 2;
         _set!(hwnd, _corner, v.cast(), 4);
       }
-      v.value = glass ? (acrylic ? _backdropAcrylic : _backdropMica) : _backdropNone;
+      // 0.8.5: the main window is frosted too (Acrylic: what's behind it shows through, blurred, like macOS), not
+      // Mica's flat wallpaper tint. Windows composites it, so it costs this process nothing.
+      v.value = glass ? _backdropAcrylic : _backdropNone;
       final tookGlass = _set!(hwnd, _backdrop, v.cast(), 4) == 0 && glass; // fails before Windows 11 22H2
       final m = a<_MARGINS>();
       final e = tookGlass ? -1 : 0;
