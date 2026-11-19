@@ -83,5 +83,6 @@ Future<void> loadWindowsFonts() async {
   await load('Segoe UI Symbol', ['seguisym.ttf']);
   await load('Cascadia Mono', ['CascadiaMono.ttf']);
   await load('Consolas', ['consola.ttf']);
+  await load('Nirmala UI', ['Nirmala.ttc']);
   await load('NOBAD Display', ['ariblk.ttf']);
 }

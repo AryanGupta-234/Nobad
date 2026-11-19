@@ -14,9 +14,10 @@ import 'package:flutter/widgets.dart';
 
 abstract final class NbFont {
   static const body = 'Segoe UI Variable Text';
-  static const bodyFallback = ['Segoe UI', 'Segoe UI Emoji', 'Segoe UI Symbol'];
+  /// Nirmala UI: Devanagari and the other Indic scripts (Hindi file names and snippets).
+  static const bodyFallback = ['Segoe UI', 'Nirmala UI', 'Segoe UI Emoji', 'Segoe UI Symbol'];
   static const mono = 'Cascadia Mono';
-  static const monoFallback = ['Consolas', 'Segoe UI', 'Segoe UI Symbol'];
+  static const monoFallback = ['Consolas', 'Segoe UI', 'Nirmala UI', 'Segoe UI Symbol'];
 
   /// Arial Black, registered from the Windows fonts folder at start ([loadDisplayFont]): asked for by name,
   /// Windows' font matching gives plain Arial (Arial Black is a weight of the Arial family there).

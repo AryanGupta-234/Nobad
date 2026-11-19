@@ -211,3 +211,33 @@ class TailText extends StatelessWidget {
     },
   );
 }
+
+/// [text] with the search's [terms] marked (case-insensitive), as plain text spans: names are never parsed.
+List<TextSpan> highlightSpans(String text, List<String> terms, TextStyle base, NbColors c) {
+  final words = [
+    for (final t in terms)
+      if (t.trim().length > 1) t.trim().toLowerCase(),
+  ];
+  if (words.isEmpty) return [TextSpan(text: text, style: base)];
+  final lower = text.toLowerCase();
+  final marks = List<bool>.filled(text.length, false);
+  for (final w in words) {
+    var i = lower.indexOf(w);
+    while (i >= 0) {
+      for (var k = i; k < i + w.length && k < marks.length; k++) {
+        marks[k] = true;
+      }
+      i = lower.indexOf(w, i + w.length);
+    }
+  }
+  final mark = base.copyWith(color: c.text, backgroundColor: c.orangeA(c.isDark ? .28 : .18));
+  final out = <TextSpan>[];
+  var start = 0;
+  for (var i = 1; i <= text.length; i++) {
+    if (i == text.length || marks[i] != marks[start]) {
+      out.add(TextSpan(text: text.substring(start, i), style: marks[start] ? mark : base));
+      start = i;
+    }
+  }
+  return out;
+}

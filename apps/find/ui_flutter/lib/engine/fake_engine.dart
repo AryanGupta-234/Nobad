@@ -135,6 +135,10 @@ class FakeEngine implements EngineApi {
         if (t.contains('last week')) 'changed in the last 7 days',
         if (t.contains('photo')) 'photos',
       ],
+      terms: [
+        for (final w in t.split(RegExp(r'\s+')))
+          if (w.isNotEmpty && !_stop.contains(w)) w,
+      ],
     );
   });
 

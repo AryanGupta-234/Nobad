@@ -11,6 +11,7 @@ import '../engine/engine_api.dart';
 import '../engine/events.dart';
 import '../engine/models/result.dart';
 
+import 'recent_searches.dart';
 import 'toast_controller.dart';
 
 Future<void> _clipboard(String text) => Clipboard.setData(ClipboardData(text: text));
@@ -22,6 +23,7 @@ class FindController extends ChangeNotifier {
     this.debounce = const Duration(milliseconds: 60),
     this.toasts,
     Future<void> Function(String)? copy,
+    this.recent,
   }) : _copy = copy ?? _clipboard {
     _sub = engine.events.listen((e) {
       if (e is HereEvent && e.path != _here) {
@@ -34,6 +36,19 @@ class FindController extends ChangeNotifier {
   late final StreamSubscription<EngineEvent> _sub;
 
   final EngineApi engine;
+
+  /// Recent searches (UI-local); a search is remembered when one of its results is used.
+  final RecentSearches? recent;
+
+  void _remember() {
+    final r = recent;
+    if (r == null || _askedFor.trim().isEmpty) return;
+    r.add(_askedFor);
+    unawaited(r.save());
+  }
+
+  /// Time since the last keystroke (the screen records keystroke → paint after the frame).
+  Duration get sinceKeystroke => _sinceKeystroke.elapsed;
 
   /// At most this many rows (the quick find bar shows 8); null = all the engine sends.
   final int? limit;
@@ -80,9 +95,21 @@ class FindController extends ChangeNotifier {
   int _lastMs = 0;
   int get lastMs => _lastMs;
 
+  /// Bumped only when results appear where there were none: the cascade plays then, not on every keystroke
+  /// (results that are on screen change in place, so typing never flashes).
+  int revealSerial = 0;
+
+  final _sinceKeystroke = Stopwatch();
+
+  /// Milliseconds from the last keystroke to the answer being ready to paint (the screen adds the frame).
+  int? lastKeystrokeMs;
+
   void setText(String t) {
     if (t == _text) return;
     _text = t;
+    _sinceKeystroke
+      ..reset()
+      ..start();
     _schedule();
   }
 
@@ -148,6 +175,7 @@ class FindController extends ChangeNotifier {
       notice = e.message;
     }
     if (_disposed || my != _seq) return; // a newer search is on its way
+    final hadNone = _answer.results.isEmpty;
     final lim = limit;
     var rows = a.results;
     if (words.trim().isEmpty) rows = rows.where((r) => !r.weak).toList();
@@ -156,6 +184,7 @@ class FindController extends ChangeNotifier {
             results: rows.sublist(0, lim),
             ms: a.ms,
             understood: a.understood,
+            terms: a.terms,
             notes: a.notes,
             more: true,
             error: a.error,
@@ -166,12 +195,15 @@ class FindController extends ChangeNotifier {
                   results: rows,
                   ms: a.ms,
                   understood: a.understood,
+                  terms: a.terms,
                   notes: a.notes,
                   more: a.more,
                   error: a.error,
                 ));
     _askedFor = words;
     serial++;
+    if (hadNone && rows.isNotEmpty) revealSerial++;
+    if (_sinceKeystroke.isRunning) lastKeystrokeMs = _sinceKeystroke.elapsedMilliseconds;
     _lastMs = clock.elapsedMilliseconds;
     _selected = 0;
     _notice = notice.isNotEmpty ? notice : a.error;
@@ -211,6 +243,7 @@ class FindController extends ChangeNotifier {
   }
 
   Future<bool> _act(Future<ActionResult> Function(int id) how, String failed) async {
+    _remember();
     final r = current;
     if (r == null) return false;
     var res = const ActionResult(false);
@@ -242,6 +275,7 @@ class FindController extends ChangeNotifier {
       return false;
     }
     await _copy(path);
+    _remember();
     _say('Path copied.');
     return true;
   }

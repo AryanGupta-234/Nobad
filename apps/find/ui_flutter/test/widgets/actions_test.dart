@@ -1,6 +1,5 @@
 import 'package:flutter/gestures.dart' show kSecondaryButton;
 import 'package:flutter/services.dart';
-import 'package:flutter/widgets.dart' show Text;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter/foundation.dart';

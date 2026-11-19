@@ -171,7 +171,7 @@ void main() {
     await type(tester, 'evil');
     final shown = tester.widgetList<RichText>(find.byType(RichText)).map((r) => r.text.toPlainText());
     expect(shown, contains(name));
-    expect(find.byWidgetPredicate((w) => w is Text && w.data == name), findsOneWidget);
+    expect(find.byWidgetPredicate((w) => w is Text && (w.data ?? w.textSpan?.toPlainText()) == name), findsOneWidget);
   });
 
   testWidgets('the quick find bar hides when it loses the focus', (tester) async {

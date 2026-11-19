@@ -26,6 +26,9 @@ import '../../widgets/motion.dart';
 import '../../widgets/pressable.dart';
 import 'filter_bar.dart';
 import 'home_view.dart';
+import '../../platform/timing.dart';
+import '../../state/typed_filters.dart';
+import '../../widgets/controls.dart';
 import 'result_actions.dart';
 import 'result_tile.dart';
 import 'status_line.dart';
@@ -65,6 +68,7 @@ class _SearchScreenState extends State<SearchScreen> {
       s.find.setText(box.text);
     });
     s.find.addListener(_follow);
+    s.find.addListener(_measure);
     s.find.addListener(_takeHandOver);
     _takeHandOver();
     _shows = s.engine.events.listen((e) {
@@ -85,11 +89,17 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   GlobalKey rowKey(int id) {
-    if (_keysFor != s.find.serial) {
-      _keysFor = s.find.serial;
-      _rowKeys.clear();
-    }
+    if (_rowKeys.length > 2000) _rowKeys.clear(); // kept across answers: a row that stays keeps its preview
     return _rowKeys.putIfAbsent(id, GlobalKey.new);
+  }
+
+  /// Measurement (NOBAD_FIND_UI_TIMING): keystroke → the frame with the new answer on screen.
+  void _measure() {
+    if (s.find.serial == _keysFor) return;
+    _keysFor = s.find.serial;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      recordTiming('keystroke-to-paint ms=${s.find.sinceKeystroke.inMilliseconds} results=${s.find.results.length}');
+    });
   }
 
   void _follow() {
@@ -132,6 +142,7 @@ class _SearchScreenState extends State<SearchScreen> {
     if (identical(Demo.mainBox, box)) Demo.mainBox = null;
     _shows?.cancel();
     s.find.removeListener(_follow);
+    s.find.removeListener(_measure);
     s.find.removeListener(_takeHandOver);
     box.dispose();
     focus.dispose();
@@ -185,6 +196,13 @@ class _SearchScreenState extends State<SearchScreen> {
 
   /// Keys that only mean something to the results while the selection is being moved (else they edit the words).
   KeyEventResult _navKeys(FocusNode node, KeyEvent e) {
+    if (e is KeyDownEvent && e.logicalKey == LogicalKeyboardKey.tab && !HardwareKeyboard.instance.isShiftPressed) {
+      final sug = suggestFilters(box.text);
+      if (sug.isNotEmpty) {
+        _acceptSuggestion(sug.first);
+        return KeyEventResult.handled;
+      }
+    }
     if (e is! KeyDownEvent || !_navigating || s.find.results.isEmpty) return KeyEventResult.ignored;
     final k = e.logicalKey;
     if (k == LogicalKeyboardKey.space && !HardwareKeyboard.instance.isShiftPressed && !_wide) {
@@ -200,6 +218,20 @@ class _SearchScreenState extends State<SearchScreen> {
       return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
+  }
+
+  void _acceptSuggestion(TypedFilter t) {
+    final (text, filters) = t.accept(box.text, s.find.filters);
+    s.find.setFilters(filters);
+    box.text = text;
+    box.selection = TextSelection.collapsed(offset: text.length);
+    focus.requestFocus();
+  }
+
+  void _setWords(String t) {
+    box.text = t;
+    box.selection = TextSelection.collapsed(offset: t.length);
+    focus.requestFocus();
   }
 
   void _action(ResultAction a) {
@@ -290,7 +322,13 @@ class _SearchScreenState extends State<SearchScreen> {
                       child: _SearchBox(
                         controller: box,
                         focus: focus,
-                        filters: FilterBar(onDone: focus.requestFocus),
+                        filters: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _Suggestions(box: box, onAccept: _acceptSuggestion, onRecent: _setWords),
+                            FilterBar(onDone: focus.requestFocus),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -298,7 +336,8 @@ class _SearchScreenState extends State<SearchScreen> {
               ),
               ListenableBuilder(
                 listenable: s.find,
-                builder: (context, _) => _Meta(find: s.find, cards: _cards, onCards: (v) => setState(() => _cards = v)),
+                builder: (context, _) =>
+                    _Meta(find: s.find, onWords: _setWords, cards: _cards, onCards: (v) => setState(() => _cards = v)),
               ),
               Expanded(
                 child: Stack(
@@ -330,6 +369,17 @@ class _SearchScreenState extends State<SearchScreen> {
                                             padding: EdgeInsets.symmetric(horizontal: NbSpace.x5),
                                             child: SkeletonResults(),
                                           ),
+                                        )
+                                      : s.find.showingResults &&
+                                            !s.find.busy &&
+                                            s.find.results.isEmpty &&
+                                            s.find.askedFor.isNotEmpty
+                                      ? _NoResults(
+                                          key: const ValueKey('none'),
+                                          words: s.find.askedFor,
+                                          hasFilters: !s.find.filters.isEmpty,
+                                          onClearFilters: s.find.clearFilters,
+                                          onWords: _setWords,
                                         )
                                       : !s.find.showingResults
                                       ? HomeView(
@@ -531,8 +581,9 @@ class _SearchBoxState extends State<_SearchBox> {
 }
 
 class _Meta extends StatelessWidget {
-  const _Meta({required this.find, required this.cards, required this.onCards});
+  const _Meta({required this.find, required this.cards, required this.onCards, required this.onWords});
   final FindController find;
+  final ValueChanged<String> onWords;
   final bool cards;
   final ValueChanged<bool> onCards;
 
@@ -571,6 +622,13 @@ class _Meta extends StatelessWidget {
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     for (final u in a.understood)
+                      _Understood(
+                        u,
+                        onRemove: removeUnderstood(find.text, u) == null
+                            ? null
+                            : () => onWords(removeUnderstood(find.text, u)!),
+                      ),
+                    for (final u in const <String>[])
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                         decoration: BoxDecoration(
@@ -682,7 +740,7 @@ class _Results extends StatelessWidget {
           ),
           itemCount: rows.length,
           itemBuilder: (context, i) => Appear(
-            key: ValueKey((s.find.serial, rows[i].id)),
+            key: ValueKey((s.find.revealSerial, rows[i].id)),
             delay: Appear.stagger(i),
             child: ResultCard(
               key: rowKey(rows[i].id),
@@ -709,7 +767,7 @@ class _Results extends StatelessWidget {
           final sel = idx == s.find.selected;
           // each new answer comes in as a short cascade; moving the selection doesn't replay it
           return Appear(
-            key: ValueKey((s.find.serial, rows[idx].id)),
+            key: ValueKey((s.find.revealSerial, rows[idx].id)),
             delay: Appear.stagger(i),
             child: ResultTile(
               key: rowKey(rows[idx].id), // stable: moving the selection only repaints two rows
@@ -719,6 +777,7 @@ class _Results extends StatelessWidget {
               onTap: (reveal) => onTap(idx, reveal),
               onSecondary: (pos) => onSecondary(idx, pos),
               onAction: (a) => onAction(idx, a),
+              terms: s.find.answer.terms,
             ),
           );
         },
@@ -769,6 +828,169 @@ class _DetailSheet extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Under the box: recent searches while it is empty, the filters the words mean while typing (Tab takes one).
+class _Suggestions extends StatelessWidget {
+  const _Suggestions({required this.box, required this.onAccept, required this.onRecent});
+  final TextEditingController box;
+  final ValueChanged<TypedFilter> onAccept;
+  final ValueChanged<String> onRecent;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = AppScope.of(context);
+    final c = NbColors.of(context);
+    final recent = s.find.recent;
+    return ListenableBuilder(
+      listenable: Listenable.merge([box, ?recent]),
+      builder: (context, _) {
+        final text = box.text;
+        final List<Widget> chips;
+        if (text.trim().isEmpty) {
+          final items = recent?.items ?? const <String>[];
+          if (items.isEmpty) return const SizedBox.shrink();
+          chips = [
+            Text('Recent', style: NbType.text(NbSize.small, c.dim, weight: FontWeight.w600)),
+            for (final r in items) NbChipButton(r, onTap: () => onRecent(r), icon: NbGlyph.search),
+            NbChipButton(
+              'Clear',
+              dashed: true,
+              onTap: () => unawaited(recent!.clear()),
+              tooltip: 'Forget these searches',
+            ),
+          ];
+        } else {
+          final sug = suggestFilters(text);
+          if (sug.isEmpty) return const SizedBox.shrink();
+          chips = [
+            for (var i = 0; i < sug.length; i++)
+              NbChipButton(
+                i == 0 ? '${sug[i].label}   Tab' : sug[i].label,
+                on: true,
+                icon: NbGlyph.plus,
+                onTap: () => onAccept(sug[i]),
+                tooltip: 'Use it as a filter',
+              ),
+          ];
+        }
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Wrap(spacing: 6, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: chips),
+        );
+      },
+    );
+  }
+}
+
+/// How the question was read: a chip, removable when this UI knows which words it came from.
+class _Understood extends StatelessWidget {
+  const _Understood(this.text, {required this.onRemove});
+  final String text;
+  final VoidCallback? onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = NbColors.of(context);
+    return Container(
+      padding: EdgeInsets.fromLTRB(10, 3, onRemove == null ? 10 : 4, 3),
+      decoration: BoxDecoration(
+        color: c.orangeA(.07),
+        border: Border.all(color: c.orangeA(.5)),
+        borderRadius: NbRadius.pillAll,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(text, style: NbType.text(NbSize.small, c.orange, weight: FontWeight.w600, height: 1.3)),
+          if (onRemove != null)
+            Pressable(
+              onTap: onRemove,
+              semanticLabel: 'Remove $text',
+              tooltip: 'Search without this',
+              canRequestFocus: false,
+              ringRadius: NbRadius.pillAll,
+              builder: (context, p) => Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: NbIcon(NbGlyph.close, size: 12, color: p.lit ? c.text : c.orange),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Nothing found: say so plainly, and offer the ways on.
+class _NoResults extends StatelessWidget {
+  const _NoResults({
+    super.key,
+    required this.words,
+    required this.hasFilters,
+    required this.onClearFilters,
+    required this.onWords,
+  });
+  final String words;
+  final bool hasFilters;
+  final VoidCallback onClearFilters;
+  final ValueChanged<String> onWords;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = NbColors.of(context);
+    final parts = words.trim().split(RegExp(r'\s+'));
+    final fewer = parts.length > 1 ? parts.sublist(0, parts.length - 1).join(' ') : '';
+    return Align(
+      alignment: Alignment.topCenter,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(NbSpace.x5, NbSpace.x8, NbSpace.x5, 0),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 620),
+          child: Glass(
+            radius: 24,
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text.rich(
+                  TextSpan(
+                    children: [
+                      const TextSpan(text: 'Nothing matches '),
+                      TextSpan(
+                        text: words.trim(),
+                        style: NbType.text(16, c.text, weight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                  style: NbType.text(16, c.muted),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Try fewer or other words, a different kind, or search without the filters.',
+                  style: NbType.text(13.5, c.dim, height: 1.5),
+                ),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    if (hasFilters) NbButton('Search without filters', onPressed: onClearFilters),
+                    if (fewer.isNotEmpty)
+                      NbButton('Search “$fewer”', kind: NbButtonKind.ghost, onPressed: () => onWords(fewer)),
+                    NbButton(
+                      'Search names only: “${parts.first}”',
+                      kind: NbButtonKind.quiet,
+                      onPressed: () => onWords(parts.first),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

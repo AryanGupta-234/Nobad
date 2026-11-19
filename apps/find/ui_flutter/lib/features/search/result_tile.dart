@@ -75,8 +75,11 @@ class ResultTile extends StatelessWidget {
     required this.onTap,
     this.onSecondary,
     this.onAction,
+    this.terms = const [],
   });
 
+  /// The search's words, marked in the name.
+  final List<String> terms;
   final EngineApi engine;
   final FileResult result;
   final bool selected;
@@ -113,7 +116,16 @@ class ResultTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(r.name, style: NbType.text(15.5, c.text, weight: FontWeight.w600, height: 1.3)),
+                  Text.rich(
+                    TextSpan(
+                      children: highlightSpans(
+                        r.name,
+                        terms,
+                        NbType.text(15.5, c.text, weight: FontWeight.w600, height: 1.3),
+                        c,
+                      ),
+                    ),
+                  ),
                   if (r.dir.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(top: 2),
