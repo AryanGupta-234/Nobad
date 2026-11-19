@@ -1,6 +1,20 @@
 # NOBAD Find changelog
 
-## Unreleased (0.8.0)
+## 0.8.5 (in development)
+
+0.8.0 was never released on its own; its changes ship in 0.8.5.
+
+### Window
+- A new window, drawn natively (Flutter) instead of a web page in Microsoft Edge WebView2. On the reference PC the
+  window used about 465 MB in 7 processes; the new one about 130-170 MB in one (docs/measurements.md). Same screens:
+  Home, results with previews, the filter bar, the quick find bar, the Indexing page and Settings, with a first-run
+  welcome and a download consent dialog. Rounder controls and a frosted look.
+- The old web window is gone completely: no WebView2, pywebview or .NET bridge is installed any more, and an
+  upgrade removes the old files.
+- NobadFind.exe runs the search engine (index, hotkeys, notification-area icon) and starts the window. Closing the
+  window ends its process; the engine stays for the hotkey and the icon, as before. Starting NOBAD Find again brings the
+  window up; `NobadFind.exe --page settings`, `--page index` and `--bar` open that page or the quick find bar.
+- Settings > Performance has the notification-area icon switch.
 
 ### Added
 - Choose your models in Settings → Models. NOBAD Find looks at your PC (memory, cores, graphics card, disk) and your
