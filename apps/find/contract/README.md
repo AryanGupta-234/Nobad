@@ -151,7 +151,7 @@ Subscribe with `subscribe`. Each is `{"jsonrpc":"2.0","method":"<name>","params"
   while the Indexing page is open, `unsubscribe` when it closes.
 - **`level`** → `{level, reason, paused}`: the work level, its reason or the pause changed (seen within half a second).
   Not sent for the state at the time you subscribed: read `status` once.
-- **`activity`** → `{t, kind: level|kill|model|info, text}`: a new Recent decisions entry, as it happens.
+- **`activity`** → `{t, kind: level|kill|model|info, text}`: a new Recent decisions entry (within half a second).
 - **`download`** → `{id: meaning|photo, state: missing|downloading|ready, got_mb, size_mb, mb_s, error}`: a model
   download moved on: progress up to twice a second while `downloading`, then `ready`, or `missing` with `error` saying
   why it failed.

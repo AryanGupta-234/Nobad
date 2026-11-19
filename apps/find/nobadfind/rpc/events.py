@@ -4,7 +4,8 @@
   only while some client subscribed to it: nobody listening means no work.
 - `level` when the work level, its reason or the pause changes; `download` when a model download moves on.
   Both are noticed by a cheap look every TICK seconds at values the engine already holds.
-- `activity` as each entry is added (Activity.listen), `show` / `here` / `notice` / `quitting` when they happen.
+- `activity` for each entry added (Activity.listen), sent by the ticker: the governor thread that adds an entry
+  never waits for a slow client. `show` / `here` / `notice` / `quitting` go out when they happen.
 - A `notice` nobody hears waits (the last MAX_NOTICES) and goes to the first client that subscribes to notices.
 """
 import threading
@@ -36,6 +37,7 @@ class Events:
         self._downloads = {}                       # model id -> (state, got, size, error) last seen
         self._rate = DownloadRate()
         self._notices = deque(maxlen=MAX_NOTICES)
+        self._activity = deque(maxlen=50)          # entries added since the last tick
         self.on_show = None                        # called before each show event (Server.allow_foreground)
 
     # ----- subscriptions -----
@@ -73,7 +75,8 @@ class Events:
 
     # ----- events that happen -----
     def activity(self, item):
-        self.push("activity", {"t": float(item["t"]), "kind": str(item["kind"]), "text": str(item["text"])})
+        """Activity.listen: called on the thread that added the entry; the next tick sends it."""
+        self._activity.append({"t": float(item["t"]), "kind": str(item["kind"]), "text": str(item["text"])})
 
     def show(self, what, text=None):
         if self.on_show is not None:
@@ -102,6 +105,10 @@ class Events:
     def step(self, now):
         with self._lock:
             wanted = self._wanted()
+            while self._activity:
+                item = self._activity.popleft()
+                if "activity" in wanted:
+                    self.push("activity", item)
             if "level" in wanted or "status" in wanted:
                 self._safe("level", self._step_level, wanted)
             if "download" in wanted:

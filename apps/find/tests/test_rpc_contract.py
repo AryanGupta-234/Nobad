@@ -257,6 +257,7 @@ def test_the_real_status_and_events_match_the_schema(real):
     ev.step(2.0)
     real._activity.listen(ev.activity)
     real._activity.add("info", "You paused NOBAD Find for 60 min")
+    ev.step(2.5)
     ev.notice("The hotkey is used by another app. Pick another one in Settings.")
     ev.show("bar")
     ev.here("C:\\Users\\me")
@@ -327,10 +328,12 @@ def test_download_progress_events():
     assert got[2]["mb_s"] == 0.0
 
 
-def test_activity_events_are_pushed_when_added():
+def test_activity_events_go_out_on_the_next_tick():
     e = engine()
     e.conn.events.add("activity")
     e.activity.add("kill", "Stopped a text reader using 1.2 GB; the file is skipped")
+    assert e.conn.sent == []                                # the adding thread never waits on a client
+    e.events.step(0.0)
     assert e.conn.sent[0]["params"] == {"t": 1763400000.0, "kind": "kill",
                                         "text": "Stopped a text reader using 1.2 GB; the file is skipped"}
 
