@@ -8,7 +8,7 @@ library;
 
 import 'dart:async';
 import 'dart:ffi';
-import 'dart:io' show Platform;
+import 'dart:io' show Platform, Process, ProcessStartMode;
 
 import 'package:ffi/ffi.dart';
 import 'package:flutter/services.dart' show SystemChannels;
@@ -278,5 +278,20 @@ bool systemAnimationsOff() {
     });
   } on Object {
     return false;
+  }
+}
+
+/// Starts this app's main window on [page] (`--page settings|index|search`). Only ever this program.
+void openMainPage(String page) {
+  if (!Platform.isWindows) return;
+  try {
+    unawaited(
+      Process.start(Platform.resolvedExecutable, [
+        '--page',
+        page,
+      ], mode: ProcessStartMode.detached).then((_) {}, onError: (Object _) {}),
+    );
+  } on Object {
+    // nothing to show
   }
 }

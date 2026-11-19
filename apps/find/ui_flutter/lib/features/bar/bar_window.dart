@@ -18,6 +18,8 @@ import '../../platform/demo.dart';
 import '../../platform/window.dart';
 import '../../state/search_controller.dart';
 import '../../widgets/common.dart';
+import '../../widgets/pressable.dart';
+import '../search/result_actions.dart';
 import '../../widgets/glass.dart';
 import '../../widgets/motion.dart';
 
@@ -83,6 +85,67 @@ class _BarWindowState extends State<BarWindow> {
     },
   );
 
+  // ---- menus: the n mark's app menu, and a result's actions ----
+  final _menu = MenuController();
+  final _menuAnchor = GlobalKey();
+  List<Widget> _menuItems = const [];
+
+  void _openMenu(List<Widget> items, Offset global) {
+    final box = _menuAnchor.currentContext?.findRenderObject() as RenderBox?;
+    setState(() => _menuItems = items);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (box != null && mounted) _menu.open(position: box.globalToLocal(global));
+    });
+  }
+
+  Future<void> _rowAction(ResultAction a) async {
+    final ok = switch (a) {
+      ResultAction.open => await find.openSelected(),
+      ResultAction.openWith => await find.openWithSelected(),
+      ResultAction.reveal => await find.revealSelected(),
+      ResultAction.copyPath => await find.copySelected(),
+      ResultAction.copyName => await find.copyNameSelected(),
+      ResultAction.details || ResultAction.forget => false,
+    };
+    if (ok && (a == ResultAction.open || a == ResultAction.openWith || a == ResultAction.reveal)) hide();
+    if (mounted) setState(() {});
+  }
+
+  MenuItemButton _item(String label, VoidCallback onPressed, {SingleActivator? shortcut}) => MenuItemButton(
+    onPressed: onPressed,
+    shortcut: shortcut,
+    child: Text(label, style: NbType.text(13, NbColors.of(context).text)),
+  );
+
+  List<Widget> _rowMenu() => [
+    for (final a in [ResultAction.open, ResultAction.openWith, ResultAction.reveal, ResultAction.copyPath])
+      _item(a.label, () => _rowAction(a), shortcut: a.shortcut),
+  ];
+
+  List<Widget> _appMenu() {
+    final paused = widget.engine.lastStatus?.isPaused ?? false;
+    return [
+      _item('Open NOBAD Find', () {
+        unawaited(widget.engine.toMain(box.text).catchError((Object _) {}));
+        hide();
+      }),
+      _item('Settings', () => _openPage('settings')),
+      _item('Index', () => _openPage('index')),
+      _item(paused ? 'Resume' : 'Pause for 1 hour', () {
+        final f = paused ? widget.engine.resume() : widget.engine.pauseFor(const Duration(hours: 1));
+        unawaited(f.then((_) {}, onError: (Object _) {}));
+      }),
+      _item('Quit NOBAD Find', () => unawaited(widget.engine.quit().then((_) {}, onError: (Object _) {}))),
+    ];
+  }
+
+  /// Settings or Index from the bar: starts the main window on that page (`--page`). If the main window already
+  /// runs, Windows brings it forward on the page it shows (the engine has no "show this page" method yet).
+  void _openPage(String page) {
+    hide();
+    openMainPage(page);
+  }
+
   void show() {
     _hiding?.cancel();
     _visible = true;
@@ -140,6 +203,7 @@ class _BarWindowState extends State<BarWindow> {
   void dispose() {
     _shows.cancel();
     _hiding?.cancel();
+    _menu.close();
     _life.dispose();
     _settle?.cancel();
     find.dispose();
@@ -165,60 +229,78 @@ class _BarWindowState extends State<BarWindow> {
       level: GlassLevel.panel,
       radius: 12,
       fill: c.glass ? c.panel : c.surface,
-      child: CallbackShortcuts(
-        bindings: {
-          const SingleActivator(LogicalKeyboardKey.arrowDown): () => find.move(1),
-          const SingleActivator(LogicalKeyboardKey.arrowUp): () => find.move(-1),
-          const SingleActivator(LogicalKeyboardKey.enter): _act,
-          const SingleActivator(LogicalKeyboardKey.numpadEnter): _act,
-          const SingleActivator(LogicalKeyboardKey.enter, control: true): () => _act(reveal: true),
-          const SingleActivator(LogicalKeyboardKey.enter, alt: true): _toMain,
-          const SingleActivator(LogicalKeyboardKey.escape): hide,
+      child: MenuAnchor(
+        controller: _menu,
+        menuChildren: _menuItems,
+        onOpen: () => widget.window.fitBar(BarSize.maxRows), // room for the menu inside the bar's window
+        onClose: () {
+          _rows = -1;
+          _fit();
         },
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SizedBox(
-              height: BarSize.field - 2,
-              child: _Field(box: box, focus: focus, find: find),
+        child: KeyedSubtree(
+          key: _menuAnchor,
+          child: CallbackShortcuts(
+            bindings: {
+              const SingleActivator(LogicalKeyboardKey.enter, control: true, shift: true): () =>
+                  _rowAction(ResultAction.openWith),
+              const SingleActivator(LogicalKeyboardKey.arrowDown): () => find.move(1),
+              const SingleActivator(LogicalKeyboardKey.arrowUp): () => find.move(-1),
+              const SingleActivator(LogicalKeyboardKey.enter): _act,
+              const SingleActivator(LogicalKeyboardKey.numpadEnter): _act,
+              const SingleActivator(LogicalKeyboardKey.enter, control: true): () => _act(reveal: true),
+              const SingleActivator(LogicalKeyboardKey.enter, alt: true): _toMain,
+              const SingleActivator(LogicalKeyboardKey.escape): hide,
+            },
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(
+                  height: BarSize.field - 2,
+                  child: _Field(box: box, focus: focus, find: find, onMark: (pos) => _openMenu(_appMenu(), pos)),
+                ),
+                Expanded(
+                  child: ListenableBuilder(
+                    listenable: find,
+                    builder: (context, _) {
+                      if (rowsNeeded == 0) return const SizedBox.shrink();
+                      return Container(
+                        decoration: BoxDecoration(
+                          border: Border(top: BorderSide(color: c.line)),
+                        ),
+                        child: find.results.isEmpty
+                            ? _NoMatch(
+                                find.notice.isNotEmpty ? find.notice : find.askedFor.trim(),
+                                isError: find.notice.isNotEmpty,
+                              )
+                            : Column(
+                                children: [
+                                  for (var i = 0; i < find.results.length; i++)
+                                    Appear(
+                                      key: ValueKey((find.serial, find.results[i].id)),
+                                      delay: Appear.stagger(i),
+                                      lift: 3,
+                                      child: _Row(
+                                        result: find.results[i],
+                                        selected: i == find.selected,
+                                        onSecondary: (pos) {
+                                          find.select(i);
+                                          _openMenu(_rowMenu(), pos);
+                                        },
+                                        onTap: (reveal) {
+                                          find.select(i);
+                                          _act(reveal: reveal);
+                                        },
+                                      ),
+                                    ),
+                                ],
+                              ),
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
-            Expanded(
-              child: ListenableBuilder(
-                listenable: find,
-                builder: (context, _) {
-                  if (rowsNeeded == 0) return const SizedBox.shrink();
-                  return Container(
-                    decoration: BoxDecoration(
-                      border: Border(top: BorderSide(color: c.line)),
-                    ),
-                    child: find.results.isEmpty
-                        ? _NoMatch(
-                            find.notice.isNotEmpty ? find.notice : find.askedFor.trim(),
-                            isError: find.notice.isNotEmpty,
-                          )
-                        : Column(
-                            children: [
-                              for (var i = 0; i < find.results.length; i++)
-                                Appear(
-                                  key: ValueKey((find.serial, find.results[i].id)),
-                                  delay: Appear.stagger(i),
-                                  lift: 3,
-                                  child: _Row(
-                                    result: find.results[i],
-                                    selected: i == find.selected,
-                                    onTap: (reveal) {
-                                      find.select(i);
-                                      _act(reveal: reveal);
-                                    },
-                                  ),
-                                ),
-                            ],
-                          ),
-                  );
-                },
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -226,10 +308,13 @@ class _BarWindowState extends State<BarWindow> {
 }
 
 class _Field extends StatefulWidget {
-  const _Field({required this.box, required this.focus, required this.find});
+  const _Field({required this.box, required this.focus, required this.find, required this.onMark});
   final TextEditingController box;
   final FocusNode focus;
   final FindController find;
+
+  /// The n mark: the app menu (open NOBAD Find, Settings, Index, pause, quit).
+  final void Function(Offset globalPosition) onMark;
 
   @override
   State<_Field> createState() => _FieldState();
@@ -259,7 +344,23 @@ class _FieldState extends State<_Field> {
           padding: const EdgeInsets.only(left: 16, right: 20),
           child: Row(
             children: [
-              const NbMark(size: 30),
+              Builder(
+                builder: (ctx) => Pressable(
+                  onTap: () {
+                    final b = ctx.findRenderObject() as RenderBox?;
+                    widget.onMark(b == null ? Offset.zero : b.localToGlobal(Offset(0, b.size.height + 6)));
+                  },
+                  semanticLabel: 'NOBAD Find menu',
+                  tooltip: 'NOBAD Find menu',
+                  canRequestFocus: false,
+                  ringRadius: NbRadius.controlAll,
+                  builder: (context, p) => AnimatedScale(
+                    scale: p.lit ? 1.06 : 1,
+                    duration: NbMotion.of(context, NbMotion.fast),
+                    child: const NbMark(size: 30),
+                  ),
+                ),
+              ),
               const SizedBox(width: 14),
               Expanded(
                 child: TextField(
@@ -321,10 +422,11 @@ class _FieldState extends State<_Field> {
 }
 
 class _Row extends StatefulWidget {
-  const _Row({required this.result, required this.selected, required this.onTap});
+  const _Row({required this.result, required this.selected, required this.onTap, required this.onSecondary});
   final FileResult result;
   final bool selected;
   final void Function(bool reveal) onTap;
+  final void Function(Offset globalPosition) onSecondary;
 
   @override
   State<_Row> createState() => _RowState();
@@ -344,6 +446,7 @@ class _RowState extends State<_Row> {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () => widget.onTap(HardwareKeyboard.instance.isControlPressed),
+        onSecondaryTapDown: (d) => widget.onSecondary(d.globalPosition),
         child: Semantics(
           selected: widget.selected,
           button: true,
