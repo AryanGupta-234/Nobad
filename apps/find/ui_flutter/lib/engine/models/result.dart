@@ -80,7 +80,11 @@ class SearchAnswer {
     this.notes = const [],
     this.more = false,
     this.error = '',
+    this.cancelled = false,
   });
+
+  /// A newer search on the same channel replaced this one: ignore the answer (no message, no empty state).
+  final bool cancelled;
 
   final List<FileResult> results;
   final int ms;
@@ -105,6 +109,7 @@ class SearchAnswer {
       notes: _strs(json['notes']),
       more: json['more'] == true,
       error: _str(json['error']),
+      cancelled: json['cancelled'] == true,
     );
   }
 }

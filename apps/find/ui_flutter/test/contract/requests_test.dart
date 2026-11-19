@@ -26,6 +26,7 @@ Map<String, Object?> normal(String method, Object? params) {
   final m = params is Map ? Map<String, Object?>.from(clean(params) as Map) : <String, Object?>{'_': params};
   if ((method == 'ui_shown' || method == 'ui_hidden') && !m.containsKey('window')) m['window'] = 'main';
   if (method == 'search') m.remove('text');
+  if (method == 'search' && !m.containsKey('channel')) m['channel'] = 'main'; // the contract's default
   return m;
 }
 

@@ -74,4 +74,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(boxText(tester), 'zebra');
   });
+
+  testWidgets("Home's recently changed list asks on its own channel; the box on the main one", (tester) async {
+    final engine = FakeEngine();
+    await pumpApp(tester, engine);
+    expect(engine.channels.first, 'home');
+    await type(tester, 'tax');
+    expect(engine.channels.last, 'main');
+  });
 }

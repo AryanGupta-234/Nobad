@@ -175,6 +175,12 @@ class FindController extends ChangeNotifier {
       notice = e.message;
     }
     if (_disposed || my != _seq) return; // a newer search is on its way
+    if (a.cancelled) {
+      // the engine dropped it for a newer one on this channel: keep what is on screen, say nothing
+      _busy = false;
+      notifyListeners();
+      return;
+    }
     final hadNone = _answer.results.isEmpty;
     final lim = limit;
     var rows = a.results;

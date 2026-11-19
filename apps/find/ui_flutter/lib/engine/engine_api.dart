@@ -45,7 +45,9 @@ abstract class EngineApi {
   EngineStatus? get lastStatus;
 
   // ---- search and results ----
-  Future<SearchAnswer> search(String text, {SearchFilters filters = SearchFilters.none});
+  /// [channel]: "main" (what the user typed) or "home" (Home's recently changed list). The engine cancels a stale
+  /// search only within the same connection and channel; a cancelled one answers `cancelled: true` (ignore it).
+  Future<SearchAnswer> search(String text, {SearchFilters filters = SearchFilters.none, String channel = 'main'});
   Future<ActionResult> open(int id);
   Future<ActionResult> reveal(int id);
 

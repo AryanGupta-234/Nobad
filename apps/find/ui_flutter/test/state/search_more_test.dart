@@ -72,4 +72,38 @@ void main() {
     expect(f.lastKeystrokeMs, isNotNull);
     f.dispose();
   });
+
+  test('a cancelled answer is ignored: what is on screen stays, no message', () async {
+    final engine = _Cancelling();
+    final f = FindController(engine, debounce: Duration.zero);
+    f.setText('tax');
+    await f.run();
+    final shown = f.results.length;
+    expect(shown, greaterThan(0));
+    engine.cancelNext = true;
+    f.setText('tax n');
+    await f.run();
+    expect(f.results.length, shown);
+    expect(f.notice, isEmpty);
+    expect(f.busy, isFalse);
+    f.dispose();
+  });
+
+  test('searches say their channel; the answer reads cancelled', () {
+    expect(SearchAnswer.fromJson({'results': [], 'cancelled': true}).cancelled, isTrue);
+    expect(SearchAnswer.fromJson({'results': []}).cancelled, isFalse);
+  });
+}
+
+class _Cancelling extends FakeEngine {
+  bool cancelNext = false;
+
+  @override
+  Future<SearchAnswer> search(String text, {SearchFilters filters = SearchFilters.none, String channel = 'main'}) {
+    if (cancelNext) {
+      cancelNext = false;
+      return Future.value(const SearchAnswer(cancelled: true));
+    }
+    return super.search(text, filters: filters, channel: channel);
+  }
 }

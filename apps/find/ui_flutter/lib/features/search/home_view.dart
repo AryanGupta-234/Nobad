@@ -68,7 +68,12 @@ class _HomeViewState extends State<HomeView> {
   Future<void> _load() async {
     _asked = DateTime.now();
     try {
-      final a = await _scope!.engine.search('', filters: const SearchFilters(sort: 'newest'));
+      final a = await _scope!.engine.search(
+        '',
+        filters: const SearchFilters(sort: 'newest'),
+        channel: 'home',
+      );
+      if (a.cancelled) return; // a newer one on this channel is coming
       _failed = false;
       if (!mounted) return;
       setState(

@@ -293,8 +293,13 @@ class EngineClient {
       ActionResult.fromJson(await call(method, params, wait));
 
   // ---- search and results ----
-  Future<SearchAnswer> search(String text, {SearchFilters filters = SearchFilters.none}) async =>
-      SearchAnswer.fromJson(await call('search', {'text': _cap(text), 'filters': filters.toJson()}));
+  Future<SearchAnswer> search(
+    String text, {
+    SearchFilters filters = SearchFilters.none,
+    String channel = 'main',
+  }) async => SearchAnswer.fromJson(
+    await call('search', {'text': _cap(text), 'filters': filters.toJson(), 'channel': channel}),
+  );
   Future<ActionResult> open(int id) => _ok('open', {'id': id});
   Future<ActionResult> reveal(int id) => _ok('reveal', {'id': id});
   Future<ActionResult> forget(int id) async {

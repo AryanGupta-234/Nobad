@@ -37,8 +37,12 @@ class PipeEngine implements EngineApi {
 
   // ---- search and results ----
   @override
-  Future<SearchAnswer> search(String text, {SearchFilters filters = SearchFilters.none}) async {
-    final a = await _pipe.search(text, filters: filters);
+  Future<SearchAnswer> search(
+    String text, {
+    SearchFilters filters = SearchFilters.none,
+    String channel = 'main',
+  }) async {
+    final a = await _pipe.search(text, filters: filters, channel: channel);
     if (_known.length > 2000) _known.clear();
     for (final r in a.results) {
       _known[r.id] = r;

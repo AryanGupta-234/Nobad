@@ -118,39 +118,41 @@ class FakeEngine implements EngineApi {
 
   // ---------- search and results ----------
   @override
-  Future<SearchAnswer> search(String text, {SearchFilters filters = SearchFilters.none}) => _answer('search', () {
-    searches.add(text);
-    searchFilters.add(filters);
-    final t = text.trim().toLowerCase();
-    if (t.isEmpty && !filters.narrows && filters.sort.isEmpty) return SearchAnswer.empty;
-    var rows = files.where((f) {
-      if (filters.kind.isNotEmpty && f.kind != filters.kind) return false;
-      if (filters.folder.isNotEmpty && !f.dir.toLowerCase().startsWith(filters.folder.toLowerCase())) {
-        return false;
-      }
-      if (t.isEmpty) return true;
-      final words = t.split(RegExp(r'\s+')).where((w) => !_stop.contains(w));
-      final hay = '${f.name} ${f.kind} ${f.dir}'.toLowerCase();
-      return words.isNotEmpty && words.every(hay.contains);
-    }).toList();
-    if (filters.sort == 'newest') rows.sort((a, b) => (b.mtime ?? 0).compareTo(a.mtime ?? 0));
-    if (filters.sort == 'name') rows.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-    if (filters.sort == 'largest') rows.sort((a, b) => (b.size ?? 0).compareTo(a.size ?? 0));
-    if (t.isEmpty) rows = rows.where((r) => !r.weak).toList();
-    return SearchAnswer(
-      results: rows,
-      ms: 4,
-      understood: [
-        if (t.contains('pdf')) 'pdf',
-        if (t.contains('last week')) 'changed in the last 7 days',
-        if (t.contains('photo')) 'photos',
-      ],
-      terms: [
-        for (final w in t.split(RegExp(r'\s+')))
-          if (w.isNotEmpty && !_stop.contains(w)) w,
-      ],
-    );
-  });
+  Future<SearchAnswer> search(String text, {SearchFilters filters = SearchFilters.none, String channel = 'main'}) =>
+      _answer('search', () {
+        searches.add(text);
+        channels.add(channel);
+        searchFilters.add(filters);
+        final t = text.trim().toLowerCase();
+        if (t.isEmpty && !filters.narrows && filters.sort.isEmpty) return SearchAnswer.empty;
+        var rows = files.where((f) {
+          if (filters.kind.isNotEmpty && f.kind != filters.kind) return false;
+          if (filters.folder.isNotEmpty && !f.dir.toLowerCase().startsWith(filters.folder.toLowerCase())) {
+            return false;
+          }
+          if (t.isEmpty) return true;
+          final words = t.split(RegExp(r'\s+')).where((w) => !_stop.contains(w));
+          final hay = '${f.name} ${f.kind} ${f.dir}'.toLowerCase();
+          return words.isNotEmpty && words.every(hay.contains);
+        }).toList();
+        if (filters.sort == 'newest') rows.sort((a, b) => (b.mtime ?? 0).compareTo(a.mtime ?? 0));
+        if (filters.sort == 'name') rows.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+        if (filters.sort == 'largest') rows.sort((a, b) => (b.size ?? 0).compareTo(a.size ?? 0));
+        if (t.isEmpty) rows = rows.where((r) => !r.weak).toList();
+        return SearchAnswer(
+          results: rows,
+          ms: 4,
+          understood: [
+            if (t.contains('pdf')) 'pdf',
+            if (t.contains('last week')) 'changed in the last 7 days',
+            if (t.contains('photo')) 'photos',
+          ],
+          terms: [
+            for (final w in t.split(RegExp(r'\s+')))
+              if (w.isNotEmpty && !_stop.contains(w)) w,
+          ],
+        );
+      });
 
   static const _stop = {'from', 'in', 'my', 'the', 'last', 'week', 'photos', 'photo', 'pdf'};
 
@@ -370,6 +372,9 @@ class FakeEngine implements EngineApi {
 
   // ---------- 0.8: models and Open with ----------
   final openedWith = <int>[];
+
+  /// The `channel` of every search, in order.
+  final channels = <String>[];
   late ModelsInfo modelsInfo = demoModels();
 
   /// Answer the 0.8 methods like an older engine: -32601 (tests of the "needs a newer engine" path).
