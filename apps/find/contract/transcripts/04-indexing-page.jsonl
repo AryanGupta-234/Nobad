@@ -15,6 +15,8 @@
 {"recv": {"jsonrpc": "2.0", "method": "level", "params": {"level": "gentle", "reason": "Gentle: you're using the PC", "paused": ""}}}
 {"send": {"jsonrpc": "2.0", "id": 5, "method": "pause_for", "params": {"seconds": "3600"}}}
 {"recv": {"jsonrpc": "2.0", "id": 5, "error": {"code": -32602, "message": "'seconds' must be a whole number"}}}
+{"send": {"jsonrpc": "2.0", "id": 100, "method": "pause_for", "params": {"seconds": 0}}}
+{"recv": {"jsonrpc": "2.0", "id": 100, "error": {"code": -32602, "message": "'seconds' must be 1 or more"}}}
 {"send": {"jsonrpc": "2.0", "id": 6, "method": "learned_apps", "params": {}}}
 {"recv": {"jsonrpc": "2.0", "id": 6, "result": {"apps": [{"exe": "game.exe", "seen": 3, "lag_events": 1, "worst_cpu": 92.0, "worst_gpu": null, "start_level": "light", "last_seen": 1763400000.0, "reason": "It slowed down once while Find worked"}]}}}
 {"send": {"jsonrpc": "2.0", "id": 7, "method": "reset_learned", "params": {"exe": "game.exe"}}}

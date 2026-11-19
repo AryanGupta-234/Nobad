@@ -33,7 +33,7 @@
       "result": {"$ref": "#/$defs/subscriptions"}
     },
     "search": {
-      "description": "Search the index. Empty text with no filter gives no results.",
+      "description": "Search the index. Empty text with no filter gives no results. filters is an object or left out (null is refused); its values must be the listed words.",
       "params": {
         "type": "object",
         "properties": {
@@ -101,7 +101,7 @@
       "result": {"$ref": "#/$defs/status_full"}
     },
     "pause_for": {
-      "description": "Pause indexing for this many seconds (at most 24 hours; more is cut to 24 hours).",
+      "description": "Pause indexing for this many seconds (at most 24 hours; more is cut to 24 hours). Less than 1 is a bad-params error.",
       "params": {
         "type": "object",
         "properties": {"seconds": {"type": "integer", "minimum": 1}},
@@ -166,9 +166,14 @@
       }
     },
     "pick_folder": {
-      "description": "Windows' folder dialog, shown by the engine. The answer comes when the user closes it (no time limit: don't time this call out). \"\" if cancelled.",
+      "description": "Windows' folder dialog, shown by the engine, topmost. The answer comes when the user closes it (no time limit: don't time this call out). path \"\" if cancelled. busy true (answered at once, path \"\"): a folder dialog was already open, and it was brought to the front again.",
       "params": {"$ref": "#/$defs/no_params"},
-      "result": {"$ref": "#/$defs/path"}
+      "result": {
+        "type": "object",
+        "properties": {"path": {"type": "string"}, "busy": {"type": "boolean"}},
+        "required": ["path", "busy"],
+        "additionalProperties": false
+      }
     },
     "rescan": {
       "description": "Walk every folder again now.",
@@ -202,7 +207,7 @@
       "result": {"$ref": "#/$defs/wsearch_state"}
     },
     "wsearch_set": {
-      "description": "Turn Windows Search indexing off (off true) or back as it was (off false). Windows asks the user's permission; the answer comes after that prompt (don't time this call out).",
+      "description": "Turn Windows Search indexing off (off true) or back as it was (off false). Windows asks the user's permission; the answer comes after that prompt (don't time this call out). While one prompt is open, another call answers at once with ok false and a sentence.",
       "params": {
         "type": "object",
         "properties": {"off": {"type": "boolean"}},
@@ -224,7 +229,7 @@
       "result": {"$ref": "#/$defs/wsearch_change"}
     },
     "ui_shown": {
-      "description": "This UI's window came up (main by default). For the main window, indexing resumes if closing it had stopped indexing.",
+      "description": "This UI's window came up (main by default). For the main window, indexing starts (the engine starts idle unless keep_background is on) or resumes after a close stopped it. Ignored once this connection's pipe has closed.",
       "params": {"$ref": "#/$defs/window_params"},
       "result": {"$ref": "#/$defs/done"}
     },
@@ -234,7 +239,7 @@
       "result": {"$ref": "#/$defs/done"}
     },
     "quit": {
-      "description": "End NOBAD Find (the engine, and so every UI). Only with confirm \"QUIT\"; any other word gives ok false. A quitting event goes out first.",
+      "description": "End NOBAD Find (the engine, and so every UI). Only with confirm \"QUIT\"; any other word gives ok false. A quitting event goes out first, then the reply; the engine stops only after the reply is written, and what was written stays readable after the pipe closes.",
       "params": {
         "type": "object",
         "properties": {"confirm": {"type": "string"}},
@@ -345,7 +350,7 @@
         "kind": {"enum": ["", "pdf", "document", "spreadsheet", "slides", "text", "code", "email", "image", "video", "audio", "archive", "ebook", "app", "folder"]},
         "modified": {"enum": ["", "today", "week", "month", "year"]},
         "size": {"enum": ["", "small", "medium", "large"]},
-        "folder": {"type": "string", "description": "\"here\", a known folder word (\"downloads\", \"desktop\", ...) or a folder path already in the index."},
+        "folder": {"type": "string", "maxLength": 2000, "description": "\"here\", a known folder word (\"downloads\", \"desktop\", ...) or a folder path already in the index."},
         "sort": {"enum": ["", "newest", "oldest", "largest", "name"]}
       },
       "additionalProperties": false

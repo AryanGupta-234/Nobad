@@ -6,7 +6,7 @@
 {"send": {"jsonrpc": "2.0", "id": 3, "method": "set_settings", "params": {"changes": "theme=light"}}}
 {"recv": {"jsonrpc": "2.0", "id": 3, "error": {"code": -32602, "message": "'changes' must be an object of setting names and values"}}}
 {"send": {"jsonrpc": "2.0", "id": 4, "method": "pick_folder", "params": {}}}
-{"recv": {"jsonrpc": "2.0", "id": 4, "result": {"path": "C:\\Users\\me\\Projects"}}}
+{"recv": {"jsonrpc": "2.0", "id": 4, "result": {"path": "C:\\Users\\me\\Projects", "busy": false}}}
 {"send": {"jsonrpc": "2.0", "id": 5, "method": "wsearch_state", "params": {}}}
 {"recv": {"jsonrpc": "2.0", "id": 5, "result": {"missing": false, "start": "delayed-auto", "running": true, "saved": ""}}}
 {"send": {"jsonrpc": "2.0", "id": 6, "method": "wsearch_set", "params": {"off": true}}}

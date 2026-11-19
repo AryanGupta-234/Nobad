@@ -24,9 +24,13 @@ new methods, new events, new keys in an answer. A change that breaks an old UI r
 - Errors: `{"jsonrpc":"2.0","id":…,"error":{"code":…,"message":"…"}}`. Codes: `-32700` not JSON, `-32600` not a
   request (also "Message too big", after which the engine closes the pipe), `-32601` unknown method, `-32602` bad
   params, `-32603` the engine failed (never with details). Wrong *types* are errors; a well-formed request the engine
-  can't carry out is a normal result with `"ok": false` and a sentence in `"error"`.
+  can't carry out is a normal result with `"ok": false` and a sentence in `"error"`. The engine checks what the
+  schema says (types, the filter words, lengths, `seconds ≥ 1`): a request the schema refuses gets `-32602`.
+  `NaN` and `Infinity` are not JSON: `-32700`.
 - Unknown keys in `params` are ignored by the engine, but the schemas don't allow them: don't send them.
-- At most 8 connections; each request runs on a pool of 4 threads, so a slow call doesn't hold up a search.
+- At most 8 connections. Requests run on a pool of 4 threads, so a slow call doesn't hold up a search; the calls
+  that wait for the user (`pick_folder`, `wsearch_set`, `use_instead_of_windows_search`) run on threads of their own
+  and only one of each waits at a time, so search, status and quit always get an answer.
 
 ### Start-up order for a UI
 
@@ -52,13 +56,15 @@ be `""` when not). Files are always named by a result **`id`** from `search`, ne
 
 ### Search and results
 
-- **`search`** `{text?: string, filters?: Filters}` → `{results: [Result], understood: [string], terms: [string],
-  notes: [string], more: bool, ms: int, error: string}`. Empty text with no filter gives no results. `understood`
+- **`search`** `{text?: string (≤ 2000), filters?: Filters}` → `{results: [Result], understood: [string], terms:
+  [string], notes: [string], more: bool, ms: int, error: string}`. Empty text with no filter gives no results.
+  `filters` is an object or left out (`null` is refused). `understood`
   is how the question was read (show as chips), `terms` the words to highlight, `notes` sentences for the user,
   `more` = there were more matches than shown, `error` = `""` or a sentence when the search failed.
   - `Filters` (all optional, `""` = off): `kind` (`pdf document spreadsheet slides text code email image video audio
     archive ebook app folder`), `modified` (`today week month year`), `size` (`small medium large`), `folder`
-    (`here`, a known folder word, or a folder path already in the index), `sort` (`newest oldest largest name`).
+    (`here`, a known folder word, or a folder path already in the index; ≤ 2000), `sort` (`newest oldest largest
+    name`). Any other key or word is refused (`-32602`).
   - `Result`: `{id: int, path, name, dir, kind: string, size: int|null, mtime: number|null (seconds since 1970),
     ago: string, why: [string], snippet: string, weak: bool}`. `weak` = a loose match, show it as less sure.
     Every string is untrusted text from the user's disk: show it as plain text, never as markup.
@@ -70,7 +76,7 @@ be `""` when not). Files are always named by a result **`id`** from `search`, ne
 - **`forget`** `{id}` → `Ok`: remove from the index and add to the excluded folders.
 - **`here_folder`** `{}` → `{path: string}`: the File Explorer folder the hotkey was pressed in (what "here" means), or
   `""`. The `here` event brings the same value as soon as it is known.
-- **`to_main`** `{text?: string}` → `{ok: true}`: the bar's Alt+Enter. The engine sends `show {what: "main", text}`,
+- **`to_main`** `{text?: string (≤ 2000)}` → `{ok: true}`: the bar's Alt+Enter. The engine sends `show {what: "main", text}`,
   so the main window comes up with the same words in its search box.
 
 ### Status and the governor
@@ -89,12 +95,12 @@ be `""` when not). Files are always named by a result **`id`** from `search`, ne
   meaning|photo|ocr, name, license, size_mb, on_disk, loaded, memory_mb|null, device, items, download:
   null|{got_mb, size_mb, mb_s}}]`), `activity` (newest first, at most 50: `[{t, kind, text}]`). Other keys may
   appear (indexer details); ignore them.
-- **`pause_for`** `{seconds: int ≥ 1}` → `Ok`: pause indexing (at most 24 hours).
+- **`pause_for`** `{seconds: int ≥ 1}` → `Ok`: pause indexing (at most 24 hours; less than 1 is `-32602`).
 - **`resume`** `{}` → `Ok`: end a pause now.
 - **`learned_apps`** `{}` → `{apps: [{exe, seen: int, lag_events: int, worst_cpu: number|null, worst_gpu:
   number|null, start_level: level|null, last_seen: number|null, reason: string}]}`: what was learned about apps
   NOBAD Find slowed down (program file names only).
-- **`reset_learned`** `{exe?: string|null}` → `Ok`: forget one app, or every app (`exe` null or left out).
+- **`reset_learned`** `{exe?: string (≤ 260)|null}` → `Ok`: forget one app, or every app (`exe` null or left out).
 - **`hardware`** `{}` → `{ram_gb, cores, threads, avx2, avx512_vnni, gpu, vram_gb, directml, disk_free_gb, ssd:
   bool|null}`: the "Your PC" facts (measured once per engine run).
 
@@ -106,8 +112,10 @@ be `""` when not). Files are always named by a result **`id`** from `search`, ne
   value (`settings.coerce`); a value that doesn't fit becomes the default, unknown names and `wsearch_prev` are
   ignored. `changed` lists what really changed, `settings` is the result. A new hotkey takes effect after the
   engine restarts.
-- **`pick_folder`** `{}` → `{path: string}`: Windows' folder dialog, shown by the engine; `""` if cancelled. The
-  answer comes when the user closes the dialog: **no time limit** on this call.
+- **`pick_folder`** `{}` → `{path: string, busy: bool}`: Windows' folder dialog, shown by the engine, topmost;
+  `path` `""` if cancelled. The answer comes when the user closes the dialog: **no time limit** on this call. Only
+  one dialog at a time: while one is open, another call answers at once with `busy: true` (and `path: ""`) and
+  brings the open dialog to the front again; don't treat that as a cancel.
 - **`rescan`** `{}` → `Ok`: walk every folder again now.
 - **`wipe`** `{confirm: string}` → `Ok`: delete the whole index and start over, only with `confirm: "DELETE"`; any
   other word gives `ok: false` and nothing happens.
@@ -124,7 +132,8 @@ be `""` when not). Files are always named by a result **`id`** from `search`, ne
   bool, saved: same words}`: how Windows Search indexing is set up (`saved` = how it started before NOBAD Find
   turned it off, `""` if it didn't). Takes about 100 ms.
 - **`wsearch_set`** `{off: bool}` → `{ok, error, state: WsearchState}`: Windows Search indexing off, or back as it was.
-  Windows shows a permission prompt; the answer comes after it: **no time limit**.
+  Windows shows a permission prompt; the answer comes after it: **no time limit**. While a prompt is open, another
+  call answers at once with `ok: false` and a sentence.
 - **`use_instead_of_windows_search`** `{on: bool}` → `{ok, error, state: WsearchState}`: the one switch: Windows Search
   off and NOBAD Find starts with Windows (on), or Windows Search back (off). Same prompt.
 
@@ -134,13 +143,16 @@ These replace the 0.7.0 page's `heartbeat`, `page_visible` and `hide`: the engin
 pipe is open.
 
 - **`ui_shown`** `{window?: "main"|"bar"}` → `{ok: true}`: this UI's window is on screen (default `main`). For the
-  main window, indexing resumes if closing it had stopped indexing, and the models warm up.
+  main window, indexing starts (the engine starts idle unless "Keep indexing in the background" is on, as the
+  0.7.0 app does when started with Windows) or resumes after a close stopped it, and the models warm up. A
+  `ui_shown` still queued when its connection's pipe closed changes nothing.
 - **`ui_hidden`** `{window?: "main"|"bar"}` → `{ok: true}`: the window was hidden or closed. For the main window
   with "Keep indexing in the background" off, indexing stops and only the engine's one idle process stays (the
   hotkey still works). A UI whose pipe closes after `ui_shown` counts as `ui_hidden`. Another UI still showing its
   main window keeps indexing as it is.
 - **`quit`** `{confirm: string}` → `Ok`: end NOBAD Find, only with `confirm: "QUIT"`; any other word gives `ok:
-  false`. The `quitting` event goes out before the reply, then the pipe closes.
+  false`. The `quitting` event goes out before the reply; the engine stops only after the reply is written, and
+  both stay readable after the engine closes the pipe.
 
 ## Events
 
@@ -182,7 +194,7 @@ lines, rewrites the `recv` lines), then review the diff.
 
 | Transcript | Covers |
 |---|---|
-| `01-connect-and-search.jsonl` | hello, subscribe, status, ui_shown, search (words, filters only, empty), thumbnail, open, reveal, path_of, a path instead of an id (refused), an unknown method, status events, ui_hidden |
+| `01-connect-and-search.jsonl` | hello, subscribe, status, ui_shown, search (words, filters only, empty), thumbnail, open, reveal, path_of, a path instead of an id (refused), a filter word that does not exist (refused), an unknown method, status events, ui_hidden |
 | `02-events.jsonl` | every event: status, level, activity, download progress/ready/failed, show (hotkeys and to_main), here, a notice waiting for a listener, unsubscribe, quit and quitting |
 | `03-settings-and-system.jsonl` | get/set_settings (and a bad one), pick_folder, Windows Search, model downloads with and without consent, rescan, wipe and quit confirm words |
-| `04-indexing-page.jsonl` | status_full method and event, pause_for/resume with level events, a bad pause, learned_apps, reset_learned, hardware, forget |
+| `04-indexing-page.jsonl` | status_full method and event, pause_for/resume with level events, bad pauses (a string, 0), learned_apps, reset_learned, hardware, forget |
