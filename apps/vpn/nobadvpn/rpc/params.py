@@ -241,9 +241,25 @@ SPEC = {
     "si_cache_clear": {},
 }
 
-# Methods that lower protection or change Windows networking: logged with the calling program (methods.py).
+# Methods that lower protection, change Windows networking, or change what the VPN connects to: logged with the
+# calling program, and shown in the window when that program isn't the window (methods._audit).
 SENSITIVE = {"disconnect", "panic_reset", "net_repair", "quit", "config_delete", "ni_fix", "ni_rollback",
-             "flush_dns", "install_wireguard", "update_install", "elevate"}
+             "flush_dns", "install_wireguard", "update_install", "elevate", "import", "config_save", "import_url",
+             "free_import", "connect"}
+# settings whose change sends data somewhere or changes name resolution: audited on any change
+AUDITED_SETTINGS = {"update_url", "crash_report_url", "fallback_dns", "ni_reference_dns", "crash_reporting",
+                    "ip_lookup", "auto_update_check", "ui_flutter"}
+# settings a pipe client may only clear: where NOBAD downloads its updates from and sends crash reports to. Setting
+# them takes an administrator (the classic window, which runs elevated, or `NobadVPN.exe --set-url`).
+ADMIN_ONLY_URLS = {"update_url", "crash_report_url"}
+
+
+def refuse(method, checked):
+    """A sentence when the pipe never does this request, whatever its shape; else None."""
+    if method == "settings" and checked.get("key") in ADMIN_ONLY_URLS and checked.get("value") not in ("", None):
+        return ("For safety this address can only be set by an administrator: run "
+                "NobadVPN.exe --set-url " + checked["key"].split("_url")[0] + " <https link> from an elevated prompt.")
+    return None
 # settings keys whose "off" lowers protection (logged like SENSITIVE)
 PROTECTION_KEYS = {"kill_switch", "dns_leak_block", "ks_strict", "watchdog", "force_tunnel_dns", "auto_repair",
                    "reconnect_on_network_change", "et_enabled"}

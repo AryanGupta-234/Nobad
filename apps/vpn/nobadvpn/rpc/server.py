@@ -21,6 +21,8 @@ from .protocol import (INTERNAL_ERROR, INVALID_REQUEST, MAX_MESSAGE, NOT_ALLOWED
                        handle_line, run_after)
 
 MAX_CLIENTS = 6
+ADMIT_MS = 3000          # a client must send its first request within this, or it's dropped
+MAX_IN_FLIGHT = 8        # requests one connection may have waiting for an answer
 BUF = 64 * 1024
 WRITE_TIMEOUT_MS = 5000
 
@@ -89,7 +91,7 @@ class Conn:
         self.serves = set()          # windows this UI process can show ("main" / "mini"), from ui_shown/hidden
         self.alive = True
         self.checked = False
-        self.image = ""
+        self.in_flight = 0
         self._wlock = threading.Lock()
         self._wov = _OVERLAPPED()
         self._wov.hEvent = k.CreateEventW(None, True, False, None)
@@ -141,7 +143,7 @@ class Server:
     `user_sid`: the account allowed in (the session's user); `check`: fn(handle, pid) -> None or a reason
     (security.check_client by default; tests pass their own)."""
 
-    def __init__(self, methods=None, name=None, user_sid=None, check=None, workers=4):
+    def __init__(self, methods=None, name=None, user_sid=None, check=None, workers=4, full_user=None):
         self._k, self._a = _dlls()
         self.methods = methods or {}
         self.on_drop = None
@@ -155,8 +157,12 @@ class Server:
         self._lock = threading.Lock()
         self._pool = ThreadPoolExecutor(max_workers=workers, thread_name_prefix="rpc")
         self._sd = ctypes.c_void_p()
+        # an elevated engine creates its next instances through the Administrators entry; an unelevated development
+        # engine (tests, the demo) needs the user's full rights for that
+        from ..syscmd import is_admin
+        self.full_user = full_user if full_user is not None else not is_admin()
         if not self._a.ConvertStringSecurityDescriptorToSecurityDescriptorW(
-                security.sddl_for(self.user_sid), 1, ctypes.byref(self._sd), None):     # SDDL_REVISION_1
+                security.sddl_for(self.user_sid, self.full_user), 1, ctypes.byref(self._sd), None):  # SDDL rev 1
             raise ctypes.WinError(ctypes.get_last_error())
         self._sa = _SA(ctypes.sizeof(_SA), self._sd, False)
         self._first = True
@@ -214,9 +220,9 @@ class Server:
         self._first = False
         return h
 
-    def _wait(self, event):
+    def _wait(self, event, ms=INFINITE):
         arr = (wintypes.HANDLE * 2)(event, self._stop_evt)
-        return self._k.WaitForMultipleObjects(2, arr, False, INFINITE) == WAIT_OBJECT_0
+        return self._k.WaitForMultipleObjects(2, arr, False, ms) == WAIT_OBJECT_0
 
     def _accept_loop(self):
         k = self._k
@@ -294,7 +300,8 @@ class Server:
                 if not k.ReadFile(conn.handle, buf, BUF, None, ctypes.byref(ov)) \
                         and ctypes.get_last_error() != ERROR_IO_PENDING:
                     break
-                if not self._wait(ov.hEvent):
+                # a client that connects and says nothing would hold an instance: it has ADMIT_MS to speak
+                if not self._wait(ov.hEvent, INFINITE if conn.checked else ADMIT_MS):
                     k.CancelIoEx(conn.handle, ctypes.byref(ov))
                     k.GetOverlappedResult(conn.handle, ctypes.byref(ov), ctypes.byref(n), True)
                     break
@@ -309,6 +316,10 @@ class Server:
                     linger = conn.send(error(None, INVALID_REQUEST, "Message too big"))
                     break
                 for line in got:
+                    if conn.in_flight >= MAX_IN_FLIGHT:
+                        conn.send(error(None, -32000, "Too many requests at once."))
+                        continue
+                    conn.in_flight += 1
                     try:
                         self._pool.submit(self._answer, conn, line)
                     except RuntimeError:                       # the pool is shut down: stopping
@@ -321,7 +332,10 @@ class Server:
 
     def _answer(self, conn, line):
         after = []
-        reply = handle_line(line, self.methods, conn, after=after)
+        try:
+            reply = handle_line(line, self.methods, conn, after=after)
+        finally:
+            conn.in_flight -= 1
         if reply is not None and conn.alive and not conn.send(reply):
             self.drop(conn)
         run_after(after)
@@ -329,7 +343,7 @@ class Server:
 
 def default_check(user_sid):
     """security.decide against the real client (the engine's session and user; the pinned programs if installed)."""
-    engine = {"user_sid": user_sid, "session": security.own_session()}
+    engine = {"user_sid": user_sid, "session": security.own_session(), "own_sid": security.own_user_sid()}
     images = security.allowed_images()
 
     def check(handle, pid):

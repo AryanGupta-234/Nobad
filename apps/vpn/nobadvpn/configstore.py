@@ -107,7 +107,7 @@ def save(name, text, create=False, untrusted=False):
         dpapi.wipe_and_remove(old)
     ctx.tunnel.rescan()
     ctx.tunnel.push()
-    spawn(ctx.tunnel.geo_refresh, True)          # just imported: place it on the map (offline)
+    spawn(ctx.tunnel.geo_refresh, True, name)    # just imported or saved: place this one on the map
     log(("imported " if create else "saved ") + name + (" (encrypted)" if enc else ""), "ok")
     note = "Reconnect to apply the change." if (ctx.tunnel.active == name and ctx.tunnel.connected) else ""
     return {"ok": True, "name": name, "warnings": res["warnings"], "note": note}
@@ -264,23 +264,56 @@ def _public_host(host):
     return bool(ips) and not any(reach.bogus(ip) for ip in ips)
 
 
+def _public_ip(host):
+    """The one address NOBAD will download from: the first of `host`'s addresses, and only if every one of them is a
+    public internet address. Fixing it before connecting means a second DNS answer (rebinding) can't point the
+    elevated download at this PC or the local network."""
+    from . import reach
+    ips = reach.system_resolve(host) if host else []
+    if not ips or any(reach.bogus(i) for i in ips):
+        return None
+    return ips[0]
+
+
+def _fetch_pinned(u, ip, timeout=10):
+    """GET `u` over HTTPS from `ip` exactly (certificate checked for u.hostname), redirects NOT followed.
+    Returns (status, body up to MAX_BYTES + 1)."""
+    import http.client
+    import socket
+    import ssl
+    ctx_ = ssl.create_default_context()
+    port = u.port or 443
+    sock = socket.create_connection((ip, port), timeout=timeout)
+    try:
+        tls = ctx_.wrap_socket(sock, server_hostname=u.hostname)
+        conn = http.client.HTTPSConnection(u.hostname, port, timeout=timeout, context=ctx_)
+        conn.sock = tls
+        path = (u.path or "/") + (f"?{u.query}" if u.query else "")
+        conn.request("GET", path, headers={"User-Agent": "NobadVPN", "Host": u.netloc})
+        r = conn.getresponse()
+        return r.status, r.read(MAX_BYTES + 1)
+    finally:
+        sock.close()
+
+
 def import_url(url, name=None):
     url = str(url or "").strip()
     u = urllib.parse.urlparse(url)
     if u.scheme != "https" or not u.netloc or not u.hostname:
         return {"ok": False, "error": "only https:// links can be imported"}
-    if not _public_host(u.hostname):
+    ip = _public_ip(u.hostname)
+    if not ip:
         return {"ok": False, "error": "that link points to this PC or a local network address — download the file "
                                       "and import it instead"}
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "NobadVPN"})
-        with urllib.request.urlopen(req, timeout=10) as r:   # redirects to http:// are refused (reach.py)
-            final = urllib.parse.urlparse(r.geturl() if hasattr(r, "geturl") else url)
-            if final.scheme != "https" or not _public_host(final.hostname):
-                return {"ok": False, "error": "the link redirected somewhere NOBAD won't download from"}
-            raw = r.read(MAX_BYTES + 1)
+        status, raw = _fetch_pinned(u, ip)
     except Exception as e:
         return {"ok": False, "error": f"download failed: {type(e).__name__}"}
+    if 300 <= status < 400:
+        return {"ok": False, "error": "the link redirects; NOBAD only downloads from the address you gave. Use the "
+                                      "final link, or download the file and import it"}
+    if status != 200:
+        return {"ok": False, "error": f"the server answered {status}"}
     if len(raw) > MAX_BYTES:
         return {"ok": False, "error": "that file is too large to be a WireGuard config"}
     text = raw.decode("utf-8", "replace")

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -152,6 +153,31 @@ void main() {
       expect(ownerAllowed(null, dev: false, me: me), isFalse);
       expect(ownerAllowed(me, dev: true, me: me), isTrue);
       expect(ownerAllowed('S-1-5-32-544', dev: true, me: me), isFalse);
+    });
+  });
+
+  group('who serves the pipe', () {
+    test('an installed window only talks to {app}\\NobadVPN.exe', () {
+      const ui = r'C:\Program Files\NOBAD VPN\ui\nobad_vpn_ui.exe';
+      expect(serverAllowed(r'C:\Program Files\NOBAD VPN\NobadVPN.exe', ui, dev: false), isTrue);
+      expect(serverAllowed(r'c:\program files\nobad vpn\NOBADVPN.EXE', ui, dev: false), isTrue);
+      expect(serverAllowed(r'C:\Users\me\evil.exe', ui, dev: false), isFalse);
+      expect(serverAllowed(null, ui, dev: false), isFalse);
+    });
+
+    test('a developer build has the owner check only; the dev engine neither', () {
+      expect(serverAllowed(r'C:\x\python.exe', r'D:\dev\build\nobad_vpn_ui.exe', dev: false), isTrue);
+      expect(serverAllowed(null, r'C:\Program Files\NOBAD VPN\ui\nobad_vpn_ui.exe', dev: true), isTrue);
+    });
+
+    test('release builds ignore every development switch', () {
+      final main = File('lib/main.dart').readAsStringSync();
+      expect(main, contains("const devSwitches = kDebugMode || bool.fromEnvironment('NOBAD_VPN_DEV');"));
+      expect(main, contains('final env = devSwitches ? Platform.environment : const <String, String>{};'));
+      for (final m in RegExp(r'Platform\.environment\[').allMatches(main)) {
+        final line = main.substring(main.lastIndexOf('\n', m.start) + 1, main.indexOf('\n', m.start));
+        expect(line, contains('devSwitches'), reason: line);
+      }
     });
   });
 }

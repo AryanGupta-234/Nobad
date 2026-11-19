@@ -20,6 +20,7 @@ The real engine runs elevated and changes the firewall, so don't start it to loo
 
 ```
 python -I tool\demo_engine.py connected        # or: off connecting blocked error empty; --light
+flutter build windows --release --dart-define=NOBAD_VPN_DEV=true   # only such a build honours the dev switches
 set NOBAD_VPN_DEV_ENGINE=1
 build\windows\x64\runner\Release\nobad_vpn_ui.exe
 ```
@@ -43,7 +44,7 @@ the in-memory `FakeEngine` with no pipe at all.
 | `windows/runner/` | Single-instance mutexes (`Local\NOBADVPNUI-main` / `-mini`), the pop-up's frameless window, the main window's designed size and remembered place (`window_geometry.h`) |
 | `test/` | Models, controller, RPC, contract transcripts, map maths, widgets for every screen, goldens (dark and light, default, minimum and maximum size) |
 
-## Switches (development only, off unless set)
+## Switches (development only: debug builds, or `--dart-define=NOBAD_VPN_DEV=true`; a normal release build ignores them all)
 
 | Variable | What |
 |---|---|

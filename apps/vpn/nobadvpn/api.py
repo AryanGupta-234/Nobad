@@ -205,7 +205,7 @@ def h_rescan(b):
             log(f"import folder: {e}", "warn")
         ctx.tunnel.rescan()
         ctx.tunnel.push()
-        spawn(ctx.tunnel.geo_refresh, True)
+        spawn(ctx.tunnel.geo_refresh)             # no new lookups: places what earlier connects resolved
     return {"ok": True} if run_once("rescan", work) else _busy("A configuration scan is already running.")
 
 

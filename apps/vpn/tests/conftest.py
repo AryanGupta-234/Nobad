@@ -133,7 +133,7 @@ def win(monkeypatch, sample):
     monkeypatch.setattr(engine, "SERVICE_WAIT", 0.5)
     for mod in (engine, protection, failsafe):        # no real Windows notifications from the tests
         monkeypatch.setattr(mod, "notify", lambda *a, **k: None)
-    monkeypatch.setattr(engine.Tunnel, "geo_refresh", lambda self: None)
+    monkeypatch.setattr(engine.Tunnel, "geo_refresh", lambda self, resolve=False, only=None: None)
     monkeypatch.setattr("nobadvpn.tools.fetch_ipinfo", lambda: None)
     monkeypatch.setattr(engine.Tunnel, "_resolve", lambda self, h: ["203.0.113.9"] if h else [])
     for d in (CONFIG_DIR, RUNTIME_DIR):
@@ -148,3 +148,17 @@ def win(monkeypatch, sample):
         f.write(sample)
     ctx.tunnel.rescan()
     return fw
+
+
+@pytest.fixture(autouse=True)
+def _no_real_windows(monkeypatch):
+    """Tests never start a real NOBAD window (the built Flutter UI) or create a scheduled task: launching goes nowhere."""
+    from nobadvpn.rpc import launch
+    monkeypatch.setattr(launch, "start_as_shell_user", lambda exe, arg: False)
+    real = launch.launch
+
+    def guarded(window, exe=None, admin=None, runner=None, popen=None, shell_start=None):
+        if popen is None and runner is None and shell_start is None:
+            return False                       # a real start: never in tests
+        return real(window, exe=exe, admin=admin, runner=runner, popen=popen, shell_start=shell_start)
+    monkeypatch.setattr(launch, "launch", guarded)

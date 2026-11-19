@@ -10,6 +10,7 @@ library;
 
 import 'dart:io' show Platform;
 
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -24,18 +25,24 @@ import 'platform/files.dart';
 import 'platform/window.dart';
 import 'widgets/glass.dart';
 
+/// True only in debug builds or with --dart-define=NOBAD_VPN_DEV=true (screenshots, the demo engine).
+const devSwitches = kDebugMode || bool.fromEnvironment('NOBAD_VPN_DEV');
+
 Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
   await loadDisplayFont(); // ariblk.ttf from the Windows fonts folder, a millisecond
   // Skia keeps up to 256 MB of GPU resources by default; this UI draws text and a few paths, so a small cache is
   // plenty and keeps the window's memory down (NOBAD Find measured the same, apps/find/docs/measurements.md).
-  final cacheMb = int.tryParse(Platform.environment['NOBAD_VPN_SKIA_CACHE_MB'] ?? '') ?? 12;
+  final cacheMb = (devSwitches ? int.tryParse(Platform.environment['NOBAD_VPN_SKIA_CACHE_MB'] ?? '') : null) ?? 12;
   Win32Window.shownCacheBytes = cacheMb << 20;
   SystemChannels.skia.invokeMethod<void>('Skia.setResourceCacheMaxBytes', cacheMb << 20);
   final mode = args.contains('--mini') ? AppMode.mini : AppMode.main;
   Win32Window.acrylic = mode == AppMode.mini;
-  Glass.noBlur = Platform.environment['NOBAD_VPN_NO_BLUR'] == '1';
-  final env = Platform.environment;
+  Glass.noBlur = devSwitches && Platform.environment['NOBAD_VPN_NO_BLUR'] == '1';
+  // Development switches (a fake engine, the unelevated demo engine, a start tab) exist only in debug builds and in
+  // builds made with --dart-define=NOBAD_VPN_DEV=true. A release build ignores them: anything running as the user can
+  // set environment variables (HKCU\Environment), and must not be able to make the real window show a fake state.
+  final env = devSwitches ? Platform.environment : const <String, String>{};
   final EngineApi engine;
   if (env['NOBAD_VPN_FAKE_ENGINE'] == '1') {
     engine = FakeEngine(state: demoState(connected: env['NOBAD_VPN_FAKE_CONNECTED'] == '1'), live: true);

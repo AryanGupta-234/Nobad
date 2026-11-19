@@ -1,4 +1,5 @@
 """WireGuard config parsing, validation, redaction and the streaming-tuned runtime copy."""
+import contextvars
 import ipaddress
 import os
 import re
@@ -134,6 +135,10 @@ def tuned_conf_text(text, info, stream=True, dns_fallback=None, endpoint_ip=None
     pinned = False
     for line in text.splitlines():
         body = line.split("#", 1)[0]
+        # defence in depth: the copy WireGuard runs never carries PreUp/PostUp/PreDown/PostDown, whatever the stored
+        # config says (WireGuard runs them as SYSTEM when DangerousScriptExecution is set)
+        if "=" in body and body.split("=", 1)[0].strip().lower() in _SCRIPT_KEYS:
+            continue
         if endpoint_ip and not pinned and "=" in body and body.split("=", 1)[0].strip().lower() == "endpoint":
             host, port = _split_endpoint(body.split("=", 1)[1].strip())
             if host and port and host == info.get("host"):
@@ -189,8 +194,16 @@ def _valid_host(h):
         return bool(_HOST.match(h))
 
 
-def validate_conf(text, untrusted_source=False):
-    """Returns {ok, errors[], warnings[], info}. `untrusted_source` (any import: file, paste, URL, QR) rejects script hooks."""
+# Set by the engine pipe (rpc/methods.py) around every request that writes or checks a config: such a request can
+# come from any program running as the user, so script hooks, `Table` and unknown keys are refused, not warned about.
+STRICT = contextvars.ContextVar("nobad_strict_configs", default=False)
+
+
+def validate_conf(text, untrusted_source=False, strict=None):
+    """Returns {ok, errors[], warnings[], info}. `untrusted_source` (any import: file, paste, URL, QR) rejects script
+    hooks. `strict` (default: the STRICT context, on for every pipe request) also refuses `Table` and unknown keys."""
+    strict = STRICT.get() if strict is None else strict
+    untrusted_source = untrusted_source or strict
     errors, warnings = [], []
     section = None
     n_iface = n_peer = 0
@@ -224,7 +237,10 @@ def validate_conf(text, untrusted_source=False):
         kl = k.lower()
         known = _IFACE_KEYS if section == "interface" else _PEER_KEYS
         if kl not in known:
-            warnings.append(f"line {lineno}: unknown {section} key '{k}' (WireGuard may reject it)")
+            (errors if strict else warnings).append(f"line {lineno}: unknown {section} key '{k}'" +
+                                                    (" (refused)" if strict else " (WireGuard may reject it)"))
+        elif strict and kl == "table":
+            errors.append(f"line {lineno}: 'Table' changes routing outside the tunnel; refused here")
         if kl in _SCRIPT_KEYS:
             if untrusted_source:
                 errors.append(f"line {lineno}: '{k}' runs commands — refused for imported configs (add it in the config editor if you really need it)")

@@ -12,7 +12,8 @@ class of caller on its own:
 3. The caller check (check_client), on the connection's first bytes and before any request is read: the client's
    token (through identification-level impersonation) must belong to that same user, or SYSTEM; it must be in
    the engine's own Windows session; its integrity must be at least Medium. In an installed build its program
-   must be NOBAD's own UI (or NobadVPN.exe itself), from the install folder, which only administrators can change.
+   must also be NOBAD's own UI (or NobadVPN.exe itself), from the install folder: a filter against stray programs,
+   not a security boundary (a program running as the user can start NOBAD's window and drive it).
 4. Every request is checked against params.SPEC (an allowlist of methods and parameter shapes), then the
    existing handler checks run as they do for the WebView UI. No parameter is ever a path or a command line.
 
@@ -35,12 +36,54 @@ MEDIUM_RID = 0x2000
 _SID = re.compile(r"S-1-[0-9]+(-[0-9]+){1,14}")
 
 
-def sddl_for(user_sid):
-    """Protected DACL (no inheritance): network logons denied; full access for the session's user, SYSTEM and
-    Administrators. SACL: Medium mandatory label, no-write-up."""
+# FILE_GENERIC_READ | FILE_GENERIC_WRITE without FILE_APPEND_DATA (= FILE_CREATE_PIPE_INSTANCE on a pipe): the user
+# can talk to the engine, but can't create an instance of its pipe (a rogue server under the engine's name), nor
+# change the pipe's access list or owner.
+USER_ACCESS = 0x0012019B
+
+
+def sddl_for(user_sid, full_user=False):
+    """Protected DACL (no inheritance): network logons denied; read and write for the session's user (all rights only
+    with `full_user`: an unelevated development engine, which must create its own pipe's next instances); all rights
+    for SYSTEM and Administrators. SACL: Medium mandatory label, no-write-up and no-read-up."""
     if not isinstance(user_sid, str) or not _SID.fullmatch(user_sid):
         raise ValueError("not a SID")
-    return f"D:P(D;;GA;;;NU)(A;;GA;;;{user_sid})(A;;GA;;;SY)(A;;GA;;;BA)S:(ML;;NW;;;ME)"
+    user = "GA" if full_user else f"0x{USER_ACCESS:x}"
+    return f"D:P(D;;GA;;;NU)(A;;{user};;;{user_sid})(A;;GA;;;SY)(A;;GA;;;BA)S:(ML;;NWNR;;;ME)"
+
+
+def effective_rights(sddl, sid):
+    """The access `sid` gets from the DACL of `sddl` (GetEffectiveRightsFromAcl), for tests and checks."""
+    a = ctypes.WinDLL("advapi32", use_last_error=True)
+    k = ctypes.WinDLL("kernel32")
+    sd, psid = ctypes.c_void_p(), ctypes.c_void_p()
+    a.ConvertStringSecurityDescriptorToSecurityDescriptorW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD,
+                                                                        ctypes.POINTER(ctypes.c_void_p), ctypes.c_void_p]
+    if not a.ConvertStringSecurityDescriptorToSecurityDescriptorW(sddl, 1, ctypes.byref(sd), None):
+        raise ctypes.WinError(ctypes.get_last_error())
+    a.ConvertStringSidToSidW.argtypes = [wintypes.LPCWSTR, ctypes.POINTER(ctypes.c_void_p)]
+    if not a.ConvertStringSidToSidW(sid, ctypes.byref(psid)):
+        k.LocalFree(sd)
+        raise ctypes.WinError(ctypes.get_last_error())
+    try:
+        present, dacl, defaulted = wintypes.BOOL(), ctypes.c_void_p(), wintypes.BOOL()
+        a.GetSecurityDescriptorDacl.argtypes = [ctypes.c_void_p, ctypes.POINTER(wintypes.BOOL),
+                                                ctypes.POINTER(ctypes.c_void_p), ctypes.POINTER(wintypes.BOOL)]
+        a.GetSecurityDescriptorDacl(sd, ctypes.byref(present), ctypes.byref(dacl), ctypes.byref(defaulted))
+
+        class TRUSTEE(ctypes.Structure):
+            _fields_ = [("pMultipleTrustee", ctypes.c_void_p), ("MultipleTrusteeOperation", ctypes.c_int),
+                        ("TrusteeForm", ctypes.c_int), ("TrusteeType", ctypes.c_int), ("ptstrName", ctypes.c_void_p)]
+        t = TRUSTEE(None, 0, 0, 0, psid)                     # TRUSTEE_IS_SID
+        mask = wintypes.DWORD()
+        a.GetEffectiveRightsFromAclW.argtypes = [ctypes.c_void_p, ctypes.POINTER(TRUSTEE), ctypes.POINTER(wintypes.DWORD)]
+        rc = a.GetEffectiveRightsFromAclW(dacl, ctypes.byref(t), ctypes.byref(mask))
+        if rc:
+            raise ctypes.WinError(rc)
+        return mask.value
+    finally:
+        k.LocalFree(psid)
+        k.LocalFree(sd)
 
 
 def pipe_name(user_sid, dev=False):
@@ -56,7 +99,9 @@ def decide(client, engine, allowed_images=None):
     {user_sid, session}. `allowed_images`: lower-case full paths the client's program must be one of (None: not
     checked, a source run). Returns None (allowed) or the reason it isn't."""
     sid = client.get("sid")
-    if sid not in (engine.get("user_sid"), SYSTEM):
+    # the session's user (the window), SYSTEM, or the engine's own account (a second launch of NobadVPN.exe or the
+    # Start-menu repair, elevated: the same account as the engine even when that isn't the session's user)
+    if sid is None or sid not in (engine.get("user_sid"), SYSTEM, engine.get("own_sid")):
         return "another account"
     if client.get("session") != engine.get("session") and sid != SYSTEM:
         return "another Windows session"
@@ -64,6 +109,7 @@ def decide(client, engine, allowed_images=None):
         return "an app container"
     if not isinstance(client.get("integrity"), int) or client["integrity"] < MEDIUM_RID:
         return "low integrity"
+    # a filter, not a security boundary: a program running as the user can start NOBAD's own window and drive it
     if allowed_images is not None:
         img = os.path.normcase(os.path.normpath(client.get("image") or ""))
         if img not in {os.path.normcase(os.path.normpath(p)) for p in allowed_images}:

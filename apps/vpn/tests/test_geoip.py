@@ -118,3 +118,41 @@ def test_start_up_places_from_the_last_known_address_without_dns(win, monkeypatc
     ctx.tunnel._ep_cache["vpn.example.com"] = (0.0, ["45.87.212.9"])     # what an earlier connect found
     REAL_GEO_REFRESH(ctx.tunnel)
     assert ctx.tunnel.geo["vpn.example.com"]["country"] == "DE"
+
+
+def test_an_import_places_only_that_config(win, monkeypatch, db):
+    from nobadvpn.ctx import ctx
+    from nobadvpn import engine
+    seen = []
+    monkeypatch.setattr(geoip, "_db", db)
+    monkeypatch.setattr(engine.Tunnel, "_resolve", lambda self, h: (seen.append(h), ["146.70.205.2"])[1])
+    ctx.settings.set("ip_lookup", False)
+    ctx.tunnel.geo = {}
+    REAL_GEO_REFRESH(ctx.tunnel, True, "Nothing-Like-This")
+    assert seen == []
+    REAL_GEO_REFRESH(ctx.tunnel, True, "Home")
+    assert seen == ["vpn.example.com"]
+
+
+def test_import_url_downloads_from_the_checked_address_and_never_follows_redirects(win, monkeypatch):
+    from nobadvpn import configstore
+    from test_rpc import HOOKED
+    got = []
+    monkeypatch.setattr(configstore, "_public_ip", lambda h: "203.0.113.5")
+    monkeypatch.setattr(configstore, "_fetch_pinned", lambda u, ip: (got.append(ip), (302, b""))[1])
+    r = configstore.import_url("https://example.com/a.conf")
+    assert r["ok"] is False and "redirects" in r["error"] and got == ["203.0.113.5"]
+    monkeypatch.setattr(configstore, "_public_ip", lambda h: None)
+    assert "local network" in configstore.import_url("https://intranet.example/a.conf")["error"]
+    monkeypatch.setattr(configstore, "_public_ip", lambda h: "203.0.113.5")
+    good = HOOKED.replace("PostUp = cmd /c calc.exe\n", "").encode()
+    monkeypatch.setattr(configstore, "_fetch_pinned", lambda u, ip: (200, good))
+    assert configstore.import_url("https://example.com/new-one.conf")["ok"] is True
+
+
+def test_public_ip_refuses_any_private_answer(monkeypatch):
+    from nobadvpn import configstore, reach
+    monkeypatch.setattr(reach, "system_resolve", lambda h: ["93.184.216.34", "192.168.1.1"])
+    assert configstore._public_ip("example.com") is None
+    monkeypatch.setattr(reach, "system_resolve", lambda h: ["93.184.216.34"])
+    assert configstore._public_ip("example.com") == "93.184.216.34"

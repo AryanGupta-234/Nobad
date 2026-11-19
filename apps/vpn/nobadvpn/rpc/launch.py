@@ -6,6 +6,7 @@ scheduled task with an interactive, limited principal starts it, the route syscm
 The program is a fixed file (the install folder's ui\\nobad_vpn_ui.exe, or the developer's build) and the only argument is
 `--mini` or nothing; nothing from the UI or the network ever reaches this command line.
 """
+import ctypes
 import os
 import re
 import subprocess
@@ -33,12 +34,24 @@ def ui_exe():
     return None
 
 
-def ui_mode(env=None, exe=None):
+def ui_mode(env=None, exe=None, frozen=None, setting=None):
     """Which UI this launch uses: "webview" (today's default), "flutter" (the engine owns no window; the Flutter UI
     connects over the pipe), or "both" (WebView windows plus the pipe, for checking parity side by side).
-    NOBAD_VPN_UI picks one; "flutter"/"both" need the Flutter UI to be there, otherwise it stays "webview"."""
+
+    Installed builds read only the `ui_flutter` setting (settings.json in ProgramData, which only administrators can
+    change): the environment is the user's to set (HKCU\\Environment) and must not decide what the elevated app does.
+    Source runs also take NOBAD_VPN_UI. "flutter"/"both" need the Flutter UI to be there, else it stays "webview"."""
+    frozen = getattr(sys, "frozen", False) if frozen is None else frozen
+    if setting is None:
+        try:
+            from ..ctx import ctx
+            setting = bool(ctx.settings and ctx.settings.get("ui_flutter"))
+        except Exception:
+            setting = False
     env = os.environ if env is None else env
-    want = str(env.get("NOBAD_VPN_UI", "")).strip().lower()
+    want = "flutter" if setting else ""
+    if not frozen:
+        want = str(env.get("NOBAD_VPN_UI", "")).strip().lower() or want
     if want not in MODES or want == "webview":
         return "webview"
     exe = ui_exe() if exe is None else exe
@@ -102,6 +115,16 @@ def launch(window, exe=None, admin=None, runner=None, popen=None, shell_start=No
     return True
 
 
+def token_is_plain_user(tok):
+    """True only for a token that is not elevated and at most Medium integrity: the window must never get more."""
+    from . import security
+    elev = security._token_info(tok, 20)                                  # TokenElevation
+    if elev is None or ctypes.c_uint32.from_buffer(elev).value != 0:
+        return False
+    il = security.token_facts(tok).get("integrity")
+    return isinstance(il, int) and il <= security.MEDIUM_RID
+
+
 def start_as_shell_user(exe, arg):
     """CreateProcessWithTokenW with a primary copy of the desktop shell's token (the user, Medium integrity).
     True when the program started. Needs the engine's SeImpersonatePrivilege (elevated administrators have it)."""
@@ -132,6 +155,8 @@ def start_as_shell_user(exe, arg):
                 return False
             # TOKEN_QUERY | DUPLICATE | ASSIGN_PRIMARY | ADJUST_DEFAULT | ADJUST_SESSIONID; SecurityImpersonation; Primary
             if not a.DuplicateTokenEx(tok, 0x8 | 0x2 | 0x1 | 0x80 | 0x100, None, 2, 1, ctypes.byref(dup)):
+                return False
+            if not token_is_plain_user(dup):            # the shell itself elevated (UAC off): use the limited task
                 return False
 
             class SI(ctypes.Structure):

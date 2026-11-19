@@ -411,7 +411,7 @@ class Tunnel(ProtectionMixin, FailsafeMixin):
         c = self._ep_cache.get(host)
         return list(c[1]) if c else []
 
-    def geo_refresh(self, resolve=False):
+    def geo_refresh(self, resolve=False, only=None):
         """Find where each server is (once per endpoint; cached on disk). Offline first: the bundled IP-to-country
         file (geoip.py) answers without sending anything. Only with the 'IP lookup' privacy setting on is the public
         endpoint IP also sent to ipinfo.io, for a city. Without it no new DNS lookup is made here: hostnames are placed
@@ -421,6 +421,8 @@ class Tunnel(ProtectionMixin, FailsafeMixin):
         online = bool(ctx.settings.get("ip_lookup"))
         changed = False
         for r in list(self._regions):
+            if only is not None and r["name"] != only:
+                continue                   # an import or a save places that config only, never resolves the rest
             h = r["host"]
             have = self.geo.get(h) if h else None
             if not h or (have and (have.get("source") != "offline" or not online)):

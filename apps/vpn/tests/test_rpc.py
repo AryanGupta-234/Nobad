@@ -14,6 +14,7 @@ from nobadvpn.rpc import events as rpc_events
 from nobadvpn.rpc import launch, methods, params, protocol, security
 
 WIN = sys.platform == "win32"
+PIPE_PREFIX = "\\\\.\\pipe\\NOBADVPN-test-"
 USER = "S-1-5-21-1111111111-2222222222-3333333333-1001"
 
 
@@ -200,13 +201,52 @@ def test_spec_services_match_settings():
 
 
 def test_protection_changes_are_logged_with_the_caller(monkeypatch):
-    got = []
+    got, told = [], []
     monkeypatch.setattr(methods, "log", lambda msg, level="info": got.append(msg))
+    monkeypatch.setattr(methods, "broadcast", lambda kind, payload: told.append((kind, payload["msg"])))
     m, _ = build()
     call(m, "settings", {"key": "kill_switch", "value": False}, conn=FakeConn(pid=0))
+    call(m, "settings", {"key": "kill_switch", "value": "false"}, conn=FakeConn(pid=0))   # what the engine stores
     call(m, "settings", {"key": "kill_switch", "value": True}, conn=FakeConn(pid=0))
+    call(m, "settings", {"key": "fallback_dns", "value": "9.9.9.9"}, conn=FakeConn(pid=0))
     call(m, "panic_reset", {}, conn=FakeConn(pid=0))
-    assert got == ["kill_switch turned off from a program (pid 0)", "panic_reset requested by a program (pid 0)"]
+    call(m, "connect", {"name": "japan"}, conn=FakeConn(pid=0))
+    assert got == ["kill_switch turned off by a program (pid 0)", "kill_switch turned off by a program (pid 0)",
+                   "fallback_dns changed by a program (pid 0)", "panic_reset requested by a program (pid 0)",
+                   "connect requested by a program (pid 0)"]
+    # not NOBAD's own window: the window says so
+    assert ("notify", "The VPN was switched to another server by another program.") in told
+
+
+def test_the_window_itself_is_logged_but_not_announced(monkeypatch):
+    told = []
+    monkeypatch.setattr(methods, "broadcast", lambda kind, payload: told.append(payload))
+    monkeypatch.setattr(methods, "_image", lambda conn: "C:\\Program Files\\NOBAD VPN\\ui\\nobad_vpn_ui.exe")
+    m, _ = build()
+    call(m, "connect", {"name": "japan"}, conn=FakeConn())
+    assert told == []
+
+
+def test_update_and_crash_addresses_can_only_be_cleared_over_the_pipe():
+    m, calls = build()
+    r = call(m, "settings", {"key": "update_url", "value": "https://evil.example/latest.json"})["result"]
+    assert r["ok"] is False and "--set-url" in r["error"] and calls == []
+    assert call(m, "settings", {"key": "crash_report_url", "value": "https://x.example/"})["result"]["ok"] is False
+    assert call(m, "settings", {"key": "update_url", "value": ""})["result"] == {"ok": True}
+
+
+def test_error_sentences_carry_no_paths_or_os_codes():
+    raw = "couldn't write the config: [Errno 13] Permission denied: 'C:\\ProgramData\\NobadVPN\\configs\\x.conf'"
+    assert methods.clean_error(raw) == "couldn't write the config: Permission denied: '<path>'"
+    assert methods.shape({"ok": False, "error": raw})["error"].endswith("'<path>'")
+
+
+def test_ui_starts_are_rate_limited():
+    launched = []
+    m, _ = build(launch_ui=lambda w: (launched.append(w), True)[1])
+    for _ in range(5):
+        assert call(m, "ui_show", {"window": "main"})["result"]["launched"] is True
+    assert launched == ["main"]
 
 
 # ---------------------------------------------------------------- the pipe's own methods
@@ -314,7 +354,8 @@ def test_event_list_covers_every_engine_broadcast():
 # ---------------------------------------------------------------- who may connect
 def test_sddl_allows_only_the_user_system_and_admins_at_medium():
     s = security.sddl_for(USER)
-    assert s == f"D:P(D;;GA;;;NU)(A;;GA;;;{USER})(A;;GA;;;SY)(A;;GA;;;BA)S:(ML;;NW;;;ME)"
+    assert s == f"D:P(D;;GA;;;NU)(A;;0x12019b;;;{USER})(A;;GA;;;SY)(A;;GA;;;BA)S:(ML;;NWNR;;;ME)"
+    assert "(A;;GA;;;" + USER in security.sddl_for(USER, full_user=True)          # the unelevated dev engine only
     for bad in ("", "WD", "S-1-1-0)(A;;GA;;;WD", "S-1-5-21-1(A;;GA;;;WD)", None, 5):
         with pytest.raises(ValueError):
             security.sddl_for(bad)
@@ -359,11 +400,16 @@ def test_source_runs_dont_pin_the_program():
 # ---------------------------------------------------------------- which UI, and starting it as the user
 def test_ui_mode(tmp_path):
     exe = str(tmp_path / "nobad_vpn_ui.exe")
-    assert launch.ui_mode({}, exe=exe) == "webview"
-    assert launch.ui_mode({"NOBAD_VPN_UI": "flutter"}, exe=exe) == "flutter"
-    assert launch.ui_mode({"NOBAD_VPN_UI": "BOTH"}, exe=exe) == "both"
-    assert launch.ui_mode({"NOBAD_VPN_UI": "flutter"}, exe="") == "webview"     # no Flutter UI: stays WebView
-    assert launch.ui_mode({"NOBAD_VPN_UI": "chrome"}, exe=exe) == "webview"
+    assert launch.ui_mode({}, exe=exe, frozen=False, setting=False) == "webview"
+    # installed builds: only the admin-only setting decides, never the user's environment
+    assert launch.ui_mode({"NOBAD_VPN_UI": "flutter"}, exe=exe, frozen=True, setting=False) == "webview"
+    assert launch.ui_mode({}, exe=exe, frozen=True, setting=True) == "flutter"
+    assert launch.ui_mode({}, exe="", frozen=True, setting=True) == "webview"
+    assert launch.ui_mode({}, exe=exe, frozen=False, setting=True) == "flutter"
+    assert launch.ui_mode({"NOBAD_VPN_UI": "flutter"}, exe=exe, frozen=False, setting=False) == "flutter"
+    assert launch.ui_mode({"NOBAD_VPN_UI": "BOTH"}, exe=exe, frozen=False, setting=False) == "both"
+    assert launch.ui_mode({"NOBAD_VPN_UI": "flutter"}, exe="", frozen=False, setting=False) == "webview"
+    assert launch.ui_mode({"NOBAD_VPN_UI": "chrome"}, exe=exe, frozen=False, setting=False) == "webview"
 
 
 def test_task_command_takes_only_a_fixed_program_and_argument():
@@ -390,7 +436,14 @@ def test_launch_unelevated_starts_directly_elevated_uses_the_shell_token():
                          runner=lambda cmd, timeout: (ran.append(cmd), R())[1])
     assert ran and ran[0][0] == "powershell" and "-RunLevel Limited" in ran[0][-1]
     assert not launch.launch("settings", exe=exe, admin=False, popen=lambda a, **k: None)
-    assert not launch.launch("main", exe=None, admin=False) or launch.ui_exe()
+    # no UI program: nothing starts (ui_exe is faked: a test must never start the real window)
+    import nobadvpn.rpc.launch as L
+    orig = L.ui_exe
+    L.ui_exe = lambda: None
+    try:
+        assert not launch.launch("main", exe=None, admin=False, popen=lambda a, **k: pytest.fail("started a program"))
+    finally:
+        L.ui_exe = orig
 
 
 # ---------------------------------------------------------------- a real pipe (Windows, normal rights)
@@ -561,3 +614,175 @@ def test_flutter_mode_hands_windows_to_the_pipe(monkeypatch):
     monkeypatch.setattr(rpc, "start", lambda mode: None)                       # no pipe: the classic window
     from nobadvpn import window
     assert isinstance(app._windows("http://127.0.0.1:1"), window.WindowManager)
+
+
+# ---------------------------------------------------------------- NOBAD's own processes over the pipe
+def test_the_engines_own_account_may_call_for_hand_off():
+    assert security.decide(dict(GOOD, sid="S-1-5-21-9-9-9-500", integrity=0x3000,
+                                image=PINNED[1]),
+                           dict(ENGINE, own_sid="S-1-5-21-9-9-9-500"), PINNED) is None
+    assert security.decide(dict(GOOD, sid="S-1-5-21-9-9-9-501"), dict(ENGINE, own_sid="S-1-5-21-9-9-9-500"),
+                           PINNED) == "another account"
+
+
+def test_second_launch_hands_off_over_the_pipe_first(monkeypatch):
+    from nobadvpn import lifecycle
+    monkeypatch.setattr(lifecycle, "read_instance", lambda: {"pid": 99999, "port": 1, "token": "t", "pipe": True})
+    asked = []
+    ok = lifecycle.handoff_to_running(show=True, pid_alive=lambda p: True,
+                                      post=lambda *a: pytest.fail("HTTP not needed"),
+                                      pipe=lambda m, p, t: (asked.append((m, p)), {"ok": True, "shown": True})[1])
+    assert ok and asked == [("ui_show", {"window": "main"})]
+    asked.clear()
+    assert lifecycle.handoff_to_running(show=False, pid_alive=lambda p: True, post=lambda *a: {"ok": False},
+                                        image=lambda p: None,
+                                        pipe=lambda m, p, t: (asked.append(m), {"protocol": 1})[1])
+    assert asked == ["hello"]
+
+
+def test_pipe_failure_falls_back_to_http(monkeypatch):
+    from nobadvpn import lifecycle
+
+    def broken(m, p, t):
+        raise OSError("no pipe")
+    monkeypatch.setattr(lifecycle, "read_instance", lambda: {"pid": 99999, "port": 1, "token": "t", "pipe": True})
+    assert lifecycle.handoff_to_running(show=True, pid_alive=lambda p: True, post=lambda *a: {"ok": True}, pipe=broken)
+
+
+def test_start_menu_repair_goes_to_the_engine_over_the_pipe(monkeypatch):
+    from nobadvpn import app, lifecycle
+    sent = []
+    monkeypatch.setattr(lifecycle, "pipe_call", lambda m, p, t: (sent.append((m, p)), {"ok": True})[1])
+    monkeypatch.setattr(lifecycle, "_post_local", lambda *a: pytest.fail("HTTP not needed"))
+    assert app._forward_repair({"pipe": True, "port": 1, "token": "t"}, "quick") == {"ok": True}
+    assert sent == [("net_repair", {"level": "quick"})]
+
+
+@pytest.mark.skipif(not WIN, reason="named pipes are Windows only")
+def test_client_talks_to_a_real_pipe_and_checks_its_owner():
+    from nobadvpn.rpc import Rpc, client
+    sid = security.own_user_sid()
+    name = PIPE_PREFIX + uuid.uuid4().hex
+    calls = []
+    rpc = Rpc(handlers=handlers(calls), state=lambda: {}, name=name, user_sid=sid, check=lambda h, pid: None,
+              launch_ui=lambda w: False)
+    assert rpc.start()
+    try:
+        assert client.call("hello", name=name, owners=None)["protocol"] == protocol.PROTOCOL
+        assert client.call("net_repair", {"level": "quick"}, name=name, owners=None) == {"ok": True}
+        assert calls == [("net_repair", {"level": "quick"})]
+        with pytest.raises(client.PipeError):          # made by this (unelevated) user: not an engine's pipe
+            client.call("hello", name=name)
+        with pytest.raises(client.PipeError):
+            client.call("connect", {"name": "../x"}, name=name, owners=None)
+    finally:
+        rpc.stop()
+    with pytest.raises(client.PipeError):
+        client.call("hello", name=name, owners=None, timeout=.2)
+
+
+# ---------------------------------------------------------------- the security review's findings
+def _pipe_strict(monkeypatch):
+    from nobadvpn import api
+    m = methods.build(api.HANDLERS, lambda: {})
+    return m
+
+
+HOOKED = """[Interface]
+PrivateKey = yAnz5TF+lXXJte14tji3zlMNq+hd2rYUIgJBgB3fBmk=
+Address = 10.2.0.2/32
+PostUp = cmd /c calc.exe
+
+[Peer]
+PublicKey = xTIBA5rboUvnH4htodjb6e697QjLERt1NAB4mZqp8Dg=
+AllowedIPs = 0.0.0.0/0
+Endpoint = 203.0.113.9:51820
+"""
+
+
+def test_config_save_over_the_pipe_refuses_script_hooks(win):
+    from nobadvpn import api
+    m = methods.build(api.HANDLERS, lambda: {})
+    r = call(m, "config_save", {"name": "Home", "text": HOOKED})["result"]
+    assert r["ok"] is False and "runs commands" in r["error"]
+    r = call(m, "config_validate", {"name": "Home", "text": HOOKED})["result"]
+    assert r["valid"] is False
+    r = call(m, "import", {"name": "x.conf", "content": HOOKED.replace("PostUp", "PreDown")})["result"]
+    assert r["ok"] is False
+
+
+def test_strict_configs_refuse_table_and_unknown_keys():
+    from nobadvpn import confparse
+    base = HOOKED.replace("PostUp = cmd /c calc.exe\n", "")
+    assert confparse.validate_conf(base, strict=True)["ok"]
+    assert not confparse.validate_conf(base.replace("Address", "Table = off\nAddress"), strict=True)["ok"]
+    assert not confparse.validate_conf(base.replace("Address", "Wat = 1\nAddress"), strict=True)["ok"]
+    assert confparse.validate_conf(base.replace("Address", "Wat = 1\nAddress"))["ok"]      # the WebView: a warning
+
+
+def test_the_runtime_copy_never_carries_hooks():
+    from nobadvpn import confparse
+    info = confparse.parse_conf_text(HOOKED)
+    out = confparse.tuned_conf_text(HOOKED + "PreUp=x\n  predown = y\n", info)
+    assert "calc" not in out and "preup" not in out.lower() and "predown" not in out.lower()
+
+
+@pytest.mark.skipif(not WIN, reason="Windows security descriptors")
+def test_the_user_may_talk_but_not_create_instances_or_change_the_pipe():
+    sid = security.own_user_sid()
+    mask = security.effective_rights(security.sddl_for(sid), sid)
+    assert mask == security.USER_ACCESS
+    for bit in (0x4, 0x40000, 0x80000, 0x10000):          # create instance, WRITE_DAC, WRITE_OWNER, DELETE
+        assert not mask & bit
+
+
+@pytest.mark.skipif(not WIN, reason="named pipes are Windows only")
+def test_the_user_cannot_create_a_second_instance_of_the_engines_pipe():
+    from nobadvpn.rpc.server import FILE_FLAG_OVERLAPPED, PIPE_ACCESS_DUPLEX, PIPE_MODE, _dlls
+    from nobadvpn.rpc import Rpc
+    import ctypes
+    name = PIPE_PREFIX + uuid.uuid4().hex
+    rpc = Rpc(handlers=handlers([]), state=lambda: {}, name=name, user_sid=security.own_user_sid(),
+              check=lambda h, pid: None, launch_ui=lambda w: False, full_user=False)
+    assert rpc.start()
+    try:
+        k, _a = _dlls()
+        h = k.CreateNamedPipeW(name, PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED, PIPE_MODE, 6, 4096, 4096, 0, None)
+        assert not h or h == ctypes.c_void_p(-1).value
+        assert ctypes.get_last_error() == 5                   # ERROR_ACCESS_DENIED
+    finally:
+        rpc.stop()
+
+
+@pytest.mark.skipif(not WIN, reason="named pipes are Windows only")
+def test_a_silent_client_is_dropped(monkeypatch):
+    from nobadvpn.rpc import Rpc, server
+    monkeypatch.setattr(server, "ADMIT_MS", 300)
+    name = PIPE_PREFIX + uuid.uuid4().hex
+    rpc = Rpc(handlers=handlers([]), state=lambda: {}, name=name, user_sid=security.own_user_sid(),
+              check=lambda h, pid: None, launch_ui=lambda w: False)
+    assert rpc.start()
+    try:
+        f = TestRealPipe()._open(name)
+        time.sleep(.8)
+        try:
+            assert TestRealPipe._readline(f) == b""            # the engine hung up
+        except OSError:
+            pass                                               # ... or disconnected the pipe outright
+    finally:
+        rpc.stop()
+
+
+@pytest.mark.skipif(not WIN, reason="tokens are Windows only")
+def test_a_plain_user_token_is_accepted_for_the_window():
+    import ctypes
+    from ctypes import wintypes
+    k = ctypes.WinDLL("kernel32")
+    a = ctypes.WinDLL("advapi32")
+    tok = wintypes.HANDLE()
+    a.OpenProcessToken(ctypes.c_void_p(k.GetCurrentProcess()), 0x8, ctypes.byref(tok))
+    try:
+        from nobadvpn.syscmd import is_admin
+        assert launch.token_is_plain_user(tok) is (not is_admin())
+    finally:
+        k.CloseHandle(tok)

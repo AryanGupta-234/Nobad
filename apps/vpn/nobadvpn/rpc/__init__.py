@@ -23,9 +23,9 @@ class Rpc:
     window (it reports what is on screen, so it decides the engine's pace); False when the WebView is too."""
 
     def __init__(self, handlers=None, state=None, name=None, user_sid=None, check=None, owns_windows=True,
-                 launch_ui=None):
+                 launch_ui=None, full_user=None):
         from .server import Server                  # Windows only
-        self.server = Server(name=name, user_sid=user_sid, check=check)
+        self.server = Server(name=name, user_sid=user_sid, check=check, full_user=full_user)
         self.events = Events(self.server.clients, self.server.drop)
         self.server.methods = methods.build(
             handlers if handlers is not None else methods.engine_handlers(),

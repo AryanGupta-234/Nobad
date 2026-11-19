@@ -13,6 +13,7 @@ library;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi';
+import 'dart:io' show Platform;
 import 'dart:isolate';
 import 'dart:typed_data';
 
@@ -110,7 +111,8 @@ final _getSecurityInfo = _adv
       )
     >('GetSecurityInfo');
 
-const _genericReadWrite = 0xC0000000;
+/// GENERIC_READ | FILE_WRITE_DATA: enough to talk, and no more than the engine's access list grants the user.
+const _readWrite = 0x80000000 | 0x2;
 const _openExisting = 3;
 const _fileFlagOverlapped = 0x40000000;
 const _securitySqosPresent = 0x00100000;
@@ -183,6 +185,41 @@ String? _ownerOf(int handle) {
   }
 }
 
+final _serverPid = _k32.lookupFunction<Int32 Function(IntPtr, Pointer<Uint32>), int Function(int, Pointer<Uint32>)>(
+  'GetNamedPipeServerProcessId',
+);
+final _openProcess = _k32.lookupFunction<IntPtr Function(Uint32, Int32, Uint32), int Function(int, int, int)>(
+  'OpenProcess',
+);
+final _imageName = _k32.lookupFunction<Int32 Function(IntPtr, Uint32, Pointer<Utf16>, Pointer<Uint32>),
+    int Function(int, int, Pointer<Utf16>, Pointer<Uint32>)>('QueryFullProcessImageNameW');
+
+/// The program serving the pipe, or null.
+String? _serverImage(int handle) => using((a) {
+  final pid = a<Uint32>();
+  if (_serverPid(handle, pid) == 0 || pid.value == 0) return null;
+  final p = _openProcess(0x1000, 0, pid.value); // PROCESS_QUERY_LIMITED_INFORMATION
+  if (p == 0) return null;
+  try {
+    final buf = a<Uint16>(1024).cast<Utf16>(), n = a<Uint32>()..value = 1024;
+    return _imageName(p, 0, buf, n) == 0 ? null : buf.toDartString(length: n.value);
+  } finally {
+    _closeHandle(p);
+  }
+});
+
+/// In an installed NOBAD VPN (this window is `{app}\ui\nobad_vpn_ui.exe`) the pipe must be served by
+/// `{app}\NobadVPN.exe`. A developer's build (anywhere else) has the owner check only; the dev engine neither.
+bool serverAllowed(String? serverImage, String uiExe, {required bool dev}) {
+  if (dev) return true;
+  String norm(String p) => p.replaceAll('/', r'\').toLowerCase();
+  final ui = norm(uiExe);
+  const tail = r'\ui\nobad_vpn_ui.exe';
+  if (!ui.endsWith(tail)) return true; // not an installed layout: a developer's build
+  final app = ui.substring(0, ui.length - tail.length);
+  return serverImage != null && norm(serverImage) == '$app\\nobadvpn.exe';
+}
+
 /// Who may own the pipe: an elevated process (Administrators / SYSTEM); for the dev engine, this user.
 bool ownerAllowed(String? owner, {required bool dev, required String me}) =>
     owner != null && (dev ? owner == me : (owner == _admins || owner == _system));
@@ -208,7 +245,8 @@ class PipeTransport implements Transport {
         h = _open(path); // every instance was busy a moment ago
       }
       if (h == _invalidHandle) throw const EngineOffline();
-      if (!ownerAllowed(_ownerOf(h), dev: dev, me: userSid())) {
+      if (!ownerAllowed(_ownerOf(h), dev: dev, me: userSid()) ||
+          !serverAllowed(_serverImage(h), Platform.resolvedExecutable, dev: dev)) {
         _closeHandle(h);
         throw const PipeNotOwned();
       }
@@ -222,7 +260,7 @@ class PipeTransport implements Transport {
 
   static int _open(Pointer<Utf16> path) => _createFile(
     path,
-    _genericReadWrite,
+    _readWrite,
     0,
     nullptr,
     _openExisting,
