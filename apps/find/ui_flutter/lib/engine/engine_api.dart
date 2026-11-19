@@ -18,7 +18,7 @@ import 'models/result.dart';
 import 'models/settings.dart';
 import 'models/status.dart';
 
-export 'models/settings.dart' show ActionResult;
+export 'models/settings.dart' show ActionResult, FolderPick, maxTextLength;
 
 enum Link { connecting, connected, offline, incompatible }
 
@@ -81,8 +81,8 @@ abstract class EngineApi {
   Future<Settings> getSettings();
   Future<SettingsChange> setSettings(Map<String, Object?> changes);
 
-  /// Windows' folder dialog, shown by the engine; '' if cancelled.
-  Future<String> pickFolder();
+  /// Windows' folder dialog, shown by the engine: path '' if cancelled; busy if one is already open.
+  Future<FolderPick> pickFolder();
   Future<ActionResult> rescan();
 
   /// The engine only wipes with "DELETE".

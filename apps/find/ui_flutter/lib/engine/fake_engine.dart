@@ -57,6 +57,7 @@ class FakeEngine implements EngineApi {
   final settingsSet = <Map<String, Object?>>[];
   final calls = <String>[];
   bool openOk = true;
+  bool pickBusy = false;
   bool offline = false;
   String here = '';
   String pickAnswer = r'C:\Users\me\Projects';
@@ -244,7 +245,7 @@ class FakeEngine implements EngineApi {
   static bool _same(Object? a, Object? b) => a is List && b is List ? listEquals(a, b) : a == b;
 
   @override
-  Future<String> pickFolder() => _answer('pick_folder', () => pickAnswer);
+  Future<FolderPick> pickFolder() => _answer('pick_folder', () => FolderPick(pickAnswer, busy: pickBusy));
 
   @override
   Future<ActionResult> rescan() => _answer('rescan', () => _ok);

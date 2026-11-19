@@ -227,13 +227,21 @@ class EngineClient {
 
   // ---- search and results ----
   Future<SearchAnswer> search(String text, {SearchFilters filters = SearchFilters.none}) async =>
-      SearchAnswer.fromJson(await call('search', {'text': text, 'filters': filters.toJson()}));
+      SearchAnswer.fromJson(await call('search', {'text': _cap(text), 'filters': filters.toJson()}));
   Future<ActionResult> open(int id) => _ok('open', {'id': id});
   Future<ActionResult> reveal(int id) => _ok('reveal', {'id': id});
   Future<ActionResult> forget(int id) => _ok('forget', {'id': id});
   Future<String> pathOf(int id) async => jStr(jMap(await call('path_of', {'id': id}))['path']);
   Future<String> hereFolder() async => jStr(jMap(await call('here_folder'))['path']);
-  Future<void> toMain(String text) => call('to_main', {'text': text});
+  Future<void> toMain(String text) => call('to_main', {'text': _cap(text)});
+
+  /// The engine refuses longer text (-32602): cut it, never at half a character.
+  static String _cap(String s) {
+    if (s.length <= maxTextLength) return s;
+    var n = maxTextLength;
+    if ((s.codeUnitAt(n - 1) & 0xFC00) == 0xD800) n--;
+    return s.substring(0, n);
+  }
 
   // ---- status ----
   Future<EngineStatus> status() async {
@@ -263,7 +271,7 @@ class EngineClient {
   Future<Settings> getSettings() async => Settings.fromJson(await call('get_settings'));
   Future<SettingsChange> setSettings(Map<String, Object?> changes) async =>
       SettingsChange.fromJson(await call('set_settings', {'changes': changes}));
-  Future<String> pickFolder() async => jStr(jMap(await call('pick_folder', const {}, false))['path']);
+  Future<FolderPick> pickFolder() async => FolderPick.fromJson(await call('pick_folder', const {}, false));
   Future<ActionResult> rescan() => _ok('rescan');
   Future<ActionResult> wipe(String confirm) => _ok('wipe', {'confirm': confirm});
 

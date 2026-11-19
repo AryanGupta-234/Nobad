@@ -145,10 +145,14 @@ void main() {
     final ch = await c.setSettings({'theme': 'light', 'content_max_mb': 50});
     expect(ch.changed, ['theme', 'content_max_mb']);
     expect(ch.settings.number('content_max_mb'), 50);
-    expect(await c.pickFolder(), r'C:\Users\me\Projects');
+    final pick = await c.pickFolder();
+    expect(pick.path, r'C:\Users\me\Projects');
+    expect(pick.busy, isFalse);
     expect((await c.wsearchState()).running, isTrue);
     expect((await c.downloadModel('meaning')).error, 'Allow the download in Settings first.');
     expect((await c.downloadModel('photo')).error, 'Allow the photo model download in Settings first.');
+    await c.search('x' * 2500);
+    expect(((t.sent.last['params'] as Map)['text'] as String).length, 2000); // the engine refuses longer
     await c.wipe('DELETE');
     await c.pauseFor(const Duration(hours: 1));
     await c.resetLearned('game.exe');

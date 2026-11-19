@@ -143,6 +143,23 @@ void main() {
     expect(find.text('In Documents'), findsOneWidget);
   });
 
+  testWidgets('a folder window that is already open is not a cancel: say so', (tester) async {
+    final engine = FakeEngine()..pickBusy = true;
+    await pumpApp(tester, engine);
+    await tester.tap(find.text('Any folder'));
+    await tester.pump();
+    expect(find.text('The folder window is already open.'), findsOneWidget);
+    expect(engine.searchFilters.where((f) => f.folder.isNotEmpty), isEmpty);
+  });
+
+  testWidgets('the main hotkey tells the engine the window is on screen', (tester) async {
+    final engine = FakeEngine();
+    await pumpApp(tester, engine);
+    engine.emit(const ShowEvent('main'));
+    await tester.pump();
+    expect(engine.calls, contains('ui_shown'));
+  });
+
   testWidgets('"Here" appears when the engine says where the hotkey was pressed', (tester) async {
     final engine = FakeEngine();
     await pumpApp(tester, engine);

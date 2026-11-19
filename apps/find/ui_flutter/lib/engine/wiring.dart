@@ -160,7 +160,7 @@ class WiredEngine implements EngineApi {
       _serves('set_settings') ? _pipe.setSettings(changes) : _fake.setSettings(changes);
 
   @override
-  Future<String> pickFolder() {
+  Future<FolderPick> pickFolder() {
     if (!_serves('pick_folder')) return _fake.pickFolder();
     if (_pipe.enginePid != 0) beforeDialog?.call(_pipe.enginePid);
     return _pipe.pickFolder();

@@ -200,6 +200,7 @@ class _FieldState extends State<_Field> {
               focusNode: widget.focus,
               autofocus: true,
               cursorColor: c.orange,
+              inputFormatters: [LengthLimitingTextInputFormatter(maxTextLength)],
               style: NbType.text(NbSize.field, c.text),
               decoration: InputDecoration(
                 isCollapsed: true,

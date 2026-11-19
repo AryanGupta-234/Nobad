@@ -128,8 +128,11 @@ class SearchFilters {
           folder: folder ?? this.folder, sort: sort ?? this.sort);
 
   /// The `filters` object of the `search` call (the same keys as 0.7.0's page sent).
-  Map<String, Object?> toJson() =>
-      {'kind': kind, 'modified': modified, 'size': size, 'folder': folder, 'sort': sort};
+  Map<String, Object?> toJson() => {
+        'kind': kind, 'modified': modified, 'size': size,
+        'folder': folder.length > 2000 ? '' : folder, // the engine refuses longer (contract: at most 2000)
+        'sort': sort,
+      };
 
   @override
   bool operator ==(Object other) => other is SearchFilters && other.kind == kind && other.modified == modified &&

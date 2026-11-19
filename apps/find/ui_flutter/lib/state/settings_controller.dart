@@ -92,13 +92,14 @@ class SettingsController extends ChangeNotifier {
 
   /// "Add folder": Windows' folder dialog (the engine shows it), then the folder joins the list.
   Future<void> pickAndAdd(String key) async {
-    String path;
+    FolderPick r;
     try {
-      path = await engine.pickFolder();
+      r = await engine.pickFolder();
     } on Object {
       return;
     }
-    await addFolder(key, path);
+    if (r.busy) return _say('The folder window is already open.');
+    await addFolder(key, r.path);
   }
 
   Future<void> removeFolder(String key, int index) async {

@@ -14,6 +14,7 @@ import '../../app/scope.dart';
 import '../../app/theme/colors.dart';
 import '../../app/theme/tokens.dart';
 import '../../app/theme/typography.dart';
+import '../../engine/engine_api.dart' show maxTextLength;
 import '../../engine/events.dart';
 import '../../engine/models/result.dart';
 import '../../state/search_controller.dart';
@@ -245,6 +246,7 @@ class _SearchBoxState extends State<_SearchBox> {
         focusNode: widget.focus,
         autofocus: true,
         cursorColor: c.orange,
+        inputFormatters: [LengthLimitingTextInputFormatter(maxTextLength)],
         style: NbType.text(NbSize.lead + 1, c.text),
         textInputAction: TextInputAction.search,
         decoration: InputDecoration(

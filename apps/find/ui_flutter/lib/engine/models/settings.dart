@@ -121,6 +121,21 @@ class WsearchState {
   }
 }
 
+/// `pick_folder` answer: the folder ('' if cancelled); [busy] = a folder window was already open (not a cancel).
+class FolderPick {
+  const FolderPick(this.path, {this.busy = false});
+  final String path;
+  final bool busy;
+
+  static FolderPick fromJson(Object? v) {
+    final m = jMap(v);
+    return FolderPick(jStr(m['path']), busy: jBool(m['busy']));
+  }
+}
+
+/// The engine refuses longer words, folders and handed-over text (contract: at most 2000 characters).
+const maxTextLength = 2000;
+
 /// `Ok` = `{ok, error}` (open, reveal, forget, downloads, wipe, quit…); wsearch_set adds `state`.
 class ActionResult {
   const ActionResult(this.ok, [this.error = '']);
