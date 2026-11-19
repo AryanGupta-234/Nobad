@@ -4,6 +4,26 @@ Numbers decide (ROADMAP §3). Every performance claim points at a row here. Newe
 now; private = committed memory only this process can use (`Get-Process` `WorkingSet64` / `PrivateMemorySize64`,
 summed over the process tree).
 
+## 2026-11-19: frosted glass redesign, maximized (Phase 3)
+
+- **How:** release build, fake engine (`NOBAD_FIND_FAKE_ENGINE=1`), the window maximized on the 1920 x 1200 (125 %)
+  screen, 10 s to settle, then 15 s idle. RAM from `Get-Process`; GPU from the `GPU Process Memory` and
+  `GPU Engine` counters for the UI's PID; frames from `NOBAD_FIND_UI_FRAMES` (frames drawn per 5 s).
+
+| Maximized, Home, idle | Working set | Private | GPU memory | GPU busy | CPU | Frames per 5 s |
+|---|---|---|---|---|---|---|
+| Before (the first full UI) | 152 MB | 156 MB | 76 MB | 0.7 % | 0.05 % | 10 (caret) |
+| Redesign, with Flutter blur on the palette (sigma 28) | 296 MB | 300 MB | 117 MB | 2.8 % | 0.16 % | 10 (caret) |
+| Redesign, palette blur sigma 12 | 201 MB | 210 MB | 79 MB | 1.5 % | 0.05 % | 10 (caret) |
+| **Redesign as shipped** (blur only in dialogs) | **163 MB** | **167 MB** | **72 MB** | 1.2 % | 0.1 % | 10 (caret) |
+| Redesign as shipped, window not focused | 160 MB | 163 MB | 73 MB | 0 % | 0.03 % | **0** |
+
+The redesign costs about 11 MB more than the first full UI, mostly the variable font file registered for the thin
+display weights (1.8 MB on disk) and the larger glass layers. Flutter's `BackdropFilter` over the palette cost
+40-135 MB with only the still backdrop behind it, so it is used for dialogs only; the frost is Windows' Mica (and
+Acrylic for the bar), composited by Windows outside this process. Idle and focused, the only frames are the text
+caret blinking in the search box (about 2 a second); not focused, nothing is drawn.
+
 ## 2026-11-19: full Flutter UI (Phase 3)
 
 - **Branch:** `find-flutter-ui` (draft PR #77), Flutter 3.50, release build, Skia, the same PC as below.
