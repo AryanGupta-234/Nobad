@@ -13,7 +13,9 @@ import '../../app/theme/typography.dart';
 import '../../widgets/common.dart';
 import '../../widgets/controls.dart';
 import '../../widgets/panels.dart';
+import '../../engine/models/models_info.dart';
 import '../consent/download_consent_dialog.dart';
+import '../settings/pages/models.dart' show HardwareTiles, tierWhy;
 
 class Welcome extends StatelessWidget {
   const Welcome({super.key});
@@ -29,7 +31,7 @@ class Welcome extends StatelessWidget {
     return ColoredBox(
       color: c.bg,
       child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(72, 40, 72, 32),
+        padding: const EdgeInsets.fromLTRB(48, 32, 48, 24),
         child: Align(
           alignment: Alignment.topLeft,
           child: ConstrainedBox(
@@ -42,8 +44,8 @@ class Welcome extends StatelessWidget {
                 Semantics(
                   header: true,
                   child: Text(
-                    'Your files.\nFound in a moment.\nNever sent anywhere.',
-                    style: NbType.display(36, c.text),
+                    'Your files.\nFound in a moment.\nNever sent anywhere.'.toUpperCase(),
+                    style: NbType.display(24, c.text),
                   ),
                 ),
                 const SizedBox(height: NbSpace.x5),
@@ -55,7 +57,7 @@ class Welcome extends StatelessWidget {
                     'NOBAD Find reads the names and the text inside the files on this PC and keeps an encrypted '
                     'index in your own profile folder. Searching never uses the internet: your files, your index '
                     'and your searches stay on this PC.',
-                    style: NbType.text(15, c.muted, height: 1.6),
+                    style: NbType.text(14, c.muted, height: 1.55),
                   ),
                 ),
                 const SizedBox(height: NbSpace.x6),
@@ -70,9 +72,10 @@ class Welcome extends StatelessWidget {
                       'It slows down or pauses while you play, present, take a call or run on battery, and '
                       'shows you why on the Index page.',
                 ),
-                const SizedBox(height: NbSpace.x6),
+                const _YourPc(),
+                const SizedBox(height: NbSpace.x3),
                 NbPanel(
-                  padding: const EdgeInsets.fromLTRB(18, 14, 14, 14),
+                  padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
                   child: Row(
                     children: [
                       Expanded(
@@ -116,7 +119,7 @@ class Welcome extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(height: NbSpace.x8),
+                const SizedBox(height: NbSpace.x6),
                 Row(
                   children: [
                     NbButton('Start searching', autofocus: true, onPressed: () => s.settings.set('welcome_seen', true)),
@@ -161,7 +164,86 @@ class _Fact extends StatelessWidget {
                   )
                 : Wrap(spacing: 3, runSpacing: 3, children: [for (final k in keys!.split('+')) Kbd(k)]),
           ),
-          Expanded(child: Text(text, style: NbType.text(14, c.text, height: 1.5))),
+          Expanded(child: Text(text, style: NbType.text(13.5, c.text, height: 1.5))),
+        ],
+      ),
+    );
+  }
+}
+
+/// This PC and the model tier recommended for it (the engine's `models`); nothing when the engine can't say.
+class _YourPc extends StatefulWidget {
+  const _YourPc();
+
+  @override
+  State<_YourPc> createState() => _YourPcState();
+}
+
+class _YourPcState extends State<_YourPc> {
+  ModelsInfo? _info;
+  bool _asked = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_asked) return;
+    _asked = true;
+    unawaited(_load());
+  }
+
+  Future<void> _load() async {
+    try {
+      final m = await AppScope.of(context).engine.models();
+      if (mounted) setState(() => _info = m);
+    } on Object {
+      // an older engine or none: no PC block (never made-up numbers)
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final info = _info;
+    if (info == null || info.pc == null) return const SizedBox(height: NbSpace.x3);
+    final s = AppScope.of(context);
+    final c = NbColors.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(top: NbSpace.x3),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionTitle('Your PC', top: 0),
+          HardwareTiles(info.pc),
+          if (info.tierRecommended.isNotEmpty) ...[
+            const SizedBox(height: NbSpace.x2),
+            Row(
+              children: [
+                Expanded(
+                  child: Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: 'Recommended models for this PC: ${tierLabel(info.tierRecommended)}. ',
+                          style: NbType.text(13, c.text, weight: FontWeight.w600),
+                        ),
+                        TextSpan(text: tierWhy(info.tierRecommended)),
+                      ],
+                    ),
+                    style: NbType.text(12, c.dim, height: 1.45),
+                  ),
+                ),
+                const SizedBox(width: NbSpace.x3),
+                NbButton(
+                  'See models',
+                  small: true,
+                  kind: NbButtonKind.ghost,
+                  onPressed: () {
+                    unawaited(s.settings.set('welcome_seen', true));
+                    s.nav.openSettings(SettingsPage.models);
+                  },
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );

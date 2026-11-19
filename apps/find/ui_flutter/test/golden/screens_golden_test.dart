@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:nobad_find/app/app.dart';
+import 'package:nobad_find/engine/models/result.dart';
 import 'package:nobad_find/features/consent/download_consent_dialog.dart';
 import 'package:nobad_find/platform/demo.dart';
 import 'package:nobad_find/platform/window.dart';
@@ -28,7 +29,7 @@ Future<void> shoot(WidgetTester tester, String name) async {
 void main() {
   setUpAll(loadWindowsFonts);
 
-  const sizes = {'1280': Size(1280, 800), '2560': Size(2560, 1440)};
+  const sizes = {'860': Size(860, 600), '1180': Size(1180, 760)};
   for (final theme in ['dark', 'light']) {
     group(theme, () {
       for (final MapEntry(key: w, value: size) in sizes.entries) {
@@ -65,18 +66,59 @@ void main() {
           await tester.sendKeyEvent(LogicalKeyboardKey.digit3);
           await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
           await tester.pumpAndSettle();
-          await tester.tap(find.text('Models').last);
+          await tester.tap(find.text('Models & languages').last);
           await shoot(tester, 'settings_${w}_$theme');
         });
       }
 
+      testWidgets('Devanagari names and snippets', (tester) async {
+        final engine = FakeEngine(
+          files: const [
+            FileResult(
+              id: 1,
+              name: 'किराया अनुबंध 2026.pdf',
+              dir: r'C:\Users\me\दस्तावेज़\घर',
+              kind: 'pdf',
+              size: 228400,
+              ago: 'yesterday',
+              why: ['name matches'],
+              snippet: 'मासिक \x02किराया\x03 हर महीने की पहली तारीख को देय है',
+            ),
+            FileResult(
+              id: 2,
+              name: 'किराया रसीदें.txt',
+              dir: r'C:\Users\me\Desktop',
+              kind: 'text',
+              size: 900,
+              ago: '1 h ago',
+              why: ['text inside matches'],
+              snippet: 'इस महीने का \x02किराया\x03 और बिजली का बिल',
+            ),
+          ],
+          settings: {'theme': theme, 'welcome_seen': true, 'bg_notice_seen': true},
+        );
+        await pumpApp(tester, engine, size: const Size(1180, 760));
+        await type(tester, 'किराया');
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await shoot(tester, 'devanagari_$theme');
+      });
+
+      for (final size in const [Size(860, 600), Size(1180, 760)]) {
+        testWidgets('actions on the selected row ${size.width.toInt()}', (tester) async {
+          await pumpApp(tester, engineFor(theme), size: size);
+          await type(tester, 'tax');
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+          await shoot(tester, 'actions_${size.width.toInt()}_$theme');
+        });
+      }
+
       testWidgets('welcome', (tester) async {
-        await pumpApp(tester, engineFor(theme, welcome: true), size: const Size(1280, 800));
+        await pumpApp(tester, engineFor(theme, welcome: true), size: const Size(1180, 760));
         await shoot(tester, 'welcome_$theme');
       });
 
       testWidgets('consent dialog', (tester) async {
-        await pumpApp(tester, engineFor(theme), size: const Size(1280, 800));
+        await pumpApp(tester, engineFor(theme), size: const Size(1180, 760));
         askDownloadConsent(appNavigator.currentContext!, 'photo');
         await shoot(tester, 'consent_$theme');
       });

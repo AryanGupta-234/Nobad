@@ -7,6 +7,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../app/theme/colors.dart';
 import '../../app/theme/tokens.dart';
 import '../../app/theme/typography.dart';
+import '../../engine/models/models_info.dart';
 import '../../widgets/controls.dart';
 import '../../widgets/dialogs.dart';
 
@@ -65,6 +66,40 @@ class ModelOffer {
   );
 
   static ModelOffer of(String id) => id == 'photo' ? photo : meaning;
+
+  /// A model from the engine's catalogue (0.8 `models`): what it improves, size, source, licence, memory.
+  factory ModelOffer.model(ModelInfo m) {
+    final size = m.sizeMb > 0 ? '${m.sizeMb.round()} MB, once' : 'Nothing to download';
+    return ModelOffer(
+      id: m.id,
+      title: 'Download ${m.name}?',
+      what: [
+        m.improves.isNotEmpty ? m.improves : featureLabel(m.feature),
+        'Runs on this PC only.',
+        if (m.feature == 'text')
+          'Your files are read again for it in the background; the current model works until then.',
+      ].join(' '),
+      facts: [
+        ('Model', m.name),
+        ('Improves', featureLabel(m.feature)),
+        ('Size', size),
+        ('From', m.source),
+        ('Licence', m.licence),
+        if (m.ramMb > 0) ('Memory', 'About ${m.ramMb.round()} MB while in use'),
+        if (m.languages.isNotEmpty) ('Languages', m.languageText),
+        ('Checked', 'Pinned revision, exact size and SHA-256'),
+      ],
+      source: '',
+    );
+  }
+}
+
+Future<bool> askModelConsent(BuildContext context, ModelInfo m) async {
+  final r = await showDialog<bool>(
+    context: context,
+    builder: (context) => ConsentDialog(offer: ModelOffer.model(m)),
+  );
+  return r ?? false;
 }
 
 Future<bool> askDownloadConsent(BuildContext context, String model) async {

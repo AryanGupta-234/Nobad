@@ -13,6 +13,8 @@ library;
 import 'package:flutter/foundation.dart';
 
 import 'events.dart';
+import 'models/models_info.dart';
+import 'models/scope_info.dart';
 import 'models/result.dart';
 import 'models/settings.dart';
 import 'models/status.dart';
@@ -43,7 +45,9 @@ abstract class EngineApi {
   EngineStatus? get lastStatus;
 
   // ---- search and results ----
-  Future<SearchAnswer> search(String text, {SearchFilters filters = SearchFilters.none});
+  /// [channel]: "main" (what the user typed) or "home" (Home's recently changed list). The engine cancels a stale
+  /// search only within the same connection and channel; a cancelled one answers `cancelled: true` (ignore it).
+  Future<SearchAnswer> search(String text, {SearchFilters filters = SearchFilters.none, String channel = 'main'});
   Future<ActionResult> open(int id);
   Future<ActionResult> reveal(int id);
 
@@ -102,6 +106,31 @@ abstract class EngineApi {
 
   /// End NOBAD Find completely (the engine sends `quitting`, then closes).
   Future<ActionResult> quit();
+
+  // ---- 0.8: models and Open with (an engine that doesn't list them answers -32601: "needs a newer engine") ----
+  /// This PC, the recommended tier, and every model with its facts.
+  Future<ModelsInfo> models();
+
+  /// Use [id] for [feature] (it may need a download first).
+  Future<ModelUse> modelUse(String feature, String id);
+
+  /// Download [id]. Only call after the consent dialog said yes: it sends the consent word.
+  Future<ActionResult> modelDownload(String id);
+  Future<ActionResult> modelRemove(String id);
+  Future<AutoConfig> autoConfigure();
+
+  /// "English first", "Many languages" or "Hindi + English": changes the recommendation only.
+  Future<ActionResult> modelLanguage(String focus);
+
+  // ---- what is indexed, and the turbo index (an older engine: -32601) ----
+  Future<ScopeInfo> scopeInfo();
+  Future<TurboState> turboState();
+
+  /// On: Windows asks for administrator permission (no time limit); off: the helper ends.
+  Future<TurboSet> turboSet(bool on);
+
+  /// Windows' "Open with" dialog for the result.
+  Future<ActionResult> openWith(int id);
 
   void dispose();
 }

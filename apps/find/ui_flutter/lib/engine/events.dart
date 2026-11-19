@@ -4,13 +4,17 @@
 library;
 
 import 'models/json.dart';
+import 'models/models_info.dart';
+import 'models/scope_info.dart';
 import 'models/status.dart';
 
 sealed class EngineEvent {
   const EngineEvent();
 
   /// What the main window subscribes to (status_full only while the Indexing page is open).
-  static const mainWindow = ['status', 'level', 'activity', 'download', 'notice', 'show', 'here', 'quitting'];
+  static const mainWindow = [
+    'status', 'level', 'activity', 'download', 'notice', 'show', 'here', 'quitting', 'models', 'turbo', //
+  ];
 
   /// What the quick find bar subscribes to.
   static const bar = ['show', 'quitting'];
@@ -43,7 +47,15 @@ sealed class EngineEvent {
         return jStr(m['text']).isEmpty ? null : NoticeEvent(jStr(m['text']));
       case 'show':
         final t = m['text'];
-        return ShowEvent(jStr(m['what']) == 'bar' ? 'bar' : 'main', text: t is String ? t : null);
+        final what = jStr(m['what']);
+        return ShowEvent(
+          const {'bar', 'settings', 'index'}.contains(what) ? what : 'main',
+          text: t is String ? t : null,
+        );
+      case 'models':
+        return ModelsEvent(ModelsInfo.fromJson(params));
+      case 'turbo':
+        return TurboEvent(TurboState.fromJson(params));
       case 'here':
         return HereEvent(jStr(m['path']));
       case 'quitting':
@@ -65,7 +77,7 @@ class StatusFullEvent extends EngineEvent {
   final EngineStatus status;
 }
 
-/// Bring a window up. [what] "main" or "bar". [text] null: a hotkey (keep the box); a string: the bar's Alt+Enter.
+/// Bring a window up. [what] "main", "bar", or a main-window page from the engine's tray menu: "settings", "index". [text] null: a hotkey (keep the box); a string: the bar's Alt+Enter.
 class ShowEvent extends EngineEvent {
   const ShowEvent(this.what, {this.text});
   final String what;
@@ -116,6 +128,18 @@ class DownloadEvent extends EngineEvent {
     error: error,
     mbS: mbS,
   );
+}
+
+/// The model catalogue changed (a download finished, a model was put in use or removed).
+class ModelsEvent extends EngineEvent {
+  const ModelsEvent(this.info);
+  final ModelsInfo info;
+}
+
+/// The turbo index started, stopped, read a drive, lost a change journal or hit an error.
+class TurboEvent extends EngineEvent {
+  const TurboEvent(this.state);
+  final TurboState state;
 }
 
 /// A sentence for a toast.

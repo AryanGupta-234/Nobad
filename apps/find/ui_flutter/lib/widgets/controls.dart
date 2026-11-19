@@ -63,22 +63,22 @@ class NbButton extends StatelessWidget {
           child: AnimatedContainer(
             duration: NbMotion.of(context, NbMotion.fast),
             curve: NbMotion.curve,
-            height: small ? 30 : 36,
-            padding: EdgeInsets.symmetric(horizontal: small ? 11 : 15),
+            height: small ? 28 : 32,
+            padding: EdgeInsets.symmetric(horizontal: small ? 10 : 14),
             decoration: BoxDecoration(
               color: bg,
               border: Border.all(color: edge),
               borderRadius: NbRadius.controlAll,
               boxShadow: [
                 if (kind == NbButtonKind.primary && s.lit && enabled)
-                  BoxShadow(color: c.orangeA(.45), blurRadius: 18, offset: const Offset(0, 6), spreadRadius: -8),
+                  BoxShadow(color: c.orangeA(.3), blurRadius: 10, offset: const Offset(0, 3), spreadRadius: -5),
               ],
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (icon != null) ...[NbIcon(icon!, size: small ? 14 : 16, color: fg), const SizedBox(width: 7)],
-                Text(label, style: NbType.text(small ? NbSize.small : 13.5, fg, weight: FontWeight.w600, height: 1.2)),
+                Text(label, style: NbType.text(small ? NbSize.small : 13, fg, weight: FontWeight.w600, height: 1.2)),
               ],
             ),
           ),
@@ -108,11 +108,12 @@ class NbSwitch extends StatelessWidget {
         builder: (context, s) => AnimatedContainer(
           duration: d,
           curve: NbMotion.curve,
-          width: 42,
-          height: 24,
+          width: 40,
+          height: 20,
           decoration: BoxDecoration(
-            color: value ? c.orangeA(c.isDark ? .22 : .14) : c.raised,
-            border: Border.all(color: value ? c.orange : (s.lit ? c.orangeA(.6) : c.line2)),
+            // Fluent: on is the accent (the NOBAD orange) filled, off an outline
+            color: value ? (s.lit ? Color.lerp(c.orange, c.text, .12) : c.orange) : (s.lit ? c.cardHover : c.raised),
+            border: Border.all(color: value ? c.orange : (s.lit ? c.text.withValues(alpha: .7) : c.muted)),
             borderRadius: NbRadius.pillAll,
           ),
           child: AnimatedAlign(
@@ -120,10 +121,10 @@ class NbSwitch extends StatelessWidget {
             curve: NbMotion.curve,
             alignment: value ? Alignment.centerRight : Alignment.centerLeft,
             child: Container(
-              width: 16,
-              height: 16,
-              margin: const EdgeInsets.symmetric(horizontal: 3),
-              decoration: BoxDecoration(shape: BoxShape.circle, color: value ? c.orange : c.dim),
+              width: 12,
+              height: 12,
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              decoration: BoxDecoration(shape: BoxShape.circle, color: value ? c.onOrange : c.muted),
             ),
           ),
         ),
@@ -200,7 +201,7 @@ class _NbSelectState extends State<NbSelect> {
           return AnimatedContainer(
             duration: NbMotion.of(context, NbMotion.fast),
             constraints: BoxConstraints(maxWidth: widget.maxWidth),
-            height: widget.compact ? 30 : 34,
+            height: widget.compact ? 28 : 30,
             padding: const EdgeInsets.only(left: 11, right: 7),
             decoration: BoxDecoration(
               color: on ? c.orangeA(.08) : (widget.compact ? c.panel : c.raised),
@@ -265,8 +266,8 @@ class NbChipButton extends StatelessWidget {
       builder: (context, s) => AnimatedContainer(
         duration: NbMotion.of(context, NbMotion.fast),
         constraints: const BoxConstraints(maxWidth: 260),
-        height: 30,
-        padding: const EdgeInsets.symmetric(horizontal: 11),
+        height: 28,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
           color: on ? c.orangeA(.08) : c.panel,
           border: dashed ? null : Border.all(color: on ? c.orangeA(.75) : (s.lit ? c.orangeA(.6) : c.line2)),
@@ -281,7 +282,7 @@ class NbChipButton extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (icon != null) ...[NbIcon(icon!, size: 15, color: on ? c.orange : c.dim), const SizedBox(width: 6)],
+              if (icon != null) ...[NbIcon(icon!, size: 14, color: on ? c.orange : c.dim), const SizedBox(width: 6)],
               Flexible(
                 child: Text(
                   label,
@@ -464,6 +465,80 @@ class KeyHints extends StatelessWidget {
             ],
           ),
       ],
+    );
+  }
+}
+
+/// A row of choices, one lit (a small glass pill): Settings' "English first / Many languages / Hindi + English",
+/// "Whole PC / My files / Custom". [badge] marks one choice ("Recommended").
+class NbSegmented<T> extends StatelessWidget {
+  const NbSegmented({
+    super.key,
+    required this.value,
+    required this.options,
+    required this.onChanged,
+    this.badge,
+    this.badgeText = 'Recommended',
+  });
+  final T? value;
+  final List<(T, String)> options;
+  final ValueChanged<T>? onChanged;
+  final T? badge;
+  final String badgeText;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = NbColors.of(context);
+    Widget seg(T v, String label) {
+      final on = v == value;
+      return Pressable(
+        onTap: onChanged == null ? null : () => onChanged!(v),
+        selected: on,
+        semanticLabel: v == badge ? '$label, $badgeText' : label,
+        ringRadius: NbRadius.pillAll,
+        builder: (context, p) => AnimatedContainer(
+          duration: NbMotion.of(context, NbMotion.base),
+          curve: NbMotion.curve,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+          decoration: BoxDecoration(
+            color: on ? c.orangeA(c.isDark ? .16 : .12) : (p.lit ? c.cardHover : null),
+            border: Border.all(color: on ? c.orangeA(.55) : const Color(0x00000000)),
+            borderRadius: NbRadius.pillAll,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: NbType.text(
+                  13,
+                  on ? c.text : (p.lit ? c.muted : c.dim),
+                  weight: on ? FontWeight.w600 : FontWeight.w500,
+                  height: 1.2,
+                ),
+              ),
+              if (v == badge) ...[
+                const SizedBox(width: 7),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                  decoration: BoxDecoration(color: c.orangeA(.14), borderRadius: NbRadius.pillAll),
+                  child: Text(badgeText, style: NbType.text(10.5, c.orange, weight: FontWeight.w600, height: 1.3)),
+                ),
+              ],
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: c.card,
+        border: Border.all(color: c.line),
+        borderRadius: NbRadius.pillAll,
+      ),
+      child: Wrap(spacing: 2, runSpacing: 2, children: [for (final (v, l) in options) seg(v, l)]),
     );
   }
 }

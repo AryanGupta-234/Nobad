@@ -17,15 +17,21 @@ import '../../app/theme/typography.dart';
 import '../../engine/engine_api.dart' show maxTextLength;
 import '../../engine/events.dart';
 import '../../engine/models/result.dart';
+import '../../state/categories.dart';
 import '../../state/search_controller.dart';
 import '../../platform/demo.dart';
 import '../../widgets/dialogs.dart';
 import '../../widgets/glass.dart';
 import '../../widgets/icons.dart';
 import '../../widgets/motion.dart';
+import '../../widgets/panels.dart';
 import '../../widgets/pressable.dart';
 import 'filter_bar.dart';
 import 'home_view.dart';
+import '../../platform/timing.dart';
+import '../../state/typed_filters.dart';
+import '../../widgets/controls.dart';
+import 'result_actions.dart';
 import 'result_tile.dart';
 import 'status_line.dart';
 
@@ -59,8 +65,12 @@ class _SearchScreenState extends State<SearchScreen> {
     if (_wired) return;
     _wired = true;
     Demo.mainBox = box;
-    box.addListener(() => s.find.setText(box.text));
+    box.addListener(() {
+      if (box.text != s.find.text) _navigating = false;
+      s.find.setText(box.text);
+    });
     s.find.addListener(_follow);
+    s.find.addListener(_measure);
     s.find.addListener(_takeHandOver);
     _takeHandOver();
     _shows = s.engine.events.listen((e) {
@@ -81,11 +91,17 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   GlobalKey rowKey(int id) {
-    if (_keysFor != s.find.serial) {
-      _keysFor = s.find.serial;
-      _rowKeys.clear();
-    }
+    if (_rowKeys.length > 2000) _rowKeys.clear(); // kept across answers: a row that stays keeps its preview
     return _rowKeys.putIfAbsent(id, GlobalKey.new);
+  }
+
+  /// Measurement (NOBAD_FIND_UI_TIMING): keystroke → the frame with the new answer on screen.
+  void _measure() {
+    if (s.find.serial == _keysFor) return;
+    _keysFor = s.find.serial;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      recordTiming('keystroke-to-paint ms=${s.find.sinceKeystroke.inMilliseconds} results=${s.find.results.length}');
+    });
   }
 
   void _follow() {
@@ -128,6 +144,7 @@ class _SearchScreenState extends State<SearchScreen> {
     if (identical(Demo.mainBox, box)) Demo.mainBox = null;
     _shows?.cancel();
     s.find.removeListener(_follow);
+    s.find.removeListener(_measure);
     s.find.removeListener(_takeHandOver);
     box.dispose();
     focus.dispose();
@@ -165,7 +182,99 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   /// Esc clears the words, then the filters, and only then hides the window.
+  /// The selection was moved with the keys since the last typing: Space then opens the details (below the
+  /// detail pane's width), and Home / End jump in the results instead of moving the caret.
+  bool _navigating = false;
+  bool _sheet = false;
+  bool _wide = false;
+  final _menu = MenuController();
+  final _menuAnchor = GlobalKey();
+  static const _page = 8;
+
+  void _nav(VoidCallback f) {
+    _navigating = true;
+    f();
+  }
+
+  /// Keys that only mean something to the results while the selection is being moved (else they edit the words).
+  KeyEventResult _navKeys(FocusNode node, KeyEvent e) {
+    if (e is KeyDownEvent && e.logicalKey == LogicalKeyboardKey.tab && !HardwareKeyboard.instance.isShiftPressed) {
+      final sug = suggestFilters(box.text);
+      if (sug.isNotEmpty) {
+        _acceptSuggestion(sug.first);
+        return KeyEventResult.handled;
+      }
+    }
+    if (e is! KeyDownEvent || !_navigating || s.find.results.isEmpty) return KeyEventResult.ignored;
+    final k = e.logicalKey;
+    if (k == LogicalKeyboardKey.space && !HardwareKeyboard.instance.isShiftPressed && !_wide) {
+      setState(() => _sheet = !_sheet);
+      return KeyEventResult.handled;
+    }
+    if (k == LogicalKeyboardKey.home) {
+      s.find.select(0);
+      return KeyEventResult.handled;
+    }
+    if (k == LogicalKeyboardKey.end) {
+      s.find.select(s.find.results.length - 1);
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  void _acceptSuggestion(TypedFilter t) {
+    final (text, filters) = t.accept(box.text, s.find.filters);
+    s.find.setFilters(filters);
+    box.text = text;
+    box.selection = TextSelection.collapsed(offset: text.length);
+    focus.requestFocus();
+  }
+
+  void _setWords(String t) {
+    box.text = t;
+    box.selection = TextSelection.collapsed(offset: t.length);
+    focus.requestFocus();
+  }
+
+  void _action(ResultAction a) {
+    switch (a) {
+      case ResultAction.open:
+        _open();
+      case ResultAction.openWith:
+        unawaited(s.find.openWithSelected());
+      case ResultAction.reveal:
+        _open(reveal: true);
+      case ResultAction.copyPath:
+        unawaited(s.find.copySelected());
+      case ResultAction.copyName:
+        unawaited(s.find.copyNameSelected());
+      case ResultAction.details:
+        setState(() => _sheet = true);
+      case ResultAction.forget:
+        unawaited(_forget());
+    }
+  }
+
+  /// The actions menu at [global] (right-click, "⋯").
+  void _menuAt(Offset global) {
+    final box = _menuAnchor.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null) return;
+    _menu.open(position: box.globalToLocal(global));
+  }
+
+  /// The menu key / Shift+F10: the menu under the selected result.
+  void _menuAtSelection() {
+    final cur = s.find.current;
+    final row = cur == null ? null : _rowKeys[cur.id]?.currentContext?.findRenderObject() as RenderBox?;
+    if (row == null) return;
+    _menuAt(row.localToGlobal(Offset(24, row.size.height - 8)));
+  }
+
   void _escape() {
+    if (_sheet) {
+      setState(() => _sheet = false);
+      return;
+    }
     if (box.text.isNotEmpty) {
       box.clear();
       return;
@@ -179,8 +288,16 @@ class _SearchScreenState extends State<SearchScreen> {
   Widget build(BuildContext context) {
     return CallbackShortcuts(
       bindings: {
-        const SingleActivator(LogicalKeyboardKey.arrowDown): () => s.find.move(1),
-        const SingleActivator(LogicalKeyboardKey.arrowUp): () => s.find.move(-1),
+        const SingleActivator(LogicalKeyboardKey.arrowDown): () => _nav(() => s.find.move(1)),
+        const SingleActivator(LogicalKeyboardKey.arrowUp): () => _nav(() => s.find.move(-1)),
+        const SingleActivator(LogicalKeyboardKey.pageDown): () => _nav(() => s.find.move(_page)),
+        const SingleActivator(LogicalKeyboardKey.pageUp): () => _nav(() => s.find.move(-_page)),
+        const SingleActivator(LogicalKeyboardKey.enter, control: true, shift: true): () =>
+            _action(ResultAction.openWith),
+        const SingleActivator(LogicalKeyboardKey.contextMenu): _menuAtSelection,
+        // the action panel on the selected result, as in a command palette
+        const SingleActivator(LogicalKeyboardKey.keyK, control: true): _menuAtSelection,
+        const SingleActivator(LogicalKeyboardKey.f10, shift: true): _menuAtSelection,
         const SingleActivator(LogicalKeyboardKey.enter): _open,
         const SingleActivator(LogicalKeyboardKey.numpadEnter): _open,
         const SingleActivator(LogicalKeyboardKey.enter, control: true): () => _open(reveal: true),
@@ -191,103 +308,192 @@ class _SearchScreenState extends State<SearchScreen> {
       child: LayoutBuilder(
         builder: (context, box2) {
           final wide = box2.maxWidth >= NbSpace.wide;
+          _wide = wide;
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // the command palette: centred, floating, the one blurred layer always on screen
+              // the page header: Search, and the category (the sidebar's lit entry)
+              ListenableBuilder(
+                listenable: s.find,
+                builder: (context, _) {
+                  final cat = SearchCategory.of(s.find.filters);
+                  return PageHeader(cat == SearchCategory.all ? 'All files' : cat.label, crumb: 'Search');
+                },
+              ),
+              // the toolbar: the box and its filters, on the page gutter
               Padding(
-                padding: EdgeInsets.fromLTRB(NbSpace.x5, box2.maxHeight > 760 ? 28 : 18, NbSpace.x5, NbSpace.x3),
-                child: Center(
+                padding: const EdgeInsets.fromLTRB(NbSpace.gutter, 0, NbSpace.gutter, NbSpace.x2),
+                child: Align(
+                  alignment: Alignment.topLeft,
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 920),
-                    child: _SearchBox(
-                      controller: box,
-                      focus: focus,
-                      filters: FilterBar(onDone: focus.requestFocus),
+                    constraints: const BoxConstraints(maxWidth: NbSpace.maxContent),
+                    // Space, Home and End go to the results while the selection is being moved with the keys
+                    child: Focus(
+                      canRequestFocus: false,
+                      skipTraversal: true,
+                      onKeyEvent: _navKeys,
+                      child: _SearchBox(
+                        controller: box,
+                        focus: focus,
+                        filters: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _Suggestions(box: box, onAccept: _acceptSuggestion, onRecent: _setWords),
+                            FilterBar(onDone: focus.requestFocus),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ),
               ListenableBuilder(
                 listenable: s.find,
-                builder: (context, _) => _Meta(find: s.find, cards: _cards, onCards: (v) => setState(() => _cards = v)),
+                builder: (context, _) =>
+                    _Meta(find: s.find, onWords: _setWords, cards: _cards, onCards: (v) => setState(() => _cards = v)),
               ),
               Expanded(
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: NbSpace.maxContent),
-                    child: ListenableBuilder(
-                      listenable: s.find,
-                      builder: (context, _) => AnimatedSwitcher(
-                        duration: NbMotion.of(context, NbMotion.fast),
-                        layoutBuilder: (current, previous) =>
-                            Stack(alignment: Alignment.topCenter, children: [...previous, ?current]),
-                        child: s.find.showingResults && s.find.busy && s.find.results.isEmpty && s.find.notice.isEmpty
-                            ? const Align(
-                                key: ValueKey('loading'),
-                                alignment: Alignment.topCenter,
-                                child: Padding(
-                                  padding: EdgeInsets.symmetric(horizontal: NbSpace.x5),
-                                  child: SkeletonResults(),
-                                ),
-                              )
-                            : !s.find.showingResults
-                            ? HomeView(
-                                key: const ValueKey('home'),
-                                onExample: (t) {
-                                  box.text = t;
-                                  box.selection = TextSelection.collapsed(offset: t.length);
-                                  focus.requestFocus();
-                                },
-                                onTile: (words, f) {
-                                  s.find.setFilters(f);
-                                  box.text = words;
-                                  focus.requestFocus();
-                                },
-                              )
-                            : Row(
-                                key: const ValueKey('results'),
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  Expanded(
-                                    child: _Results(
-                                      scroll: scroll,
-                                      rowKey: rowKey,
-                                      cards: _cards,
-                                      onTap: (i, reveal) {
-                                        s.find.select(i);
-                                        _open(reveal: reveal);
-                                        focus.requestFocus();
-                                      },
-                                      onSecondary: (i) {
-                                        s.find.select(i);
-                                        _open(reveal: true);
-                                      },
-                                    ),
-                                  ),
-                                  if (wide && s.find.results.isNotEmpty)
-                                    Padding(
-                                      padding: const EdgeInsets.fromLTRB(4, 4, NbSpace.x5, NbSpace.x5),
-                                      child: SizedBox(
-                                        width: box2.maxWidth >= 1700 ? 460 : 400,
-                                        child: DetailPane(
-                                          engine: s.engine,
-                                          result: s.find.current,
-                                          onOpen: _open,
-                                          onReveal: () => _open(reveal: true),
-                                          onCopy: _copy,
-                                          onForget: _forget,
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: MenuAnchor(
+                        controller: _menu,
+                        menuChildren: resultMenuItems(context, _action, details: !wide),
+                        child: KeyedSubtree(
+                          key: _menuAnchor,
+                          child: Align(
+                            alignment: Alignment.topLeft,
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: NbSpace.maxContent),
+                              child: ListenableBuilder(
+                                listenable: s.find,
+                                builder: (context, _) => AnimatedSwitcher(
+                                  duration: NbMotion.of(context, NbMotion.fast),
+                                  layoutBuilder: (current, previous) =>
+                                      Stack(alignment: Alignment.topCenter, children: [...previous, ?current]),
+                                  child:
+                                      s.find.showingResults &&
+                                          s.find.busy &&
+                                          s.find.results.isEmpty &&
+                                          s.find.notice.isEmpty
+                                      ? const Align(
+                                          key: ValueKey('loading'),
+                                          alignment: Alignment.topCenter,
+                                          child: Padding(
+                                            padding: EdgeInsets.symmetric(horizontal: NbSpace.x5),
+                                            child: SkeletonResults(),
+                                          ),
+                                        )
+                                      : s.find.showingResults &&
+                                            !s.find.busy &&
+                                            s.find.results.isEmpty &&
+                                            s.find.askedFor.isNotEmpty
+                                      ? _NoResults(
+                                          key: const ValueKey('none'),
+                                          words: s.find.askedFor,
+                                          hasFilters: !s.find.filters.isEmpty,
+                                          onClearFilters: s.find.clearFilters,
+                                          onWords: _setWords,
+                                        )
+                                      : s.find.showingResults &&
+                                            !s.find.busy &&
+                                            s.find.results.isEmpty &&
+                                            s.find.askedFor.isEmpty
+                                      ? _EmptyCategory(
+                                          key: ValueKey(('empty', SearchCategory.of(s.find.filters))),
+                                          category: SearchCategory.of(s.find.filters),
+                                          current: s.find.filters,
+                                          onTile: s.find.setFilters,
+                                        )
+                                      : !s.find.showingResults
+                                      ? HomeView(
+                                          key: const ValueKey('home'),
+                                          onTile: (words, f) {
+                                            s.find.setFilters(f);
+                                            box.text = words;
+                                            focus.requestFocus();
+                                          },
+                                        )
+                                      : Row(
+                                          key: const ValueKey('results'),
+                                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                                          children: [
+                                            Expanded(
+                                              child: _Results(
+                                                tiles: s.find.text.trim().isEmpty
+                                                    ? SearchCategory.of(s.find.filters).tiles
+                                                    : null,
+                                                scroll: scroll,
+                                                rowKey: rowKey,
+                                                cards: _cards,
+                                                onTap: (i, reveal) {
+                                                  s.find.select(i);
+                                                  _open(reveal: reveal);
+                                                  focus.requestFocus();
+                                                },
+                                                onSecondary: (i, pos) {
+                                                  s.find.select(i);
+                                                  _menuAt(pos);
+                                                },
+                                                onAction: (i, a) {
+                                                  s.find.select(i);
+                                                  _action(a);
+                                                  focus.requestFocus();
+                                                },
+                                              ),
+                                            ),
+                                            if (wide && s.find.results.isNotEmpty)
+                                              Padding(
+                                                padding: const EdgeInsets.fromLTRB(4, 2, NbSpace.gutter, NbSpace.x3),
+                                                child: SizedBox(
+                                                  width: box2.maxWidth >= 1100 ? 360 : 320,
+                                                  child: DetailPane(
+                                                    engine: s.engine,
+                                                    result: s.find.current,
+                                                    onOpen: _open,
+                                                    onOpenWith: () => _action(ResultAction.openWith),
+                                                    onReveal: () => _action(ResultAction.reveal),
+                                                    onCopy: _copy,
+                                                    onForget: _forget,
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
                                         ),
-                                      ),
-                                    ),
-                                ],
+                                ),
                               ),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                    // below the detail pane's width: the details as a sheet sliding over the results
+                    if (!wide)
+                      Positioned.fill(
+                        child: ListenableBuilder(
+                          listenable: s.find,
+                          builder: (context, _) => _DetailSheet(
+                            open: _sheet && s.find.showingResults && s.find.current != null,
+                            onClose: () => setState(() => _sheet = false),
+                            child: DetailPane(
+                              engine: s.engine,
+                              result: s.find.current,
+                              onOpen: _open,
+                              onOpenWith: () => _action(ResultAction.openWith),
+                              onReveal: () => _action(ResultAction.reveal),
+                              onCopy: _copy,
+                              onForget: _forget,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
-              const StatusLine(),
+              ListenableBuilder(
+                listenable: s.find,
+                builder: (context, _) => StatusLine(keys: s.find.results.isNotEmpty),
+              ),
             ],
           );
         },
@@ -336,9 +542,9 @@ class _SearchBoxState extends State<_SearchBox> {
       ),
       child: Glass(
         level: GlassLevel.panel,
-        radius: 26,
-        rim: on ? c.orangeA(.5) : null,
-        padding: const EdgeInsets.fromLTRB(6, 6, 6, 12),
+        radius: 8,
+        rim: on ? c.orangeA(.6) : null,
+        padding: const EdgeInsets.fromLTRB(4, 2, 4, 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -350,18 +556,18 @@ class _SearchBoxState extends State<_SearchBox> {
                 autofocus: true,
                 cursorColor: c.orange,
                 inputFormatters: [LengthLimitingTextInputFormatter(maxTextLength)],
-                style: NbType.display(26, c.text, weight: 330),
+                style: NbType.text(NbSize.field, c.text),
                 textInputAction: TextInputAction.search,
                 decoration: InputDecoration(
                   isDense: true,
                   border: InputBorder.none,
-                  hintText: 'Describe it: “rent pdf from last week”, “beach photos in march”, “budget.xlsx”',
-                  hintStyle: NbType.display(26, c.dim, weight: 300),
+                  hintText: 'Describe it: “rent pdf from last week”, “budget.xlsx”',
+                  hintStyle: NbType.text(NbSize.field, c.dim),
                   prefixIcon: Padding(
-                    padding: const EdgeInsets.only(left: 18, right: 12),
-                    child: NbIcon(NbGlyph.search, size: 22, color: on ? c.orange : c.dim),
+                    padding: const EdgeInsets.only(left: 12, right: 10),
+                    child: NbIcon(NbGlyph.search, size: 17, color: on ? c.orange : c.dim),
                   ),
-                  prefixIconConstraints: const BoxConstraints(minWidth: 52, minHeight: 22),
+                  prefixIconConstraints: const BoxConstraints(minWidth: 40, minHeight: 18),
                   // a way to clear the box with the mouse; Esc does the same
                   suffixIcon: ListenableBuilder(
                     listenable: widget.controller,
@@ -379,19 +585,19 @@ class _SearchBoxState extends State<_SearchBox> {
                               canRequestFocus: false,
                               ringRadius: NbRadius.pillAll,
                               builder: (context, p) => Container(
-                                padding: const EdgeInsets.all(7),
+                                padding: const EdgeInsets.all(5),
                                 decoration: BoxDecoration(color: p.lit ? c.cardHover : null, shape: BoxShape.circle),
-                                child: NbIcon(NbGlyph.close, size: 15, color: p.lit ? c.text : c.dim),
+                                child: NbIcon(NbGlyph.close, size: 13, color: p.lit ? c.text : c.dim),
                               ),
                             ),
                           ),
                   ),
-                  contentPadding: const EdgeInsets.fromLTRB(0, 16, 12, 14),
+                  contentPadding: const EdgeInsets.fromLTRB(0, 12, 12, 11),
                 ),
               ),
             ),
-            Container(height: 1, margin: const EdgeInsets.fromLTRB(14, 0, 14, 10), color: c.line),
-            Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: widget.filters),
+            Container(height: 1, margin: const EdgeInsets.fromLTRB(10, 0, 10, 8), color: c.line),
+            Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: widget.filters),
           ],
         ),
       ),
@@ -400,8 +606,9 @@ class _SearchBoxState extends State<_SearchBox> {
 }
 
 class _Meta extends StatelessWidget {
-  const _Meta({required this.find, required this.cards, required this.onCards});
+  const _Meta({required this.find, required this.cards, required this.onCards, required this.onWords});
   final FindController find;
+  final ValueChanged<String> onWords;
   final bool cards;
   final ValueChanged<bool> onCards;
 
@@ -426,11 +633,12 @@ class _Meta extends StatelessWidget {
         spans.add(TextSpan(text: ' · $n', style: NbType.text(NbSize.small, c.warn)));
       }
     }
-    return Center(
+    return Align(
+      alignment: Alignment.topLeft,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: NbSpace.maxContent),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(NbSpace.x6, 0, NbSpace.x5, NbSpace.x2),
+          padding: const EdgeInsets.fromLTRB(NbSpace.gutter + 2, 0, NbSpace.gutter, 6),
           child: Row(
             children: [
               Expanded(
@@ -440,17 +648,11 @@ class _Meta extends StatelessWidget {
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     for (final u in a.understood)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: c.orangeA(.07),
-                          border: Border.all(color: c.orangeA(.5)),
-                          borderRadius: NbRadius.pillAll,
-                        ),
-                        child: Text(
-                          u,
-                          style: NbType.text(NbSize.small, c.orange, weight: FontWeight.w600, height: 1.3),
-                        ),
+                      _Understood(
+                        u,
+                        onRemove: removeUnderstood(find.text, u) == null
+                            ? null
+                            : () => onWords(removeUnderstood(find.text, u)!),
                       ),
                     if (spans.isNotEmpty)
                       Padding(
@@ -516,22 +718,34 @@ class _ViewSwitch extends StatelessWidget {
 
 class _Results extends StatelessWidget {
   const _Results({
+    this.tiles,
     required this.scroll,
     required this.rowKey,
     required this.cards,
     required this.onTap,
     required this.onSecondary,
+    required this.onAction,
   });
   final ScrollController scroll;
   final GlobalKey Function(int id) rowKey;
   final bool cards;
   final void Function(int index, bool reveal) onTap;
-  final void Function(int index) onSecondary;
+  final void Function(int index, Offset globalPosition) onSecondary;
+  final void Function(int index, ResultAction action) onAction;
+
+  /// A category's narrower searches, shown above its files while the box is empty.
+  final List<CategoryTile>? tiles;
 
   @override
   Widget build(BuildContext context) {
     final s = AppScope.of(context);
     final List<FileResult> rows = s.find.results;
+    final head = tiles == null
+        ? null
+        : Padding(
+            padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+            child: CategoryTiles(tiles: tiles!, current: s.find.filters, onTile: s.find.setFilters),
+          );
     final firstWeak = rows.indexWhere((r) => r.weak);
     final divider = firstWeak > 0;
     if (cards) {
@@ -540,7 +754,7 @@ class _Results extends StatelessWidget {
         controller: scroll,
         child: GridView.builder(
           controller: scroll,
-          padding: const EdgeInsets.fromLTRB(NbSpace.x5, 4, NbSpace.x4, NbSpace.x6),
+          padding: const EdgeInsets.fromLTRB(NbSpace.gutter, 4, NbSpace.x2, NbSpace.x4),
           gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
             maxCrossAxisExtent: 300,
             mainAxisExtent: ResultCard.height,
@@ -549,7 +763,7 @@ class _Results extends StatelessWidget {
           ),
           itemCount: rows.length,
           itemBuilder: (context, i) => Appear(
-            key: ValueKey((s.find.serial, rows[i].id)),
+            key: ValueKey((s.find.revealSerial, rows[i].id)),
             delay: Appear.stagger(i),
             child: ResultCard(
               key: rowKey(rows[i].id),
@@ -557,36 +771,293 @@ class _Results extends StatelessWidget {
               result: rows[i],
               selected: i == s.find.selected,
               onTap: (reveal) => onTap(i, reveal),
-              onSecondary: () => onSecondary(i),
+              onSecondary: (pos) => onSecondary(i, pos),
+              onAction: (a) => onAction(i, a),
             ),
           ),
         ),
       );
     }
-    return Scrollbar(
-      controller: scroll,
-      child: ListView.builder(
-        controller: scroll,
-        padding: const EdgeInsets.fromLTRB(NbSpace.x5, 0, NbSpace.x4, NbSpace.x6),
-        itemCount: rows.length + (divider ? 1 : 0),
-        itemBuilder: (context, i) {
-          if (divider && i == firstWeak) return const LessSure();
-          final idx = divider && i > firstWeak ? i - 1 : i;
-          final sel = idx == s.find.selected;
-          // each new answer comes in as a short cascade; moving the selection doesn't replay it
-          return Appear(
-            key: ValueKey((s.find.serial, rows[idx].id)),
-            delay: Appear.stagger(i),
-            child: ResultTile(
-              key: rowKey(rows[idx].id), // stable: moving the selection only repaints two rows
-              engine: s.engine,
-              result: rows[idx],
-              selected: sel,
-              onTap: (reveal) => onTap(idx, reveal),
-              onSecondary: () => onSecondary(idx),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(NbSpace.gutter, 0, NbSpace.x2, NbSpace.x3),
+      child: Glass(
+        level: GlassLevel.panel,
+        radius: 8,
+        padding: const EdgeInsets.fromLTRB(4, 2, 4, 2),
+        child: Scrollbar(
+          controller: scroll,
+          child: ListView.builder(
+            controller: scroll,
+            padding: EdgeInsets.zero,
+            itemCount: rows.length + (divider ? 1 : 0) + (head == null ? 0 : 1),
+            itemBuilder: (context, at) {
+              if (head != null && at == 0) return head;
+              final i = head == null ? at : at - 1;
+              if (divider && i == firstWeak) return const LessSure();
+              final idx = divider && i > firstWeak ? i - 1 : i;
+              final sel = idx == s.find.selected;
+              // each new answer comes in as a short cascade; moving the selection doesn't replay it
+              return Appear(
+                key: ValueKey((s.find.revealSerial, rows[idx].id)),
+                delay: Appear.stagger(i),
+                child: ResultTile(
+                  key: rowKey(rows[idx].id), // stable: moving the selection only repaints two rows
+                  engine: s.engine,
+                  result: rows[idx],
+                  selected: sel,
+                  onTap: (reveal) => onTap(idx, reveal),
+                  onSecondary: (pos) => onSecondary(idx, pos),
+                  onAction: (a) => onAction(idx, a),
+                  terms: s.find.answer.terms,
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The detail view below 1100 px: a frosted sheet sliding in from the right over the results (Space, "Details").
+class _DetailSheet extends StatelessWidget {
+  const _DetailSheet({required this.open, required this.onClose, required this.child});
+  final bool open;
+  final VoidCallback onClose;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final d = NbMotion.of(context, const Duration(milliseconds: 380));
+    return IgnorePointer(
+      ignoring: !open,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: onClose,
+              child: AnimatedOpacity(
+                opacity: open ? 1 : 0,
+                duration: d,
+                child: const ColoredBox(color: Color(0x33000000)),
+              ),
             ),
-          );
-        },
+          ),
+          Positioned(
+            top: 4,
+            right: NbSpace.x4,
+            bottom: NbSpace.x4,
+            child: LayoutBuilder(
+              builder: (context, box) => AnimatedSlide(
+                offset: open ? Offset.zero : const Offset(1.1, 0),
+                duration: d,
+                curve: const SpringCurve(damping: .82),
+                // built only while open: nothing hidden behind the results
+                child: SizedBox(
+                  width: 420.0.clamp(0, MediaQuery.sizeOf(context).width - 140).toDouble(),
+                  child: open ? child : null,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Under the box: recent searches while it is empty, the filters the words mean while typing (Tab takes one).
+class _Suggestions extends StatelessWidget {
+  const _Suggestions({required this.box, required this.onAccept, required this.onRecent});
+  final TextEditingController box;
+  final ValueChanged<TypedFilter> onAccept;
+  final ValueChanged<String> onRecent;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = AppScope.of(context);
+    final c = NbColors.of(context);
+    final recent = s.find.recent;
+    return ListenableBuilder(
+      listenable: Listenable.merge([box, ?recent]),
+      builder: (context, _) {
+        final text = box.text;
+        final List<Widget> chips;
+        if (text.trim().isEmpty) {
+          final items = recent?.items ?? const <String>[];
+          if (items.isEmpty) return const SizedBox.shrink();
+          chips = [
+            Text('Recent', style: NbType.text(NbSize.small, c.dim, weight: FontWeight.w600)),
+            for (final r in items) NbChipButton(r, onTap: () => onRecent(r), icon: NbGlyph.search),
+            NbChipButton(
+              'Clear',
+              dashed: true,
+              onTap: () => unawaited(recent!.clear()),
+              tooltip: 'Forget these searches',
+            ),
+          ];
+        } else {
+          final sug = suggestFilters(text);
+          if (sug.isEmpty) return const SizedBox.shrink();
+          chips = [
+            for (var i = 0; i < sug.length; i++)
+              NbChipButton(
+                i == 0 ? '${sug[i].label}   Tab' : sug[i].label,
+                on: true,
+                icon: NbGlyph.plus,
+                onTap: () => onAccept(sug[i]),
+                tooltip: 'Use it as a filter',
+              ),
+          ];
+        }
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Wrap(spacing: 6, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: chips),
+        );
+      },
+    );
+  }
+}
+
+/// How the question was read: a chip, removable when this UI knows which words it came from.
+class _Understood extends StatelessWidget {
+  const _Understood(this.text, {required this.onRemove});
+  final String text;
+  final VoidCallback? onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = NbColors.of(context);
+    return Container(
+      padding: EdgeInsets.fromLTRB(10, 3, onRemove == null ? 10 : 4, 3),
+      decoration: BoxDecoration(
+        color: c.orangeA(.07),
+        border: Border.all(color: c.orangeA(.5)),
+        borderRadius: NbRadius.pillAll,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(text, style: NbType.text(NbSize.small, c.orange, weight: FontWeight.w600, height: 1.3)),
+          if (onRemove != null)
+            Pressable(
+              onTap: onRemove,
+              semanticLabel: 'Remove $text',
+              tooltip: 'Search without this',
+              canRequestFocus: false,
+              ringRadius: NbRadius.pillAll,
+              builder: (context, p) => Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: NbIcon(NbGlyph.close, size: 12, color: p.lit ? c.text : c.orange),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Nothing found: say so plainly, and offer the ways on.
+class _NoResults extends StatelessWidget {
+  const _NoResults({
+    super.key,
+    required this.words,
+    required this.hasFilters,
+    required this.onClearFilters,
+    required this.onWords,
+  });
+  final String words;
+  final bool hasFilters;
+  final VoidCallback onClearFilters;
+  final ValueChanged<String> onWords;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = NbColors.of(context);
+    final parts = words.trim().split(RegExp(r'\s+'));
+    final fewer = parts.length > 1 ? parts.sublist(0, parts.length - 1).join(' ') : '';
+    return Align(
+      alignment: Alignment.topLeft,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(NbSpace.gutter, NbSpace.x2, NbSpace.gutter, 0),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 620),
+          child: Glass(
+            radius: 8,
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text.rich(
+                  TextSpan(
+                    children: [
+                      const TextSpan(text: 'Nothing matches '),
+                      TextSpan(
+                        text: words.trim(),
+                        style: NbType.text(16, c.text, weight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                  style: NbType.text(14, c.muted),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Try fewer or other words, a different kind, or search without the filters.',
+                  style: NbType.text(13.5, c.dim, height: 1.5),
+                ),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    if (hasFilters) NbButton('Search without filters', onPressed: onClearFilters),
+                    if (fewer.isNotEmpty)
+                      NbButton('Search “$fewer”', kind: NbButtonKind.ghost, onPressed: () => onWords(fewer)),
+                    NbButton(
+                      'Search names only: “${parts.first}”',
+                      kind: NbButtonKind.quiet,
+                      onPressed: () => onWords(parts.first),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A category with nothing in it yet (or nothing for its filters): says so, with its narrower searches.
+class _EmptyCategory extends StatelessWidget {
+  const _EmptyCategory({super.key, required this.category, required this.current, required this.onTile});
+  final SearchCategory category;
+  final SearchFilters current;
+  final ValueChanged<SearchFilters> onTile;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = NbColors.of(context);
+    return Align(
+      alignment: Alignment.topLeft,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(NbSpace.gutter, 0, NbSpace.gutter, 0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CategoryTiles(tiles: category.tiles, current: current, onTile: onTile),
+            const SizedBox(height: NbSpace.x4),
+            Text(
+              category == SearchCategory.all
+                  ? 'Nothing matches these filters.'
+                  : 'Nothing here yet in ${category.label}. Files show up as they are indexed.',
+              style: NbType.text(13, c.muted, weight: FontWeight.w600),
+            ),
+            const SizedBox(height: 4),
+            Text('Try another tile, or type a few words.', style: NbType.text(12, c.dim)),
+          ],
+        ),
       ),
     );
   }

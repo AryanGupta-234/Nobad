@@ -26,6 +26,7 @@ Map<String, Object?> normal(String method, Object? params) {
   final m = params is Map ? Map<String, Object?>.from(clean(params) as Map) : <String, Object?>{'_': params};
   if ((method == 'ui_shown' || method == 'ui_hidden') && !m.containsKey('window')) m['window'] = 'main';
   if (method == 'search') m.remove('text');
+  if (method == 'search' && !m.containsKey('channel')) m['channel'] = 'main'; // the contract's default
   return m;
 }
 
@@ -100,6 +101,12 @@ Future<Object?> make(EngineClient c, String m, Map<String, Object?> p) {
       return c.uiShown(p['window'] as String? ?? 'main');
     case 'ui_hidden':
       return c.uiHidden(p['window'] as String? ?? 'main');
+    case 'scope_info':
+      return c.scopeInfo();
+    case 'turbo_state':
+      return c.turboState();
+    case 'turbo_set' when p['on'] is bool:
+      return c.turboSet(p['on'] as bool);
   }
   return c.call(m, p);
 }

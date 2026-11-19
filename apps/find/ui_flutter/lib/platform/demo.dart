@@ -126,13 +126,7 @@ class Demo {
       s.nav.go(AppTab.indexing);
       await _wait(1500);
       await _shot('tour-index-$theme.png');
-      for (final p in [
-        SettingsPage.general,
-        SettingsPage.models,
-        SettingsPage.performance,
-        SettingsPage.privacy,
-        SettingsPage.about,
-      ]) {
+      for (final p in SettingsPage.values) {
         s.nav.openSettings(p);
         await _wait(800);
         await _shot('tour-settings-${p.name}-$theme.png');

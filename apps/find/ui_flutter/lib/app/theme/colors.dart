@@ -58,22 +58,26 @@ class NbColors extends ThemeExtension<NbColors> {
   Color get canvas => glass ? bg.withValues(alpha: isDark ? .55 : .62) : bg;
 
   /// Floating panels (dock, palette, detail pane): frosted glass.
-  Color get panel => isDark ? const Color(0x14FFFFFF) : const Color(0xA6FFFFFF);
+  /// Neutral dark at 76 % over Mica (no white haze), or white at 84 %.
+  Color get panel => isDark ? const Color(0xC2141518) : const Color(0xD6FFFFFF);
 
   /// The dock, a little quieter than panels.
-  Color get rail => isDark ? const Color(0x0FFFFFFF) : const Color(0x8CFFFFFF);
+  Color get rail => isDark ? const Color(0xB8111214) : const Color(0xC7FFFFFF);
 
   /// Cards on the backdrop: fainter than panels, brighter when hovered.
-  Color get card => isDark ? const Color(0x0DFFFFFF) : const Color(0x80FFFFFF);
-  Color get cardHover => isDark ? const Color(0x17FFFFFF) : const Color(0xCCFFFFFF);
+  Color get card => isDark ? const Color(0xA6141518) : const Color(0xBFFFFFFF);
+  Color get cardHover => isDark ? const Color(0x0FFFFFFF) : const Color(0x0A000000);
+
+  /// A selected row: a quiet lift, the orange only in its small indicator.
+  Color get selected => isDark ? const Color(0x17FFFFFF) : const Color(0x12000000);
 
   /// The 1 px light rim on the top edge of glass, fading down the sides.
-  Color get rimLight => isDark ? const Color(0x2EFFFFFF) : const Color(0xF2FFFFFF);
-  Color get rimShade => isDark ? const Color(0x08FFFFFF) : const Color(0x14000000);
+  Color get rimLight => isDark ? const Color(0x1FFFFFFF) : const Color(0x1A000000);
+  Color get rimShade => isDark ? const Color(0x14FFFFFF) : const Color(0x14000000);
 
   /// The backdrop's two glows.
-  Color get glowWarm => orange.withValues(alpha: isDark ? .22 : .16);
-  Color get glowCool => isDark ? const Color(0x264F5DFF) : const Color(0x1F4F5DFF);
+  Color get glowWarm => orange.withValues(alpha: isDark ? .07 : .05);
+  Color get glowCool => isDark ? const Color(0x124F5DFF) : const Color(0x0F4F5DFF);
 
   /// The soft shadow under floating things.
   Color get float => isDark ? const Color(0x73000000) : const Color(0x1A1B2440);
@@ -82,12 +86,12 @@ class NbColors extends ThemeExtension<NbColors> {
     brightness: Brightness.dark,
     orange: Color(0xFFFF4D00),
     onOrange: Color(0xFF000000),
-    bg: Color(0xFF090A10),
+    bg: Color(0xFF08090B), // near black (0.7.0)
     surface: Color(0xFF161922),
     raised: Color(0x14FFFFFF),
     text: Color(0xFFF4F5F8),
-    muted: Color(0xADE8ECF1), // rgba(232, 236, 241, .68)
-    dim: Color(0x73E8ECF1), // .45
+    muted: Color(0xA3FFFFFF), // white .64: secondary text
+    dim: Color(0x85FFFFFF), // white .52: still over 4.5:1 on the canvas
     line: Color(0x14FFFFFF), // .08
     line2: Color(0x26FFFFFF), // .15
     warn: Color(0xFFFFB38A),

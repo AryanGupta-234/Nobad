@@ -12,6 +12,8 @@ import 'package:flutter/foundation.dart';
 
 import 'engine_api.dart';
 import 'events.dart';
+import 'models/models_info.dart';
+import 'models/scope_info.dart';
 import 'models/result.dart';
 import 'models/settings.dart';
 import 'models/status.dart';
@@ -35,8 +37,12 @@ class PipeEngine implements EngineApi {
 
   // ---- search and results ----
   @override
-  Future<SearchAnswer> search(String text, {SearchFilters filters = SearchFilters.none}) async {
-    final a = await _pipe.search(text, filters: filters);
+  Future<SearchAnswer> search(
+    String text, {
+    SearchFilters filters = SearchFilters.none,
+    String channel = 'main',
+  }) async {
+    final a = await _pipe.search(text, filters: filters, channel: channel);
     if (_known.length > 2000) _known.clear();
     for (final r in a.results) {
       _known[r.id] = r;
@@ -119,6 +125,34 @@ class PipeEngine implements EngineApi {
   Future<void> uiHidden(String window) => _pipe.uiHidden(window);
   @override
   Future<ActionResult> quit() => _pipe.quit();
+
+  @override
+  Future<ModelsInfo> models() => _pipe.models();
+  @override
+  Future<ModelUse> modelUse(String feature, String id) => _pipe.modelUse(feature, id);
+  @override
+  Future<ActionResult> modelDownload(String id) => _pipe.modelDownload(id);
+  @override
+  Future<ActionResult> modelRemove(String id) => _pipe.modelRemove(id);
+  @override
+  Future<AutoConfig> autoConfigure() => _pipe.autoConfigure();
+  @override
+  Future<ActionResult> modelLanguage(String focus) => _pipe.modelLanguage(focus);
+  @override
+  Future<ScopeInfo> scopeInfo() => _pipe.scopeInfo();
+  @override
+  Future<TurboState> turboState() => _pipe.turboState();
+  @override
+  Future<TurboSet> turboSet(bool on) {
+    if (on && _pipe.enginePid != 0) beforeDialog?.call(_pipe.enginePid); // Windows' permission prompt
+    return _pipe.turboSet(on);
+  }
+
+  @override
+  Future<ActionResult> openWith(int id) {
+    if (_pipe.enginePid != 0) beforeDialog?.call(_pipe.enginePid);
+    return _pipe.openWith(id);
+  }
 
   @override
   void dispose() => _pipe.dispose();

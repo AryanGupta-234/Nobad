@@ -9,7 +9,7 @@
 #include "flutter_window.h"
 #include "utils.h"
 
-// The quick find bar: 640 x 64 (logical) on the monitor with the mouse, centered,
+// The quick find bar: 640 x 52 (logical) on the monitor with the mouse, centered,
 // a third of the way down its work area (the same rule as nobadfind/bar.py).
 static void PlaceBar(HWND hwnd) {
   POINT pt{};
@@ -23,7 +23,7 @@ static void PlaceBar(HWND hwnd) {
   const double scale = FlutterDesktopGetDpiForMonitor(monitor) / 96.0;
   const RECT& r = info.rcWork;
   const int w = static_cast<int>(640 * scale + 0.5);
-  const int h = static_cast<int>(64 * scale + 0.5);
+  const int h = static_cast<int>(52 * scale + 0.5);
   const int x = r.left + (r.right - r.left - w) / 2;
   const int y = r.top + (r.bottom - r.top) / 3 - h / 2;
   SetWindowPos(hwnd, HWND_TOPMOST, x, y, w, h, SWP_NOACTIVATE);
@@ -87,8 +87,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   FlutterWindow window(project);
   window.SetPopup(bar);
   Win32Window::Point origin(80, 60);
-  Win32Window::Size size = bar ? Win32Window::Size(640, 64)
-                               : Win32Window::Size(1080, 720);
+  Win32Window::Size size = bar ? Win32Window::Size(640, 52)
+                               : Win32Window::Size(1180, 760);  // client size; placed and clamped by Create
   if (!window.Create(bar ? L"NOBAD Find bar" : L"NOBAD Find", origin, size)) {
     return EXIT_FAILURE;
   }

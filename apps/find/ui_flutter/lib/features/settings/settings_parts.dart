@@ -12,6 +12,7 @@ import '../../app/theme/tokens.dart';
 import '../../app/theme/typography.dart';
 import '../../widgets/controls.dart';
 import '../../widgets/glass.dart';
+import '../../widgets/panels.dart';
 import '../../widgets/icons.dart';
 import '../../widgets/pressable.dart';
 
@@ -24,19 +25,16 @@ class SettingsGroup extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = NbColors.of(context);
     return Padding(
-      padding: const EdgeInsets.only(bottom: NbSpace.x6),
+      padding: const EdgeInsets.only(bottom: NbSpace.x5),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.only(left: 2, bottom: NbSpace.x2),
-            child: Semantics(
-              header: true,
-              child: Text(title, style: NbType.text(NbSize.small, c.dim, weight: FontWeight.w600)),
-            ),
+            padding: const EdgeInsets.only(left: 2, bottom: 6),
+            child: Semantics(header: true, child: Text(title, style: sectionStyle(c))),
           ),
           Glass(
-            radius: 22,
+            radius: 8,
             child: Column(
               children: [
                 for (var i = 0; i < rows.length; i++) ...[if (i > 0) Container(height: 1, color: c.line), rows[i]],
@@ -61,38 +59,41 @@ class SettingRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = NbColors.of(context);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 13, 16, 13),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (label.isNotEmpty)
-                      Text(label, style: NbType.text(14, c.text, weight: FontWeight.w600, height: 1.35)),
-                    if (helpWidget != null)
-                      Padding(padding: const EdgeInsets.only(top: 2), child: helpWidget!)
-                    else if (help.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 560),
-                          child: Text(help, style: NbType.text(NbSize.small, c.dim, height: 1.5)),
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 44),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 8, 12, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (label.isNotEmpty)
+                        Text(label, style: NbType.text(13.5, c.text, weight: FontWeight.w600, height: 1.35)),
+                      if (helpWidget != null)
+                        Padding(padding: const EdgeInsets.only(top: 2), child: helpWidget!)
+                      else if (help.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 560),
+                            child: Text(help, style: NbType.text(NbSize.small, c.dim, height: 1.4)),
+                          ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              if (control != null) ...[const SizedBox(width: NbSpace.x5), control!],
-            ],
-          ),
-          if (below != null) ...[const SizedBox(height: NbSpace.x3), below!],
-        ],
+                if (control != null) ...[const SizedBox(width: NbSpace.x4), control!],
+              ],
+            ),
+            if (below != null) ...[const SizedBox(height: NbSpace.x2), below!],
+          ],
+        ),
       ),
     );
   }
