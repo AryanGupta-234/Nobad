@@ -271,3 +271,15 @@ def test_closing_the_last_window_quits_unless_stay_running(tmp_path):
         w._timer = Now
         api._on_all_closed()
         assert stop.is_set() is quits, (stay, open_window)
+
+
+def test_a_ui_that_opened_and_closed_is_not_starting_any_more(tmp_path):
+    """Smoke test 0.8.5: the window closed within 15 s of the first start, and the engine thought a UI was still
+    starting, so it never quit."""
+    from nobadfind.uilaunch import Launcher
+    clock = [100.0]
+    la = Launcher(None, connected=lambda: False, clock=lambda: clock[0], start=lambda argv: None)
+    la.started(100.0)
+    assert la.starting()
+    la.started(None)
+    assert not la.starting()

@@ -70,7 +70,8 @@ class Launcher:
                 and self.clock() - self._started_at < STARTING)
 
     def started(self, at):
-        """A UI was started at `at` (start_now): within STARTING, show() waits for it instead of starting another."""
+        """A UI was started at `at` (start_now): within STARTING, show() waits for it instead of starting another.
+        None: the UI that was starting has shown its window."""
         self._started_at = at
 
     def here(self, path):

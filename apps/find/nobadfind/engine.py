@@ -166,6 +166,7 @@ class Wiring:
         self.ui = launcher(events)            # show(what): the show event, or start the UI on that page
         self.make_hotkey = make_hotkey
         self._timer = threading.Timer
+        self._seen_ui = False             # a UI has connected or shown a window since the engine started
         self.keys = []
         self.life = lifecycle.Window(indexer, not settings.get("keep_background"), log, quitting=stop.is_set,
                                      trim=trim)
@@ -184,6 +185,7 @@ class Wiring:
         and that hidden bar quit too, unless "Keep running after closing the window" (stay_running) is on, which
         keeps the hotkeys and the icon as before. Checked again after a short grace, so going from the bar to the
         main window (Alt+Enter), or a window that is just starting, doesn't end anything."""
+        self._seen_ui = True
         if self.settings.get("stay_running") or self.stop.is_set():
             return
         t = self._timer(self.CLOSE_GRACE_S, self._close_check)
@@ -205,6 +207,10 @@ class Wiring:
         self.stop.set()
 
     def _shown(self):
+        self._seen_ui = True
+        done = getattr(self.ui, "started", None)        # the UI that was starting is here: no longer "starting"
+        if done is not None:
+            done(None)
         self.life.wanted(False)
         threading.Thread(target=self.indexer.warm_models, daemon=True, name="warm").start()
 
@@ -261,10 +267,9 @@ class Wiring:
         """Backs up _all_closed for windows that end hidden without saying so (a quick find bar that never got
         the focus, a UI that hung up mid-way): once any UI has connected, a look every WATCH_S seconds quits when
         no window is open. Never before a UI connected, so a background start (autostart) keeps running."""
-        seen = False
         while not self.stop.wait(self.WATCH_S):
-            seen = seen or bool(self.ui_pids())
-            if seen and not self.settings.get("stay_running"):
+            self._seen_ui = self._seen_ui or bool(self.ui_pids())
+            if self._seen_ui and not self.settings.get("stay_running"):
                 self._close_check()
 
 
