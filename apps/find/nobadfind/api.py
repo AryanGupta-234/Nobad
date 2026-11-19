@@ -58,8 +58,15 @@ class Api:
         self._timer, self._exit = threading.Timer, os._exit     # tests replace them
 
     # ---------- search ----------
-    def search(self, text, filters=None):
+    def search(self, text, filters=None, client=None):
+        """client: who asked (one pipe connection). A newer search from the same client cancels this one: its
+        answer would only be thrown away, and on a whole-PC index the old one may still be running."""
         empty = {"results": [], "understood": [], "terms": [], "notes": [], "ms": 0}
+        cancelled = None
+        if client is not None:
+            seqs = self.__dict__.setdefault("_search_seq", {})
+            seqs[client] = mine = seqs.get(client, 0) + 1
+            cancelled = (lambda: seqs.get(client) != mine)       # noqa: E731 (a newer search came in)
         if not isinstance(text, str):
             return empty
         text = text.strip()[:MAX_QUERY]
@@ -70,7 +77,7 @@ class Api:
         try:
             return search(self._store, text, self._indexer.embedder, self._vindex, drives=self._indexer.drive_list,
                           here=self.here, filters=filters, roots=self._indexer.roots(self._indexer.drive_list),
-                          photo_text=self._indexer.photo_text, pindex=self._indexer.pindex)
+                          photo_text=self._indexer.photo_text, pindex=self._indexer.pindex, cancelled=cancelled)
         except Exception as e:
             log(f"search failed: {type(e).__name__}", "warn")
             return {"results": [], "understood": [], "terms": [], "ms": 0, "error": "Search failed. Try other words."}

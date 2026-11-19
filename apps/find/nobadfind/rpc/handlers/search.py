@@ -45,7 +45,10 @@ def _path(r):
 def methods(api, events=None):
     def search(params, conn=None):
         text = _text(params, "text")
-        return _search_result(api.search(text, _filters(params)))
+        filters = _filters(params)
+        if conn is None:
+            return _search_result(api.search(text, filters))
+        return _search_result(api.search(text, filters, client=id(conn)))   # a newer one cancels it
 
     def thumbnail(params, conn=None):
         return {"url": str((api.thumbnail(int_param(params)) or {}).get("url") or "")}

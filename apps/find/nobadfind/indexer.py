@@ -297,6 +297,8 @@ class Indexer:
             try:
                 if self.store.upgrade_text_index():
                     log("text index rebuilt so Hindi words stay whole")
+                if self.store.upgrade_name_index():
+                    log("name word index built (fast one- and two-letter searches)")
             except Exception as e:
                 log(f"text index upgrade failed: {type(e).__name__}", "warn")
             self.status["plan"] = plan(self.settings, self.roots())

@@ -58,6 +58,15 @@ CREATE TRIGGER IF NOT EXISTS chunks_ad AFTER DELETE ON chunks BEGIN
   DELETE FROM vecs WHERE chunk_id = old.id; END;
 CREATE TABLE IF NOT EXISTS vecs(chunk_id INTEGER PRIMARY KEY, v BLOB NOT NULL);
 CREATE TABLE IF NOT EXISTS vecs_next(chunk_id INTEGER PRIMARY KEY, v BLOB NOT NULL);
+CREATE VIRTUAL TABLE IF NOT EXISTS names_w USING fts5(name, content='files', content_rowid='id',
+  tokenize='@NAME_TOKENIZE@', prefix='1 2');
+CREATE TRIGGER IF NOT EXISTS files_ai_w AFTER INSERT ON files BEGIN
+  INSERT INTO names_w(rowid, name) VALUES (new.id, new.name); END;
+CREATE TRIGGER IF NOT EXISTS files_ad_w AFTER DELETE ON files BEGIN
+  INSERT INTO names_w(names_w, rowid, name) VALUES ('delete', old.id, old.name); END;
+CREATE TRIGGER IF NOT EXISTS files_au_w AFTER UPDATE OF name ON files WHEN old.name IS NOT new.name BEGIN
+  INSERT INTO names_w(names_w, rowid, name) VALUES ('delete', old.id, old.name);
+  INSERT INTO names_w(rowid, name) VALUES (new.id, new.name); END;
 CREATE TABLE IF NOT EXISTS nvecs_next(file_id INTEGER PRIMARY KEY, v BLOB NOT NULL);
 CREATE TRIGGER IF NOT EXISTS chunks_ad_next AFTER DELETE ON chunks BEGIN
   DELETE FROM vecs_next WHERE chunk_id = old.id; END;
@@ -73,7 +82,11 @@ DEVANAGARI_MARKS = "".join(chr(c) for r in ((0x0900, 0x0903), (0x093A, 0x094F), 
                            for c in range(r[0], r[1] + 1))
 TEXT_TOKENIZE = "porter unicode61 remove_diacritics 2 tokenchars ''" + DEVANAGARI_MARKS + "''"
 TEXT_INDEX = "2"
-SCHEMA = SCHEMA.replace("@TEXT_TOKENIZE@", TEXT_TOKENIZE)
+# names_w: the words of every file name with a prefix index, for one- and two-letter questions (the trigram
+# "names" table needs three letters; without this, "ta" scanned every row: seconds on a whole-PC index).
+NAME_TOKENIZE = "unicode61 remove_diacritics 2 tokenchars ''" + DEVANAGARI_MARKS + "''"
+NAME_INDEX = "2"
+SCHEMA = SCHEMA.replace("@TEXT_TOKENIZE@", TEXT_TOKENIZE).replace("@NAME_TOKENIZE@", NAME_TOKENIZE)
 
 
 def fts_quote(term):
@@ -149,6 +162,26 @@ class Store:
     def meta(self, k, default=None):
         v = self.one("SELECT v FROM meta WHERE k=?", (k,))
         return default if v is None else v
+
+    def name_index_ready(self):
+        if not getattr(self, "_name_index", False):
+            self._name_index = self.meta("name_index") == NAME_INDEX
+        return self._name_index
+
+    def upgrade_name_index(self):
+        """Fill names_w for the files indexed before it existed (new files go in by trigger). Once; a search
+        meanwhile uses the old way. Returns True when it filled it."""
+        if self.name_index_ready():
+            return False
+        with self.wlock:
+            # "photos" alone lists every photo, newest first: without this, a sort of every photo on the PC
+            self.db.execute("CREATE INDEX IF NOT EXISTS files_kind_mtime ON files(kind, mtime)")
+            self.db.execute("INSERT INTO names_w(names_w) VALUES('rebuild')")
+            self.db.execute("INSERT INTO meta(k,v) VALUES('name_index', ?) ON CONFLICT(k) DO UPDATE SET v=excluded.v",
+                            (NAME_INDEX,))
+            self.db.commit()
+        self._name_index = True
+        return True
 
     def upgrade_text_index(self):
         """Indexes before 0.8.0 split Hindi words at their vowel signs: build the text index again with whole

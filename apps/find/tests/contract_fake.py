@@ -35,7 +35,7 @@ class FakeApi:
         self.calls.append(call)
 
     # search
-    def search(self, text, filters=None):
+    def search(self, text, filters=None, client=None):
         self._note("search", text, filters)
         if not text.strip() and not filters:
             return {"results": [], "understood": [], "terms": [], "notes": [], "ms": 0}

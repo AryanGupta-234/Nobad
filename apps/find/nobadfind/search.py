@@ -4,6 +4,7 @@ Each result says why it matched, in plain words, and only claims what was actual
 Snippets mark matches with \\x02 ... \\x03; the UI escapes the text first and only then turns those into <mark>.
 """
 import os
+import sqlite3
 import time
 
 from .query import parse
@@ -20,6 +21,7 @@ MEANING_SPREAD = 0.13
 # match for this question, or strong on its own.
 NAME_SPREAD = 0.08
 NAME_STRONG = 0.32
+NAME_CANDIDATES = 2000  # name matches looked at per question (a whole-PC index has hundreds of thousands)
 VARIANTS = set()        # ranking variants switched on by tools/eval_text.py to measure them one at a time
 # Words people use for the same personal files (both ways). Only for the keyword side: the meaning model knows these.
 _SYN_GROUPS = [("flat", "apartment"), ("invoice", "bill", "receipt"), ("cv", "resume", "résumé"),
@@ -116,11 +118,16 @@ def _name_hits(store, q, limit):
     where, args = _filters(q)
     parts, pargs = [], []
     if long_terms:
-        parts.append("f.id IN (SELECT rowid FROM names WHERE names MATCH ?)")
-        pargs.append(" ".join("name:" + fts_quote(t) for t in long_terms))
-    for t in short:
-        parts.append("f.name LIKE ? ESCAPE '\\'")
-        pargs.append("%" + t.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%")
+        parts.append("f.id IN (SELECT rowid FROM names WHERE names MATCH ? LIMIT ?)")
+        pargs += [" ".join("name:" + fts_quote(t) for t in long_terms), NAME_CANDIDATES]
+    if short and store.name_index_ready():
+        # one or two letters: words of the name that start with them, from the prefix index (not every row)
+        parts.append("f.id IN (SELECT rowid FROM names_w WHERE names_w MATCH ? LIMIT ?)")
+        pargs += [" ".join(fts_quote(t) + "*" for t in short), NAME_CANDIDATES]
+    else:
+        for t in short:
+            parts.append("f.name LIKE ? ESCAPE '\\'")
+            pargs.append("%" + t.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%")
     # shorter names and recently changed files first among equal matches
     rows = store.q(f"SELECT f.id FROM files f WHERE {' AND '.join(parts)}{where} "
                    "ORDER BY length(f.name), f.mtime DESC LIMIT ?", (*pargs, *args, limit))
@@ -310,8 +317,12 @@ def folder_checker(store, drives=(), roots=()):
     return is_dir
 
 
+class Cancelled(Exception):
+    """A newer keystroke from the same client: this search's answer would be thrown away."""
+
+
 def search(store, text, embedder=None, vindex=None, limit=60, now=None, drives=None, here="", filters=None,
-           is_dir=None, roots=(), photo_text=None, pindex=None):
+           is_dir=None, roots=(), photo_text=None, pindex=None, cancelled=None):
     """drives: every drive the index knows, [{'root', 'type', 'label', 'present'}] (indexer.known_drives).
     here: the File Explorer folder NOBAD Find was opened from ("" if none). filters: the filter bar.
 
@@ -320,12 +331,27 @@ def search(store, text, embedder=None, vindex=None, limit=60, now=None, drives=N
     t_start = time.perf_counter()
     args = dict(embedder=embedder, vindex=vindex, limit=limit, now=now, drives=drives, here=here, filters=filters,
                 is_dir=is_dir, roots=roots, photo_text=photo_text, pindex=pindex)
-    r = _search(store, text, **args)
-    if not r["results"] and r.get("_time_from_text") and "hard_time" not in VARIANTS:
-        when = r["_time_from_text"]
-        r = _search(store, text, times=False, **args)
-        if r["results"]:
-            r["notes"] = [f"Nothing changed {when}, so these match the words instead."] + r["notes"]
+    db = None
+    if cancelled is not None:
+        db = store.db                                   # this thread's connection: SQLite stops when told to
+        db.set_progress_handler(lambda: 1 if cancelled() else 0, 5000)
+    try:
+        if cancelled is not None and cancelled():
+            raise Cancelled()
+        r = _search(store, text, **args)
+        if not r["results"] and r.get("_time_from_text") and "hard_time" not in VARIANTS:
+            when = r["_time_from_text"]
+            r = _search(store, text, times=False, **args)
+            if r["results"]:
+                r["notes"] = [f"Nothing changed {when}, so these match the words instead."] + r["notes"]
+    except (Cancelled, sqlite3.OperationalError) as e:
+        if not isinstance(e, Cancelled) and "interrupt" not in str(e).lower():
+            raise
+        return {"results": [], "understood": [], "terms": [], "notes": [], "more": False, "cancelled": True,
+                "ms": round((time.perf_counter() - t_start) * 1000)}
+    finally:
+        if db is not None:
+            db.set_progress_handler(None, 0)
     r.pop("_time_from_text", None)
     r["ms"] = round((time.perf_counter() - t_start) * 1000)
     return r
