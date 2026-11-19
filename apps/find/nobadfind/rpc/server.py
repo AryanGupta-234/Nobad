@@ -122,11 +122,13 @@ def sddl_for(sid):
 
 
 class Conn:
-    """One connected client: its pipe handle, a write lock, what it subscribed to and its process id."""
+    """One connected client: its pipe handle, a write lock, what it subscribed to, which of its windows are up
+    (ui_shown / ui_hidden) and its process id."""
 
     def __init__(self, k, handle):
         self._k, self.handle = k, handle
         self.events = set()
+        self.shown = set()
         self.alive = True
         self._wlock = threading.Lock()
         self._wov = _OVERLAPPED()
@@ -181,6 +183,7 @@ class Server:
     def __init__(self, methods=None, name=None, workers=4):
         self._k, self._a = _dlls()
         self.methods = methods or {}
+        self.on_drop = None                  # fn(conn) after a client is gone (pipe liveness: Rpc._dropped)
         self.sid = user_sid()
         self.name = name or pipe_name(self.sid)
         self._stop = threading.Event()
@@ -232,6 +235,11 @@ class Server:
                 return
             self._conns.discard(conn)
         conn.close(linger)
+        if self.on_drop is not None:
+            try:
+                self.on_drop(conn)
+            except Exception as e:
+                log(f"rpc client end hook failed: {type(e).__name__}", "warn")
 
     def allow_foreground(self):
         """A hotkey press gives the engine the right to bring a window to the front: pass it on to the UIs."""

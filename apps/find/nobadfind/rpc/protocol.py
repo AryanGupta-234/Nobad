@@ -26,6 +26,41 @@ def int_param(params, key="id"):
     return v
 
 
+def bool_param(params, key):
+    v = params.get(key)
+    if not isinstance(v, bool):
+        raise RpcError(INVALID_PARAMS, f"'{key}' must be true or false")
+    return v
+
+
+def str_param(params, key, default=None):
+    """A string parameter; `default` None means it must be given."""
+    v = params.get(key, default)
+    if not isinstance(v, str):
+        raise RpcError(INVALID_PARAMS, f"'{key}' must be a string")
+    return v
+
+
+def choice_param(params, key, choices, default):
+    v = params.get(key, default)
+    if v not in choices:
+        raise RpcError(INVALID_PARAMS, f"'{key}' must be one of {', '.join(choices)}")
+    return v
+
+
+def names_param(params, key="events"):
+    v = params.get(key)
+    if not isinstance(v, list) or not all(isinstance(e, str) for e in v):
+        raise RpcError(INVALID_PARAMS, f"'{key}' must be a list of names")
+    return v
+
+
+def ok(r):
+    """The {ok, error} answer every action method gives, whatever the Api method left out."""
+    r = r if isinstance(r, dict) else {}
+    return {"ok": bool(r.get("ok")), "error": str(r.get("error") or "")}
+
+
 def _valid_id(rid):
     return rid is None or (isinstance(rid, (int, str)) and not isinstance(rid, bool))
 
