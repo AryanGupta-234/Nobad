@@ -19,6 +19,7 @@ import '../../widgets/controls.dart';
 import '../../widgets/glass.dart';
 import '../../widgets/icons.dart';
 import '../../widgets/motion.dart';
+import 'result_actions.dart';
 
 /// Shared by rows and cards: hover lift, click (Ctrl+click: show in folder), right-click, semantics.
 class _CardShell extends StatelessWidget {
@@ -34,7 +35,7 @@ class _CardShell extends StatelessWidget {
   final FileResult result;
   final bool selected;
   final void Function(bool reveal) onTap;
-  final VoidCallback? onSecondary;
+  final void Function(Offset globalPosition)? onSecondary;
   final Widget Function(BuildContext context, Offset parallax, bool lit) builder;
   final double radius;
   final EdgeInsets padding;
@@ -58,7 +59,7 @@ class _CardShell extends StatelessWidget {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () => onTap(HardwareKeyboard.instance.isControlPressed),
-        onSecondaryTap: onSecondary,
+        onSecondaryTapDown: onSecondary == null ? null : (d) => onSecondary!(d.globalPosition),
         child: Semantics(selected: selected, button: true, label: result.name, child: card),
       ),
     );
@@ -73,6 +74,7 @@ class ResultTile extends StatelessWidget {
     required this.selected,
     required this.onTap,
     this.onSecondary,
+    this.onAction,
   });
 
   final EngineApi engine;
@@ -82,8 +84,11 @@ class ResultTile extends StatelessWidget {
   /// [reveal] is true for Ctrl+click.
   final void Function(bool reveal) onTap;
 
-  /// Right-click: show in folder (0.7.0).
-  final VoidCallback? onSecondary;
+  /// Right-click: the actions menu where the pointer is.
+  final void Function(Offset globalPosition)? onSecondary;
+
+  /// A button on the row (shown when it is selected or hovered); null: no buttons (the quick find bar).
+  final void Function(ResultAction action)? onAction;
 
   @override
   Widget build(BuildContext context) {
@@ -137,6 +142,25 @@ class ResultTile extends StatelessWidget {
                       padding: const EdgeInsets.only(top: 7),
                       child: Wrap(spacing: 5, runSpacing: 5, children: [for (final w in r.why) WhyChip(w)]),
                     ),
+                  // every action at every width: shown on the selected or hovered row
+                  if (onAction != null)
+                    AnimatedSize(
+                      duration: NbMotion.of(context, NbMotion.base),
+                      curve: NbMotion.curve,
+                      alignment: Alignment.topLeft,
+                      child: lit
+                          ? Padding(
+                              padding: const EdgeInsets.only(top: 10),
+                              child: LayoutBuilder(
+                                builder: (context, box) => InlineActions(
+                                  compact: box.maxWidth < 430,
+                                  onAction: onAction!,
+                                  onMore: (pos) => onSecondary?.call(pos),
+                                ),
+                              ),
+                            )
+                          : const SizedBox(width: double.infinity),
+                    ),
                 ],
               ),
             ),
@@ -166,12 +190,14 @@ class ResultCard extends StatelessWidget {
     required this.selected,
     required this.onTap,
     this.onSecondary,
+    this.onAction,
   });
+  final void Function(ResultAction action)? onAction;
   final EngineApi engine;
   final FileResult result;
   final bool selected;
   final void Function(bool reveal) onTap;
-  final VoidCallback? onSecondary;
+  final void Function(Offset globalPosition)? onSecondary;
 
   static const height = 214.0;
 
@@ -203,10 +229,13 @@ class ResultCard extends StatelessWidget {
           const SizedBox(height: 3),
           TailText(r.dir, textAlign: TextAlign.left, style: NbType.data(NbSize.micro + .5, c.dim, height: 1.4)),
           const SizedBox(height: 6),
-          Text(
-            [r.ago, humanSize(r.size)].where((s) => s.isNotEmpty).join('   '),
-            style: NbType.data(NbSize.micro + .5, lit ? c.muted : c.dim),
-          ),
+          if (lit && onAction != null)
+            InlineActions(compact: true, onAction: onAction!, onMore: (pos) => onSecondary?.call(pos))
+          else
+            Text(
+              [r.ago, humanSize(r.size)].where((s) => s.isNotEmpty).join('   '),
+              style: NbType.data(NbSize.micro + .5, lit ? c.muted : c.dim),
+            ),
         ],
       ),
     );
@@ -223,7 +252,9 @@ class DetailPane extends StatelessWidget {
     required this.onReveal,
     required this.onCopy,
     required this.onForget,
+    this.onOpenWith,
   });
+  final VoidCallback? onOpenWith;
   final EngineApi engine;
   final FileResult? result;
   final VoidCallback onOpen;
@@ -289,6 +320,7 @@ class DetailPane extends StatelessWidget {
                       runSpacing: 8,
                       children: [
                         NbButton('Open', icon: NbGlyph.external, onPressed: onOpen),
+                        if (onOpenWith != null) NbButton('Open with…', kind: NbButtonKind.ghost, onPressed: onOpenWith),
                         NbButton('Show in folder', kind: NbButtonKind.ghost, icon: NbGlyph.folder, onPressed: onReveal),
                         NbButton('Copy path', kind: NbButtonKind.ghost, icon: NbGlyph.copy, onPressed: onCopy),
                         NbButton('Forget…', kind: NbButtonKind.quiet, onPressed: onForget),

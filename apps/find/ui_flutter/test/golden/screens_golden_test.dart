@@ -70,6 +70,15 @@ void main() {
         });
       }
 
+      for (final size in const [Size(800, 600), Size(1280, 800)]) {
+        testWidgets('actions on the selected row ${size.width.toInt()}', (tester) async {
+          await pumpApp(tester, engineFor(theme), size: size);
+          await type(tester, 'tax');
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+          await shoot(tester, 'actions_${size.width.toInt()}_$theme');
+        });
+      }
+
       testWidgets('welcome', (tester) async {
         await pumpApp(tester, engineFor(theme, welcome: true), size: const Size(1280, 800));
         await shoot(tester, 'welcome_$theme');

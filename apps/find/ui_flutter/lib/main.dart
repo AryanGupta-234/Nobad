@@ -51,8 +51,15 @@ Future<void> main(List<String> args) async {
     )..start();
     engine = PipeEngine(pipe, beforeDialog: allowSetForeground); // never the fake: offline is shown as offline
   }
-  runApp(NobadFindApp(engine: engine, mode: mode, window: Win32Window.create(), demo: Demo.fromEnvironment(),
-      startPage: AppPage.parse(args)));
+  runApp(
+    NobadFindApp(
+      engine: engine,
+      mode: mode,
+      window: Win32Window.create(),
+      demo: Demo.fromEnvironment(),
+      startPage: AppPage.parse(args),
+    ),
+  );
   startFrameLog();
   WidgetsBinding.instance.waitUntilFirstFrameRasterized.then((_) => recordTiming('first-frame ${mode.name}'));
 }

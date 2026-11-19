@@ -53,6 +53,25 @@ void main() {
       f.dispose();
     });
 
+    test('Open with and Copy name; Open with on an older engine says it needs a newer one', () async {
+      final e = FakeEngine();
+      final copied = <String>[];
+      final toasts = ToastController();
+      final f = FindController(e, debounce: Duration.zero, toasts: toasts, copy: (s) async => copied.add(s));
+      f.setText('tax return');
+      await f.run();
+      expect(await f.openWithSelected(), isTrue);
+      expect(e.openedWith, [1]);
+      await f.copyNameSelected();
+      expect(copied, ['tax return 2025.pdf']);
+      expect(toasts.message, 'Name copied.');
+      e.old = true;
+      expect(await f.openWithSelected(), isFalse);
+      expect(toasts.message, contains("can't do that yet"));
+      f.dispose();
+      toasts.dispose();
+    });
+
     test('Ctrl+C copies the path, Shift+Delete forgets after asking', () async {
       final e = FakeEngine();
       final copied = <String>[];

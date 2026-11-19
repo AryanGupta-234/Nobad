@@ -26,6 +26,7 @@ import '../../widgets/motion.dart';
 import '../../widgets/pressable.dart';
 import 'filter_bar.dart';
 import 'home_view.dart';
+import 'result_actions.dart';
 import 'result_tile.dart';
 import 'status_line.dart';
 
@@ -59,7 +60,10 @@ class _SearchScreenState extends State<SearchScreen> {
     if (_wired) return;
     _wired = true;
     Demo.mainBox = box;
-    box.addListener(() => s.find.setText(box.text));
+    box.addListener(() {
+      if (box.text != s.find.text) _navigating = false;
+      s.find.setText(box.text);
+    });
     s.find.addListener(_follow);
     s.find.addListener(_takeHandOver);
     _takeHandOver();
@@ -165,7 +169,78 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   /// Esc clears the words, then the filters, and only then hides the window.
+  /// The selection was moved with the keys since the last typing: Space then opens the details (below the
+  /// detail pane's width), and Home / End jump in the results instead of moving the caret.
+  bool _navigating = false;
+  bool _sheet = false;
+  bool _wide = false;
+  final _menu = MenuController();
+  final _menuAnchor = GlobalKey();
+  static const _page = 8;
+
+  void _nav(VoidCallback f) {
+    _navigating = true;
+    f();
+  }
+
+  /// Keys that only mean something to the results while the selection is being moved (else they edit the words).
+  KeyEventResult _navKeys(FocusNode node, KeyEvent e) {
+    if (e is! KeyDownEvent || !_navigating || s.find.results.isEmpty) return KeyEventResult.ignored;
+    final k = e.logicalKey;
+    if (k == LogicalKeyboardKey.space && !HardwareKeyboard.instance.isShiftPressed && !_wide) {
+      setState(() => _sheet = !_sheet);
+      return KeyEventResult.handled;
+    }
+    if (k == LogicalKeyboardKey.home) {
+      s.find.select(0);
+      return KeyEventResult.handled;
+    }
+    if (k == LogicalKeyboardKey.end) {
+      s.find.select(s.find.results.length - 1);
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  void _action(ResultAction a) {
+    switch (a) {
+      case ResultAction.open:
+        _open();
+      case ResultAction.openWith:
+        unawaited(s.find.openWithSelected());
+      case ResultAction.reveal:
+        _open(reveal: true);
+      case ResultAction.copyPath:
+        unawaited(s.find.copySelected());
+      case ResultAction.copyName:
+        unawaited(s.find.copyNameSelected());
+      case ResultAction.details:
+        setState(() => _sheet = true);
+      case ResultAction.forget:
+        unawaited(_forget());
+    }
+  }
+
+  /// The actions menu at [global] (right-click, "⋯").
+  void _menuAt(Offset global) {
+    final box = _menuAnchor.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null) return;
+    _menu.open(position: box.globalToLocal(global));
+  }
+
+  /// The menu key / Shift+F10: the menu under the selected result.
+  void _menuAtSelection() {
+    final cur = s.find.current;
+    final row = cur == null ? null : _rowKeys[cur.id]?.currentContext?.findRenderObject() as RenderBox?;
+    if (row == null) return;
+    _menuAt(row.localToGlobal(Offset(24, row.size.height - 8)));
+  }
+
   void _escape() {
+    if (_sheet) {
+      setState(() => _sheet = false);
+      return;
+    }
     if (box.text.isNotEmpty) {
       box.clear();
       return;
@@ -179,8 +254,14 @@ class _SearchScreenState extends State<SearchScreen> {
   Widget build(BuildContext context) {
     return CallbackShortcuts(
       bindings: {
-        const SingleActivator(LogicalKeyboardKey.arrowDown): () => s.find.move(1),
-        const SingleActivator(LogicalKeyboardKey.arrowUp): () => s.find.move(-1),
+        const SingleActivator(LogicalKeyboardKey.arrowDown): () => _nav(() => s.find.move(1)),
+        const SingleActivator(LogicalKeyboardKey.arrowUp): () => _nav(() => s.find.move(-1)),
+        const SingleActivator(LogicalKeyboardKey.pageDown): () => _nav(() => s.find.move(_page)),
+        const SingleActivator(LogicalKeyboardKey.pageUp): () => _nav(() => s.find.move(-_page)),
+        const SingleActivator(LogicalKeyboardKey.enter, control: true, shift: true): () =>
+            _action(ResultAction.openWith),
+        const SingleActivator(LogicalKeyboardKey.contextMenu): _menuAtSelection,
+        const SingleActivator(LogicalKeyboardKey.f10, shift: true): _menuAtSelection,
         const SingleActivator(LogicalKeyboardKey.enter): _open,
         const SingleActivator(LogicalKeyboardKey.numpadEnter): _open,
         const SingleActivator(LogicalKeyboardKey.enter, control: true): () => _open(reveal: true),
@@ -191,6 +272,7 @@ class _SearchScreenState extends State<SearchScreen> {
       child: LayoutBuilder(
         builder: (context, box2) {
           final wide = box2.maxWidth >= NbSpace.wide;
+          _wide = wide;
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -200,10 +282,16 @@ class _SearchScreenState extends State<SearchScreen> {
                 child: Center(
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 920),
-                    child: _SearchBox(
-                      controller: box,
-                      focus: focus,
-                      filters: FilterBar(onDone: focus.requestFocus),
+                    // Space, Home and End go to the results while the selection is being moved with the keys
+                    child: Focus(
+                      canRequestFocus: false,
+                      skipTraversal: true,
+                      onKeyEvent: _navKeys,
+                      child: _SearchBox(
+                        controller: box,
+                        focus: focus,
+                        filters: FilterBar(onDone: focus.requestFocus),
+                      ),
                     ),
                   ),
                 ),
@@ -213,78 +301,121 @@ class _SearchScreenState extends State<SearchScreen> {
                 builder: (context, _) => _Meta(find: s.find, cards: _cards, onCards: (v) => setState(() => _cards = v)),
               ),
               Expanded(
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: NbSpace.maxContent),
-                    child: ListenableBuilder(
-                      listenable: s.find,
-                      builder: (context, _) => AnimatedSwitcher(
-                        duration: NbMotion.of(context, NbMotion.fast),
-                        layoutBuilder: (current, previous) =>
-                            Stack(alignment: Alignment.topCenter, children: [...previous, ?current]),
-                        child: s.find.showingResults && s.find.busy && s.find.results.isEmpty && s.find.notice.isEmpty
-                            ? const Align(
-                                key: ValueKey('loading'),
-                                alignment: Alignment.topCenter,
-                                child: Padding(
-                                  padding: EdgeInsets.symmetric(horizontal: NbSpace.x5),
-                                  child: SkeletonResults(),
-                                ),
-                              )
-                            : !s.find.showingResults
-                            ? HomeView(
-                                key: const ValueKey('home'),
-                                onExample: (t) {
-                                  box.text = t;
-                                  box.selection = TextSelection.collapsed(offset: t.length);
-                                  focus.requestFocus();
-                                },
-                                onTile: (words, f) {
-                                  s.find.setFilters(f);
-                                  box.text = words;
-                                  focus.requestFocus();
-                                },
-                              )
-                            : Row(
-                                key: const ValueKey('results'),
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  Expanded(
-                                    child: _Results(
-                                      scroll: scroll,
-                                      rowKey: rowKey,
-                                      cards: _cards,
-                                      onTap: (i, reveal) {
-                                        s.find.select(i);
-                                        _open(reveal: reveal);
-                                        focus.requestFocus();
-                                      },
-                                      onSecondary: (i) {
-                                        s.find.select(i);
-                                        _open(reveal: true);
-                                      },
-                                    ),
-                                  ),
-                                  if (wide && s.find.results.isNotEmpty)
-                                    Padding(
-                                      padding: const EdgeInsets.fromLTRB(4, 4, NbSpace.x5, NbSpace.x5),
-                                      child: SizedBox(
-                                        width: box2.maxWidth >= 1700 ? 460 : 400,
-                                        child: DetailPane(
-                                          engine: s.engine,
-                                          result: s.find.current,
-                                          onOpen: _open,
-                                          onReveal: () => _open(reveal: true),
-                                          onCopy: _copy,
-                                          onForget: _forget,
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: MenuAnchor(
+                        controller: _menu,
+                        menuChildren: resultMenuItems(context, _action, details: !wide),
+                        child: KeyedSubtree(
+                          key: _menuAnchor,
+                          child: Center(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: NbSpace.maxContent),
+                              child: ListenableBuilder(
+                                listenable: s.find,
+                                builder: (context, _) => AnimatedSwitcher(
+                                  duration: NbMotion.of(context, NbMotion.fast),
+                                  layoutBuilder: (current, previous) =>
+                                      Stack(alignment: Alignment.topCenter, children: [...previous, ?current]),
+                                  child:
+                                      s.find.showingResults &&
+                                          s.find.busy &&
+                                          s.find.results.isEmpty &&
+                                          s.find.notice.isEmpty
+                                      ? const Align(
+                                          key: ValueKey('loading'),
+                                          alignment: Alignment.topCenter,
+                                          child: Padding(
+                                            padding: EdgeInsets.symmetric(horizontal: NbSpace.x5),
+                                            child: SkeletonResults(),
+                                          ),
+                                        )
+                                      : !s.find.showingResults
+                                      ? HomeView(
+                                          key: const ValueKey('home'),
+                                          onExample: (t) {
+                                            box.text = t;
+                                            box.selection = TextSelection.collapsed(offset: t.length);
+                                            focus.requestFocus();
+                                          },
+                                          onTile: (words, f) {
+                                            s.find.setFilters(f);
+                                            box.text = words;
+                                            focus.requestFocus();
+                                          },
+                                        )
+                                      : Row(
+                                          key: const ValueKey('results'),
+                                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                                          children: [
+                                            Expanded(
+                                              child: _Results(
+                                                scroll: scroll,
+                                                rowKey: rowKey,
+                                                cards: _cards,
+                                                onTap: (i, reveal) {
+                                                  s.find.select(i);
+                                                  _open(reveal: reveal);
+                                                  focus.requestFocus();
+                                                },
+                                                onSecondary: (i, pos) {
+                                                  s.find.select(i);
+                                                  _menuAt(pos);
+                                                },
+                                                onAction: (i, a) {
+                                                  s.find.select(i);
+                                                  _action(a);
+                                                  focus.requestFocus();
+                                                },
+                                              ),
+                                            ),
+                                            if (wide && s.find.results.isNotEmpty)
+                                              Padding(
+                                                padding: const EdgeInsets.fromLTRB(4, 4, NbSpace.x5, NbSpace.x5),
+                                                child: SizedBox(
+                                                  width: box2.maxWidth >= 1700 ? 460 : 400,
+                                                  child: DetailPane(
+                                                    engine: s.engine,
+                                                    result: s.find.current,
+                                                    onOpen: _open,
+                                                    onOpenWith: () => _action(ResultAction.openWith),
+                                                    onReveal: () => _action(ResultAction.reveal),
+                                                    onCopy: _copy,
+                                                    onForget: _forget,
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
                                         ),
-                                      ),
-                                    ),
-                                ],
+                                ),
                               ),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                    // below the detail pane's width: the details as a sheet sliding over the results
+                    if (!wide)
+                      Positioned.fill(
+                        child: ListenableBuilder(
+                          listenable: s.find,
+                          builder: (context, _) => _DetailSheet(
+                            open: _sheet && s.find.showingResults && s.find.current != null,
+                            onClose: () => setState(() => _sheet = false),
+                            child: DetailPane(
+                              engine: s.engine,
+                              result: s.find.current,
+                              onOpen: _open,
+                              onOpenWith: () => _action(ResultAction.openWith),
+                              onReveal: () => _action(ResultAction.reveal),
+                              onCopy: _copy,
+                              onForget: _forget,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
               const StatusLine(),
@@ -521,12 +652,14 @@ class _Results extends StatelessWidget {
     required this.cards,
     required this.onTap,
     required this.onSecondary,
+    required this.onAction,
   });
   final ScrollController scroll;
   final GlobalKey Function(int id) rowKey;
   final bool cards;
   final void Function(int index, bool reveal) onTap;
-  final void Function(int index) onSecondary;
+  final void Function(int index, Offset globalPosition) onSecondary;
+  final void Function(int index, ResultAction action) onAction;
 
   @override
   Widget build(BuildContext context) {
@@ -557,7 +690,8 @@ class _Results extends StatelessWidget {
               result: rows[i],
               selected: i == s.find.selected,
               onTap: (reveal) => onTap(i, reveal),
-              onSecondary: () => onSecondary(i),
+              onSecondary: (pos) => onSecondary(i, pos),
+              onAction: (a) => onAction(i, a),
             ),
           ),
         ),
@@ -583,10 +717,58 @@ class _Results extends StatelessWidget {
               result: rows[idx],
               selected: sel,
               onTap: (reveal) => onTap(idx, reveal),
-              onSecondary: () => onSecondary(idx),
+              onSecondary: (pos) => onSecondary(idx, pos),
+              onAction: (a) => onAction(idx, a),
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// The detail view below 1100 px: a frosted sheet sliding in from the right over the results (Space, "Details").
+class _DetailSheet extends StatelessWidget {
+  const _DetailSheet({required this.open, required this.onClose, required this.child});
+  final bool open;
+  final VoidCallback onClose;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final d = NbMotion.of(context, const Duration(milliseconds: 380));
+    return IgnorePointer(
+      ignoring: !open,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: onClose,
+              child: AnimatedOpacity(
+                opacity: open ? 1 : 0,
+                duration: d,
+                child: const ColoredBox(color: Color(0x33000000)),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 4,
+            right: NbSpace.x4,
+            bottom: NbSpace.x4,
+            child: LayoutBuilder(
+              builder: (context, box) => AnimatedSlide(
+                offset: open ? Offset.zero : const Offset(1.1, 0),
+                duration: d,
+                curve: const SpringCurve(damping: .82),
+                // built only while open: nothing hidden behind the results
+                child: SizedBox(
+                  width: 420.0.clamp(0, MediaQuery.sizeOf(context).width - 140).toDouble(),
+                  child: open ? child : null,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

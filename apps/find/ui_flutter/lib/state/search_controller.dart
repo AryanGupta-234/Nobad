@@ -198,6 +198,18 @@ class FindController extends ChangeNotifier {
   /// Show the selected file in File Explorer.
   Future<bool> revealSelected() => _act((id) => engine.reveal(id), "Couldn't show it in its folder.");
 
+  /// Windows' "Open with" for the selected file (Ctrl+Shift+Enter).
+  Future<bool> openWithSelected() => _act((id) => engine.openWith(id), "Couldn't show Open with.");
+
+  /// The selected file's name on the clipboard.
+  Future<bool> copyNameSelected() async {
+    final r = current;
+    if (r == null) return false;
+    await _copy(r.name);
+    _say('Name copied.');
+    return true;
+  }
+
   Future<bool> _act(Future<ActionResult> Function(int id) how, String failed) async {
     final r = current;
     if (r == null) return false;
