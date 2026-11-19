@@ -39,6 +39,9 @@ Add to it when the maintainer decides something; delete lines that stop being tr
 - 2026-11-16 New outbound connections need a setting and an entry in SYSTEM-INTEGRATION.md.
 
 ## Open items
+- 2026-11-19 NOBAD Find 0.8.5 released (find-v0.8.5): Flutter window only (no WebView), smart search (plain-language
+  questions, best guess, suggestions from local search history), closing the window quits everything unless
+  stay_running, dark only. Maintainer also asked to split products into one repo each (Find out of Nobad-VPN): next.
 - 2026-11-17 NOBAD Find photo meaning: maintainer approved an optional image model download. Chosen: SigLIP base
   (Apache-2.0, ~211 MB) instead of OpenAI CLIP (its model card rules out deployed use).
 - 2026-11-17 NOBAD Find admin indexing: maintainer asked for an optional elevated "turbo" index (NTFS change
