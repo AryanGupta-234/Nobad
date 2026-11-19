@@ -7,17 +7,28 @@ then features), the architecture, the feature inventory, and a status table to r
 
 Specific to this app:
 
-- **Runs as the normal user, never as admin** (`app.py` refuses to start elevated). The only elevated code is
-  `wsearch.helper_main`, which accepts the four words in `wsearch.STARTS` and runs `sc.exe` with a fixed argument
-  list. Don't add other elevated paths.
+- **Runs as the normal user, never as admin** (`app.py` and `engine.py` refuse to start elevated). There are
+  exactly two elevated helpers; don't add others:
+  - `wsearch.helper_main`: accepts the four words in `wsearch.STARTS` and runs `sc.exe` with a fixed argument list.
+  - `ntfs.helper_main` (the **turbo index**, maintainer decision 2026-11-19, setting `turbo`, **off by default**):
+    accepts only the words in `ntfs.WORDS` (`serve`, `selftest`), reads NTFS metadata (MFT enumeration, file
+    records, change journal), never file contents, and talks only to its parent engine over a pipe whose DACL is the
+    user's SID (both ends check PIDs and the session). It drops other users' profiles, recycle bins, System Volume
+    Information, NTFS metafiles, everything outside the user's scope and categories, and folders the user couldn't
+    list (AccessCheck with the user's token) before anything leaves it; the engine applies its own rules again. Read
+    the module docstring before changing it. Content reading (text, OCR, models) stays in the normal-user workers.
+  Tests never trigger UAC: the turbo tests use fake links and synthetic USN/MFT buffers.
 - **Out of scope (maintainer decision 2026-11-17):** no activity timeline or usage history (Recent items, browser
-  history, event logs, programs run) and no raw NTFS/MFT or change-journal reading. Indexing is the normal-user
-  folder walk (`walker.py`) plus folder-change notifications (`watcher.py`).
+  history, event logs, programs run). Indexing is the normal-user folder walk (`walker.py`) plus folder-change
+  notifications (`watcher.py`); the turbo helper above is the one optional exception for names and changes.
 - **Everything indexed is untrusted:** file names, folder names and file contents go to the UI only through
   `esc()`; FTS queries only through `store.fts_quote`; nothing builds a shell string; files are never executed
   except by the user's explicit Open (by result id, never a path from the page).
-- Secret folders and key files in `const.ALWAYS_EXCLUDE_*` are never indexed. Keep the walk and `Walker.excluded`
-  in step.
+- What's indexed follows `scope.Rules` (maintainer decision 2026-11-19: nothing skipped silently; every category
+  is shown by `scope_info`): system folders and caches are user choices (default on), secrets (`const.SECRET_*`) are
+  off by default and **names only** when on (never read, never thumbnailed), other people's files and
+  `const.FIXED_NAMES` are always out. The walk, `Walker.excluded` (live changes) and the turbo helper's `ntfs.Filter`
+  all use `scope.Rules`; keep them in step.
 - OCR (`ocr.py`) uses only the Windows built-in `Windows.Media.Ocr` through the pinned `winrt-*` 3.2.1 packages
   (keep every winrt package on one version), inside the text worker processes. No OCR model downloads.
 - Call detection (`winapi.in_call`) reads the user's own CapabilityAccessManager records; stale records from

@@ -1,13 +1,14 @@
-"""Fast parallel folder walk as the normal user (NOBAD Find never reads the raw NTFS index).
+"""Fast parallel folder walk as the normal user (the fallback for the optional turbo index, ntfs.py).
 
 Safety: links and junctions are never followed (no loops, no escaping into other folders), other users'
-profiles are never entered, and secret folders from const.ALWAYS_EXCLUDE_* are skipped.
+profiles are never entered, and what's in or out follows scope.Rules: the categories the user sees in Settings
+(system folders, caches, secrets: names only) plus the ones that are always out (other people's files).
 """
 import os
 import queue
 import threading
 
-from .const import ALWAYS_EXCLUDE_EXT, ALWAYS_EXCLUDE_NAMES
+from . import scope
 from .kinds import kind_of
 
 FILE_ATTRIBUTE_REPARSE_POINT = 0x400
@@ -18,7 +19,7 @@ def norm(p):
 
 
 def profile_dir():
-    return os.path.normpath(os.environ.get("USERPROFILE") or os.path.expanduser("~"))
+    return scope.profile_dir()
 
 
 def default_roots(drives):
@@ -30,25 +31,26 @@ def default_roots(drives):
     return roots
 
 
-def system_skips():
-    """Folders under drive roots that are never walked: Windows itself, other profiles, app data noise."""
-    sysroot = os.environ.get("SystemRoot", r"C:\Windows")
-    drive = os.path.splitdrive(sysroot)[0] + "\\"
-    prof = profile_dir()
-    skips = {norm(sysroot), norm(os.path.join(drive, "ProgramData")), norm(os.path.join(drive, "Recovery")),
-             norm(os.path.join(drive, "PerfLogs")), norm(os.path.join(prof, "AppData"))}
-    users = os.path.dirname(prof)
-    skips.add(norm(users))            # C:\Users is skipped as a whole; the own profile is its own root
-    return skips
+def system_skips(rules=None):
+    """Folders the walk never enters, by place, for these rules (default: 0.7.0's, no system and no caches)."""
+    rules = rules or scope.Rules.legacy()
+    out = set(rules.others)
+    if not rules.system:
+        out |= rules.system_set
+    if not rules.caches:
+        out.add(rules.appdata)
+    return out
 
 
 class Walker:
-    """Walk roots with a pool of threads. on_batch(rows) receives rows ready for Store.upsert_files."""
+    """Walk roots with a pool of threads. on_batch(rows) receives rows ready for Store.upsert_files.
+    rules: scope.Rules from the settings; None keeps 0.7.0's skips (no system folders, caches or secrets)."""
 
-    def __init__(self, roots, exclude=(), threads=8, gen=1, on_batch=None, batch=2000, stop=None):
+    def __init__(self, roots, exclude=(), threads=8, gen=1, on_batch=None, batch=2000, stop=None, rules=None):
         self.roots = [os.path.normpath(r) for r in roots]
         self.root_set = {norm(r) for r in self.roots}
-        self.exclude = {norm(e) for e in exclude} | system_skips()
+        self.rules = rules or scope.Rules.legacy()
+        self.exclude = {norm(e) for e in exclude}
         self.threads = max(1, threads)
         self.gen = gen
         self.on_batch = on_batch or (lambda rows: None)
@@ -61,27 +63,27 @@ class Walker:
         self._lock = threading.Lock()
 
     def skip_dir(self, path, name):
-        if name.lower() in ALWAYS_EXCLUDE_NAMES or name.startswith("$"):
-            return True
         n = norm(path)
-        return n in self.exclude and n not in self.root_set
+        if n in self.exclude and n not in self.root_set:
+            return True
+        return self.rules.skip_dir(path, name, self.root_set)
+
+    def _base(self, n):
+        under = [r for r in self.root_set if n == r or n.startswith(r.rstrip("\\") + "\\")]
+        return max(under, key=len) if under else None
 
     def excluded(self, path):
-        """True if path is inside anything the walk would skip (used for live changes from the watcher)."""
+        """True if path is inside anything the walk would skip (live changes from the watcher, turbo records)."""
         n = norm(path)
+        base = self._base(n)
+        if base is None:
+            return True                                    # outside every root: not in the scope
         for e in self.exclude:
-            if (n == e or n.startswith(e.rstrip("\\") + "\\")) and not any(
-                    n == r or (n.startswith(r.rstrip("\\") + "\\") and r.startswith(e)) for r in self.root_set):
+            if (n == e or n.startswith(e.rstrip("\\") + "\\")) and not (
+                    base.startswith(e.rstrip("\\") + "\\") or base == e):
                 return True
-        # like the walk itself, only folder names below the root that holds the path count
-        under = [r for r in self.root_set if n.startswith(r.rstrip("\\") + "\\")]
-        base = max(under, key=len) if under else ""
-        parts = (n[len(base.rstrip("\\")) + 1:] if base else n).split("\\")
-        if not base:
-            parts = parts[1:]
-        if any(x in ALWAYS_EXCLUDE_NAMES or x.startswith("$") for x in parts[:-1]):
-            return True
-        return bool(parts) and os.path.splitext(parts[-1])[1] in ALWAYS_EXCLUDE_EXT
+        # like the walk itself, only folders below the root that holds the path count
+        return self.rules.out(path, base) or self.rules.skip_file(path)
 
     def _emit(self, row):
         with self._lock:
@@ -150,7 +152,7 @@ class Walker:
                         q.put(e.path)
                     else:
                         ext = os.path.splitext(e.name)[1].lower()
-                        if ext in ALWAYS_EXCLUDE_EXT:
+                        if self.rules.skip_file(e.name):
                             continue
                         self._emit((e.path, e.name, d, ext, kind_of(e.name), st.st_size, st.st_mtime, _created(st),
                                     self.gen))

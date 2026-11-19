@@ -33,6 +33,17 @@ ALWAYS_EXCLUDE_NAMES = {
 }
 ALWAYS_EXCLUDE_EXT = {".kdbx", ".kdb", ".pem", ".key", ".pfx", ".p12", ".ppk", ".gpg", ".asc", ".ovpn", ".conf"}
 
+# The same names, split into the categories Settings shows (scope.py; maintainer decision 2026-11-19: nothing is
+# skipped silently, the user sees every category and chooses). Each name is in exactly one group.
+SECRET_NAMES = {".ssh", ".gnupg", ".aws", ".azure", ".kube", ".docker", "1password", "bitwarden", "keepass",
+                "keepassxc", "lastpass", "dashlane"}
+SECRET_EXT = set(ALWAYS_EXCLUDE_EXT)
+CACHE_NAMES = {"node_modules", "__pycache__", ".git", ".svn", ".hg", ".venv", "venv", ".cache", "cache", "cache2",
+               "code cache", "gpucache", "temp", "tmp"}
+SYSTEM_NAMES = {"windowsapps", "winsxs", "$windows.~bt", "$windows.~ws"}
+# Never indexed, whatever the settings say: other people's deleted files, restore points, Find's own data
+FIXED_NAMES = {"$recycle.bin", "system volume information", "nobad"}
+
 DEFAULTS = {
     "roots": [],                    # empty = the user's profile folders plus every other fixed drive
     "exclude": [],                  # extra folders never to index
@@ -62,4 +73,10 @@ DEFAULTS = {
     "glass": True,                  # see-through acrylic window on Windows 11 (follows Windows' transparency switch)
     "bg_notice_seen": False,        # the one-time "closing keeps NOBAD Find ready" notice was dismissed
     "welcome_seen": False,          # the Flutter UI's first-run welcome was dismissed (Start searching)
+    # What to index (scope.py). Old settings get a scope from their roots: [] = whole_pc, folders = custom.
+    "scope": "whole_pc",            # whole_pc | my_files | custom (custom = the folders in roots)
+    "include_system": True,         # Windows, Program Files, ProgramData, Recovery, PerfLogs
+    "include_caches": True,         # AppData, caches, temp, node_modules, .git, venv
+    "include_secrets": False,       # key files, password stores, .ssh, wallets: NAMES ONLY, never their content
+    "turbo": False,                 # the optional elevated NTFS index helper (ntfs.py); one UAC prompt per session
 }

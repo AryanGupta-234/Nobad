@@ -10,7 +10,7 @@ import threading
 import time
 from collections import deque
 
-from . import embed, jobs, ocr, photo, thumbs, wsearch, winapi
+from . import embed, jobs, ocr, photo, scope, thumbs, wsearch, winapi
 from . import hardware as hw
 from .const import APP_VER, MODEL_FILES
 from .indexer import NAME_KINDS
@@ -53,6 +53,7 @@ class Api:
         self._on_hide = None              # app.py: what hiding the window means for indexing (lifecycle.after_hide)
         self._on_show = None              # engine.py: the UI's main window came up (indexing resumes)
         self._folder_dialog = None        # engine.py: the native folder dialog (no pywebview window there)
+        self._turbo = None                # engine.py: turbo.Turbo, the optional elevated NTFS index helper
         self._timer, self._exit = threading.Timer, os._exit     # tests replace them
 
     # ---------- search ----------
@@ -108,6 +109,8 @@ class Api:
         row = self._store.q("SELECT path, kind, mtime FROM files WHERE id=?", (file_id,))
         if not row or row[0][1] not in thumbs.KINDS:
             return {"url": ""}
+        if scope.Rules.from_settings(self._settings).names_only(row[0][0]):
+            return {"url": ""}                      # a preview is the content: secrets are names only
         return {"url": thumbs.data_url(row[0][0], row[0][2])}
 
     def here_folder(self):
@@ -348,11 +351,14 @@ class Api:
     def set_settings(self, changes):
         if not isinstance(changes, dict):
             return {"changed": []}
-        changes = {k: v for k, v in changes.items() if k not in ("wsearch_prev",)}
+        changes = {k: v for k, v in changes.items() if k not in ("wsearch_prev", "turbo")}   # turbo: turbo_set (UAC)
+        changes = scope.derive_changes(changes, self._settings.all())     # an older UI only sends roots
         changed = self._settings.update(changes)
         if "autostart" in changed:
             set_autostart(self._settings.get("autostart"))
-        if set(changed) & {"roots", "exclude"}:
+        if "include_secrets" in changed and not self._settings.get("include_secrets"):
+            self._remove_secrets()                   # off: their names leave the index now, not at the next walk
+        if set(changed) & {"roots", "exclude", "scope", "include_system", "include_caches", "include_secrets"}:
             self._indexer.rescan()
         for key, kind in (("index_removable", "removable"), ("index_network", "network")):
             if key in changed:
@@ -374,6 +380,45 @@ class Api:
             threading.Thread(target=self._indexer._load_embedder, daemon=True).start()
             self._indexer.wake.set()
         return {"changed": changed}
+
+    def _remove_secrets(self):
+        """Every secret (scope category) out of the index: key files by extension, secret folders by name."""
+        from .const import SECRET_EXT, SECRET_NAMES
+        rules = scope.Rules.from_settings(self._settings)
+        exts = sorted(SECRET_EXT)
+        marks = ",".join("?" * len(exts))
+        like = " OR ".join(["lower(path) LIKE ? ESCAPE '!'"] * len(SECRET_NAMES))
+        names = ["%\\" + n.replace("!", "!!").replace("%", "!%").replace("_", "!_") + "\\%"
+                 for n in sorted(SECRET_NAMES)]
+        rows = self._store.q(f"SELECT path FROM files WHERE ext IN ({marks}) OR lower(name) IN "
+                             f"({','.join('?' * len(SECRET_NAMES))}) OR {like}",
+                             (*exts, *sorted(SECRET_NAMES), *names))
+        gone = [r[0] for r in rows if rules.names_only(r[0])]
+        if gone:
+            self._store.remove_paths(gone)
+        return len(gone)
+
+    def scope_info(self):
+        """What is indexed: the scope, its folders and every category with what's in it (scope.info)."""
+        return scope.info(self._settings, winapi.drives(), self._store)
+
+    # ---------- turbo index ----------
+    def turbo_state(self):
+        """The turbo index (turbo.Turbo.state); without the engine (the WebView app) it is never running."""
+        if self._turbo is not None:
+            return self._turbo.state()
+        return {"available": False, "enabled": bool(self._settings.get("turbo")), "running": False, "volumes": [],
+                "error": "The turbo index runs with the NOBAD Find engine only."}
+
+    def turbo_set(self, on):
+        """On: Windows asks for permission (once per run), the helper starts. Off: it ends."""
+        if self._turbo is None:
+            return {"ok": False, "error": "The turbo index runs with the NOBAD Find engine only.",
+                    "state": self.turbo_state()}
+        r = self._turbo.turn_on() if on else self._turbo.turn_off()
+        if r.get("ok") and on:
+            self._indexer.rescan()                  # read the drives with turbo now
+        return dict(r, state=self._turbo.state())
 
     def pick_folder(self):
         w = self._win()

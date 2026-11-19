@@ -67,6 +67,10 @@
       "description": "The engine is ending (Quit). Exit instead of reconnecting.",
       "type": "object",
       "additionalProperties": false
+    },
+    "turbo": {
+      "description": "The turbo index changed: started, stopped, a drive read, the change journal lost (rescan), an error. Same shape as turbo_state.",
+      "$ref": "methods.schema.json#/$defs/turbo_state"
     }
   },
   "$defs": {
