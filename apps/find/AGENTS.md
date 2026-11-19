@@ -33,5 +33,9 @@ Specific to this app:
 - Models are `embed.Lazy`: loaded on use, released when idle. Don't hold a model outside that wrapper.
 - Typed network paths (\\server\share) are never looked up on disk (`search.folder_checker`): only folders already
   in the index or the folder list count, so typing one can't make Windows contact a server.
-- New setting: `const.DEFAULTS` + `settings.coerce` + a row in `ui/app.js` GROUPS.
+- New setting: `const.DEFAULTS` + `settings.coerce` + a row in `ui/app.js` GROUPS + `contract/methods.schema.json`
+  (`$defs/settings` and `settings_changes`).
+- The UI ⇄ engine pipe (`nobadfind/rpc/`) follows `contract/`: a new or changed method or event updates the schema,
+  `contract/README.md`, a transcript (`python tests/test_rpc_contract.py --record`) and the Dart side together.
+  Handlers stay thin (check params, call the `Api` method, shape the result); files only by result id.
 - Tests: `python -m pytest -q tests`. Lint: `python -m pyflakes nobadfind tests`. Both clean before a commit.

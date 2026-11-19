@@ -46,6 +46,8 @@ later phase while an earlier one has open work unless the status table says it w
 | 2026-11-18 | UI and engine talk over a **private named pipe**, never HTTP | Removes the local-server/URL bug class (cause 3) |
 | 2026-11-18 | Prototype first, measure, then commit to the full move | A wrong platform choice is expensive; numbers decide |
 | 2026-11-18 | Maintainer: start the Flutter prototype now, before Phases 0-1 finish. Flutter SDK 3.50 at `E:\devlutter` (PUB_CACHE `E:\dev\pub-cache`), VS 2022 Build Tools (C++ only) at `E:\dev\VSBuildTools` | Maintainer's call; the prototype also gives the first UI measurements |
+| 2026-11-19 | Maintainer approved the full move from the WebView UI to Flutter | Prototype numbers (section 6 status, `docs/measurements.md`) |
+| 2026-11-19 | Pipe contract v1 lives in `contract/` (schemas, transcripts, README); `status` stays the short status, `status_full` is the Indexing page's; `heartbeat`/`page_visible`/`hide` became `ui_shown`/`ui_hidden` plus pipe liveness; `quit` needs `confirm: "QUIT"` | The UI never polls and never sends a path; one file both test suites replay |
 | 2026-11-18 | Flutter prototype renders with **Skia**, not Impeller (Flutter 3.50's Windows default) | On the reference PC Impeller took 0.9 s to the first frame and ~50 MB more; re-measure on every Flutter upgrade and on another GPU before the full move |
 
 Options considered for the UI and why they lost:
@@ -296,8 +298,8 @@ both; the release workflow (`find-release.yml`) builds and attests both; SHA-256
 | 1 | Find the 4 GB commit; ONNX arenas; reader imports; recycling | not started | | |
 | 1 | EcoQoS / memory / I/O priority for workers; job memory limit | not started | | |
 | 1 | Event-driven governor inputs (power, foreground) | not started | | |
-| 2 | `rpc.py` named-pipe server + contract tests | not started | | |
-| 2 | `engine.py` headless with hotkeys; WebView UI on rpc handlers | not started | | |
+| 2 | `rpc.py` named-pipe server + contract tests | **done, in review** | find-engine-rpc (draft PR into find-flutter-prototype) | Every section-4 method over the pipe (`nobadfind/rpc/handlers/*`, thin: they call the same `Api` methods as the page), events `status status_full level activity download notice show here quitting`, `contract/` schemas + 4 transcripts + README, `tests/test_rpc_contract.py`. Next: the Dart client against `contract/` |
+| 2 | `engine.py` headless with hotkeys; WebView UI on rpc handlers | **engine part done** (same PR) | find-engine-rpc | `--engine` runs headless with both hotkeys, "here", lifecycle idle on `ui_hidden`/pipe close, native folder dialog, notices for taken hotkeys. Open: the WebView page still calls `Api` directly (same methods the handlers call, so no logic is duplicated); a changed hotkey needs an engine restart |
 | 3 | Flutter prototype (Search + bar) and measurement | **built, measured; waiting for the maintainer's go/no-go** | find-flutter-prototype (draft PR) | Window 465 MB/7 processes (WebView2) → ~132 MB/1 process (Flutter, Skia), first frame 0.2 s, pipe adds ≤ 3 ms ([measurements](docs/measurements.md)). Misses the ≤ 100 MB window budget (Intel D3D11 driver ~100 MB in-process). Prototype `nobadfind/rpc/` + `engine.py` cover only hello/subscribe/search/open/reveal/thumbnail/status. Fallback: Qt/QML |
 | 3 | Full Flutter UI, packaging, release workflow | not started | | |
 | 4 | 0.8.0 model tiers (multilingual, consent) | not started | | Spec §4 |
