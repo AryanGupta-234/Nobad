@@ -28,12 +28,12 @@ def coerce(key, value):
     if key == "content_max_mb":
         try:
             return max(1, min(500, int(value)))
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, OverflowError):     # OverflowError: int(float("inf"))
             return d
     if key == "workers":
         try:
             return max(0, min(64, int(value)))
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, OverflowError):
             return d
     if key in ("hotkey", "bar_hotkey"):
         v = str(value).lower().replace(" ", "")
@@ -73,17 +73,19 @@ class Settings:
         return dict(self.data)
 
     def update(self, changes):
-        """Apply known keys only; returns the keys that changed."""
-        changed = []
+        """Apply known keys only; returns the keys that changed. All or nothing: every value is checked first,
+        then they are applied and saved together."""
+        new = {k: coerce(k, v) for k, v in (changes or {}).items() if k in DEFAULTS}
         with self._lock:
-            for k, v in (changes or {}).items():
-                if k in DEFAULTS:
-                    nv = coerce(k, v)
-                    if nv != self.data.get(k):
-                        self.data[k] = nv
-                        changed.append(k)
+            changed = [k for k, v in new.items() if v != self.data.get(k)]
             if changed:
-                self._save()
+                old = dict(self.data)
+                self.data.update({k: new[k] for k in changed})
+                try:
+                    self._save()
+                except Exception:
+                    self.data = old                      # not saved: not changed
+                    raise
         return changed
 
     def _save(self):

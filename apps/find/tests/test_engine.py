@@ -1,0 +1,174 @@
+"""engine.py's wiring without Windows: idle start, the UI's window and indexing, quit order, hotkey notices,
+and the one-at-a-time folder dialog."""
+import threading
+import time
+
+from nobadfind import engine, settings as settings_mod, winapi
+from nobadfind.api import Api
+from nobadfind.rpc import handlers, protocol
+from nobadfind.rpc.events import Events
+
+
+class Ix:
+    def __init__(self):
+        self.calls = []
+        self._running = False
+
+    def start(self):
+        if self._running:
+            return False
+        self._running = True
+        self.calls.append("start")
+        return True
+
+    def stop(self, keep_watching=False):
+        self._running = False
+        self.calls.append("stop")
+
+    def join(self, t=None):
+        return True
+
+    def release_models(self):
+        self.calls.append("release")
+
+    def warm_models(self):
+        pass
+
+
+class Conn:
+    def __init__(self):
+        self.events, self.shown, self.sent, self.pid, self.alive = set(), set(), [], 0, True
+
+    def send(self, obj):
+        self.sent.append(obj)
+        return True
+
+
+class Key:
+    """A hotkey that registers (or not, when another app holds it)."""
+    taken = set()
+
+    def __init__(self, spec, callback, hk_id=1):
+        self.spec, self.callback, self.ok = spec, callback, False
+
+    def start(self):
+        self.ok = self.spec not in Key.taken
+        return self.ok
+
+    def stop(self):
+        pass
+
+
+def wait_for(cond, secs=3.0):
+    deadline = time.time() + secs
+    while not cond() and time.time() < deadline:
+        time.sleep(0.01)
+    return cond()
+
+
+def make(tmp_path, **changes):
+    st = settings_mod.Settings(str(tmp_path / "s.json"))
+    st.update(dict({"hotkey": "ctrl+alt+shift+f11", "bar_hotkey": "ctrl+alt+shift+f12"}, **changes))
+    ix = Ix()
+    api = Api(None, st, ix, None, lambda: None)
+    api.visible = False
+    conn = Conn()
+    conn.events.update({"quitting", "notice", "show"})
+    ev = Events(lambda: [conn], lambda c: None, api)
+    stop = threading.Event()
+    w = engine.Wiring(api, st, ix, ev, stop, ui_pids=lambda: set(), make_hotkey=Key, dialog=lambda: "C:\\x")
+    return w, api, ix, ev, conn, stop
+
+
+def test_starts_idle_and_indexes_once_the_ui_shows(tmp_path):
+    """Like app.py --background: no UI yet means no indexing, unless "Keep indexing in the background" is on."""
+    w, api, ix, ev, conn, stop = make(tmp_path)
+    w.start()
+    time.sleep(0.1)
+    assert ix.calls == []
+    api.ui_shown()
+    assert wait_for(lambda: ix.calls == ["start"])
+
+
+def test_keep_background_indexes_from_the_start(tmp_path):
+    w, api, ix, ev, conn, stop = make(tmp_path, keep_background=True)
+    w.start()
+    assert ix.calls == ["start"]
+
+
+def test_the_ui_closing_stops_indexing_again(tmp_path):
+    w, api, ix, ev, conn, stop = make(tmp_path)
+    w.start()
+    m = handlers.methods(api, ev)
+    protocol.handle_line('{"jsonrpc":"2.0","id":1,"method":"ui_shown"}', m, conn)
+    assert wait_for(lambda: ix.calls == ["start"])
+    ev.gone(conn, api.hide)                                # its pipe closed (Rpc._dropped)
+    assert wait_for(lambda: ix.calls == ["start", "stop", "release"])
+
+
+def test_quit_from_the_watchdog_stops_at_once(tmp_path):
+    w, api, ix, ev, conn, stop = make(tmp_path)
+    assert api.quit() == {"ok": True}
+    assert stop.is_set() and [m["method"] for m in conn.sent] == ["quitting"]
+
+
+def test_quit_over_the_pipe_stops_only_after_the_reply(tmp_path):
+    w, api, ix, ev, conn, stop = make(tmp_path)
+    m = handlers.methods(api, ev)
+    after = []
+    r = protocol.handle_line('{"jsonrpc":"2.0","id":1,"method":"quit","params":{"confirm":"QUIT"}}', m, conn,
+                             after=after)
+    assert r["result"] == {"ok": True, "error": ""}
+    assert [x["method"] for x in conn.sent] == ["quitting"] and not stop.is_set()
+    for fn in after:                                       # Server._answer runs these once the reply is written
+        fn()
+    assert stop.is_set()
+
+
+def test_hotkeys_another_app_holds_become_notices(tmp_path):
+    w, api, ix, ev, conn, stop = make(tmp_path)
+    Key.taken = {"ctrl+alt+shift+f11", "ctrl+alt+shift+f12"}
+    try:
+        keys = w.start()
+    finally:
+        Key.taken = set()
+    assert len(keys) == 2
+    assert [x["params"]["text"] for x in conn.sent] == [
+        "The hotkey is used by another app. Pick another one in Settings.",
+        "The quick find bar shortcut is used by another app. Pick another one in Settings."]
+
+
+def test_bar_hotkey_shows_the_bar(tmp_path):
+    w, api, ix, ev, conn, stop = make(tmp_path)
+    keys = w.start()
+    keys[1].callback()
+    assert conn.sent[-1]["params"] == {"what": "bar", "text": None}
+
+
+def test_pick_folder_uses_the_engine_dialog(tmp_path):
+    w, api, ix, ev, conn, stop = make(tmp_path)
+    m = handlers.methods(api, ev)
+    r = protocol.handle_line('{"jsonrpc":"2.0","id":1,"method":"pick_folder"}', m, conn)
+    assert r["result"] == {"path": "C:\\x", "busy": False}
+
+
+def test_only_one_folder_dialog_at_a_time(monkeypatch):
+    gate, entered = threading.Event(), threading.Event()
+
+    def browse(title, out):
+        entered.set()
+        gate.wait(5)
+        out.append("C:\\chosen")
+    monkeypatch.setattr(winapi, "WIN", True)
+    monkeypatch.setattr(winapi, "_browse_folder", browse)
+    monkeypatch.setattr(winapi, "_front_dialog", lambda: None)
+    got = []
+    t = threading.Thread(target=lambda: got.append(winapi.pick_folder()))
+    t.start()
+    assert entered.wait(3)
+    t0 = time.time()
+    assert winapi.pick_folder() is None                    # busy: answered at once, not queued
+    assert time.time() - t0 < 1
+    gate.set()
+    t.join(3)
+    assert got == ["C:\\chosen"]

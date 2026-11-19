@@ -1,6 +1,7 @@
 """The engine's pipe for the Flutter UI: protocol, handlers, and a real named pipe (Windows only)."""
 import json
 import sys
+import threading
 import time
 import uuid
 
@@ -37,6 +38,17 @@ class FakeApi:
     def status_brief(self):
         return {"level": "gentle", "reason": "Gentle: you're using the PC", "phase": "names", "files": 12,
                 "paused": ""}
+
+    def downloads(self):
+        return {}
+
+    def hide(self):
+        self.calls.append(("hide",))
+        return {"ok": True}
+
+    def ui_shown(self):
+        self.calls.append(("ui_shown",))
+        return {"ok": True}
 
 
 def call(methods, method, params=None, rid=1):
@@ -89,7 +101,7 @@ def test_methods_call_the_api():
     m = handlers.methods(api)
     assert call(m, "hello")["result"]["protocol"] == protocol.PROTOCOL
     assert call(m, "search", {"text": "tax", "filters": {"kind": "pdf"}})["result"]["results"][0]["id"] == 7
-    assert call(m, "open", {"id": 7})["result"] == {"ok": True}
+    assert call(m, "open", {"id": 7})["result"] == {"ok": True, "error": ""}
     assert call(m, "reveal", {"id": 7}, rid="r")["id"] == "r"
     assert call(m, "status")["result"]["files"] == 12
     assert api.calls[0] == ("search", "tax", {"kind": "pdf"})
@@ -114,7 +126,7 @@ def test_line_buffer_splits_and_caps():
 # ---------- events ----------
 class FakeConn:
     def __init__(self, ok=True):
-        self.events, self.sent, self.ok = set(), [], ok
+        self.events, self.shown, self.sent, self.ok = set(), set(), [], ok
 
     def send(self, obj):
         self.sent.append(obj)
@@ -124,7 +136,7 @@ class FakeConn:
 def test_events_go_only_to_subscribers_and_bad_clients_are_dropped():
     a, b, bad = FakeConn(), FakeConn(), FakeConn(ok=False)
     dropped = []
-    ev = Events(lambda: [a, b, bad], dropped.append, FakeApi().status_brief)
+    ev = Events(lambda: [a, b, bad], dropped.append, FakeApi())
     assert ev.subscribe(a, ["status", "show", "everything"]) == ["show", "status"]
     ev.subscribe(bad, ["show"])
     assert ev.push("show", {"what": "bar"}) == 1
@@ -134,7 +146,7 @@ def test_events_go_only_to_subscribers_and_bad_clients_are_dropped():
 
 def test_subscribe_method():
     a = FakeConn()
-    ev = Events(lambda: [a], lambda c: None, FakeApi().status_brief)
+    ev = Events(lambda: [a], lambda c: None, FakeApi())
     m = handlers.methods(FakeApi(), ev)
     r = protocol.handle_line('{"jsonrpc":"2.0","id":1,"method":"subscribe","params":{"events":["status"]}}', m, a)
     assert r["result"] == {"events": ["status"]} and a.events == {"status"}
@@ -145,7 +157,7 @@ def test_subscribe_method():
 def test_status_events_tick():
     a = FakeConn()
     a.events.add("status")
-    ev = Events(lambda: [a], lambda c: None, FakeApi().status_brief, every=0.05)
+    ev = Events(lambda: [a], lambda c: None, FakeApi(), every=0.05)
     ev.start()
     try:
         deadline = time.time() + 3
@@ -173,6 +185,51 @@ def test_status_brief():
                                   "paused": ""}
     api._governor = _Gov()
     assert api.status_brief()["level"] == "gentle"
+
+
+# ---------- the engine's main hotkey: show, then "here" ----------
+class _Ev:
+    def __init__(self):
+        self.sent = []
+
+    def show(self, what, text=None):
+        self.sent.append(("show", what))
+
+    def here(self, path):
+        self.sent.append(("here", path))
+
+
+def test_main_hotkey_shows_then_finds_here():
+    api, ev, later = FakeApi(), _Ev(), []
+    api.here = "C:\\old"
+    press = engine.here_finder(api, ev, lambda: {77}, foreground=lambda: 5, window_pid=lambda h: 1234,
+                               folder=lambda h: "C:\\Users\\me\\Downloads", spawn=later.append)
+    press()
+    assert ev.sent == [("show", "main")] and api.here == ""
+    later.pop()()
+    assert ev.sent[-1] == ("here", "C:\\Users\\me\\Downloads") and api.here == "C:\\Users\\me\\Downloads"
+
+
+def test_main_hotkey_over_our_own_window_keeps_here():
+    api, ev, later = FakeApi(), _Ev(), []
+    api.here = "C:\\kept"
+    press = engine.here_finder(api, ev, lambda: {1234}, foreground=lambda: 5, window_pid=lambda h: 1234,
+                               folder=lambda h: "C:\\other", spawn=later.append)
+    press()
+    assert ev.sent == [("show", "main")] and api.here == "C:\\kept" and later == []
+
+
+def test_a_newer_hotkey_press_wins():
+    api, ev, later = FakeApi(), _Ev(), []
+    fronts = iter([5, 6])
+    folders = {5: "C:\\first", 6: "C:\\second"}
+    press = engine.here_finder(api, ev, lambda: set(), foreground=lambda: next(fronts), window_pid=lambda h: 1,
+                               folder=folders.get, spawn=later.append)
+    press()
+    press()
+    later[1]()
+    later[0]()                          # the first press's lookup ends last: it's ignored
+    assert api.here == "C:\\second" and ev.sent.count(("here", "C:\\first")) == 0
 
 
 # ---------- engine single-instance rule ----------
@@ -249,7 +306,7 @@ def test_pipe_round_trip(served):
         c.send({"jsonrpc": "2.0", "id": 3, "method": "no_such_thing"})
         assert c.reply(3)["error"]["code"] == protocol.METHOD_NOT_FOUND
         c.send({"jsonrpc": "2.0", "id": 4, "method": "open", "params": {"id": 7}})
-        assert c.reply(4)["result"] == {"ok": True}
+        assert c.reply(4)["result"] == {"ok": True, "error": ""}
         assert ("open", 7) in api.calls
     finally:
         c.close()
@@ -270,7 +327,7 @@ def test_pipe_events(served):
         msg = c.line()
         while msg.get("method") != "show":
             msg = c.line()
-        assert msg["params"] == {"what": "bar"}
+        assert msg["params"] == {"what": "bar", "text": None}
     finally:
         c.close()
 
@@ -316,6 +373,95 @@ def test_pipe_too_big_message_drops_only_that_client(served):
         assert c.reply(1)["result"]["protocol"] == 1
     finally:
         c.close()
+
+
+@win_only
+def test_pipe_closing_counts_as_the_window_closing(served):
+    """Pipe liveness: a UI that showed its main window and then dies is taken as ui_hidden."""
+    rpc, name, api = served
+    a, b = Client(name), Client(name)
+    try:
+        for c in (a, b):
+            c.send({"jsonrpc": "2.0", "id": 1, "method": "ui_shown", "params": {}})
+            c.reply(1)
+        a.close()
+        time.sleep(0.3)
+        assert ("hide",) not in api.calls            # b still shows its main window
+    finally:
+        b.close()
+    deadline = time.time() + 3
+    while ("hide",) not in api.calls and time.time() < deadline:
+        time.sleep(0.02)
+    assert api.calls.count(("hide",)) == 1
+
+
+@win_only
+def test_pipe_quit_reaches_a_client_that_reads_late(served):
+    """Quit's quitting event and its reply are written before the engine closes the pipe, and closing keeps
+    what the client hasn't read yet."""
+    rpc, name, api = served
+    stopping = threading.Event()
+
+    def quit_():
+        rpc.events.quitting()
+        protocol.after_reply(stopping.set)                 # engine.py: stop.set, then the main loop stops rpc
+        return {"ok": True}
+    api.quit = quit_
+    threading.Thread(target=lambda: (stopping.wait(5), rpc.stop()), daemon=True).start()
+    c = Client(name)
+    try:
+        c.send({"jsonrpc": "2.0", "id": 1, "method": "subscribe", "params": {"events": ["quitting"]}})
+        c.reply(1)
+        c.send({"jsonrpc": "2.0", "id": 2, "method": "quit", "params": {"confirm": "QUIT"}})
+        assert stopping.wait(3)
+        time.sleep(0.5)                                    # the engine has closed its end by now
+        assert c.line() == {"jsonrpc": "2.0", "method": "quitting", "params": {}}
+        assert c.line()["result"] == {"ok": True, "error": ""}
+    finally:
+        try:
+            c.close()
+        except OSError:
+            pass
+
+
+@win_only
+def test_pipe_ui_shown_then_gone_never_leaves_the_window_shown(served):
+    """ui_shown queued, then the pipe closes: the window must end up hidden every time."""
+    rpc, name, api = served
+    shown = []
+    api.ui_shown = lambda: (shown.append(True), {"ok": True})[1]
+    api.hide = lambda: (shown.append(False), {"ok": True})[1]
+    for _ in range(25):
+        c = Client(name)
+        c.send({"jsonrpc": "2.0", "id": 1, "method": "ui_shown", "params": {}})
+        c.close()
+    deadline = time.time() + 5
+    while (rpc.server.clients() or (shown and shown[-1])) and time.time() < deadline:
+        time.sleep(0.02)
+    time.sleep(0.3)
+    assert not shown or shown[-1] is False
+    assert shown.count(True) == shown.count(False)
+
+
+@win_only
+def test_pipe_slow_calls_dont_hold_up_the_others(served):
+    """A folder dialog or a permission prompt waits for the user; search, status and quit still answer."""
+    rpc, name, api = served
+    gate = threading.Event()
+    api.pick_folder = lambda: (gate.wait(10), {"path": ""})[1]
+    a, b = Client(name), Client(name)
+    try:
+        for i in range(6):
+            a.send({"jsonrpc": "2.0", "id": i, "method": "pick_folder", "params": {}})
+        time.sleep(0.2)
+        t0 = time.time()
+        b.send({"jsonrpc": "2.0", "id": 99, "method": "status", "params": {}})
+        assert b.reply(99)["result"]["files"] == 12
+        assert time.time() - t0 < 2
+    finally:
+        gate.set()
+        a.close()
+        b.close()
 
 
 @win_only
