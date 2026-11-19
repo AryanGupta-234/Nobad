@@ -247,15 +247,27 @@ def test_tray_actions(tmp_path):
 
 
 def test_closing_the_last_window_quits_unless_stay_running(tmp_path):
-    """0.8.5 (maintainer): closing NOBAD Find leaves no process running; "stay_running" keeps the old behaviour."""
-    for stay in (False, True):
-        st = settings_mod.Settings(str(tmp_path / f"s{stay}.json"))
+    """0.8.5 (maintainer): closing NOBAD Find leaves no process running; "stay_running" keeps the old behaviour.
+    The check runs after a grace (here run at once), and an open window or a starting UI keeps the engine."""
+    class Now:
+        def __init__(self, s, fn):
+            self.fn = fn
+            self.daemon = False
+
+        def start(self):
+            self.fn()
+
+    for stay, open_window, quits in ((False, None, True), (True, None, False), (False, "bar", False),
+                                     (False, "main", False)):
+        st = settings_mod.Settings(str(tmp_path / f"s{stay}{open_window}.json"))
         st.update({"stay_running": stay})
         ix, ui = Ix(), FakeUi()
         api = Api(None, st, ix, None)
         ev = Events(lambda: [], lambda c: None, api)
+        ev.showing = (lambda w, but=None, ow=open_window: w == ow)
         stop = threading.Event()
-        engine.Wiring(api, st, ix, ev, stop, ui_pids=lambda: set(), make_hotkey=Key, dialog=lambda: "x",
-                      trim=lambda: None, launcher=lambda events: ui)
+        w = engine.Wiring(api, st, ix, ev, stop, ui_pids=lambda: set(), make_hotkey=Key, dialog=lambda: "x",
+                          trim=lambda: None, launcher=lambda events: ui)
+        w._timer = Now
         api._on_all_closed()
-        assert stop.is_set() is (not stay)
+        assert stop.is_set() is quits, (stay, open_window)

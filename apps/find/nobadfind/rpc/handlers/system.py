@@ -59,6 +59,9 @@ def methods(api, events=None):
             events.hidden(conn, window, api.hide)
         elif window == "main":
             api.hide()
+        hook = getattr(api, "_on_all_closed", None)      # the engine checks whether anything is still open
+        if hook is not None:
+            hook()
         return {"ok": True}
 
     def wsearch_state(params, conn=None):

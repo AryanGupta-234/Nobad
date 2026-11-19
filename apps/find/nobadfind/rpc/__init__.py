@@ -38,7 +38,7 @@ class Rpc:
         it was the last UI, the engine hears it too (Wiring._all_closed: quit unless "stay_running" is on)."""
         self.events.gone(conn, self.api.hide)
         hook = getattr(self.api, "_on_all_closed", None)
-        if hook is not None and not any(c is not conn and c.pid for c in self.server.clients()):
+        if hook is not None:
             hook()
 
     def show(self, what, text=None):

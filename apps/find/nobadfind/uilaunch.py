@@ -64,6 +64,11 @@ class Launcher:
         self._started_at = None
         self._told = False
 
+    def starting(self):
+        """A UI was started less than STARTING seconds ago and hasn't connected yet."""
+        return (self._started_at is not None and not self.connected()
+                and self.clock() - self._started_at < STARTING)
+
     def started(self, at):
         """A UI was started at `at` (start_now): within STARTING, show() waits for it instead of starting another."""
         self._started_at = at

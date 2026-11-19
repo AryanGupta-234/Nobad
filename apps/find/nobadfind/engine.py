@@ -165,6 +165,7 @@ class Wiring:
                 return Launcher(ev, connected=lambda: bool(self.ui_pids()), note=ev.notice)
         self.ui = launcher(events)            # show(what): the show event, or start the UI on that page
         self.make_hotkey = make_hotkey
+        self._timer = threading.Timer
         self.keys = []
         self.life = lifecycle.Window(indexer, not settings.get("keep_background"), log, quitting=stop.is_set,
                                      trim=trim)
@@ -175,13 +176,31 @@ class Wiring:
         api.quit = self._quit
         api._on_all_closed = self._all_closed
 
+    CLOSE_GRACE_S = 3.0
+
     def _all_closed(self):
-        """The last window closed (its process ended). 0.8.5, maintainer's ask: closing NOBAD Find leaves nothing
-        running, so the engine, its workers and the tray icon quit too, unless "Keep running after closing the
-        window" (stay_running) is on, which keeps the hotkeys and the icon as before."""
+        """A window closed or was hidden. 0.8.5, maintainer's ask: closing NOBAD Find leaves nothing running, so
+        once no UI shows any window (a hidden quick find bar doesn't count), the engine, its workers, the tray icon
+        and that hidden bar quit too, unless "Keep running after closing the window" (stay_running) is on, which
+        keeps the hotkeys and the icon as before. Checked again after a short grace, so going from the bar to the
+        main window (Alt+Enter), or a window that is just starting, doesn't end anything."""
         if self.settings.get("stay_running") or self.stop.is_set():
             return
-        log("the last window closed: quitting (stay_running is off)")
+        t = self._timer(self.CLOSE_GRACE_S, self._close_check)
+        t.daemon = True
+        t.start()
+
+    def _anything_open(self):
+        showing = getattr(self.events, "showing", None)
+        if showing is not None and any(showing(w) for w in ("main", "bar")):
+            return True
+        starting = getattr(self.ui, "starting", None)
+        return bool(starting and starting())
+
+    def _close_check(self):
+        if self.settings.get("stay_running") or self.stop.is_set() or self._anything_open():
+            return
+        log("no NOBAD Find window is open: quitting (stay_running is off)")
         self.events.quitting()
         self.stop.set()
 
