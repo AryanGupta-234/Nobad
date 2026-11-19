@@ -19,6 +19,7 @@ import '../../widgets/controls.dart';
 import '../../widgets/glass.dart';
 import '../../widgets/icons.dart';
 import '../../widgets/motion.dart';
+import '../../widgets/smooth_scroll.dart';
 import 'result_actions.dart';
 
 /// Shared by rows and cards: hover lift, click (Ctrl+click: show in folder), right-click, semantics.
@@ -364,7 +365,7 @@ class DetailPane extends StatelessWidget {
       level: GlassLevel.panel,
       radius: 18,
       child: AnimatedSwitcher(
-        duration: NbMotion.of(context, const Duration(milliseconds: 420)),
+        duration: NbMotion.of(context, const Duration(milliseconds: 240)),
         switchInCurve: const SpringCurve(),
         layoutBuilder: (current, previous) => Stack(alignment: Alignment.topCenter, children: [...previous, ?current]),
         transitionBuilder: (child, a) => FadeTransition(
@@ -380,60 +381,63 @@ class DetailPane extends StatelessWidget {
                 key: const ValueKey('none'),
                 child: Text('Pick a result to see it here.', style: NbType.text(13.5, c.dim)),
               )
-            : SingleChildScrollView(
+            : SmoothScroll(
                 key: ValueKey(r.id),
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: ResultThumb(engine: engine, result: r, size: 132),
-                    ),
-                    const SizedBox(height: 14),
-                    Text(r.name, style: NbType.text(15, c.text, weight: FontWeight.w600, height: 1.3)),
-                    const SizedBox(height: 6),
-                    SelectableText(r.dir, style: NbType.data(11.5, c.muted, height: 1.45)),
-                    const SizedBox(height: 8),
-                    Text(
-                      [kindTag(r.kind), r.ago, humanSize(r.size)].where((s) => s.isNotEmpty).join('   '),
-                      style: NbType.data(11.5, c.dim),
-                    ),
-                    if (r.snippet.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      Text.rich(
-                        TextSpan(children: snippetSpans(r.snippet, NbType.text(12.5, c.muted, height: 1.5), c)),
+                builder: (sc) => SingleChildScrollView(
+                  controller: sc,
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: ResultThumb(engine: engine, result: r, size: 132),
+                      ),
+                      const SizedBox(height: 14),
+                      Text(r.name, style: NbType.text(15, c.text, weight: FontWeight.w600, height: 1.3)),
+                      const SizedBox(height: 6),
+                      SelectableText(r.dir, style: NbType.data(11.5, c.muted, height: 1.45)),
+                      const SizedBox(height: 8),
+                      Text(
+                        [kindTag(r.kind), r.ago, humanSize(r.size)].where((s) => s.isNotEmpty).join('   '),
+                        style: NbType.data(11.5, c.dim),
+                      ),
+                      if (r.snippet.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        Text.rich(
+                          TextSpan(children: snippetSpans(r.snippet, NbType.text(12.5, c.muted, height: 1.5), c)),
+                        ),
+                      ],
+                      if (r.why.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        Wrap(spacing: 6, runSpacing: 6, children: [for (final w in r.why) WhyChip(w)]),
+                      ],
+                      const SizedBox(height: 16),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          NbButton('Open', small: true, icon: NbGlyph.external, onPressed: onOpen),
+                          if (onOpenWith != null)
+                            NbButton('Open with…', small: true, kind: NbButtonKind.ghost, onPressed: onOpenWith),
+                          NbButton(
+                            'Show in folder',
+                            small: true,
+                            kind: NbButtonKind.ghost,
+                            icon: NbGlyph.folder,
+                            onPressed: onReveal,
+                          ),
+                          NbButton(
+                            'Copy path',
+                            small: true,
+                            kind: NbButtonKind.ghost,
+                            icon: NbGlyph.copy,
+                            onPressed: onCopy,
+                          ),
+                          NbButton('Forget…', small: true, kind: NbButtonKind.quiet, onPressed: onForget),
+                        ],
                       ),
                     ],
-                    if (r.why.isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      Wrap(spacing: 6, runSpacing: 6, children: [for (final w in r.why) WhyChip(w)]),
-                    ],
-                    const SizedBox(height: 16),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        NbButton('Open', small: true, icon: NbGlyph.external, onPressed: onOpen),
-                        if (onOpenWith != null)
-                          NbButton('Open with…', small: true, kind: NbButtonKind.ghost, onPressed: onOpenWith),
-                        NbButton(
-                          'Show in folder',
-                          small: true,
-                          kind: NbButtonKind.ghost,
-                          icon: NbGlyph.folder,
-                          onPressed: onReveal,
-                        ),
-                        NbButton(
-                          'Copy path',
-                          small: true,
-                          kind: NbButtonKind.ghost,
-                          icon: NbGlyph.copy,
-                          onPressed: onCopy,
-                        ),
-                        NbButton('Forget…', small: true, kind: NbButtonKind.quiet, onPressed: onForget),
-                      ],
-                    ),
-                  ],
+                  ),
                 ),
               ),
       ),

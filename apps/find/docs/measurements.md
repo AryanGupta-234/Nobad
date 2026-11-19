@@ -46,6 +46,14 @@ files newest first checking the size; an index on (kind, size) would fix it and 
 "on d drive" with nothing from D: now answers in 1 ms (it scanned for 300-1,000 ms). On the eval corpus (small) search
 is 1.2 / 2.1 / 9.6 ms without models and 29 / 36 / 42 ms with both question encoders.
 
+**UI work per keystroke** (`test/widgets/typing_perf_test.dart`: 500 results on screen, suggestions and the best
+guess on; build + layout + paint of the keystroke's three frames in the debug-mode test binding, no GPU raster; the PC
+was shared with other builds, so runs vary 2x). Alternating runs against find-0.8.5 without smart search, main window:
+base p50 282 / 123 / 136 ms, with smart search 169 / 123 / 108 ms; no difference beyond the noise. Bar: 56-100 ms p50.
+These are debug-mode numbers (a release build is several times faster); they only show that suggestions, chips and
+the guess add nothing measurable. A keystroke with results on screen now rebuilds the results once (when the answer
+comes), not twice (the "busy" notice only redraws while there are no results yet); suggestions ask after a 70 ms pause.
+
 ## 2026-11-19 (night): review of #80, name results that are right at whole-PC scale (H1)
 
 The first whole-PC fix capped name candidates with `IN (SELECT rowid … MATCH ? LIMIT 2000)`, which keeps the 2,000

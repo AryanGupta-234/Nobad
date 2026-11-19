@@ -171,7 +171,9 @@ class FindController extends ChangeNotifier {
     final filters = _filters;
     if (!showingResults) return;
     _busy = true;
-    notifyListeners();
+    // "busy" only changes the screen while there are no results yet (the skeleton): with results on screen a
+    // keystroke rebuilds them once, when the answer comes, not twice
+    if (_answer.results.isEmpty) notifyListeners();
     final clock = Stopwatch()..start();
     SearchAnswer a;
     String notice = '';

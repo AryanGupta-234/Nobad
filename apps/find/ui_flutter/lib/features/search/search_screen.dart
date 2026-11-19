@@ -30,6 +30,7 @@ import '../../widgets/icons.dart';
 import '../../widgets/motion.dart';
 import '../../widgets/panels.dart';
 import '../../widgets/pressable.dart';
+import '../../widgets/smooth_scroll.dart';
 import 'filter_bar.dart';
 import 'home_view.dart';
 import '../../platform/timing.dart';
@@ -60,7 +61,9 @@ class _SearchScreenState extends State<SearchScreen> {
   /// The box's text is being set by the screen (a suggestion taken, a chip removed): not typing.
   bool _quiet = false;
   final focus = FocusNode(debugLabel: 'search box');
-  final scroll = ScrollController();
+
+  /// The results' scroll: wheel notches glide (smooth_scroll.dart); the Scrollbar and the keys use it too.
+  final scroll = SmoothScrollController();
 
   /// One key per row for the answer on screen, so the selected row can be scrolled to without rebuilding rows.
   final _rowKeys = <int, GlobalKey>{};
@@ -364,6 +367,7 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     box.ghostColor = NbColors.of(context).dim;
+    scroll.glide = !reduceMotion(context);
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.arrowDown): _down,
@@ -608,11 +612,28 @@ class _SearchBox extends StatefulWidget {
   State<_SearchBox> createState() => _SearchBoxState();
 }
 
-class _SearchBoxState extends State<_SearchBox> {
+class _SearchBoxState extends State<_SearchBox> with SingleTickerProviderStateMixin {
+  // the palette settles in when the window opens: 280 ms, a FadeTransition (one layer, nothing rebuilt per frame)
+  late final _in = AnimationController(vsync: this, duration: const Duration(milliseconds: 280));
+  late final _fade = CurvedAnimation(parent: _in, curve: NbMotion.curve);
+  late final _rise = Tween(begin: const Offset(0, .06), end: Offset.zero).animate(_fade);
+
   @override
   void initState() {
     super.initState();
     widget.focus.addListener(_changed);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_in.isDismissed) {
+      if (reduceMotion(context)) {
+        _in.value = 1;
+      } else {
+        _in.forward();
+      }
+    }
   }
 
   void _changed() => setState(() {});
@@ -620,6 +641,7 @@ class _SearchBoxState extends State<_SearchBox> {
   @override
   void dispose() {
     widget.focus.removeListener(_changed);
+    _in.dispose();
     super.dispose();
   }
 
@@ -627,37 +649,33 @@ class _SearchBoxState extends State<_SearchBox> {
   Widget build(BuildContext context) {
     final c = NbColors.of(context);
     final on = widget.focus.hasFocus;
-    // the palette settles in on a spring when the window opens
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: reduceMotion(context) ? 1 : 0, end: 1),
-      duration: NbMotion.of(context, const Duration(milliseconds: 700)),
-      curve: const SpringCurve(damping: .68),
-      builder: (context, t, child) => Opacity(
-        opacity: t.clamp(0, 1).toDouble(),
-        child: Transform.translate(offset: Offset(0, 14 * (1 - t)), child: child),
-      ),
-      child: Glass(
-        level: GlassLevel.panel,
-        radius: 18,
-        rim: on ? c.orangeA(.6) : null,
-        padding: const EdgeInsets.fromLTRB(4, 2, 4, 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // its own layer: the blinking caret repaints only the field, not the glass around it
-            LayoutBuilder(
-              builder: (context, cons) {
-                widget.onWidth(cons.maxWidth);
-                return OverlayPortal(
-                  controller: widget.dropdown,
-                  overlayChildBuilder: widget.overlay,
-                  child: CompositedTransformTarget(link: widget.link, child: _field(context, c, on)),
-                );
-              },
-            ),
-            Container(height: 1, margin: const EdgeInsets.fromLTRB(10, 0, 10, 8), color: c.line),
-            Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: widget.filters),
-          ],
+    return FadeTransition(
+      opacity: _fade,
+      child: SlideTransition(
+        position: _rise,
+        child: Glass(
+          level: GlassLevel.panel,
+          radius: 18,
+          rim: on ? c.orangeA(.6) : null,
+          padding: const EdgeInsets.fromLTRB(4, 2, 4, 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // its own layer: the blinking caret repaints only the field, not the glass around it
+              LayoutBuilder(
+                builder: (context, cons) {
+                  widget.onWidth(cons.maxWidth);
+                  return OverlayPortal(
+                    controller: widget.dropdown,
+                    overlayChildBuilder: widget.overlay,
+                    child: CompositedTransformTarget(link: widget.link, child: _field(context, c, on)),
+                  );
+                },
+              ),
+              Container(height: 1, margin: const EdgeInsets.fromLTRB(10, 0, 10, 8), color: c.line),
+              Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: widget.filters),
+            ],
+          ),
         ),
       ),
     );
@@ -941,7 +959,7 @@ class _DetailSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final d = NbMotion.of(context, const Duration(milliseconds: 380));
+    final d = NbMotion.of(context, const Duration(milliseconds: 220));
     return IgnorePointer(
       ignoring: !open,
       child: Stack(

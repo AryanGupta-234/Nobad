@@ -30,6 +30,7 @@ import '../search/smart_search.dart';
 import '../../state/suggest_controller.dart';
 import '../../widgets/glass.dart';
 import '../../widgets/motion.dart';
+import '../../widgets/smooth_scroll.dart';
 
 class BarWindow extends StatefulWidget {
   const BarWindow({super.key, required this.engine, this.window = const NoWindow(), this.demo});
@@ -44,7 +45,7 @@ class BarWindow extends StatefulWidget {
 class _BarWindowState extends State<BarWindow> {
   // every result the engine sends (no cut to the window's rows): the list scrolls
   late final FindController find = FindController(widget.engine, debounce: const Duration(milliseconds: 90));
-  final scroll = ScrollController();
+  final scroll = SmoothScrollController(); // wheel notches glide
   int _followed = -1;
   final box = GhostTextController();
   late final SuggestController sug = SuggestController(widget.engine, channel: 'bar');
@@ -343,6 +344,7 @@ class _BarWindowState extends State<BarWindow> {
   Widget build(BuildContext context) {
     final c = NbColors.of(context);
     final d = NbMotion.of(context, const Duration(milliseconds: 140));
+    scroll.glide = !reduceMotion(context);
     return AnimatedOpacity(
       opacity: _open ? 1 : 0,
       duration: d,

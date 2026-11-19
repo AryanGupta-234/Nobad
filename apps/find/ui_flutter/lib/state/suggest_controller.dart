@@ -14,7 +14,8 @@ import '../engine/engine_api.dart';
 import '../engine/models/result.dart';
 
 class SuggestController extends ChangeNotifier {
-  SuggestController(this.engine, {this.channel = 'main', this.debounce = const Duration(milliseconds: 25)});
+  /// [debounce]: a pause in typing before asking (70 ms: one ask per burst of keys, never in the way of typing).
+  SuggestController(this.engine, {this.channel = 'main', this.debounce = const Duration(milliseconds: 70)});
 
   final EngineApi engine;
   final String channel;
