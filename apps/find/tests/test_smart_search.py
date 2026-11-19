@@ -284,6 +284,10 @@ def test_suggestions_from_history_phrases_and_names(tmp_path):
     assert out["items"][0]["label"] == "washing machine manual.pdf"
     assert out["complete"] == "washing machine manual.pdf"          # Tab takes the whole name: the best guess
     assert isinstance(out["items"][0]["id"], int)
+    # a name that has the earlier words too is offered alone ("washing mac" -> the name, not "washing washing ...")
+    assert suggest.suggest(s, "washing mac")["items"][0]["text"] == "washing machine manual.pdf"
+    assert suggest.suggest(s, "pdf in downloads wash")["items"][0]["text"] == \
+        "pdf in downloads washing machine manual.pdf"
     # history off: none of it
     assert all(i["kind"] != "history" for i in suggest.suggest(s, "inv", history_on=False)["items"])
     # empty box: recent questions only

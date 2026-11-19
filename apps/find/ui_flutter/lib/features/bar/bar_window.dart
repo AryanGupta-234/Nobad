@@ -1,10 +1,12 @@
 /// The quick find bar (`--bar`): frameless, on top, 640 px wide, a third of the way down the monitor with the
-/// mouse; up to 8 results; Enter opens, Ctrl+Enter shows in folder, Alt+Enter hands the words to the main window,
+/// mouse; at most 8 rows tall, scrolling through every result the engine sends (the less sure ones too, under
+/// "Less sure"); Enter opens, Ctrl+Enter shows in folder, Alt+Enter hands the words to the main window,
 /// Esc hides. The engine's bar hotkey shows it.
 ///
-/// 0.8.5 smart search, as in the main window: up to 3 suggestions above the results (↑ from the first result goes
-/// up into them, Enter takes one), the dim inline completion (Tab or → takes it), and the best guess marked on the
-/// first row (Enter opens it).
+/// 0.8.5 smart search, as in the main window: the understood parts as removable chips (the bar's filters), up to 3
+/// suggestions above the results (↑ from the first result goes up into them, Enter takes one), the dim inline
+/// completion (Tab or → takes it), the best guess marked on the first row (Enter opens it), and when there are more
+/// results than fit, a last line "N results · Alt+Enter opens them in NOBAD Find".
 library;
 
 import 'dart:async';
@@ -40,11 +42,10 @@ class BarWindow extends StatefulWidget {
 }
 
 class _BarWindowState extends State<BarWindow> {
-  late final FindController find = FindController(
-    widget.engine,
-    limit: BarSize.maxRows,
-    debounce: const Duration(milliseconds: 90),
-  );
+  // every result the engine sends (no cut to the window's rows): the list scrolls
+  late final FindController find = FindController(widget.engine, debounce: const Duration(milliseconds: 90));
+  final scroll = ScrollController();
+  int _followed = -1;
   final box = GhostTextController();
   late final SuggestController sug = SuggestController(widget.engine, channel: 'bar');
   final focus = FocusNode(debugLabel: 'bar box');
@@ -70,6 +71,7 @@ class _BarWindowState extends State<BarWindow> {
     });
     find.addListener(() => sug.exclude = {for (final r in find.results.take(BarSize.maxRows)) r.id});
     find.addListener(_fit);
+    find.addListener(_follow);
     _shows = widget.engine.events.listen((e) {
       if (e is ShowEvent && e.what == 'bar') show();
       if (e is QuittingEvent) widget.window.close();
@@ -78,18 +80,63 @@ class _BarWindowState extends State<BarWindow> {
     _life; // start listening
   }
 
-  /// Suggestion rows on show now.
-  int get suggestionRows => sug.isOpen && find.text.trim().isNotEmpty ? sug.items.length.clamp(0, maxSuggestions) : 0;
+  /// The understood parts' line (the bar's filters), while there's an answer that has them.
+  int get chipRows => find.askedFor.isNotEmpty && find.text.trim().isNotEmpty && find.answer.parts.isNotEmpty ? 1 : 0;
 
-  /// Result rows on show now (the suggestions take their room first).
-  int get resultRows => find.results.length.clamp(0, BarSize.maxRows - suggestionRows);
+  /// Suggestion rows on show now (always leaving a row for the results).
+  int get suggestionRows => sug.isOpen && find.text.trim().isNotEmpty
+      ? sug.items.length.clamp(0, maxSuggestions).clamp(0, BarSize.maxRows - 1 - chipRows)
+      : 0;
 
-  /// Rows the window needs: suggestions and results, or one for "No match for …" or a failed open.
+  /// The result list's lines: a result's index, or -1 for the "Less sure" line before the first loose match.
+  List<int> get listItems {
+    final firstWeak = find.results.indexWhere((r) => r.weak);
+    return [
+      for (var i = 0; i < find.results.length; i++) ...[if (i == firstWeak && firstWeak > 0) -1, i],
+    ];
+  }
+
+  /// More lines than the window has room for: the list scrolls and the last line says how many there are.
+  bool get overflows => chipRows + suggestionRows + listItems.length > BarSize.maxRows;
+
+  /// Rows the window needs: chips, suggestions and results (and the count line), or one for "No match for …".
   int get rowsNeeded {
     if (find.text.trim().isEmpty) return 0;
     final ns = suggestionRows;
     if (find.askedFor.isEmpty) return ns;
-    return ns + (find.results.isEmpty ? 1 : resultRows);
+    if (find.results.isEmpty) return chipRows + ns + 1;
+    return overflows ? BarSize.maxRows : chipRows + ns + listItems.length;
+  }
+
+  /// ↑/↓ moved the selection: scroll the list so the selected row is in view (every row is BarSize.row tall).
+  void _follow() {
+    if (find.selected == _followed) return;
+    _followed = find.selected;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !scroll.hasClients) return;
+      final at = listItems.indexOf(find.selected);
+      if (at < 0) return;
+      final row = BarSize.row.toDouble();
+      final p = scroll.position;
+      final top = at * row - (at > 0 && listItems[at - 1] == -1 ? row : 0); // keep "Less sure" above its first row
+      if (top < p.pixels) {
+        p.jumpTo(top.clamp(0, p.maxScrollExtent));
+      } else if ((at + 1) * row > p.pixels + p.viewportDimension) {
+        p.jumpTo(((at + 1) * row - p.viewportDimension).clamp(0, p.maxScrollExtent));
+      }
+    });
+  }
+
+  /// A chip's x: search the question without that part.
+  void _words(String t) {
+    _quiet = true;
+    box.value = TextEditingValue(
+      text: t,
+      selection: TextSelection.collapsed(offset: t.length),
+    );
+    _quiet = false;
+    sug.close();
+    focus.requestFocus();
   }
 
   void _down() {
@@ -285,6 +332,7 @@ class _BarWindowState extends State<BarWindow> {
     _life.dispose();
     _settle?.cancel();
     find.dispose();
+    scroll.dispose();
     sug.dispose();
     box.dispose();
     focus.dispose();
@@ -349,12 +397,32 @@ class _BarWindowState extends State<BarWindow> {
                       if (rowsNeeded == 0) return const SizedBox.shrink();
                       final ns = suggestionRows;
                       final best = find.answer.hasGuess ? find.answer.best : null;
+                      final items = listItems;
+                      final row = BarSize.row.toDouble();
                       return Container(
                         decoration: BoxDecoration(
                           border: Border(top: BorderSide(color: c.line)),
                         ),
                         child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
+                            if (chipRows > 0)
+                              SizedBox(
+                                height: row,
+                                child: SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+                                  child: Row(
+                                    children: [
+                                      for (final p in find.answer.parts)
+                                        Padding(
+                                          padding: const EdgeInsets.only(right: 6),
+                                          child: PartChip(p, onRemove: () => _words(p.without)),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ),
                             for (var i = 0; i < ns; i++)
                               SuggestionRow(
                                 s: sug.items[i],
@@ -373,26 +441,43 @@ class _BarWindowState extends State<BarWindow> {
                                 find.notice.isNotEmpty ? find.notice : find.askedFor.trim(),
                                 isError: find.notice.isNotEmpty,
                               )
-                            else
-                              for (var i = 0; i < resultRows; i++)
-                                Appear(
-                                  key: ValueKey((find.serial, find.results[i].id)),
-                                  delay: Appear.stagger(i),
-                                  lift: 3,
-                                  child: _Row(
-                                    result: find.results[i],
-                                    guess: i == 0 && best != null ? best.reason : null,
-                                    selected: i == find.selected && sug.highlighted < 0,
-                                    onSecondary: (pos) {
-                                      find.select(i);
-                                      _openMenu(_rowMenu(), pos);
-                                    },
-                                    onTap: (reveal) {
-                                      find.select(i);
-                                      _act(reveal: reveal);
-                                    },
-                                  ),
+                            else if (find.askedFor.isNotEmpty)
+                              Expanded(
+                                child: ListView.builder(
+                                  controller: scroll,
+                                  padding: EdgeInsets.zero,
+                                  itemExtent: row,
+                                  itemCount: items.length,
+                                  itemBuilder: (context, at) {
+                                    final i = items[at];
+                                    if (i < 0) return const _LessSure();
+                                    final rowWidget = _Row(
+                                      result: find.results[i],
+                                      guess: i == 0 && best != null ? best.reason : null,
+                                      selected: i == find.selected && sug.highlighted < 0,
+                                      onSecondary: (pos) {
+                                        find.select(i);
+                                        _openMenu(_rowMenu(), pos);
+                                      },
+                                      onTap: (reveal) {
+                                        find.select(i);
+                                        _act(reveal: reveal);
+                                      },
+                                    );
+                                    // the first rows of a new answer come in as a short cascade
+                                    return at >= BarSize.maxRows
+                                        ? rowWidget
+                                        : Appear(
+                                            key: ValueKey((find.serial, find.results[i].id)),
+                                            delay: Appear.stagger(at),
+                                            lift: 3,
+                                            child: rowWidget,
+                                          );
+                                  },
                                 ),
+                              ),
+                            if (find.results.isNotEmpty && overflows)
+                              _MoreLine(count: find.results.length, more: find.answer.more),
                           ],
                         ),
                       );
@@ -643,6 +728,60 @@ class _RowState extends State<_Row> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// The bar's "Less sure" line, one row tall (the main window's LessSure, fitted to the bar).
+class _LessSure extends StatelessWidget {
+  const _LessSure();
+
+  @override
+  Widget build(BuildContext context) {
+    final c = NbColors.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+      child: Row(
+        children: [
+          Text('Less sure', style: NbType.text(NbSize.micro, c.dim, weight: FontWeight.w600)),
+          const SizedBox(width: 12),
+          Expanded(child: Container(height: 1, color: c.line)),
+        ],
+      ),
+    );
+  }
+}
+
+/// More results than fit: how many, and the way to see them all.
+class _MoreLine extends StatelessWidget {
+  const _MoreLine({required this.count, required this.more});
+  final int count;
+  final bool more;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = NbColors.of(context);
+    return Container(
+      height: BarSize.row.toDouble(),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: c.line)),
+      ),
+      alignment: Alignment.centerLeft,
+      child: Text.rich(
+        TextSpan(
+          children: [
+            TextSpan(
+              text: '$count${more ? '+' : ''} results',
+              style: NbType.text(12, c.text, weight: FontWeight.w600),
+            ),
+            const TextSpan(text: ' · ↑↓ scroll · Alt+Enter opens them in NOBAD Find'),
+          ],
+        ),
+        style: NbType.text(12, c.dim),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
       ),
     );
   }

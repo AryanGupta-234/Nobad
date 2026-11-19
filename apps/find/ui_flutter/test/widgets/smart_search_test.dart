@@ -178,7 +178,7 @@ void main() {
       await typeBar(tester, 'tax');
       expect(engine.suggested.last, 'tax');
       // the 2 kept questions (the 3 names starting with "tax" are the results already: not offered twice)
-      expect(w.fits.last, 2 + 4);
+      expect(w.fits.last, 2 + 5); // and 4 results with the "Less sure" line before the loose one
       await key(tester, LogicalKeyboardKey.arrowUp);
       await key(tester, LogicalKeyboardKey.enter);
       expect(boxText(tester), 'tax pdf');
@@ -198,14 +198,43 @@ void main() {
       expect(engine.opened, [2]);
     });
 
+    testWidgets('as much as the main window: every result scrolls, with a count line and Alt+Enter', (tester) async {
+      final engine = FakeEngine(files: manyFiles(30));
+      final w = await pumpBar(tester, engine);
+      await typeBar(tester, 'report');
+      expect(w.fits.last, BarSize.maxRows); // never taller than 8 rows
+      expect(find.textContaining('30 results', findRichText: true), findsOneWidget);
+      expect(find.textContaining('Alt+Enter opens them in NOBAD Find', findRichText: true), findsOneWidget);
+      for (var i = 0; i < 20; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.pump();
+      }
+      await settle(tester);
+      expect(find.text('report 20.pdf'), findsOneWidget); // scrolled into view
+      expect(find.text('report 0.pdf'), findsNothing); // scrolled away
+      await key(tester, LogicalKeyboardKey.enter);
+      expect(engine.opened, [120]);
+    });
+
+    testWidgets('loose matches come after a Less sure line, and the chips are the bar\'s filters', (tester) async {
+      final engine = FakeEngine();
+      await pumpBar(tester, engine);
+      await typeBar(tester, 'tax pdf');
+      expect(find.text('Less sure'), findsOneWidget);
+      expect(find.text('PDFs'), findsOneWidget);
+      await tester.tap(find.bySemanticsLabel('Remove PDFs'));
+      await settle(tester);
+      expect(boxText(tester), 'tax');
+    });
+
     testWidgets('Esc closes the suggestions first, then hides', (tester) async {
       final engine = FakeEngine(suggestions: true)..history.add('tax pdf');
       final w = await pumpBar(tester, engine);
       await typeBar(tester, 'tax');
-      expect(w.fits.last, 1 + 4);
+      expect(w.fits.last, 1 + 5);
       await key(tester, LogicalKeyboardKey.escape);
       expect(w.calls, isNot(contains('hide')));
-      expect(w.fits.last, 4);
+      expect(w.fits.last, 5);
       await key(tester, LogicalKeyboardKey.escape);
       expect(w.calls, contains('hide'));
     });

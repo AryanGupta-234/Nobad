@@ -35,11 +35,12 @@ void main() {
     expect(BarSize.place(-1920, 0, 0, 1080, 640, 64), (-1280, 328));
   });
 
-  testWidgets('up to 8 results, and the window grows to fit them', (tester) async {
+  testWidgets('at most 8 rows tall; the rest scroll (0.8.5: no cut to 8 results)', (tester) async {
     final engine = FakeEngine(files: manyFiles(30));
     final w = await pumpBar(tester, engine);
     await type(tester, 'report');
-    expect(find.textContaining('report '), findsNWidgets(8));
+    expect(find.textContaining('report '), findsWidgets);
+    expect(find.textContaining('30 results', findRichText: true), findsOneWidget);
     expect(w.fits.last, 8);
     expect(find.text('Enter opens · Ctrl+Enter shows in folder · Alt+Enter full window · Esc hides'), findsOneWidget);
 

@@ -47,6 +47,20 @@ void main() {
         await tester.pump(const Duration(milliseconds: 150));
         await shoot(tester, 'smart_bar_$theme');
       });
+
+      testWidgets('quick find bar with more results than fit, chips and a less sure line', (tester) async {
+        tester.view.physicalSize = Size(BarSize.width.toDouble(), BarSize.height(8).toDouble());
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final engine = FakeEngine(
+          files: [...demoFiles(), ...manyFiles(30)],
+          settings: {'theme': theme, 'welcome_seen': true, 'bg_notice_seen': true},
+        );
+        await tester.pumpWidget(NobadFindApp(engine: engine, mode: AppMode.bar, window: FakeWindow()));
+        await tester.enterText(find.byType(TextField), 'report pdf');
+        await tester.pump(const Duration(milliseconds: 150));
+        await shoot(tester, 'smart_bar_more_$theme');
+      });
     });
   }
 }

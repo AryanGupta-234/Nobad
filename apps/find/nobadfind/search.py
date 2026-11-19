@@ -74,6 +74,7 @@ def _filters(q, alias="f"):
     sql, args = [], []
     roots = place_roots(q.place, q.drives)
     if roots is not None:
+        roots = [r for r in roots if r.upper() not in getattr(q, "empty_roots", ())]
         if not roots:
             sql.append("0")                         # a drive this PC has never seen: nothing can match
         else:
@@ -462,6 +463,14 @@ def _search(store, text, embedder=None, vindex=None, limit=60, now=None, drives=
     _keep_named(store, q)
     time_from_text = q.when if q.t0 is not None else ""
     q.drives = drives
+    if len(q.place) == 2 and q.place[1] == ":":
+        # "on d drive" with nothing from D: in the index: answer at once instead of scanning for it (a drive letter
+        # is the start of every path on it, so the path index answers in one lookup)
+        root = q.place + "\\"
+        if not store.one("SELECT 1 FROM files WHERE path >= ? AND path < ? LIMIT 1", (root, q.place + "]")) and \
+                not store.one("SELECT 1 FROM files WHERE path >= ? AND path < ? LIMIT 1",
+                              (root.lower(), q.place.lower() + "]")):
+            q.empty_roots = {root.upper()}
     if q.here and not q.path:
         if here:
             q.path = os.path.normpath(here)
