@@ -531,7 +531,7 @@ def run_level(level, corpus, work, full, args, searches):
     marks = {"run": level}
     t0 = time.monotonic()
     entry = ["-m", "nobadfind"] if args.entry == "module" else [os.path.join(APP_DIR, "packaging", "launch.py")]
-    proc = subprocess.Popen([sys.executable] + entry + ["--engine"], cwd=APP_DIR, env=env,
+    proc = subprocess.Popen([args.python or sys.executable] + entry + ["--engine"], cwd=APP_DIR, env=env,
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
                             creationflags=subprocess.CREATE_NO_WINDOW)
     sampler = Sampler(proc.pid, level, every=args.every)
@@ -709,7 +709,7 @@ def pct(vals, p):
 
 def report(summary, marks, searches, meta):
     lines = [f"Commit `{meta['commit']}`, {meta['pc']}, corpus {meta['files']} files ({meta['corpus']}), "
-             f"entry `{meta['entry']}`, samples every {meta['every']} s. CPU % is of one core (100 = one full core), summed over the tree.", "",
+             f"entry `{meta['entry']}`, engine Python `{meta['python']}`, samples every {meta['every']} s. CPU % is of one core (100 = one full core), summed over the tree.", "",
              "| Run | Scenario | Samples | Procs | Working set MB (mean / max) | Private MB (mean / max) | "
              "Engine process WS / private MB | CPU % (mean / max) | Read / write MB/s | Handles | Threads | GPU % max |",
              "|---|---|---|---|---|---|---|---|---|---|---|---|"]
@@ -783,6 +783,8 @@ def main(argv=None):
                     "meaning, photo meaning and OCR on, models linked into each run's fresh index")
     ap.add_argument("--photos", type=int, default=0, help="extra camera-style JPEGs (needs Pillow)")
     ap.add_argument("--text-images", type=int, default=0, help="extra screenshots with words, for OCR (Pillow)")
+    ap.add_argument("--python", default="", help="the engine's interpreter, e.g. a venv made from "
+                    "requirements-lock.txt (closest to the exe); the harness itself needs psutil and Pillow")
     ap.add_argument("--release-timeout", type=float, default=300, help="seconds to wait for idle models to leave")
     args = ap.parse_args(argv)
     args.rows, args.timeline = [], []
@@ -822,7 +824,8 @@ def main(argv=None):
                 w.writerows(searches)
     meta = {"commit": git_commit(), "pc": f"{os.cpu_count()} threads, {psutil.virtual_memory().total / 2**30:.1f} GB",
             "files": args.files, "corpus": ", ".join(f"{v} {k}" for k, v in sorted(counts.items())),
-            "every": args.every, "entry": args.entry, "roles": by_role(args.rows)}
+            "every": args.every, "entry": args.entry, "roles": by_role(args.rows),
+            "python": args.python or sys.executable}
     text = report(summarize(args.rows), marks, searches, meta)
     with open(os.path.join(out, "summary.md"), "w", encoding="utf-8") as f:
         f.write(text + "\n")
