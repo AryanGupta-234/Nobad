@@ -81,6 +81,11 @@
           },
           "filters": {
             "$ref": "#/$defs/filters"
+          },
+          "channel": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,15}$",
+            "description": "Which search of this UI it is (default \"main\"; e.g. \"home\" for the Home list, \"bar\"). A newer search on the same connection and channel cancels this one, which then answers with cancelled: true."
           }
         },
         "additionalProperties": false,
@@ -1027,6 +1032,10 @@
         "error": {
           "type": "string",
           "description": "\"\" or a sentence when the search failed."
+        },
+        "cancelled": {
+          "const": true,
+          "description": "Only there when a newer search on the same channel replaced this one: ignore this answer."
         }
       },
       "required": [

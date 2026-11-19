@@ -76,7 +76,7 @@ def test_vision_session_uses_the_workers_threads(monkeypatch, tmp_path):
         def __init__(self, path, opts, providers):
             seen["threads"] = opts.intra_op_num_threads
     monkeypatch.setattr(ort, "InferenceSession", Sess)
-    monkeypatch.setattr(photo, "_vision", None)
+    monkeypatch.setattr(photo, "_vision", {})
     monkeypatch.setattr(photo, "_threads", [6])
     photo._vision_session(str(tmp_path))
     assert seen["threads"] == 6

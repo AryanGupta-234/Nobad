@@ -143,16 +143,19 @@ def recommend(pc):
     return "balanced"
 
 
-def capable(m, pc):
-    """(True, "") or (False, a sentence saying why this PC shouldn't run it)."""
+def capable(m, pc, vectors=0):
+    """(True, "") or (False, a sentence saying why this PC shouldn't run it). vectors: how many meaning vectors the
+    index would hold with it (float16, dim numbers each), so the disk check counts them too."""
     if m["builtin"]:
         return True, ""
     ram, cores = float(pc.get("ram_gb") or 0), int(pc.get("cores") or 1)
     need_ram, need_cores = NEEDS[m["tier"]]
     gpu = bool(pc.get("directml")) and pc.get("vram_gb", 0) >= 4
     free = float(pc.get("disk_free_gb") or 0)
-    if free and free < size_mb(m) / 1024 + 1:
-        return False, f"Needs {size_mb(m)} MB on the disk plus 1 GB to spare; {free:.1f} GB is free"
+    need_gb = size_mb(m) / 1024 + vectors * 2 * m.get("dim", 0) / 1073741824
+    if free and free < need_gb + 1:
+        return False, (f"Needs {need_gb:.1f} GB on the disk (the model and its vectors) plus 1 GB to spare; "
+                       f"{free:.1f} GB is free")
     if m["tier"] == "best" and not gpu and (ram < need_ram or cores < need_cores):
         return False, "Needs 16 GB of memory and 8 cores (or a graphics card with 4 GB for DirectML)"
     if m["tier"] == "balanced" and (ram < need_ram or cores < need_cores):

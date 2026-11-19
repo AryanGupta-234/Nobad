@@ -67,7 +67,7 @@ def test_model_use_selects_and_says_when_a_download_is_needed(a):
 
 def test_model_download_needs_the_consent_word(a, monkeypatch):
     got = []
-    monkeypatch.setattr(api_mod.embed, "_fetch_verified", lambda url, dest, size, sha, name, progress=None:
+    monkeypatch.setattr(api_mod.embed, "_fetch_verified", lambda url, dest, size, sha, name, progress=None, part=".part":
                         got.append((url, os.path.basename(dest), size, sha)))
     assert a.model_download("multilingual-e5-small", "yes")["ok"] is False and got == []
     assert a.model_download("windows-ocr", "DOWNLOAD")["ok"] is False

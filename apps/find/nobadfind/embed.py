@@ -79,7 +79,7 @@ def download_model(model_dir=MODEL_DIR, progress=None):
                         name, progress)
 
 
-def _fetch_verified(url, dest, size, sha, name, progress=None):
+def _fetch_verified(url, dest, size, sha, name, progress=None, part=".part"):
     """One pinned model file: HTTPS only, never bigger than expected, SHA-256 checked before it's used.
     It's written to <dest>.part and only renamed to its real name once checked, so a download cut short
     (window closed, network gone) never leaves a file that looks like a model."""
@@ -87,7 +87,7 @@ def _fetch_verified(url, dest, size, sha, name, progress=None):
         if os.path.getsize(dest) == size and _sha256(dest) == sha:
             return
         os.remove(dest)                          # not the pinned file: never keep it under the real name
-    tmp = dest + ".part"
+    tmp = dest + part
     h = hashlib.sha256()
     got = 0
     req = urllib.request.Request(url, headers={"User-Agent": "NOBAD-Find"})

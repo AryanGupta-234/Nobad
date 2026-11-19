@@ -4,11 +4,10 @@ Each result says why it matched, in plain words, and only claims what was actual
 Snippets mark matches with \\x02 ... \\x03; the UI escapes the text first and only then turns those into <mark>.
 """
 import os
-import sqlite3
 import time
 
 from .query import parse
-from .store import fts_quote
+from .store import OperationalError, fts_quote
 
 RRF_K = 60
 W_NAME, W_TEXT, W_MEANING = 1.3, 1.0, 0.8
@@ -21,7 +20,6 @@ MEANING_SPREAD = 0.13
 # match for this question, or strong on its own.
 NAME_SPREAD = 0.08
 NAME_STRONG = 0.32
-NAME_CANDIDATES = 2000  # name matches looked at per question (a whole-PC index has hundreds of thousands)
 VARIANTS = set()        # ranking variants switched on by tools/eval_text.py to measure them one at a time
 # Words people use for the same personal files (both ways). Only for the keyword side: the meaning model knows these.
 _SYN_GROUPS = [("flat", "apartment"), ("invoice", "bill", "receipt"), ("cv", "resume", "résumé"),
@@ -110,28 +108,61 @@ def _filters(q, alias="f"):
     return (" AND " + " AND ".join(sql)) if sql else "", args
 
 
+WALK_LIMIT = 150         # name matches a common-word walk collects (the fusion ranks the best 60 anyway)
+FTS_PROBE = 20000        # name matches counted to choose between joining them all and walking names shortest first
+
+
+def _like(t):
+    return "%" + t.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+
+
 def _name_hits(store, q, limit):
+    """Files whose name matches, shortest name first (then the newest). A rare word: every FTS match is joined and
+    ordered (exact). A common one (FTS_PROBE matches or more on a whole-PC index): the names are walked shortest
+    first through an index and the walk stops once `limit` match, so a million matches are never all sorted.
+    Filters are part of both, so "report pdf" finds the one report.pdf among thousands of report*.dll."""
     long_terms = [t for t in q.terms + q.phrases if len(t) >= 3]
     short = [t for t in q.terms if len(t) < 3]
     if not long_terms and not short:
         return []
     where, args = _filters(q)
-    parts, pargs = [], []
+    ready = store.name_index_ready()
+    use_words = bool(short) and ready and all(_wordy(t) for t in short)
+    parts, pargs, probes = [], [], []
     if long_terms:
-        parts.append("f.id IN (SELECT rowid FROM names WHERE names MATCH ? LIMIT ?)")
-        pargs += [" ".join("name:" + fts_quote(t) for t in long_terms), NAME_CANDIDATES]
-    if short and store.name_index_ready():
+        m = " ".join("name:" + fts_quote(t) for t in long_terms)
+        parts.append("f.id IN (SELECT rowid FROM names WHERE names MATCH ?)")
+        pargs.append(m)
+        probes.append(("names", m))
+    if use_words:
         # one or two letters: words of the name that start with them, from the prefix index (not every row)
-        parts.append("f.id IN (SELECT rowid FROM names_w WHERE names_w MATCH ? LIMIT ?)")
-        pargs += [" ".join(fts_quote(t) + "*" for t in short), NAME_CANDIDATES]
-    else:
+        m = " ".join(fts_quote(t) + "*" for t in short)
+        parts.append("f.id IN (SELECT rowid FROM names_w WHERE names_w MATCH ?)")
+        pargs.append(m)
+        probes.append(("names_w", m))
+    elif short:
         for t in short:
             parts.append("f.name LIKE ? ESCAPE '\\'")
-            pargs.append("%" + t.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%")
+            pargs.append(_like(t))
+    common = ready and probes and all(
+        (store.one(f"SELECT count(*) FROM (SELECT rowid FROM {t} WHERE {t} MATCH ? LIMIT ?)", (m, FTS_PROBE)) or 0)
+        >= FTS_PROBE for t, m in probes)
+    if common:
+        # walk files shortest name first and stop at `limit` (each name tested; the filters too)
+        likes = [_like(t) for t in long_terms + short]
+        cond = " AND ".join("f.name LIKE ? ESCAPE '\\'" for _ in likes)
+        rows = store.q(f"SELECT f.id FROM files f INDEXED BY files_namelen WHERE {cond}{where} "
+                       "ORDER BY length(f.name), f.mtime DESC LIMIT ?", (*likes, *args, min(limit, WALK_LIMIT)))
+        return [r[0] for r in rows]
     # shorter names and recently changed files first among equal matches
     rows = store.q(f"SELECT f.id FROM files f WHERE {' AND '.join(parts)}{where} "
                    "ORDER BY length(f.name), f.mtime DESC LIMIT ?", (*pargs, *args, limit))
     return [r[0] for r in rows]
+
+
+def _wordy(term):
+    """A short term the word index can find: letters or digits ("c#", "++" and "-" go the LIKE way)."""
+    return any(ch.isalnum() for ch in term) and all(ch.isalnum() or ch in "._-" for ch in term)
 
 
 def _text_hits(store, q, limit):
@@ -317,12 +348,26 @@ def folder_checker(store, drives=(), roots=()):
     return is_dir
 
 
+def _keep_named(store, q):
+    """A Hinglish linking word left out ("ko", "par") is kept after all when it is all the question had, or when a
+    file name has it as a word (the name index answers that in a lookup)."""
+    if not q.dropped:
+        return
+    if not q.terms and not q.phrases and not q.has_filters():
+        q.terms = list(q.dropped)
+        return
+    if store.name_index_ready():
+        for w in q.dropped:
+            if store.one("SELECT 1 FROM names_w WHERE names_w MATCH ? LIMIT 1", (fts_quote(w),)):
+                q.terms.append(w)
+
+
 class Cancelled(Exception):
     """A newer keystroke from the same client: this search's answer would be thrown away."""
 
 
 def search(store, text, embedder=None, vindex=None, limit=60, now=None, drives=None, here="", filters=None,
-           is_dir=None, roots=(), photo_text=None, pindex=None, cancelled=None):
+           is_dir=None, roots=(), photo_text=None, pindex=None, cancelled=None, romanized=False):
     """drives: every drive the index knows, [{'root', 'type', 'label', 'present'}] (indexer.known_drives).
     here: the File Explorer folder NOBAD Find was opened from ("" if none). filters: the filter bar.
 
@@ -330,7 +375,7 @@ def search(store, text, embedder=None, vindex=None, limit=60, now=None, drives=N
     changed then, it is read as words instead (the bill *for* March), and a note says so."""
     t_start = time.perf_counter()
     args = dict(embedder=embedder, vindex=vindex, limit=limit, now=now, drives=drives, here=here, filters=filters,
-                is_dir=is_dir, roots=roots, photo_text=photo_text, pindex=pindex)
+                is_dir=is_dir, roots=roots, photo_text=photo_text, pindex=pindex, romanized=romanized)
     db = None
     if cancelled is not None:
         db = store.db                                   # this thread's connection: SQLite stops when told to
@@ -344,7 +389,7 @@ def search(store, text, embedder=None, vindex=None, limit=60, now=None, drives=N
             r = _search(store, text, times=False, **args)
             if r["results"]:
                 r["notes"] = [f"Nothing changed {when}, so these match the words instead."] + r["notes"]
-    except (Cancelled, sqlite3.OperationalError) as e:
+    except (Cancelled,) + OperationalError as e:
         if not isinstance(e, Cancelled) and "interrupt" not in str(e).lower():
             raise
         return {"results": [], "understood": [], "terms": [], "notes": [], "more": False, "cancelled": True,
@@ -358,12 +403,13 @@ def search(store, text, embedder=None, vindex=None, limit=60, now=None, drives=N
 
 
 def _search(store, text, embedder=None, vindex=None, limit=60, now=None, drives=None, here="", filters=None,
-            is_dir=None, roots=(), photo_text=None, pindex=None, times=True):
+            is_dir=None, roots=(), photo_text=None, pindex=None, times=True, romanized=False):
     t_start = time.perf_counter()
     drives = drives or []
     now = now or time.time()
     is_dir = is_dir or folder_checker(store, drives, roots)
-    q = parse(text, labels=[d.get("label") or "" for d in drives], is_dir=is_dir, times=times)
+    q = parse(text, labels=[d.get("label") or "" for d in drives], is_dir=is_dir, times=times, romanized=romanized)
+    _keep_named(store, q)
     time_from_text = q.when if q.t0 is not None else ""
     q.drives = drives
     if q.here and not q.path:

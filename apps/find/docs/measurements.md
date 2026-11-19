@@ -4,6 +4,60 @@ Numbers decide (ROADMAP §3). Every performance claim points at a row here. Newe
 now; private = committed memory only this process can use (`Get-Process` `WorkingSet64` / `PrivateMemorySize64`,
 summed over the process tree).
 
+## 2026-11-19 (night): review of #80, name results that are right at whole-PC scale (H1)
+
+The first whole-PC fix capped name candidates with `IN (SELECT rowid … MATCH ? LIMIT 2000)`, which keeps the 2,000
+*oldest* rows before any filter or ranking. Its repro: 2,500 `report*.dll` indexed first, then the one
+`Documents\report.pdf`. Searching `report` gave only dlls, and `report pdf` gave nothing. bm25 can't rank instead:
+on the trigram table every match of a word scores the same (-1.05e-6), so ties fall back to rowid order again.
+
+**Now:** the engine counts the word's FTS matches (capped at 20,000, a few ms).
+- Under 20,000: every match is joined and filtered, then ordered by name length (exact).
+- More: the files are walked shortest name first through a covering index `files(length(name), mtime, name, kind, ext)`,
+  with the filters applied, and the walk stops at 150 hits.
+
+Either way the filters are part of the query, so `report pdf` finds the pdf. The index is built once in the
+background with the name-word index: 50 s at a million entries.
+
+**Right answers** (998k-entry synthetic index plus 6,000 long `zebrafile_NNNNN_backup.dll` indexed first, then
+`zebrafile.pdf` last):
+
+| Question | Before the fix: rank of zebrafile.pdf | After |
+|---|---|---|
+| zebrafile | not in the results | **1** |
+| zebrafile pdf | no results at all | **1** |
+| zebra / ze | not in the results | **1 / 1** |
+
+On the plain synthetic index (names spread evenly) both versions match brute-force ground truth for the top 10 on 7
+of 8 questions. The 8th, `setup exe`, is wrong in both: `setup` and `exe` are read as the App kind, a parser matter
+and not H1.
+
+**Speed per keystroke** (`tools/bench_search.py`, 1,004,217 entries, two runs, quiet PC):
+
+| | p50 | p90 | max |
+|---|---|---|---|
+| 1-2 letters | 2.6-2.9 ms | **4.0-4.3 ms** | 7-8 ms |
+| Names, 3+ letters | 14-15 ms | **28-30 ms** | 39-40 ms |
+| Several words | 32-34 ms | **72-74 ms** | 97-109 ms |
+
+Each is within the ≤ 80 ms p90 budget. One run while the PC was busy showed several-word p90 at 156 ms; the quiet runs
+are the numbers above.
+
+Also from the review:
+- a cancelled search now reads as `cancelled: true` on SQLCipher too (its OperationalError isn't sqlite3's);
+- cancelling is per connection *and* `channel`, so the Home list doesn't cancel the search box;
+- Hinglish rules apply only when the focus is Hindi or many languages, or when the question is clearly Hinglish;
+- photo vectors are written only under the model that made them;
+- a rebuild never swaps in a model the user already left, and the swap and its model id are one transaction;
+- vectors that don't fit their model are rebuilt, not left off;
+- one meaning worker per round while switching;
+- `capable` counts the vectors' disk space;
+- one download per model, with its own part files;
+- a photo model starts once downloaded;
+- status cards name the models in use;
+- the tray setting applies live;
+- names and text are NFC.
+
 ## 2026-11-19 (0.8.0 engine): text models, English and Hindi search quality, whole-PC search speed
 
 - **Branch:** `find-0.8-engine` (PR #80). **PC:** the reference PC (i5-12500H, 16 threads, 15.7 GB, Windows 11).

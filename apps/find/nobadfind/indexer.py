@@ -594,6 +594,11 @@ class Indexer:
                 log("meaning vectors are made a better way now; computing them again")
                 self.store.drop_vectors()
                 self.store.set_meta("vec_version", embed.VEC_VERSION)
+            blob = self.store.one("SELECT v FROM nvecs WHERE length(v) > 0 LIMIT 1") or \
+                self.store.one("SELECT v FROM vecs LIMIT 1")
+            if blob and len(blob) != 2 * models.get(active)["dim"]:
+                log(f"meaning vectors don't fit {active} (an interrupted switch); computing them again", "warn")
+                self.store.drop_vectors()
             self._use_text_model(active)
             log(f"meaning search on with {active} (the model loads when it's needed)")
         except Exception as e:
@@ -618,9 +623,12 @@ class Indexer:
         if self._vectors_in_worker and self._clock() < self._meaning_retry_at:
             return                                  # the worker kept failing: wait (MEANING_BACKOFF)
         try:
-            self._name_vectors()
-            if not self._recycled:
-                self._chunk_vectors()
+            wanted = models.selected(self.settings, "text")
+            switching = bool(wanted) and wanted != self.text_model and models.ready(wanted)
+            if not switching:                       # while switching, only the new model works (one worker)
+                self._name_vectors()
+                if not self._recycled:
+                    self._chunk_vectors()
             if not self._recycled and not self.stop_ev.is_set():
                 self._rebuild_vectors()
         finally:
@@ -650,9 +658,10 @@ class Indexer:
             NAME_KINDS, next=True)
         if left:
             return
-        self.store.swap_vectors()
-        self.store.set_meta("vec_model", wanted)
-        self.store.set_meta("vec_model_next", "")
+        if models.selected(self.settings, "text") != wanted:
+            log(f"the meaning model was changed again during the rebuild; {wanted} isn't used")
+            return                                  # the next round starts the rebuild for the new choice
+        self.store.swap_vectors(wanted)             # the vectors and their model id, in one transaction
         self.status.pop("rebuild", None)
         self._use_text_model(wanted)
         self._note(f"Meaning search now uses {models.get(wanted)['name']}")
@@ -803,6 +812,7 @@ class Indexer:
         threads = min(most, max(1, workers_for(level, plan_))) if plan_ else 2      # as the meaning worker
         pool = cf.ProcessPoolExecutor(max_workers=1, initializer=photo.init_worker, initargs=(threads,))
         self._photo_pool = pool
+        made_with = self.photo_model                 # every batch of this pass is made with this model
         try:
             while not self.stop_ev.is_set():
                 go = self._wait_while_paused(max_wait=RECYCLE_AFTER)
@@ -824,7 +834,7 @@ class Indexer:
                         break
                     batch = rows[i:i + step]
                     away = self._away()
-                    pdir = models.model_dir(self.photo_model) if self.photo_model else photo.PHOTO_DIR
+                    pdir = models.model_dir(made_with) if made_with else photo.PHOTO_DIR
                     fut = pool.submit(photo.embed_photos, [(f, p, m, pdir) for f, p, m in batch], away)
                     try:
                         results = self._await(fut, JOB_TIMEOUT)     # paused time doesn't count
@@ -846,6 +856,10 @@ class Indexer:
                     if results is RECYCLE:
                         self._recycle(pool, "photo reader")     # these photos are read again later
                         return
+                    if made_with and (self.photo_model != made_with or self.store.meta("pvec_model") != made_with):
+                        log("photo model changed during the pass: its batch is thrown away, the next pass uses "
+                            "the new model")
+                        return                      # vectors are only written under the model that made them
                     retry = False
                     for fid, mtime, blob, err in results:
                         if err == photo.OUT_OF_MEMORY:

@@ -87,21 +87,23 @@ def decode_224(data):
     return ((rgb / 255.0 - 0.5) / 0.5).transpose(2, 0, 1)
 
 
-_vision = None
+_vision = {}                                          # model folder -> its vision session (one per model)
 _threads = [2]                                        # set by init_worker from the level (indexer._photo_vectors)
 QUESTION_THREADS = 4                                  # a photo question while you type: 45 ms on 2 threads, 28 on 4
 
 
 def _vision_session(model_dir):
-    global _vision
-    if _vision is None:
+    """The vision session of the model in model_dir (a model switch gets its own, never the old one)."""
+    s = _vision.get(model_dir)
+    if s is None:
         import onnxruntime as ort
         opts = ort.SessionOptions()
         opts.intra_op_num_threads = _threads[0]       # 2.4 photos/s on 2 threads, 7.1 on 8 (CPU-capped by level)
         opts.log_severity_level = 3
-        _vision = ort.InferenceSession(os.path.join(model_dir, "vision.onnx"), opts,
-                                       providers=["CPUExecutionProvider"])
-    return _vision
+        _vision.clear()                               # one model in memory at a time
+        s = _vision[model_dir] = ort.InferenceSession(os.path.join(model_dir, "vision.onnx"), opts,
+                                                      providers=["CPUExecutionProvider"])
+    return s
 
 
 def _unit(v):

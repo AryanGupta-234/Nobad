@@ -12,7 +12,7 @@ from collections import deque
 
 from . import embed, jobs, models, ocr, photo, scope, thumbs, wsearch, winapi
 from . import hardware as hw
-from .const import APP_VER, MODEL_FILES
+from .const import APP_VER
 from .indexer import NAME_KINDS
 from .kinds import READABLE_EXT
 from .log import log
@@ -61,15 +61,17 @@ class Api:
         self._timer, self._exit = threading.Timer, os._exit     # tests replace them
 
     # ---------- search ----------
-    def search(self, text, filters=None, client=None):
-        """client: who asked (one pipe connection). A newer search from the same client cancels this one: its
-        answer would only be thrown away, and on a whole-PC index the old one may still be running."""
+    def search(self, text, filters=None, client=None, channel="main"):
+        """client: who asked (one pipe connection); channel: which of its searches ("main" box, "home" list,
+        "bar"). A newer search on the same client and channel cancels this one: its answer would only be thrown
+        away, and on a whole-PC index the old one may still be running. Other channels are left alone."""
         empty = {"results": [], "understood": [], "terms": [], "notes": [], "ms": 0}
         cancelled = None
         if client is not None:
             seqs = self.__dict__.setdefault("_search_seq", {})
-            seqs[client] = mine = seqs.get(client, 0) + 1
-            cancelled = (lambda: seqs.get(client) != mine)       # noqa: E731 (a newer search came in)
+            key = (client, channel)
+            seqs[key] = mine = seqs.get(key, 0) + 1
+            cancelled = (lambda: seqs.get(key) != mine)          # noqa: E731 (a newer search came in)
         if not isinstance(text, str):
             return empty
         text = text.strip()[:MAX_QUERY]
@@ -80,7 +82,8 @@ class Api:
         try:
             return search(self._store, text, self._indexer.embedder, self._vindex, drives=self._indexer.drive_list,
                           here=self.here, filters=filters, roots=self._indexer.roots(self._indexer.drive_list),
-                          photo_text=self._indexer.photo_text, pindex=self._indexer.pindex, cancelled=cancelled)
+                          photo_text=self._indexer.photo_text, pindex=self._indexer.pindex, cancelled=cancelled,
+                          romanized=self._romanized())
         except Exception as e:
             log(f"search failed: {type(e).__name__}", "warn")
             return {"results": [], "understood": [], "terms": [], "ms": 0, "error": "Search failed. Try other words."}
@@ -289,8 +292,9 @@ class Api:
         cur = {"images": "ocr"}.get(st.get("phase"), st.get("phase"))
         content = bool(s.get("content"))
         on = {"names": True, "text": content, "ocr": content and bool(s.get("ocr")) and bool(ocr.available()),
-              "meaning": bool(s.get("semantic")) and embed.model_ready(),
-              "photos": bool(s.get("photo_meaning")) and photo.model_ready(), "watching": True,
+              "meaning": bool(s.get("semantic")) and models.ready(self._text_in_use(), self._mdir()),
+              "photos": bool(s.get("photo_meaning")) and models.ready(self._photo_in_use(), self._mdir()),
+              "watching": True,
               "rebuild": cur == "rebuild" or "rebuild" in counts}
         counter = {"text": "texts", "ocr": "texts", "meaning": "vectors", "photos": "photos", "rebuild": "rebuilt"}
         out = []
@@ -346,18 +350,17 @@ class Api:
         pdev = "GPU" if getattr(pho, "device", "CPU") == "GPU" else "CPU"
         enc = [(emb, mw), (pho, pw)]
         mem = [w["memory_mb"] if w else None for _e, w in enc]
-        meaning_mb = sum(v[1] for v in MODEL_FILES.values()) / 1048576
-        photo_mb = sum(v[1] for v in photo.PHOTO_FILES.values()) / 1048576
+        tm, pm = models.get(self._text_in_use()), models.get(self._photo_in_use())
         ocr_total, ocr_left = self._counts(now).get("ocr", (0, 0))
         return [
-            {"id": "meaning", "name": "Meaning search (all-MiniLM-L6-v2)", "license": "Apache-2.0",
-             "size_mb": round(meaning_mb), "on_disk": bool(embed.model_ready()),
+            {"id": "meaning", "name": f"Meaning search ({tm['name']})", "license": tm["licence"],
+             "size_mb": models.size_mb(tm), "on_disk": models.ready(tm["id"], self._mdir()),
              "loaded": bool(mw) or bool(getattr(emb, "loaded", False)), "memory_mb": mem[0],
              "device": mdev,
              "items": int(st.get("vectors", 0)) + int(st.get("name_vectors", 0)),
              "download": self._download("meaning", self._model, now)},
-            {"id": "photo", "name": "Photo search (SigLIP base)", "license": "Apache-2.0",
-             "size_mb": round(photo_mb), "on_disk": bool(photo.model_ready()),
+            {"id": "photo", "name": f"Photo search ({pm['name']})", "license": pm["licence"],
+             "size_mb": models.size_mb(pm), "on_disk": models.ready(pm["id"], self._mdir()),
              "loaded": bool(pw) or bool(getattr(pho, "loaded", False)), "memory_mb": mem[1],
              "device": pdev,
              "items": int(st.get("photo_vectors", 0)),
@@ -416,6 +419,8 @@ class Api:
         if "photo_model" in changed and self._settings.get("photo_meaning") and "photo_meaning" not in changed:
             threading.Thread(target=self._indexer._load_photo, daemon=True).start()
             self._indexer.wake.set()
+        if "tray" in changed and getattr(self, "_on_tray", None) is not None:
+            self._on_tray(bool(self._settings.get("tray")))
         if "text_model" in changed:
             wake = getattr(self._indexer, "wake", None)
             if wake is not None:
@@ -554,6 +559,28 @@ class Api:
     def _mdir(self):
         return self._models_dir or models.DATA_DIR
 
+    def _text_in_use(self):
+        """The text model whose vectors search uses now (or the one chosen, before there are any)."""
+        return (getattr(self._indexer, "text_model", None) or models.selected(self._settings, "text")
+                or models.DEFAULT_TEXT)
+
+    def _photo_in_use(self):
+        return getattr(self._indexer, "photo_model", None) or models.selected(self._settings, "photo") or \
+            models.DEFAULT_PHOTO
+
+    def _romanized(self):
+        """Hinglish is read in every question when the language focus is Hindi or many languages (cached 60 s:
+        the focus may come from Windows' languages)."""
+        import time as _t
+        at, val = getattr(self, "_roman_cache", (0.0, False))
+        if _t.monotonic() - at > 60:
+            try:
+                val = self._focus() in ("hindi", "multilingual")
+            except Exception:
+                val = False
+            self._roman_cache = (_t.monotonic(), val)
+        return val
+
     def _focus(self):
         return self._settings.get("language_focus") or models.focus_from_languages(winapi.windows_languages())
 
@@ -610,8 +637,11 @@ class Api:
         if consent != "DOWNLOAD":
             return {"ok": False, "error": "A model is only downloaded when you say Download."}
         self._mdl = getattr(self, "_mdl", {})
-        if self._mdl.get(mid, {}).get("state") == "downloading":
-            return {"ok": True, "error": ""}
+        lock = self.__dict__.setdefault("_mdl_lock", threading.Lock())
+        with lock:
+            if self._mdl.get(mid, {}).get("state") == "downloading":
+                return {"ok": True, "error": ""}            # already on its way: one download per model
+            self._mdl[mid] = {"state": "downloading", "got": 0, "size": 0, "error": ""}
         self._settings.update({"allow_model_download" if m["feature"] == "text" else "allow_photo_model_download": True})
         st = self._mdl[mid] = {"state": "downloading", "got": 0, "size": sum(f[1] for f in m["files"].values()),
                                "error": ""}
@@ -625,7 +655,8 @@ class Api:
                     def progress(_n, got, _size, name=name):
                         done[name] = got
                         st["got"] = sum(done.values())
-                    embed._fetch_verified(models.url(m, path), os.path.join(d, name), size, sha, name, progress)
+                    embed._fetch_verified(models.url(m, path), os.path.join(d, name), size, sha, name, progress,
+                                          part=".dl.part")      # not the 0.7.0 download's file names
                     done[name] = size
                     st["got"] = sum(done.values())
                 st["state"] = "ready"
@@ -634,6 +665,8 @@ class Api:
                 if m["feature"] == "text" and models.selected(self._settings, "text") == mid and \
                         not getattr(self._indexer, "text_model", None):
                     threading.Thread(target=self._indexer._load_embedder, daemon=True).start()
+                if m["feature"] == "photo" and models.selected(self._settings, "photo") == mid:
+                    threading.Thread(target=self._indexer._load_photo, daemon=True).start()
                 if wake is not None:
                     wake.set()
             except Exception as e:
@@ -647,14 +680,16 @@ class Api:
         m = models.get(mid) if isinstance(mid, str) else None
         if m is None or m["builtin"]:
             return {"ok": False, "error": "That model is part of Windows or NOBAD Find."}
-        in_use = {getattr(self._indexer, "text_model", None), self._store.meta("vec_model") if self._store else None}
+        in_use = {getattr(self._indexer, "text_model", None)}
+        if self._store is not None:
+            in_use |= {self._store.meta("vec_model"), self._store.meta("vec_model_next")}
         if m["feature"] == "photo" and self._settings.get("photo_meaning"):
             in_use.add(models.selected(self._settings, "photo"))
         if mid in in_use:
             return {"ok": False, "error": "NOBAD Find is using that model. Choose another one first."}
         d = models.model_dir(mid, self._mdir())
         for name in m["files"]:
-            for p in (os.path.join(d, name), os.path.join(d, name + ".part")):
+            for p in (os.path.join(d, name), os.path.join(d, name + ".part"), os.path.join(d, name + ".dl.part")):
                 try:
                     os.remove(p)
                 except FileNotFoundError:

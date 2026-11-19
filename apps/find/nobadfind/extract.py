@@ -325,7 +325,8 @@ _NL = re.compile(r"\n\s*\n+")
 
 
 def clean(text):
-    text = text.replace("\x00", "")
+    import unicodedata
+    text = unicodedata.normalize("NFC", text.replace("\x00", ""))   # one spelling (Hindi nuktas, accents)
     return _NL.sub("\n\n", _WS.sub(" ", text)).strip()
 
 

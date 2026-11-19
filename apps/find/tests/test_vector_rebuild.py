@@ -160,3 +160,57 @@ def test_siglip2_questions_are_lower_case_with_end_of_text_and_padding():
             return E()
     ids = photo.question_ids(Tok(), "Sunset over THE Sea", "siglip2")
     assert Tok.seen == "sunset over the sea" and len(ids) == 64 and ids[:3] == [7, 8, 1] and ids[3] == 0
+
+
+def test_the_vision_session_follows_the_model_folder(monkeypatch, tmp_path):
+    """Review H2: the worker cached one vision session and ignored a new model's folder."""
+    from nobadfind import photo
+    import onnxruntime as ort
+    made = []
+    monkeypatch.setattr(ort, "InferenceSession", lambda path, opts, providers: made.append(path) or object())
+    monkeypatch.setattr(photo, "_vision", {})
+    photo._vision_session(str(tmp_path / "a"))
+    photo._vision_session(str(tmp_path / "a"))
+    photo._vision_session(str(tmp_path / "b"))
+    assert [p.split("\\")[-2] if "\\" in p else p.split("/")[-2] for p in made] == ["a", "b"]
+
+
+class SyncPhotoPool:
+    def __init__(self, *a, **k):
+        self._processes = {}
+
+    def submit(self, fn, *args):
+        import concurrent.futures as cf
+        f = cf.Future()
+        f.set_result(fn(*args))
+        return f
+
+    def shutdown(self, **k):
+        pass
+
+
+def test_a_photo_pass_running_through_a_switch_writes_nothing_under_the_new_id(tmp_path, monkeypatch):
+    s = _store(tmp_path)
+    s.upsert_files([(f"C:/p/img{i}.jpg", f"img{i}.jpg", "C:/p", ".jpg", "image", 50000, 1.0, 1.0, 1) for i in range(20)])
+    monkeypatch.setattr(models, "ready", lambda mid, data_dir=None: True)
+    monkeypatch.setattr(indexer.photo, "TextEncoder", lambda model_dir, style="siglip": object())
+    st = S(photo_meaning=True, photo_model="siglip-base")
+    ix = indexer.Indexer(s, st, vindex=embed.VectorIndex())
+    ix.status["plan"] = {}
+    ix._load_photo()
+    monkeypatch.setattr(indexer.cf, "ProcessPoolExecutor", SyncPhotoPool)
+    made_with = []
+
+    def embed_photos(jobs, fast=False):
+        made_with.append(jobs[0][3])
+        if len(made_with) == 1:                            # the user switches while this batch is being made
+            st["photo_model"] = "siglip2-base"
+            ix._load_photo()
+        return [(fid, mtime, embed.to_blob(np.ones(768)), None) for fid, _p, mtime, _d in jobs]
+    monkeypatch.setattr(indexer.photo, "embed_photos", embed_photos)
+    ix._photo_vectors()
+    assert s.meta("pvec_model") == "siglip2-base"
+    assert s.q("SELECT count(*) FROM pvecs")[0][0] == 0      # the old model's batch was thrown away
+    ix._photo_vectors()                                      # the next pass: the new model's folder
+    assert made_with[-1] == models.model_dir("siglip2-base")
+    assert s.q("SELECT count(*) FROM pvecs")[0][0] == 20

@@ -247,13 +247,22 @@ def main(stop=None):
         governor.stop()
         return 1
     keys = wiring.start()
-    icon = start_tray(settings, api, governor, wiring)
+    tray_box = {"icon": start_tray(settings, api, governor, wiring)}
+
+    def on_tray(on):                                      # Settings: the icon comes and goes at once
+        if on and tray_box["icon"] is None:
+            tray_box["icon"] = start_tray(settings, api, governor, wiring)
+        elif not on and tray_box["icon"] is not None:
+            tray_box["icon"].stop()
+            tray_box["icon"] = None
+    api._on_tray = on_tray
     log(f"engine ready (pid {os.getpid()})")
     print(f"NOBAD Find engine ready (pid {os.getpid()}). Ctrl+C stops it.", flush=True)
     tip, n = None, 0
     try:
         while not stop.wait(0.5):
             n += 1
+            icon = tray_box["icon"]
             if icon is not None and n % 10 == 0:          # the tooltip follows the level and the count (5 s)
                 now = icon.tip()
                 if now != tip:
@@ -262,8 +271,8 @@ def main(stop=None):
     except KeyboardInterrupt:
         pass
     log("engine stopping")
-    if icon is not None:
-        icon.stop()
+    if tray_box["icon"] is not None:
+        tray_box["icon"].stop()
     for hk in keys:
         hk.stop()
     rpc.stop()

@@ -9,6 +9,7 @@ Tables
 """
 import os
 import secrets
+import unicodedata
 import sqlite3
 import threading
 import time
@@ -20,6 +21,9 @@ try:
     import sqlcipher3 as _cipher
 except ImportError:          # development without SQLCipher: the UI says plainly that the index isn't encrypted
     _cipher = None
+
+# What an interrupted or failed query raises, from either driver (SQLCipher's isn't a subclass of sqlite3's)
+OperationalError = (sqlite3.OperationalError,) + ((_cipher.OperationalError,) if _cipher is not None else ())
 
 SCHEMA = """
 PRAGMA journal_mode=WAL;
@@ -85,7 +89,7 @@ TEXT_INDEX = "2"
 # names_w: the words of every file name with a prefix index, for one- and two-letter questions (the trigram
 # "names" table needs three letters; without this, "ta" scanned every row: seconds on a whole-PC index).
 NAME_TOKENIZE = "unicode61 remove_diacritics 2 tokenchars ''" + DEVANAGARI_MARKS + "''"
-NAME_INDEX = "2"
+NAME_INDEX = "4"
 SCHEMA = SCHEMA.replace("@TEXT_TOKENIZE@", TEXT_TOKENIZE).replace("@NAME_TOKENIZE@", NAME_TOKENIZE)
 
 
@@ -176,6 +180,10 @@ class Store:
         with self.wlock:
             # "photos" alone lists every photo, newest first: without this, a sort of every photo on the PC
             self.db.execute("CREATE INDEX IF NOT EXISTS files_kind_mtime ON files(kind, mtime)")
+            # common name words: files walked shortest name first until enough match (search._name_hits)
+            self.db.execute("DROP INDEX IF EXISTS files_namelen")
+            # covering: the walk tests the name, kind and extension without reading the table row
+            self.db.execute("CREATE INDEX files_namelen ON files(length(name), mtime DESC, name, kind, ext)")
             self.db.execute("INSERT INTO names_w(names_w) VALUES('rebuild')")
             self.db.execute("INSERT INTO meta(k,v) VALUES('name_index', ?) ON CONFLICT(k) DO UPDATE SET v=excluded.v",
                             (NAME_INDEX,))
@@ -228,6 +236,7 @@ class Store:
 
     # ---------- files ----------
     def upsert_files(self, rows):
+        rows = [(r[0], unicodedata.normalize("NFC", r[1])) + tuple(r[2:]) for r in rows]   # one spelling per name
         """rows: (path, name, dir, ext, kind, size, mtime, ctime, gen). A changed mtime makes the text stale."""
         if not rows:
             return
@@ -299,9 +308,14 @@ class Store:
             self.db.executemany(f"INSERT OR REPLACE INTO {t}(file_id, v) VALUES(?,?)", rows)
             self.db.commit()
 
-    def swap_vectors(self):
-        """The new model's vectors replace the old ones, in one transaction (a search sees one set or the other)."""
+    def swap_vectors(self, model=None):
+        """The new model's vectors replace the old ones and the index is tagged with `model`, all in one
+        transaction: a search, or a crash, sees one set with its own model id or the other, never a mix."""
         with self.wlock:
+            if model is not None:
+                for k, v in (("vec_model", model), ("vec_model_next", "")):
+                    self.db.execute("INSERT INTO meta(k,v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v",
+                                    (k, v))
             self.db.execute("DELETE FROM vecs")
             self.db.execute("INSERT INTO vecs(chunk_id, v) SELECT chunk_id, v FROM vecs_next")
             self.db.execute("DELETE FROM nvecs")

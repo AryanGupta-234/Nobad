@@ -19,7 +19,7 @@ class FakeApi:
     def __init__(self):
         self.calls = []
 
-    def search(self, text, filters=None, client=None):
+    def search(self, text, filters=None, client=None, channel="main"):
         self.calls.append(("search", text, filters))
         return {"results": [{"id": 7, "name": "notes \u2028 r\u00e9sum\u00e9.txt", "dir": "C:\\x", "kind": "text"}],
                 "ms": 3}

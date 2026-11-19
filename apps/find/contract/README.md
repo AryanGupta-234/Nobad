@@ -68,6 +68,7 @@ be `""` when not). Files are always named by a result **`id`** from `search`, ne
   - `Result`: `{id: int, path, name, dir, kind: string, size: int|null, mtime: number|null (seconds since 1970),
     ago: string, why: [string], snippet: string, weak: bool}`. `weak` = a loose match, show it as less sure.
     Every string is untrusted text from the user's disk: show it as plain text, never as markup.
+  `channel` (optional, default `"main"`): which search of the UI this is (`"home"` for the Home list, `"bar"`). A newer search on the same connection and channel cancels the one still running, which then answers with `cancelled: true` (and no results): ignore that answer. Other channels are left alone.
 - **`open`** `{id}` → `Ok`: open with the default program (outside NOBAD Find's process group, so it survives Quit).
 - **`open_with`** `{id}` → `Ok`: Windows' "Open with" list for that result. It runs in a small helper started outside
   NOBAD Find's process group, so the program chosen there survives Quit like `open`. By id only, never a path.

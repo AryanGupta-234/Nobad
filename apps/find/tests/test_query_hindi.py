@@ -58,7 +58,49 @@ def test_linking_words():
 def test_english_is_unchanged():
     q = p("rent pdf from last week")
     assert q.kinds == {"pdf"} and q.when == "last week" and q.terms == ["rent"]
-    assert p("kal").when == "yesterday" and p("kale salad").terms == ["kale", "salad"]
+    assert p("kale salad").terms == ["kale", "salad"]
+
+
+# ---------- review H3: romanized Hindi only when it is clearly Hinglish (or the focus says so) ----------
+def test_one_hinglish_looking_word_is_just_a_word():
+    q = p("kal ho naa ho")
+    assert q.t0 is None and q.terms[0] == "kal"
+    assert p("kal").t0 is None and p("kal").terms == ["kal"]
+    assert p("aaj tak").t0 is None and p("aaj tak").terms == ["aaj", "tak"]
+    assert p("bare files").min_size is None
+    assert p("is week").t0 is None and p("is month").t0 is None
+    for w in ("hi", "par", "ko", "ye"):
+        assert p(w).terms == [w], w
+
+
+def test_clear_hinglish_is_still_understood():
+    q = p("pichle hafte ki rent wali pdf")
+    assert q.when == "last week" and q.kinds == {"pdf"} and q.terms == ["rent"]
+    assert p("kal ka bill").when == "yesterday"                   # two markers: kal, ka
+    assert p("is mahine ki salary slip").when == "this month"
+
+
+def test_the_language_focus_turns_romanized_hindi_on():
+    q = parse("kal meeting", now=NOW, romanized=True)
+    assert q.when == "yesterday"
+    assert parse("kal meeting", now=NOW).t0 is None
+
+
+def test_devanagari_is_always_understood():
+    assert p("कल").when == "yesterday" and p("आज बिल").when == "today"
+
+
+def test_a_name_that_looks_like_hinglish_is_found(tmp_path):
+    from nobadfind import search
+    from nobadfind.store import Store
+    s = Store(str(tmp_path / "i.db"), encrypt=False)
+    s.upsert_files([("C:/d/kal.txt", "kal.txt", "C:/d", ".txt", "text", 10, 1.0, 1.0, 1),
+                    ("C:/d/ko samples.txt", "ko samples.txt", "C:/d", ".txt", "text", 10, 1.0, 1.0, 1)])
+    s.upgrade_name_index()
+    assert [r["name"] for r in search.search(s, "kal.txt")["results"]] == ["kal.txt"]
+    assert [r["name"] for r in search.search(s, "kal")["results"]] == ["kal.txt"]
+    assert "ko samples.txt" in [r["name"] for r in search.search(s, "ko samples", romanized=True)["results"]]
+    s.close()
 
 
 # ---------- the text index keeps Hindi words whole ----------
