@@ -53,7 +53,7 @@ class _HomeViewState extends State<HomeView> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final s = AppScope.of(context);
-    if (identical(s, _scope)) return;
+    if (_scope != null) return; // once: the scope is rebuilt with the app, its controllers stay the same
     _scope?.status.removeListener(_statusChanged);
     _scope = s;
     s.status.addListener(_statusChanged);

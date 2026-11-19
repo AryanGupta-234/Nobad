@@ -31,18 +31,18 @@ class Welcome extends StatelessWidget {
     return ColoredBox(
       color: c.bg,
       child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(72, 56, 72, 40),
+        padding: const EdgeInsets.fromLTRB(72, 40, 72, 32),
         child: Align(
           alignment: Alignment.topLeft,
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 720),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const NbMark(size: 44),
-              const SizedBox(height: NbSpace.x8),
+              const NbMark(size: 40),
+              const SizedBox(height: NbSpace.x6),
               Semantics(
                 header: true,
                 child: Text('Your files.\nFound in a moment.\nNever sent anywhere.'.toUpperCase(),
-                    style: NbType.display(40, c.text)),
+                    style: NbType.display(36, c.text)),
               ),
               const SizedBox(height: NbSpace.x5),
               const SignalRule(),
@@ -55,7 +55,7 @@ class Welcome extends StatelessWidget {
                     'and your searches stay on this PC.',
                     style: NbType.text(15, c.muted, height: 1.6)),
               ),
-              const SizedBox(height: NbSpace.x8),
+              const SizedBox(height: NbSpace.x6),
               _Fact(keys: keysOf(st.text('hotkey')), text: 'Opens this window from anywhere.'),
               if (st.flag('bar'))
                 _Fact(keys: keysOf(st.text('bar_hotkey')),

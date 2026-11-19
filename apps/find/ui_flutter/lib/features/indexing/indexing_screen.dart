@@ -35,7 +35,7 @@ class _IndexingScreenState extends State<IndexingScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final s = AppScope.of(context);
-    if (identical(s, _s)) return;
+    if (_s != null) return; // once: the scope is rebuilt with the app, its controllers stay the same
     _s = s;
     unawaited(s.status.watch(true));
   }
@@ -226,10 +226,13 @@ class _PhaseRowView extends StatelessWidget {
               style: NbType.text(13.5, off ? c.dim : c.text, weight: off ? FontWeight.w400 : FontWeight.w600)),
         ),
         SizedBox(
-          width: 78,
+          width: 84,
           child: Row(children: [
             if (p.state == PhaseState.done) ...[NbIcon(NbGlyph.check, size: 13, color: c.orange), const SizedBox(width: 3)],
-            Text(p.stateLabel, style: NbType.text(NbSize.small, run ? c.orange : c.dim, weight: run ? FontWeight.w600 : FontWeight.w400)),
+            Flexible(
+              child: Text(p.stateLabel, maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: NbType.text(NbSize.small, run ? c.orange : c.dim, weight: run ? FontWeight.w600 : FontWeight.w400)),
+            ),
           ]),
         ),
         Expanded(

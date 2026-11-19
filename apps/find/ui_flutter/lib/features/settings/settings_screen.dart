@@ -33,7 +33,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final s = AppScope.of(context);
-    if (identical(s, _s)) return;
+    if (_s != null) return; // once: the scope is rebuilt with the app, its controllers stay the same
     _s = s;
     unawaited(s.settings.load());
     unawaited(s.settings.loadExtras());
@@ -76,13 +76,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               alignment: Alignment.topLeft,
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: NbSpace.column),
+                // not const: a page rebuilds when the settings or the status change
                 child: switch (s.nav.page) {
-                  SettingsPage.general => const GeneralPage(),
-                  SettingsPage.indexing => const IndexingPage(),
-                  SettingsPage.models => const ModelsPage(),
-                  SettingsPage.performance => const PerformancePage(),
-                  SettingsPage.privacy => const PrivacyPage(),
-                  SettingsPage.about => const AboutPage(),
+                  SettingsPage.general => GeneralPage(key: ValueKey(s.nav.page)),
+                  SettingsPage.indexing => IndexingPage(key: ValueKey(s.nav.page)),
+                  SettingsPage.models => ModelsPage(key: ValueKey(s.nav.page)),
+                  SettingsPage.performance => PerformancePage(key: ValueKey(s.nav.page)),
+                  SettingsPage.privacy => PrivacyPage(key: ValueKey(s.nav.page)),
+                  SettingsPage.about => AboutPage(key: ValueKey(s.nav.page)),
                 },
               ),
             ),

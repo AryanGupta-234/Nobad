@@ -53,7 +53,11 @@ class _ModelRow extends StatelessWidget {
   final String label;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ListenableBuilder(
+      listenable: Listenable.merge([AppScope.of(context).status, AppScope.of(context).settings]),
+      builder: (context, _) => _build(context));
+
+  Widget _build(BuildContext context) {
     final s = AppScope.of(context);
     final m = s.status.model(id);
     final photos = s.status.details?.photoVectors ?? 0;

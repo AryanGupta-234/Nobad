@@ -38,7 +38,7 @@ class _ShellState extends State<Shell> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final s = AppScope.of(context);
-    if (identical(s, _scope)) return;
+    if (_scope != null) return; // once: the scope is rebuilt with the app, its controllers stay the same
     _scope = s;
     _shows?.cancel();
     _shows = s.engine.events.listen((e) {

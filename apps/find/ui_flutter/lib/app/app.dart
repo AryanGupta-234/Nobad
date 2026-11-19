@@ -116,7 +116,7 @@ class _NobadFindAppState extends State<NobadFindApp> {
             type: MaterialType.transparency,
             child: bar
                 ? BarWindow(engine: widget.engine, window: widget.window, demo: widget.demo)
-                : _Keys(nav: nav, child: Shell(splash: widget.splash, demo: widget.demo)),
+                : _Keys(nav: nav, window: widget.window, engine: widget.engine, child: Shell(splash: widget.splash, demo: widget.demo)),
           ),
         );
       },
@@ -124,19 +124,52 @@ class _NobadFindAppState extends State<NobadFindApp> {
   }
 }
 
-/// Ctrl+1 / Ctrl+2 / Ctrl+3: Search, Index, Settings (0.7.0).
-class _Keys extends StatelessWidget {
-  const _Keys({required this.nav, required this.child});
+/// Window-wide keys: Ctrl+1 / Ctrl+2 / Ctrl+3 for Search, Index, Settings; Esc on Index and Settings hides the
+/// window (0.7.0). Holds the keyboard focus when a page has nothing focused, so the keys always work.
+class _Keys extends StatefulWidget {
+  const _Keys({required this.nav, required this.window, required this.engine, required this.child});
   final AppNav nav;
+  final WindowControl window;
+  final EngineApi engine;
   final Widget child;
+
+  @override
+  State<_Keys> createState() => _KeysState();
+}
+
+class _KeysState extends State<_Keys> {
+  final _focus = FocusNode(debugLabel: 'window keys');
+
+  @override
+  void initState() {
+    super.initState();
+    widget.nav.addListener(_moved);
+  }
+
+  /// Search focuses its own box; the other pages start with the window keys focused.
+  void _moved() => WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && widget.nav.tab != AppTab.search) _focus.requestFocus();
+      });
+
+  @override
+  void dispose() {
+    widget.nav.removeListener(_moved);
+    _focus.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) => CallbackShortcuts(
         bindings: {
-          const SingleActivator(LogicalKeyboardKey.digit1, control: true): () => nav.go(AppTab.search),
-          const SingleActivator(LogicalKeyboardKey.digit2, control: true): () => nav.go(AppTab.indexing),
-          const SingleActivator(LogicalKeyboardKey.digit3, control: true): () => nav.go(AppTab.settings),
+          const SingleActivator(LogicalKeyboardKey.digit1, control: true): () => widget.nav.go(AppTab.search),
+          const SingleActivator(LogicalKeyboardKey.digit2, control: true): () => widget.nav.go(AppTab.indexing),
+          const SingleActivator(LogicalKeyboardKey.digit3, control: true): () => widget.nav.go(AppTab.settings),
+          const SingleActivator(LogicalKeyboardKey.escape): () {
+            if (widget.nav.tab == AppTab.search) return;
+            widget.window.hide();
+            unawaited(widget.engine.uiHidden('main').catchError((Object _) {}));
+          },
         },
-        child: child,
+        child: Focus(focusNode: _focus, child: widget.child),
       );
 }

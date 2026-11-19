@@ -7,6 +7,9 @@
 /// The scale is the classic 11 / 12 / 13 / 14 / 16 / 18 / 21 / 28 / 44 ladder (The Elements of Typographic Style).
 library;
 
+import 'dart:io';
+
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 abstract final class NbFont {
@@ -14,8 +17,25 @@ abstract final class NbFont {
   static const bodyFallback = ['Segoe UI', 'Segoe UI Emoji', 'Segoe UI Symbol'];
   static const mono = 'Cascadia Mono';
   static const monoFallback = ['Consolas', 'Segoe UI', 'Segoe UI Symbol'];
-  static const display = 'Arial Black';
-  static const displayFallback = ['Segoe UI Black', 'Segoe UI'];
+
+  /// Arial Black, loaded from the Windows fonts folder at start ([loadDisplayFont]): asked for by name, Windows'
+  /// font matching gives plain Arial instead (Arial Black is a weight of the Arial family there).
+  static const display = 'NOBAD Display';
+  static const displayFallback = ['Arial Black', 'Segoe UI Black', 'Segoe UI'];
+}
+
+/// Registers Windows' own Arial Black (Fonts\ariblk.ttf in the Windows folder) as [NbFont.display]. Nothing is
+/// bundled or downloaded; without the file the fallbacks are used.
+Future<void> loadDisplayFont() async {
+  try {
+    final dir = Platform.environment['WINDIR'] ?? r'C:\Windows';
+    final f = File('$dir${Platform.pathSeparator}Fonts${Platform.pathSeparator}ariblk.ttf');
+    if (!f.existsSync()) return;
+    final bytes = await f.readAsBytes();
+    await (FontLoader(NbFont.display)..addFont(Future.value(ByteData.sublistView(bytes)))).load();
+  } on Object {
+    // the fallbacks draw it
+  }
 }
 
 abstract final class NbSize {

@@ -92,7 +92,10 @@ class SwitchSetting extends StatelessWidget {
   final String help;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      ListenableBuilder(listenable: AppScope.of(context).settings, builder: (context, _) => _build(context));
+
+  Widget _build(BuildContext context) {
     final s = AppScope.of(context).settings;
     return SettingRow(
       label: label,
@@ -110,7 +113,10 @@ class ChoiceSetting extends StatelessWidget {
   final List<(String, String)> options;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      ListenableBuilder(listenable: AppScope.of(context).settings, builder: (context, _) => _build(context));
+
+  Widget _build(BuildContext context) {
     final s = AppScope.of(context).settings;
     return SettingRow(
       label: label,
@@ -129,7 +135,10 @@ class TextSetting extends StatelessWidget {
   final bool number;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      ListenableBuilder(listenable: AppScope.of(context).settings, builder: (context, _) => _build(context));
+
+  Widget _build(BuildContext context) {
     final s = AppScope.of(context).settings;
     return SettingRow(
       label: label,
@@ -151,7 +160,10 @@ class FoldersSetting extends StatelessWidget {
   final String help;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      ListenableBuilder(listenable: AppScope.of(context).settings, builder: (context, _) => _build(context));
+
+  Widget _build(BuildContext context) {
     final s = AppScope.of(context).settings;
     final c = NbColors.of(context);
     final list = s.settings.list(k);

@@ -11,6 +11,7 @@ import 'dart:ffi';
 import 'dart:io' show Platform;
 
 import 'package:ffi/ffi.dart';
+import 'package:flutter/services.dart' show SystemChannels;
 
 import '../app/theme/glass.dart';
 
@@ -156,10 +157,18 @@ class Win32Window implements WindowControl {
 
   /// Hide, then hand this process's working set back to Windows: a hidden bar needs next to no RAM, and the
   /// pages come back on their own when it's shown. Only ever this process.
+  /// Skia's GPU cache while shown (main.dart sets it at start); hidden, it's emptied.
+  static int shownCacheBytes = 12 << 20;
+
+  static void _gpuCache(int bytes) =>
+      SystemChannels.skia.invokeMethod<void>('Skia.setResourceCacheMaxBytes', bytes).catchError((Object _) {});
+
   @override
   void hide() {
     if (hwnd == 0) return;
     _showAsync(hwnd, _swHide);
+    _gpuCache(0); // nothing to draw while hidden: give the GPU memory back
+    Future<void>.delayed(const Duration(milliseconds: 120), () => _gpuCache(shownCacheBytes));
     Future<void>.delayed(const Duration(milliseconds: 300), () => _emptyWorkingSet(_currentProcess()));
   }
 
