@@ -634,7 +634,11 @@ class Indexer:
         """What's in each photo, made in one separate low-priority process (photos are decoded there)."""
         if not self.photo_text or not self.settings.get("photo_meaning"):
             return
-        pool = cf.ProcessPoolExecutor(max_workers=1, initializer=photo.init_worker)
+        plan_ = self.status.get("plan") or {}
+        level = self.governor.decision.level if self.governor is not None else FULL
+        most = max(1, (os.cpu_count() or 2) // 2)
+        threads = min(most, max(1, workers_for(level, plan_))) if plan_ else 2      # as the meaning worker
+        pool = cf.ProcessPoolExecutor(max_workers=1, initializer=photo.init_worker, initargs=(threads,))
         self._photo_pool = pool
         try:
             while not self.stop_ev.is_set():

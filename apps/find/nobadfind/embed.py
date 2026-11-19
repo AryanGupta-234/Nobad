@@ -16,7 +16,8 @@ from .log import log
 
 MAX_TOKENS = 256
 VEC_VERSION = "2"          # how vectors are made (titles in chunks, name vectors); a change recomputes them
-BATCH = 64
+BATCH = 4                  # texts per model run. 64 (up to 256 tokens each) kept ~1.1 GB in ONNX Runtime's arena in
+                           # the meaning worker; 4 keeps ~115 MB and is faster (40 vs 30 chunks/s, measurements.md)
 
 # Words in file names that say nothing about what the file is
 NAME_NOISE = {"img", "dsc", "dscn", "dcim", "pxl", "vid", "mvimg", "screenshot", "scan", "copy", "final", "new",

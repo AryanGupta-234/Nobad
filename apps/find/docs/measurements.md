@@ -4,6 +4,133 @@ Numbers decide (ROADMAP §3). Every performance claim points at a row here. Newe
 now; private = committed memory only this process can use (`Get-Process` `WorkingSet64` / `PrivateMemorySize64`,
 summed over the process tree).
 
+## 2026-11-19 (later): with both models, every process, and ONNX Runtime tuning
+
+- **Commits:** before = `afd5581` (the review fixes for #78 + the harness's model scenarios, no tuning); after = the
+  tuning commit on `find-measure`.
+- **Same PC.** Engine started through `packaging/launch.py` (`--entry launch`, how the exe starts workers) with a
+  venv built from `requirements-lock.txt` (`--python`), not the global Python.
+- **Models:** all-MiniLM-L6-v2 (meaning) and SigLIP base (photos), fetched once through the engine's own
+  `embed._fetch_verified` (pinned, SHA-256 checked) into a throwaway data folder, then linked into each run's fresh
+  temp index. Never the real index or settings. Meaning, photo meaning and OCR on.
+- **Corpus:** `--files 1000 --photos 150 --text-images 60`: the 1,000 generated documents (as before, 120 PDFs),
+  150 camera-style JPEGs (gradient skies, sun, hills, shapes, grain; 640x480 to 1024x768), 60 screenshots with
+  words for OCR. 2,107 index entries, 1,140 with text, 2,874 chunks, 270 images for the photo model.
+- **Scenarios** (Gentle runs them all; Full and Light only index): indexing; warm searches (4 meaning questions and
+  4 photo questions typed one letter at a time); models loaded and idle; waiting for `embed.Lazy` to release them
+  (163 s here); released and idle; a cold search; window closed; reopen and type at once.
+- Process roles come from the engine's own `status_full` (a second pipe connection, every 2 s). "Not yet named" =
+  a worker the 2-second poll hadn't seen named yet. The venv launcher and the console host are left out of totals.
+
+### What ONNX Runtime does with the models (isolated runs, real models, one fresh process per variant)
+
+| Meaning worker (512 chunks, 8 threads) | Private after | Peak | Chunks/s |
+|---|---|---|---|
+| batch 64, arena on, mem pattern on (before) | **1,119 MB** | 1,145 MB | 30 |
+| batch 64, arena off | 51 MB | 612 MB | 17 |
+| batch 64, arena and mem pattern off | 51 MB | 508 MB | 23 |
+| batch 64, mem pattern off | 1,119 MB | 1,144 MB | 31 |
+| batch 64, `arena_extend_strategy` = kSameAsRequested | 1,362 MB | 1,388 MB | 32 |
+| batch 16, arena on | 318 MB | 323 MB | 40 |
+| batch 8, arena on | 185 MB | 187 MB | 40 |
+| **batch 4, arena on (after)** | **113-115 MB** | 116 MB | **39-40** |
+| batch 2 / 1, arena on | 78 / 59 MB | | 43 / 39 |
+| batch 4 at 4 / 2 / 1 threads | | | 25-48 / 15-33 / 19 |
+
+Batch 64 sequences of up to 256 tokens make the attention tensors big, and ONNX Runtime's arena keeps the peak.
+Turning the arena off frees it but runs 25-45 % slower. Smaller batches fix both. Memory pattern made no difference,
+and kSameAsRequested was worse. Threads: 8 beat 4 on repeat runs (one outlier aside), so the thread rule stays.
+
+**Search quality.** All-MiniLM is dynamically quantized, so padding in a batch shifts the numbers a little: every
+batch size is about the same distance from unpadded (batch 1) vectors, cosine mean 0.992 (min 0.98). Nearest-neighbour
+lists agree as well with batch 4 as with batch 64: 77.7 % vs 76.8 % of top-10 neighbours shared with the unpadded
+vectors. Arena and memory-pattern settings give bit-identical vectors.
+
+| Other sessions (isolated) | Before | After |
+|---|---|---|
+| Photo model, vision (photo worker), photos/s at 2 / 4 / 8 threads | fixed 2 threads: 2.4 | threads by level: 4.7 / 7.1-7.5 at 4 / 8 |
+| Photo question (SigLIP text, main process), ms per question at 2 / 4 threads | 45 ms (2 threads) | **28 ms** (4 threads) |
+| Meaning question (MiniLM, main process) | 1.3 ms | unchanged |
+| Arena on/off for these three | ≤ 30 MB difference, arena on faster | left on |
+
+Vectors are already float16 in memory and in the index (`embed.to_blob`, `VectorIndex._mat`). That's 768 bytes per
+text vector and 1.5 KB per photo vector: about 5 MB for this index, so there's nothing cheap left there.
+
+### Changes kept
+
+1. `embed.BATCH` 64 → 4: the meaning worker keeps 115 MB instead of 1.1 GB and runs faster.
+2. The photo worker's threads follow the level, like the meaning worker (`min(cores / 2, readers for the level)`):
+   8 at Full and Gentle on this PC, 1 at Light. Before: always 2.
+3. The photo question encoder in the main process uses 4 threads instead of 2.
+
+### Before → after, indexing (1,000 files + 150 photos + 60 screenshots)
+
+| Level | Wall time | Find's private MB, mean / max | Meaning worker MB | Meaning chunks/s | Photos/s |
+|---|---|---|---|---|---|
+| Full | 132 s → **84 s** | 734 / 1,230 → **246 / 663** | 1,149 → **154** | 43 → **75** | 4.7 → **7.2** |
+| Gentle | 190 s → **131 s** | 803 / 1,246 → **233 / 338** | 1,152 → **152** | 26 → **44** | 3.8 → **4.4** |
+| Light | 615 s → **576 s** | 935 / 1,242 → **225 / 313** | 1,143 → **149** | 6.5 → **9.4** | 1.8 → 1.1 |
+
+Text 150-250 files/s and OCR'd images 27-135/s were the same in both runs. At Light, photos got slower because the
+photo worker now has 1 thread instead of 2 (Light means a game or a busy PC). The whole run is still faster.
+
+### Before → after, the window and search (Gentle run)
+
+| | Before | After |
+|---|---|---|
+| Meaning search while typing, p50 / p90 / max | 105 / 163 / 180 ms | **42 / 118 / 187 ms** |
+| Photo search while typing, p50 / p90 / max | 108 / 123 / 146 ms | **42 / 50 / 53 ms** |
+| First search with the models out of memory (both load) | 848 ms | 810 ms |
+| Window reopened, typing at once | 957 ms | 627 ms |
+| Main process, models loaded, idle | 303 MB private / 291 MB working set | 304 / 292 (unchanged) |
+| Main process, models released (163 s idle) | 129 / 119 MB | 125 / 116 MB |
+| Window closed (models released, working set handed back) | 134 MB private, 40 MB working set | 143 / 42 MB |
+
+Every keystroke runs both question encoders, so the 28 ms photo encoder sets the floor; the meaning budget
+(≤ 250 ms) is met. The first search after a release pays about 0.6-0.8 s for loading both models.
+
+### Every process, after (per process: private and working set, mean / max; handles mean)
+
+| Level | Scenario | Process | At once (pids seen) | Private MB | Working set MB | Handles |
+|---|---|---|---|---|---|---|
+| Gentle | idle, no UI | Main | 1 | 48 | 66 | 354 |
+| Gentle | indexing | Main | 1 | 65 / 72 | 83 / 90 | 394 |
+| Gentle | indexing | Text reader | 8 (16) | 31 / 43 | 45 / 56 | 224 |
+| Gentle | indexing | Meaning worker | 1 | 152 / 157 | 171 / 177 | 224 |
+| Gentle | indexing | Photo worker | 1 | 186 / 240 | 193 / 243 | 293 |
+| Gentle | warm searches | Main | 1 | 300 / 305 | 288 / 291 | 380 |
+| Gentle | models loaded, idle | Main | 1 | 304 | 292 | 380 |
+| Gentle | models released, idle | Main | 1 | 125 / 130 | 116 / 120 | 368 |
+| Gentle | window closed | Main | 1 | 143 / 309 | 42 / 296 | 364 |
+| Full | indexing | Main | 1 | 65 / 72 | 84 / 90 | 397 |
+| Full | indexing | Text reader | 15 (15) | 31 / 54 | 42 / 62 | 177 |
+| Full | indexing | Meaning worker | 1 | 154 / 158 | 172 / 178 | 224 |
+| Full | indexing | Photo worker | 1 | 186 / 243 | 195 / 218 | 291 |
+| Light | indexing | Main | 1 | 66 / 72 | 85 / 90 | 391 |
+| Light | indexing | Text reader | **1** (3) | 39 / 55 | 50 / 60 | 241 |
+| Light | indexing | Meaning worker | 1 | 149 / 153 | 155 / 170 | 213 |
+| Light | indexing | Photo worker | 1 | 181 / 241 | 183 / 216 | 282 |
+
+Before, the meaning worker was 1,143-1,152 MB private at every level, and everything else was within a few MB of
+the after numbers. The phases run one after another (text, images, meaning, photos), so the readers, the meaning
+worker and the photo worker are never all alive at once. Light now really runs one reader (the recycling fix).
+
+### The worker memory limit with the models
+
+The limit is a quarter of RAM, 1-4 GB. The most the workers committed at once is now 663 MB (Full, 15 readers),
+and 338 MB at Gentle. On a 4 GB PC the limit is 1 GB, and the workers stay well under it: readers for 4 threads plus
+a 160 MB meaning worker or a 240 MB photo worker. Before the batch change, the meaning worker alone (1.15-1.18 GB)
+would have been over a 4 GB PC's limit: it would have failed to load, and kept failing (it now backs off). DirectML
+(the graphics-card build of ONNX Runtime) isn't shipped or installed here, so its memory isn't measured.
+
+### Still open
+- **The main process keeps about 75 MB after the models are released.** It's 125 MB vs 48 MB before loading, so the
+  window-closed state is 143 MB private (42 MB working set) with models in use: over the 60 MB budget. In isolation a
+  load-and-release gives it back (225 → 44 MB, three rounds, no growth). Suspects: per-thread ONNX Runtime buffers on
+  the pipe's 4 worker threads, which run the questions, and SQLite's cache. Next step: encode questions on one
+  dedicated thread and measure.
+- Meaning search p90 118 ms and max 187 ms while typing: the ranking, plus both encoders on every keystroke.
+
 ## 2026-11-19: engine baseline with `tools/measure.py`, and the Phase 1 engine diet
 
 - **Commits:** baseline `b945911` (= `find-flutter-prototype` `1e8a1e2` + the harness); after = the Phase 1 commit on
@@ -52,7 +179,7 @@ background mode).
 |---|---|---|---|
 | Gentle (8 readers, 35 % CPU cap) | 17.1 s, 394 % CPU | 51.1 s, 547 % CPU | **15.0 s**, 180 % CPU |
 | Full (15 readers, no cap) | 16.4 s | 58.3 s | **10.0 s**, 390 % CPU |
-| Light (1 reader, 15 % cap; EcoQoS on) | 50.1 s | | **31.0 s** |
+| Light (meant to be 1 reader, 15 % cap; EcoQoS on) | 50.1 s | | **31.0 s** (with up to 8 readers: see the correction below) |
 
 For the same files, the workers' CPU time fell from 56 core-seconds (baseline `-m`) to about 25. The working set
 while indexing is higher (Gentle 308 → 515 MB mean) because the readers are no longer squeezed into 32 MB each. Low
@@ -64,7 +191,7 @@ memory priority puts those pages first in line when Windows needs memory back.
 |---|---|---|---|---|---|---|
 | Cold start (5 s) | 2 | 50 / 54 (53 / 56) | **32 / 34** (515 / 519) | 7.1 (12.7) | 365 | 12 (27) |
 | Idle, no UI | 2 | 54 (56) | **34** (519) | 0.0 | 365 | 12 |
-| Indexing, Gentle | 17 (10) | 515 / 783 (332 / 344) | **390 / 608** (4,460 / 4,866) | 182 (547) | 3,393 | 78 (215) |
+| Indexing, Gentle | 17 (10)¹ | 515 / 783 (332 / 344) | **390 / 608** (4,460 / 4,866) | 182 (547) | 3,393 | 78 (215) |
 | Idle, UI connected | 2 | 88 (90) | **62** (545) | 0.0 | 448 | 16 |
 | Search typing | 2 | 96 (98) | **70** (554) | 13.5 | 449 | 13 |
 | Window closed (`ui_hidden`) | 2 | **17** / 97 (91 / 99) | **64** / 71 (546 / 554) | 0.1 | 450 | 14 |
@@ -84,16 +211,22 @@ run below); that's ranking work, still open.
 | Mail parsing imported only for .eml/.mbox | reader import 219 → 35 ms | win (readers restart, see below) |
 | `worker_priority` instead of background mode | Gentle 51 → 15 s, Full 58 → 10 s; 3.0 M → 7 k faults per 30 PDFs | win |
 | `EmptyWorkingSet` when indexing goes idle (window closed) | closed: 91 → 17 MB working set (engine 10 MB) | win |
-| Text readers end after 200 files (`max_tasks_per_child`) | no growth to give back on this corpus (readers ≤ 60 MB); a restart costs ~35 ms of imports | backstop for pdf/zip heap fragmentation. Tested on 3.11.9 with the indexer's submit/wait pattern (400 tasks, no stall) |
+| Text readers end after 200 files (`max_tasks_per_child`, replaced, see the correction below) | no growth to give back on this corpus (readers ≤ 60 MB); a restart costs ~35 ms of imports | backstop for pdf/zip heap fragmentation |
 | Worker job memory limit (`JOB_OBJECT_LIMIT_JOB_MEMORY`, ¼ of RAM, 1-4 GB) | 4 GB on this PC; normal indexing commits ≤ 0.7 GB | backstop above the watchdog: a worker over it gets a `MemoryError` (already handled) instead of the PC paging. The baseline exe (8 GB at Full) would have hit it, so the import fix had to come first |
 | EcoQoS for workers at Light and Paused only | Light 31 s with it; in a test run with EcoQoS at Gentle too, a thrashing reader was 1.6x slower again | Light and Paused mean a game, a call or a busy PC, where staying out of the way matters most; Gentle and Full keep full clocks. The power saving can't be measured here |
 | ONNX Runtime arenas | not measured: no model on this PC (and no download) | open |
+
+**Correction (review of #78, 2026-11-19).** ¹ `max_tasks_per_child` on Python 3.11 grows the pool to
+`max_workers` (the Full count, 15) each time it replaces a reader, so these runs had up to 15 readers at Gentle
+and 8 at Light instead of 8 and 1. The Light time above is therefore with more readers than Light allows. Readers
+are now recycled by starting a fresh pool every 200 files per reader, with a test on the process count. The
+model runs in the next section use the fixed code.
 
 ### Against the ROADMAP budgets
 
 | Budget | Target | Now |
 |---|---|---|
-| Indexing, Gentle, 16-thread PC | ≤ 600 MB private total | **390 MB mean, 608 MB max** (no models). Met on average. The max comes from 15 processes alive at once: while recycling, the pool keeps up to the Full count (`max(gentle, full)`) |
+| Indexing, Gentle, 16-thread PC | ≤ 600 MB private total | **390 MB mean, 608 MB max** (no models). Met on average. The max came from 15 readers alive at once (the correction below) |
 | Window closed (idle process) | ≤ 60 MB, CPU ≈ 0 % | **17 MB working set** (engine alone 10 MB), **64 MB private**, 0.1 % CPU. Private is 4 MB over: Python, SQLCipher, the pipe server and their threads |
 | Engine with the window open, idle, models released | ≤ 120 MB | 88 MB working set, 62 MB private |
 | Cold start to usable engine | ≤ 1.5 s (window) | engine 0.39 s, first pipe answer 0.66 s |
