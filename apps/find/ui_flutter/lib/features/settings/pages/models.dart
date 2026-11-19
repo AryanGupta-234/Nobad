@@ -393,7 +393,7 @@ class _Legacy extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(bottom: NbSpace.x4),
             child: Glass(
-              radius: 8,
+              radius: 18,
               padding: const EdgeInsets.all(12),
               child: Text(note, style: NbType.text(13, c.muted, height: 1.45)),
             ),

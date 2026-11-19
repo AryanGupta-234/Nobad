@@ -304,7 +304,7 @@ class ResultCard extends StatelessWidget {
       selected: selected,
       onTap: onTap,
       onSecondary: onSecondary,
-      radius: 8,
+      radius: 18,
       padding: const EdgeInsets.all(14),
       builder: (context, parallax, lit) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -362,7 +362,7 @@ class DetailPane extends StatelessWidget {
     final r = result;
     return Glass(
       level: GlassLevel.panel,
-      radius: 8,
+      radius: 18,
       child: AnimatedSwitcher(
         duration: NbMotion.of(context, const Duration(milliseconds: 420)),
         switchInCurve: const SpringCurve(),

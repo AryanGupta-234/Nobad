@@ -101,6 +101,20 @@ Future<Object?> make(EngineClient c, String m, Map<String, Object?> p) {
       return c.uiShown(p['window'] as String? ?? 'main');
     case 'ui_hidden':
       return c.uiHidden(p['window'] as String? ?? 'main');
+    case 'models':
+      return c.models();
+    case 'model_use' when p['feature'] is String && p['id'] is String:
+      return c.modelUse(p['feature'] as String, p['id'] as String);
+    case 'model_download' when p['id'] is String && p['consent'] == 'DOWNLOAD':
+      return c.modelDownload(p['id'] as String);
+    case 'model_remove' when p['id'] is String:
+      return c.modelRemove(p['id'] as String);
+    case 'auto_configure':
+      return c.autoConfigure();
+    case 'model_language' when p['focus'] is String:
+      return c.modelLanguage(p['focus'] as String);
+    case 'open_with' when p['id'] is int:
+      return c.openWith(p['id'] as int);
     case 'scope_info':
       return c.scopeInfo();
     case 'turbo_state':

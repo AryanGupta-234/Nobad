@@ -542,7 +542,7 @@ class _SearchBoxState extends State<_SearchBox> {
       ),
       child: Glass(
         level: GlassLevel.panel,
-        radius: 8,
+        radius: 18,
         rim: on ? c.orangeA(.6) : null,
         padding: const EdgeInsets.fromLTRB(4, 2, 4, 8),
         child: Column(
@@ -782,7 +782,7 @@ class _Results extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(NbSpace.gutter, 0, NbSpace.x2, NbSpace.x3),
       child: Glass(
         level: GlassLevel.panel,
-        radius: 8,
+        radius: 18,
         padding: const EdgeInsets.fromLTRB(4, 2, 4, 2),
         child: Scrollbar(
           controller: scroll,
@@ -983,7 +983,7 @@ class _NoResults extends StatelessWidget {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 620),
           child: Glass(
-            radius: 8,
+            radius: 18,
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

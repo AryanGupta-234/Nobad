@@ -36,10 +36,10 @@ abstract final class NbSpace {
 }
 
 abstract final class NbRadius {
-  static const key = Radius.circular(4);
-  static const control = Radius.circular(4);
-  static const row = Radius.circular(6);
-  static const panel = Radius.circular(8);
+  static const key = Radius.circular(6);
+  static const control = Radius.circular(10);
+  static const row = Radius.circular(12);
+  static const panel = Radius.circular(18);
   static const pill = Radius.circular(999);
 
   static const keyAll = BorderRadius.all(key);

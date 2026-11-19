@@ -44,6 +44,11 @@ class PerformancePage extends StatelessWidget {
               'Closing the window stops indexing and every worker; NOBAD Find stays as one small idle process so the '
                   'hotkey works. On: keeps indexing after closing.',
             ),
+            SwitchSetting(
+              'tray',
+              'Show NOBAD Find in the notification area',
+              'The icon works with the window closed: open NOBAD Find, the quick find bar, pause and quit.',
+            ),
             TextSetting(
               'workers',
               'Text reading workers',

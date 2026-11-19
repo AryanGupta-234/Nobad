@@ -122,7 +122,7 @@ class _HomeViewState extends State<HomeView> {
               ),
               const SizedBox(height: NbSpace.x4),
               Glass(
-                radius: 8,
+                radius: 18,
                 padding: const EdgeInsets.fromLTRB(6, 10, 6, 6),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -241,7 +241,7 @@ class _Tile extends StatelessWidget {
               width: 28,
               height: 28,
               alignment: Alignment.center,
-              decoration: BoxDecoration(color: c.cardHover, borderRadius: const BorderRadius.all(Radius.circular(4))),
+              decoration: BoxDecoration(color: c.cardHover, borderRadius: const BorderRadius.all(Radius.circular(10))),
               child: NbIcon(tileGlyph(filters), size: 16, color: on ? c.orange : c.muted),
             ),
             const SizedBox(width: 10),

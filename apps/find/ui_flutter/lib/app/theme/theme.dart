@@ -71,7 +71,7 @@ ThemeData nbTheme(NbColors c) {
       style: ButtonStyle(
         minimumSize: const WidgetStatePropertyAll(Size(200, 32)),
         padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 10)),
-        shape: const WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4)))),
+        shape: const WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10)))),
         textStyle: WidgetStatePropertyAll(NbType.text(13, c.text)),
         foregroundColor: WidgetStateProperty.resolveWith((st) => st.contains(WidgetState.disabled) ? c.dim : c.text),
         overlayColor: WidgetStatePropertyAll(c.selected),

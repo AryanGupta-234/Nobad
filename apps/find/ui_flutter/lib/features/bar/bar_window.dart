@@ -227,7 +227,7 @@ class _BarWindowState extends State<BarWindow> {
     // a frosted pill: Windows' Acrylic behind the window does the blur; the glass adds the tint and the rim
     return Glass(
       level: GlassLevel.panel,
-      radius: 8,
+      radius: 18,
       fill: c.glass ? c.panel : c.surface,
       child: MenuAnchor(
         controller: _menu,
@@ -467,7 +467,7 @@ class _RowState extends State<_Row> {
                       margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: ShapeDecoration(
                         color: c.orangeA(c.isDark ? .16 : .12),
-                        shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(8)),
+                        shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(18)),
                       ),
                     ),
                   ),
@@ -483,7 +483,7 @@ class _RowState extends State<_Row> {
                     child: DecoratedBox(
                       decoration: BoxDecoration(
                         color: c.orange,
-                        borderRadius: const BorderRadius.horizontal(right: Radius.circular(3)),
+                        borderRadius: const BorderRadius.horizontal(right: Radius.circular(6)),
                       ),
                     ),
                   ),

@@ -55,22 +55,30 @@ void main() {
         seen.add(method);
         switch (e) {
           case DownloadEvent():
-            expect(['meaning', 'photo'], contains(e.id));
+            expect(e.id, isNotEmpty); // meaning, photo, or a model id from `models` (0.8)
             expect(e.sizeMb, greaterThan(0));
           case ShowEvent():
-            expect(['main', 'bar'], contains(e.what));
+            expect(['main', 'bar', 'settings', 'index'], contains(e.what));
           case StatusFullEvent():
             expect(e.status.details, isNotNull);
             expect(e.status.details!.phases, isNotEmpty);
           case LevelEvent():
             expect(e.reason, isNotEmpty);
+          case ModelsEvent():
+            expect(e.info.models, isNotEmpty);
+            expect(e.info.pc, isNotNull);
+          case TurboEvent():
+            expect(e.state.available, isTrue);
           default:
         }
       }
     }
     expect(
       seen,
-      containsAll(['status', 'status_full', 'level', 'activity', 'download', 'notice', 'show', 'here', 'quitting']),
+      containsAll([
+        'status', 'status_full', 'level', 'activity', 'download', 'notice', 'show', 'here', 'quitting', //
+        'models', 'turbo',
+      ]),
     );
   });
 

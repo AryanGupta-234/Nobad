@@ -78,7 +78,7 @@ class Glass extends StatelessWidget {
     super.key,
     required this.child,
     this.level = GlassLevel.card,
-    this.radius = 8,
+    this.radius = 18,
     this.padding,
     this.fill,
     this.rim,

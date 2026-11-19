@@ -55,24 +55,24 @@ class NbColors extends ThemeExtension<NbColors> {
   Color orangeA(double a) => orange.withValues(alpha: a);
 
   /// The window canvas under the backdrop: clear over Mica, solid otherwise.
-  Color get canvas => glass ? bg.withValues(alpha: isDark ? .55 : .62) : bg;
+  Color get canvas => glass ? bg.withValues(alpha: isDark ? .34 : .42) : bg;
 
   /// Floating panels (dock, palette, detail pane): frosted glass.
   /// Neutral dark at 76 % over Mica (no white haze), or white at 84 %.
-  Color get panel => isDark ? const Color(0xC2141518) : const Color(0xD6FFFFFF);
+  Color get panel => isDark ? const Color(0xA3181A1F) : const Color(0xB8FFFFFF);
 
   /// The dock, a little quieter than panels.
-  Color get rail => isDark ? const Color(0xB8111214) : const Color(0xC7FFFFFF);
+  Color get rail => isDark ? const Color(0x94141519) : const Color(0xADFFFFFF);
 
   /// Cards on the backdrop: fainter than panels, brighter when hovered.
-  Color get card => isDark ? const Color(0xA6141518) : const Color(0xBFFFFFFF);
+  Color get card => isDark ? const Color(0x85181A1F) : const Color(0x9EFFFFFF);
   Color get cardHover => isDark ? const Color(0x0FFFFFFF) : const Color(0x0A000000);
 
   /// A selected row: a quiet lift, the orange only in its small indicator.
   Color get selected => isDark ? const Color(0x17FFFFFF) : const Color(0x12000000);
 
   /// The 1 px light rim on the top edge of glass, fading down the sides.
-  Color get rimLight => isDark ? const Color(0x1FFFFFFF) : const Color(0x1A000000);
+  Color get rimLight => isDark ? const Color(0x38FFFFFF) : const Color(0xF2FFFFFF);
   Color get rimShade => isDark ? const Color(0x14FFFFFF) : const Color(0x14000000);
 
   /// The backdrop's two glows.
