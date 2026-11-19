@@ -52,11 +52,12 @@ class _BackdropPainter extends CustomPainter {
     void glow(double x, double y, double radius, Color col) => canvas.drawRect(
       r,
       Paint()
-        ..shader = ui.Gradient.radial(Offset(size.width * x, size.height * y), big * radius, [
-          col,
-          col.withValues(alpha: col.a * .45),
-          col.withValues(alpha: 0),
-        ], const [0, .45, 1]),
+        ..shader = ui.Gradient.radial(
+          Offset(size.width * x, size.height * y),
+          big * radius,
+          [col, col.withValues(alpha: col.a * .45), col.withValues(alpha: 0)],
+          const [0, .45, 1],
+        ),
     );
     glow(.10, .05, .55, c.glowWarm);
     glow(.55, .55, .45, c.glowMagenta);
@@ -126,10 +127,17 @@ class Glass extends StatelessWidget {
         ),
       ],
     };
+    // the frost (sheen and grain) sits on its own cached layer: hovering, scrolling or typing inside a panel
+    // never repaints it
     Widget body = CustomPaint(
-      painter: _FrostPainter(radius, c),
       foregroundPainter: _RimPainter(radius, rim, c),
-      child: Padding(padding: padding ?? EdgeInsets.zero, child: child),
+      child: Stack(
+        fit: StackFit.passthrough,
+        children: [
+          Positioned.fill(child: RepaintBoundary(child: CustomPaint(painter: _FrostPainter(radius, c)))),
+          Padding(padding: padding ?? EdgeInsets.zero, child: child),
+        ],
+      ),
     );
     if (level == GlassLevel.blur && !Glass.noBlur) {
       body = ClipRSuperellipse(
@@ -191,6 +199,7 @@ class _FrostPainter extends CustomPainter {
       x = (x * 1103515245 + 12345) & 0x7fffffff;
       return (x % 9600) / 100.0;
     }
+
     return [for (var i = 0; i < 260; i++) Offset(next(), next())];
   }();
 
@@ -207,17 +216,28 @@ class _FrostPainter extends CustomPainter {
           c.sheen.withValues(alpha: 0),
         ]),
     );
-    final dot = Paint()
-      ..color = c.grain
-      ..strokeWidth = 1
-      ..strokeCap = StrokeCap.square;
-    for (var ty = 0.0; ty < size.height; ty += 96) {
-      for (var tx = 0.0; tx < size.width; tx += 96) {
-        canvas.drawPoints(ui.PointMode.points, [for (final g in _grain) g.translate(tx, ty)], dot);
-      }
-    }
+    // one draw: a 96 px grain tile made once per colour, repeated
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()..shader = ui.ImageShader(_tile(c.grain), TileMode.repeated, TileMode.repeated, Matrix4.identity().storage),
+    );
     canvas.restore();
   }
+
+  static final Map<int, ui.Image> _tiles = {};
+
+  static ui.Image _tile(Color grain) => _tiles.putIfAbsent(grain.toARGB32(), () {
+    final rec = ui.PictureRecorder();
+    final cv = Canvas(rec);
+    cv.drawPoints(ui.PointMode.points, _grain, Paint()
+      ..color = grain
+      ..strokeWidth = 1
+      ..strokeCap = StrokeCap.square);
+    final pic = rec.endRecording();
+    final img = pic.toImageSync(96, 96);
+    pic.dispose();
+    return img;
+  });
 
   @override
   bool shouldRepaint(_FrostPainter old) => old.radius != radius || old.c != c;

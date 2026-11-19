@@ -16,6 +16,7 @@ import '../../app/theme/typography.dart';
 import '../../engine/engine_api.dart' show Link;
 import '../../engine/models/result.dart';
 import '../../state/categories.dart';
+import '../../widgets/smooth_scroll.dart';
 import '../../widgets/common.dart';
 import '../../widgets/glass.dart';
 import '../../widgets/icons.dart';
@@ -103,7 +104,7 @@ class _HomeViewState extends State<HomeView> {
     final s = AppScope.of(context);
     // compact: a short line, the categories as a strip of tiles, then what changed lately; all of it visible at
     // 1180 x 760 without scrolling, top-left, the rest of the window shows the map
-    return SingleChildScrollView(
+    return SmoothScroll(builder: (sc) => SingleChildScrollView(controller: sc, 
       padding: const EdgeInsets.fromLTRB(NbSpace.gutter, 0, NbSpace.gutter, NbSpace.x5),
       child: Align(
         alignment: Alignment.topLeft,
@@ -165,7 +166,7 @@ class _HomeViewState extends State<HomeView> {
           ),
         ),
       ),
-    );
+    ));
   }
 }
 

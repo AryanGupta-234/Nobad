@@ -10,6 +10,7 @@ import '../../app/theme/tokens.dart';
 import '../../app/theme/typography.dart';
 import '../../engine/engine_api.dart';
 import '../../state/categories.dart';
+import '../../widgets/smooth_scroll.dart';
 import '../../widgets/common.dart';
 import '../../widgets/glass.dart';
 import '../../widgets/icons.dart';
@@ -81,7 +82,7 @@ class Sidebar extends StatelessWidget {
                     ),
                   ),
                   Expanded(
-                    child: ListView(
+                    child: SmoothScroll(builder: (sc) => ListView(controller: sc, 
                       padding: EdgeInsets.zero,
                       children: [
                         _Item(
@@ -127,7 +128,7 @@ class Sidebar extends StatelessWidget {
                               onTap: () => s.nav.showPage(p),
                             ),
                       ],
-                    ),
+                    )),
                   ),
                   const _Status(),
                 ],
