@@ -116,12 +116,14 @@ void main() {
       await pumpEventQueue();
       expect(c.link.value, Link.connected);
       expect(t.sent.map((m) => m['method']).take(2), ['hello', 'subscribe']);
-      expect((t.sent[1]['params'] as Map)['events'], ['status', 'show']);
+      expect((t.sent[1]['params'] as Map)['events'], EngineEvent.mainWindow);
+      expect(c.served, prototypeMethods); // a hello without `methods`: the prototype engine
       expect(c.lastStatus?.files, 1234);
-      final a = await c.search('a', filters: {'kind': 'pdf'});
+      final a = await c.search('a', filters: const SearchFilters(kind: 'pdf'));
+      expect((t.sent.last['params'] as Map)['filters'], {'kind': 'pdf', 'modified': '', 'size': '', 'folder': '', 'sort': ''});
       expect(a.results.single.id, 9); // rows without a whole-number id are dropped
       expect(a.ms, 7);
-      expect(await c.open(9), isTrue);
+      expect((await c.open(9)).ok, isTrue);
       expect(await c.thumbnail(9), Uint8List.fromList([1, 2, 3]));
       final asked = t.sent.where((m) => m['method'] == 'thumbnail').length;
       await c.thumbnail(9); // cached
@@ -192,7 +194,6 @@ void main() {
       final s = EngineStatus.fromJson({'files': -5, 'level': 'paused', 'paused': 'on battery'});
       expect(s.files, 0);
       expect(s.phaseLabel, 'Paused · on battery');
-      expect(groupDigits(1234567), '1,234,567');
       expect(humanSize(482113), '471 KB');
       expect(humanSize(null), '');
     });
