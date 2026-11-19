@@ -252,7 +252,20 @@ class Wiring:
                 log(f"engine: hotkey {hk.spec} not available (another app, or the NOBAD Find window, has it)",
                     "warn")
                 self.events.notice(BAR_TAKEN if i else MAIN_TAKEN)
+        threading.Thread(target=self._watch_closed, daemon=True, name="closed-watch").start()
         return self.keys
+
+    WATCH_S = 15.0
+
+    def _watch_closed(self):
+        """Backs up _all_closed for windows that end hidden without saying so (a quick find bar that never got
+        the focus, a UI that hung up mid-way): once any UI has connected, a look every WATCH_S seconds quits when
+        no window is open. Never before a UI connected, so a background start (autostart) keeps running."""
+        seen = False
+        while not self.stop.wait(self.WATCH_S):
+            seen = seen or bool(self.ui_pids())
+            if seen and not self.settings.get("stay_running"):
+                self._close_check()
 
 
 def start_tray(settings, api, governor, wiring):
