@@ -29,7 +29,8 @@ implement WireGuard itself: it drives the official **WireGuard for Windows** (`w
      netwatch.NetWatch         sleep and network-change detection, trusted-network rules
      netintel.agent.FixAgent   optional DNS fix agent (off by default)
      tray.Tray                 pystray icon (optional)
-     window.WindowManager      main window + mini window (pywebview)
+     window.WindowManager      main window + mini window (pywebview), or, with NOBAD_VPN_UI=flutter:
+     rpc.Rpc                   the engine pipe for the Flutter window (ui\nobad_vpn_ui.exe, as the user; section 7.4)
    watchdog (separate process: --watchdog <pid>)
    boot guard (scheduled task as SYSTEM: --guard)
 ```
@@ -199,6 +200,8 @@ usage of the running session, stop the engine threads, stop the tray, remove `in
 | `autostart.py` | scheduled tasks: start with Windows, no-UAC launcher, boot guard; legacy task removal |
 | `updater.py` | update manifest, download, SHA-256 and Authenticode checks, silent install |
 | `server.py` | loopback HTTP server, token, Host/Origin checks, static whitelist, CSP, SSE |
+| `rpc/` | the engine pipe for the Flutter window: protocol, parameter allowlist (`params.py`), caller check and access list (`security.py`), named-pipe server, events, starting the window as the user (`launch.py`) |
+| `geoip.py` | offline endpoint country lookup from the bundled DB-IP Lite file |
 | `api.py` | POST handlers (`/api/<name>`), setting side effects, WireGuard install work, diagnostics export, crash report endpoints |
 | `logbus.py` | SSE fan-out, in-memory log ring (200 entries), rotating log file, key scrubbing |
 | `notify.py` | in-app and Windows notifications (tray balloon, else a PowerShell toast); 5 s rate limit per kind |
@@ -458,6 +461,16 @@ load it calls `/api/startup_checks`, which always runs the quick network check a
 respects `ip_lookup`); the speed test, service checks and VALORANT checks are added only when `startup_checks` is on.
 
 ---
+
+### 7.4 The engine pipe (Flutter window, NOBAD VPN 2.0)
+
+With `NOBAD_VPN_UI=flutter` (or `both`) the engine also serves `\\.\pipe\NOBADVPN-<user SID>` (JSON-RPC 2.0, one
+line per message) for the Flutter window, which runs as the signed-in user. It reaches the same `api.HANDLERS` as
+`POST /api/<name>`, after a parameter allowlist (`rpc/params.py`), and pushes the same events as `/events`, as
+notifications named after the event, to the windows that subscribed to them. With `flutter`, `ctx.windows` is
+`rpc.FlutterWindows`: the tray and the single-instance hand-off show windows through the pipe, and the engine owns no
+window. The security design (access list, Medium label, caller check by impersonation, owner check on the window's
+side, residual risk) is [UI-PIPE.md](UI-PIPE.md); the contract is `contract/`.
 
 ## 8. Network Intelligence engine (`nobadvpn/netintel/`)
 

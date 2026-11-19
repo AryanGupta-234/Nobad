@@ -21,6 +21,14 @@ They are used unmodified.
 | Microsoft Visual C++ runtime (`VCRUNTIME140.dll`) | required by Python | Microsoft Visual C++ Redistributable license |
 | [jsQR](https://github.com/cozmo/jsQR) (`nobadvpn/ui/vendor/jsqr.js`) | reading WireGuard QR codes | Apache-2.0 (`nobadvpn/ui/vendor/jsqr.LICENSE.txt`) |
 
+### NOBAD VPN 2.0 window (`ui\`, the Flutter UI)
+
+| Component | Used for | License |
+|---|---|---|
+| [Flutter](https://flutter.dev/) engine and framework, [Dart](https://dart.dev/) runtime | the window and tray pop-up (`ui\nobad_vpn_ui.exe`, `flutter_windows.dll`, `data\`) | BSD-3-Clause (the engine also contains Skia, BSD-3-Clause, and other permissively licensed parts listed in `ui\data\flutter_assets\NOTICES.Z`) |
+| [material_ui](https://pub.dev/packages/material_ui), [ffi](https://pub.dev/packages/ffi) | text fields, menus, dialogs; native calls | BSD-3-Clause |
+| [IP to Country Lite](https://db-ip.com/db/download/ip-to-country-lite) by [DB-IP](https://db-ip.com) (`nobadvpn\data\geoip-country.bin`) | placing each server on the map offline, from its endpoint address | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Reduced to sorted ranges by `packaging/make_geoip.py`; no other change. |
+
 ## pystray (LGPL-3.0)
 
 pystray is used without modification. The complete source of NOBAD VPN and its build script

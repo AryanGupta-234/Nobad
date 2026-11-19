@@ -1,0 +1,864 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "NOBAD VPN engine pipe: method parameters",
+  "protocol": 1,
+  "description": "Generated from nobadvpn/rpc/params.py SPEC; do not edit by hand.",
+  "methods": {
+    "hello": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {},
+      "required": []
+    },
+    "subscribe": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "events": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 40,
+            "pattern": "^(?:[a-z_]{1,40})$"
+          }
+        }
+      },
+      "required": [
+        "events"
+      ]
+    },
+    "unsubscribe": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "events": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 40,
+            "pattern": "^(?:[a-z_]{1,40})$"
+          }
+        }
+      },
+      "required": [
+        "events"
+      ]
+    },
+    "state": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {},
+      "required": []
+    },
+    "ui_shown": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "window": {
+          "type": "string",
+          "enum": [
+            "main",
+            "mini"
+          ]
+        }
+      },
+      "required": [
+        "window"
+      ]
+    },
+    "ui_hidden": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "window": {
+          "type": "string",
+          "enum": [
+            "main",
+            "mini"
+          ]
+        }
+      },
+      "required": [
+        "window"
+      ]
+    },
+    "ui_show": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "window": {
+          "type": "string",
+          "enum": [
+            "main",
+            "mini"
+          ]
+        }
+      },
+      "required": [
+        "window"
+      ]
+    },
+    "connect": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 32,
+          "pattern": "^(?:[A-Za-z0-9_=+.\\-]{1,32})$",
+          "description": "a server (config) name"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "disconnect": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {},
+      "required": []
+    },
+    "fastest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {},
+      "required": []
+    },
+    "smart": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "service": {
+          "type": "string",
+          "enum": [
+            "",
+            "netflix",
+            "youtube",
+            "disney",
+            "prime",
+            "spotify",
+            "twitch"
+          ]
+        }
+      },
+      "required": []
+    },
+    "probe": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {},
+      "required": []
+    },
+    "favorite": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 32,
+          "pattern": "^(?:[A-Za-z0-9_=+.\\-]{1,32})$",
+          "description": "a server (config) name"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "endpoint_check": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 32,
+          "pattern": "^(?:[A-Za-z0-9_=+.\\-]{1,32})$",
+          "description": "a server (config) name"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "dismiss_error": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {},
+      "required": []
+    },
+    "panic_reset": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {},
+      "required": []
+    },
+    "net_repair": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": [
+            "undo",
+            "quick",
+            "full"
+          ]
+        }
+      },
+      "required": [
+        "level"
+      ]
+    },
+    "net_changes": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {},
+      "required": []
+    },
+    "settings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "type": "string",
+          "maxLength": 40,
+          "pattern": "^(?:[a-z0-9_]{1,40})$"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string",
+              "maxLength": 2000
+            },
+            {
+              "type": "array",
+              "maxItems": 100,
+              "items": {
+                "type": "string",
+                "maxLength": 64
+              }
+            }
+          ]
+        }
+      },
+      "required": [
+        "key",
+        "value"
+      ]
+    },
+    "theme": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "value": {
+          "type": "string",
+          "enum": [
+            "dark",
+            "light"
+          ]
+        }
+      },
+      "required": [
+        "value"
+      ]
+    },
+    "wizard_done": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {},
+      "required": []
+    },
+    "trusted_add": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 64
+        }
+      },
+      "required": []
+    },
+    "current_network": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {},
+      "required": []
+    },
+    "rescan": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {},
+      "required": []
+    },
+    "open_configs": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {},
+      "required": []
+    },
+    "import": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^(?:[^\\\\/:*?\\\"<>|]{1,128})$"
+        },
+        "content": {
+          "type": "string",
+          "maxLength": 400000
+        }
+      },
+      "required": [
+        "name",
+        "content"
+      ]
+    },
+    "import_url": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "url": {
+          "type": "string",
+          "maxLength": 2048,
+          "pattern": "^(?:https://[^\\s]{1,2040})$"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 64
+        }
+      },
+      "required": [
+        "url"
+      ]
+    },
+    "free_scan": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {},
+      "required": []
+    },
+    "free_import": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "files": {
+          "type": "array",
+          "maxItems": 40,
+          "items": {
+            "type": "string",
+            "maxLength": 128,
+            "pattern": "^(?:[^\\\\/:*?\\\"<>|]{1,128})$"
+          }
+        }
+      },
+      "required": [
+        "files"
+      ]
+    },
+    "config_get": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 32,
+          "pattern": "^(?:[A-Za-z0-9_=+.\\-]{1,32})$",
+          "description": "a server (config) name"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "config_validate": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 32,
+          "pattern": "^(?:(?:[A-Za-z0-9_=+.\\-]{1,32})?)$"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 400000
+        }
+      },
+      "required": [
+        "name",
+        "text"
+      ]
+    },
+    "config_save": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 32,
+          "pattern": "^(?:[A-Za-z0-9_=+.\\-]{1,32})$",
+          "description": "a server (config) name"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 400000
+        }
+      },
+      "required": [
+        "name",
+        "text"
+      ]
+    },
+    "config_delete": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 32,
+          "pattern": "^(?:[A-Za-z0-9_=+.\\-]{1,32})$",
+          "description": "a server (config) name"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "network_diagnose": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {},
+      "required": []
+    },
+    "startup_checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {},
+      "required": []
+    },
+    "valorant_probe": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {},
+      "required": []
+    },
+    "gaming_probe": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "host": {
+          "type": "string",
+          "maxLength": 253,
+          "pattern": "^(?:[A-Za-z0-9.:\\-\\[\\]]{1,253})$",
+          "description": "a host name or an IP address"
+        }
+      },
+      "required": [
+        "host"
+      ]
+    },
+    "flush_dns": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {},
+      "required": []
+    },
+    "speedtest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {},
+      "required": []
+    },
+    "streamcheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {},
+      "required": []
+    },
+    "ipinfo": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {},
+      "required": []
+    },
+    "guard_check": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {},
+      "required": []
+    },
+    "usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "days": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 400
+        }
+      },
+      "required": []
+    },
+    "reach_test": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {},
+      "required": []
+    },
+    "reach_forget": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {},
+      "required": []
+    },
+    "et_run": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {},
+      "required": []
+    },
+    "install_wireguard": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {},
+      "required": []
+    },
+    "elevate": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {},
+      "required": []
+    },
+    "open_url": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "type": "string",
+          "enum": [
+            "wireguard_install",
+            "neverssl",
+            "firewall_settings",
+            "proton_signup",
+            "proton_downloads",
+            "warp_app",
+            "portal"
+          ]
+        }
+      },
+      "required": [
+        "key"
+      ]
+    },
+    "diagnostics_export": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {},
+      "required": []
+    },
+    "report_problem": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "crash": {
+          "type": "boolean"
+        }
+      },
+      "required": []
+    },
+    "update_check": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {},
+      "required": []
+    },
+    "update_install": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {},
+      "required": []
+    },
+    "crash_pending": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {},
+      "required": []
+    },
+    "crash_send": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "file": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(?:crash-[A-Za-z0-9_.\\-]{1,70}\\.json)$"
+        }
+      },
+      "required": [
+        "file"
+      ]
+    },
+    "crash_dismiss": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "file": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^(?:crash-[A-Za-z0-9_.\\-]{1,70}\\.json)$"
+        }
+      },
+      "required": [
+        "file"
+      ]
+    },
+    "quit": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "disconnect": {
+          "type": "boolean"
+        }
+      },
+      "required": []
+    },
+    "ni_overview": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {},
+      "required": []
+    },
+    "ni_investigate": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "type": "string",
+          "maxLength": 253,
+          "pattern": "^(?:[^\\s\\x00-\\x1f]{1,253})$",
+          "description": "a site the user typed (normalised and checked by netintel)"
+        }
+      },
+      "required": [
+        "target"
+      ]
+    },
+    "ni_lookup": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 253,
+          "pattern": "^(?:[^\\s\\x00-\\x1f]{1,253})$",
+          "description": "a site the user typed (normalised and checked by netintel)"
+        },
+        "types": {
+          "type": "array",
+          "maxItems": 7,
+          "items": {
+            "type": "string",
+            "enum": [
+              "A",
+              "AAAA",
+              "CNAME",
+              "MX",
+              "TXT",
+              "NS",
+              "SOA"
+            ]
+          }
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "ni_vpn": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {},
+      "required": []
+    },
+    "ni_history": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {},
+      "required": []
+    },
+    "ni_history_clear": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {},
+      "required": []
+    },
+    "ni_fix": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 12,
+          "pattern": "^(?:[0-9]{1,12})$"
+        }
+      },
+      "required": [
+        "id"
+      ]
+    },
+    "ni_rollback": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "entry": {
+          "type": "string",
+          "maxLength": 32,
+          "pattern": "^(?:[0-9a-f]{1,32})$"
+        }
+      },
+      "required": [
+        "entry"
+      ]
+    },
+    "si_status": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {},
+      "required": []
+    },
+    "si_key": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "type": "string",
+          "maxLength": 512,
+          "pattern": "^(?:[A-Za-z0-9._\\-]{1,512})$"
+        }
+      },
+      "required": [
+        "key"
+      ]
+    },
+    "si_key_clear": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {},
+      "required": []
+    },
+    "si_search": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "q": {
+          "type": "string",
+          "maxLength": 200
+        }
+      },
+      "required": [
+        "q"
+      ]
+    },
+    "si_title": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "type": "string",
+          "maxLength": 40,
+          "pattern": "^(?:(?:movie|tv):[0-9]{1,9}|wd:Q[0-9]{1,12})$"
+        },
+        "force": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "key"
+      ]
+    },
+    "si_providers": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "region": {
+          "type": "string",
+          "maxLength": 2,
+          "pattern": "^(?:(?:[A-Za-z]{2})?)$"
+        }
+      },
+      "required": []
+    },
+    "si_prefs": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "my_services": {
+          "type": "array",
+          "maxItems": 200,
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9999999
+          }
+        }
+      },
+      "required": [
+        "my_services"
+      ]
+    },
+    "si_verify": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "country": {
+          "type": "string",
+          "maxLength": 2,
+          "pattern": "^(?:[A-Za-z]{2})$"
+        },
+        "services": {
+          "type": "array",
+          "maxItems": 4,
+          "items": {
+            "type": "string",
+            "maxLength": 20,
+            "pattern": "^(?:[a-z]{2,20})$"
+          }
+        }
+      },
+      "required": [
+        "country"
+      ]
+    },
+    "si_open": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "url": {
+          "type": "string",
+          "maxLength": 2000,
+          "pattern": "^(?:https?://[^\\s]{1,1990})$"
+        },
+        "confirm": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "url"
+      ]
+    },
+    "si_cache_clear": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {},
+      "required": []
+    }
+  }
+}

@@ -297,7 +297,7 @@ def _message_box(title, text, ok=True):
 def _run_main_process(args):
     from . import splash
     from .server import TOKEN, make_server
-    from .window import WindowManager, set_dpi_awareness
+    from .window import set_dpi_awareness
     want_window = (not args.background) or autostart.consume_show_flag()
     if lifecycle.handoff_to_running(show=want_window):
         splash.close()
@@ -323,7 +323,7 @@ def _run_main_process(args):
         splash.close()
     url = f"http://127.0.0.1:{port}"
     set_dpi_awareness()
-    wm = WindowManager(url)
+    wm = _windows(url)
     ctx.windows = wm
     spawn(_background_start, tunnel)
     clean = False
@@ -350,7 +350,7 @@ def _run_main_process(args):
         clean = True
     finally:
         splash.close()
-        for step in (wm.save_state, ctx.netwatch.stop, tunnel.flush_usage, tunnel.stop, ctx.tray.stop,
+        for step in (wm.save_state, ctx.netwatch.stop, tunnel.flush_usage, tunnel.stop, ctx.tray.stop, _stop_rpc,
                      lifecycle.remove_instance):
             try:
                 step()
@@ -358,6 +358,30 @@ def _run_main_process(args):
                 log(f"shutdown step {getattr(step, '__name__', step)} failed: {e}", "warn")
         if clean:
             lifecycle.mark_clean_exit()  # tells the watchdog (and the next start) this was a normal exit
+
+
+def _windows(url):
+    """NOBAD's windows for this launch (rpc.launch.ui_mode): the WebView windows (today's default), or the Flutter
+    UI over the engine pipe, which then is the only window the user sees ("flutter"), or both side by side
+    ("both", for checking parity). The pipe never starts unless NOBAD_VPN_UI asks for it and the UI is there."""
+    from .window import WindowManager
+    from .rpc import launch
+    mode = launch.ui_mode()
+    if mode != "webview":
+        from . import rpc
+        ctx.rpc = rpc.start(mode)
+        if ctx.rpc is None:
+            log("NOBAD's Flutter window couldn't get its pipe: using the classic window", "warn")
+        elif mode == "flutter":
+            log("NOBAD's window is the Flutter UI (engine pipe)", "info")
+            return rpc.FlutterWindows(ctx.rpc)
+    return WindowManager(url)
+
+
+def _stop_rpc():
+    if ctx.rpc is not None:
+        ctx.rpc.stop()
+        ctx.rpc = None
 
 
 def main(argv=None):

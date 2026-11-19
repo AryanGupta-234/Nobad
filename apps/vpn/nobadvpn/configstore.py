@@ -107,7 +107,7 @@ def save(name, text, create=False, untrusted=False):
         dpapi.wipe_and_remove(old)
     ctx.tunnel.rescan()
     ctx.tunnel.push()
-    spawn(ctx.tunnel.geo_refresh)
+    spawn(ctx.tunnel.geo_refresh, True)          # just imported: place it on the map (offline)
     log(("imported " if create else "saved ") + name + (" (encrypted)" if enc else ""), "ok")
     note = "Reconnect to apply the change." if (ctx.tunnel.active == name and ctx.tunnel.connected) else ""
     return {"ok": True, "name": name, "warnings": res["warnings"], "note": note}

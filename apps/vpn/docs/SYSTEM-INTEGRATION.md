@@ -78,6 +78,18 @@ SYSTEM and Administrators only. Setting the environment variable `NOBAD_DATA_DIR
 
 ---
 
+### The 2.0 window (Flutter UI, off by default until the release switches to it)
+
+| What | Where | Who |
+|---|---|---|
+| Engine pipe | `\\.\pipe\NOBADVPN-<SID of the signed-in user>`: created by the elevated engine only when the Flutter window is selected (`NOBAD_VPN_UI`); access for that user, SYSTEM and Administrators, Medium label, no remote clients (docs/UI-PIPE.md) | engine (elevated) |
+| Window size and place | `HKCU\Software\NOBAD\NOBAD VPN\Window` (`X`, `Y`, `Width`, `Height`, `Dpi`) | the window (as the user) |
+| Offline country database | `{app}\nobadvpn\data\geoip-country.bin` (read-only; built by `packaging/make_geoip.py`; nothing is downloaded at runtime) | engine |
+
+The window is started as the signed-in user with the desktop shell's token (or, if that fails, through a one-shot
+scheduled task with a limited, interactive principal, deleted right after), never with the engine's administrator
+token. It makes no network connection of its own.
+
 ## 3. Scheduled tasks
 
 All three are registered through PowerShell `Register-ScheduledTask` and checked with `schtasks /Query /TN <name> /XML`.
