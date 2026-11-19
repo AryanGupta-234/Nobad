@@ -34,6 +34,7 @@ enum NbGlyph {
   shield,
   keyboard,
   info,
+  more,
 }
 
 /// Windows 11's own outline icons (the Segoe Fluent Icons font that ships with Windows; nothing bundled), one set
@@ -77,6 +78,7 @@ class NbIcon extends StatelessWidget {
     NbGlyph.shield: 0xEA18,
     NbGlyph.keyboard: 0xE765,
     NbGlyph.info: 0xE946,
+    NbGlyph.more: 0xE712,
   };
 
   @override

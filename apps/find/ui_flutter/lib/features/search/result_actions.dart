@@ -133,8 +133,7 @@ class _ActionChip extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (glyph != null) NbIcon(glyph!, size: 14, color: primary ? c.onOrange : (p.lit ? c.text : c.muted)),
-            if (glyph == null)
-              Text('⋯', style: NbType.text(15, p.lit ? c.text : c.muted, weight: FontWeight.w700, height: 1)),
+            if (glyph == null) NbIcon(NbGlyph.more, size: 14, color: p.lit ? c.text : c.muted),
             if (!compact && glyph != null) ...[
               const SizedBox(width: 6),
               Text(
