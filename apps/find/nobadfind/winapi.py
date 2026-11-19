@@ -253,6 +253,49 @@ def _window_title(hwnd):
     return buf.value
 
 
+class _BROWSEINFOW(ctypes.Structure):
+    _fields_ = [("hwndOwner", wintypes.HWND), ("pidlRoot", ctypes.c_void_p), ("pszDisplayName", wintypes.LPWSTR),
+                ("lpszTitle", wintypes.LPCWSTR), ("ulFlags", wintypes.UINT), ("lpfn", ctypes.c_void_p),
+                ("lParam", wintypes.LPARAM), ("iImage", ctypes.c_int)]
+
+
+def _browse_folder(title, out):
+    ole32, sh = ctypes.WinDLL("ole32"), ctypes.WinDLL("shell32")
+    sh.SHBrowseForFolderW.argtypes = [ctypes.POINTER(_BROWSEINFOW)]
+    sh.SHBrowseForFolderW.restype = ctypes.c_void_p
+    sh.SHGetPathFromIDListW.argtypes = [ctypes.c_void_p, wintypes.LPWSTR]
+    ole32.CoTaskMemFree.argtypes = [ctypes.c_void_p]
+    inited = ole32.CoInitializeEx(None, 0x2) in (0, 1)           # COINIT_APARTMENTTHREADED: the dialog needs STA
+    try:
+        name = ctypes.create_unicode_buffer(260)
+        info = _BROWSEINFOW(None, None, ctypes.cast(name, wintypes.LPWSTR), title,
+                            0x1 | 0x40, None, 0, 0)                 # BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE
+        pidl = sh.SHBrowseForFolderW(ctypes.byref(info))
+        if pidl:
+            try:
+                path = ctypes.create_unicode_buffer(260)
+                if sh.SHGetPathFromIDListW(pidl, path):
+                    out.append(path.value)
+            finally:
+                ole32.CoTaskMemFree(pidl)
+    finally:
+        if inited:
+            ole32.CoUninitialize()
+
+
+def pick_folder(title="Choose a folder for NOBAD Find"):
+    """Windows' folder dialog, shown by this process (the engine, for the pipe's pick_folder). The chosen folder,
+    or "" if cancelled. Runs on a thread of its own so COM is set up the way the dialog needs."""
+    if not WIN:
+        return ""
+    import threading
+    out = []
+    t = threading.Thread(target=_browse_folder, args=(title, out), daemon=True, name="folder-dialog")
+    t.start()
+    t.join()
+    return out[0] if out else ""
+
+
 def foreground_window():
     if not WIN:
         return 0

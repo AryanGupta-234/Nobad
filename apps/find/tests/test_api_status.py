@@ -391,10 +391,10 @@ def _exposed(obj, base="", out=None, seen=None):
     return out
 
 
-API_METHODS = {"download_model", "download_photo_model", "forget", "get_settings", "hardware", "heartbeat",
+API_METHODS = {"download_model", "download_photo_model", "downloads", "forget", "get_settings", "hardware", "heartbeat",
                "here_folder", "hide", "learned_apps", "open", "page_visible", "path_of", "pause_for", "pick_folder",
                "quit", "rescan", "reset_learned", "resume", "reveal", "search", "set_settings", "status",
-               "status_brief", "thumbnail",
+               "status_brief", "thumbnail", "ui_shown",
                "use_instead_of_windows_search", "wipe", "wsearch_set", "wsearch_state"}
 
 

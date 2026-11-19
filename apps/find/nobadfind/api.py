@@ -49,8 +49,10 @@ class Api:
         self._prev = None                 # (time, cpu_seconds, read_bytes) of the last status() call
         self._pcpu = {}                   # pid -> (time, cpu_seconds)
         self._progress = {k: deque(maxlen=RATE_WINDOW) for k, _l in PHASES}
-        self._dl = {}                     # model id -> (time, got bytes) for the download speed
+        self._rate = DownloadRate()       # the download speed on the model cards
         self._on_hide = None              # app.py: what hiding the window means for indexing (lifecycle.after_hide)
+        self._on_show = None              # engine.py: the UI's main window came up (indexing resumes)
+        self._folder_dialog = None        # engine.py: the native folder dialog (no pywebview window there)
         self._timer, self._exit = threading.Timer, os._exit     # tests replace them
 
     # ---------- search ----------
@@ -274,13 +276,11 @@ class Api:
         return out
 
     def _download(self, mid, m, now):
-        if m["state"] != "downloading":
-            self._dl.pop(mid, None)
-            return None
-        prev, self._dl[mid] = self._dl.get(mid), (now, m["got"])
-        speed = max(0.0, (m["got"] - prev[1]) / (now - prev[0]) / 1048576) if prev and now > prev[0] else 0.0
-        return {"got_mb": round(m["got"] / 1048576, 1), "size_mb": round(m["size"] / 1048576, 1),
-                "mb_s": round(speed, 2)}
+        return self._rate.sample(mid, m, now)
+
+    def downloads(self):
+        """Each model download's state ({"state", "got", "size", "error"}, bytes), for the pipe's download event."""
+        return {"meaning": dict(self._model), "photo": dict(self._photo_model)}
 
     def _models(self, now, st, procs):
         """Cards describe the model doing the work (its worker process), else the in-process query encoder."""
@@ -378,7 +378,8 @@ class Api:
     def pick_folder(self):
         w = self._win()
         if not w:
-            return {"path": ""}
+            dialog = self._folder_dialog          # the engine: Windows' own dialog, shown by this process
+            return {"path": (dialog() or "") if dialog is not None else ""}
         import webview
         r = w.create_file_dialog(webview.FOLDER_DIALOG)
         return {"path": r[0] if r else ""}
@@ -486,6 +487,12 @@ class Api:
             self._watchdog.page_visible(bool(on))
         return {"ok": True}
 
+    def ui_shown(self):
+        """The UI's main window came up (the pipe's ui_shown): indexing resumes if closing had stopped it."""
+        if self._on_show is not None:
+            self._on_show()
+        return {"ok": True}
+
     def hide(self):
         self.visible = False
         w = self._win()
@@ -518,6 +525,23 @@ class Api:
         self._indexer.stop()
         self._indexer.join(5)                  # a database write in progress is committed first
         self._exit(0)
+
+
+class DownloadRate:
+    """MB done, MB in all and MB/s of one download from successive looks at its {"state", "got", "size"}."""
+
+    def __init__(self):
+        self._last = {}                   # model id -> (time, got bytes)
+
+    def sample(self, mid, m, now):
+        """{"got_mb", "size_mb", "mb_s"} while m is downloading, else None (and the speed starts over)."""
+        if m["state"] != "downloading":
+            self._last.pop(mid, None)
+            return None
+        prev, self._last[mid] = self._last.get(mid), (now, m["got"])
+        speed = max(0.0, (m["got"] - prev[1]) / (now - prev[0]) / 1048576) if prev and now > prev[0] else 0.0
+        return {"got_mb": round(m["got"] / 1048576, 1), "size_mb": round(m["size"] / 1048576, 1),
+                "mb_s": round(speed, 2)}
 
 
 def reveal_in_explorer(path):
@@ -555,4 +579,4 @@ def set_autostart(on):
                 pass
 
 
-__all__ = ["Api", "reveal_in_explorer", "set_autostart", "sys"]
+__all__ = ["Api", "DownloadRate", "reveal_in_explorer", "set_autostart", "sys"]
