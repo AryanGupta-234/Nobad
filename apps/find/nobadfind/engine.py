@@ -24,11 +24,16 @@ from .log import init as init_log, log
 DEFAULT_DATA_DIR = os.path.join(os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"), "NOBAD", "Find")
 
 
+def _canon(path):
+    """One spelling per folder: junctions, symbolic links and 8.3 short names resolved, case folded."""
+    return os.path.normcase(os.path.realpath(os.path.abspath(path)))
+
+
 def lock_name(data_dir=DATA_DIR, default=DEFAULT_DATA_DIR):
     """The single-instance mutex: the app's own for the default index, a separate one for another data folder."""
-    if os.path.normcase(os.path.abspath(data_dir)) == os.path.normcase(os.path.abspath(default)):
+    if _canon(data_dir) == _canon(default):
         return "Local\\NOBAD-Find"
-    digest = hashlib.sha256(os.path.normcase(os.path.abspath(data_dir)).encode("utf-8")).hexdigest()[:16]
+    digest = hashlib.sha256(_canon(data_dir).encode("utf-8")).hexdigest()[:16]
     return "Local\\NOBAD-Find-engine-" + digest
 
 
@@ -67,6 +72,28 @@ def here_finder(api, events, ui_pids, foreground=winapi.foreground_window, windo
     return pressed
 
 
+MEASURE_LEVELS = ("full", "gentle", "light", "paused")
+
+
+def measure_overrides(env, data_dir=DATA_DIR, default=DEFAULT_DATA_DIR, base=None):
+    """Dev only (apps/find/tools/measure.py): with a separate index (NOBAD_FIND_DATA_DIR), the engine may serve
+    its own pipe (NOBAD_FIND_MEASURE_PIPE, letters/digits/dashes) so it runs next to another engine, and keep one
+    work level (NOBAD_FIND_MEASURE_LEVEL). Ignored with the real index. {"level", "pipe"}, None = not asked."""
+    out = {"level": None, "pipe": None}
+    if _canon(data_dir) == _canon(default):
+        return out
+    level = env.get("NOBAD_FIND_MEASURE_LEVEL", "")
+    if level in MEASURE_LEVELS:
+        out["level"] = level
+    tag = env.get("NOBAD_FIND_MEASURE_PIPE", "")
+    if tag and len(tag) <= 32 and all(c.isascii() and (c.isalnum() or c == "-") for c in tag):
+        if base is None:
+            from .rpc.server import pipe_name
+            base = pipe_name()
+        out["pipe"] = f"{base}-measure-{tag}"
+    return out
+
+
 MAIN_TAKEN = "The hotkey is used by another app. Pick another one in Settings."
 
 
@@ -80,13 +107,15 @@ class Wiring:
     - Quit sends quitting, and stops the engine only once the reply is written (protocol.after_reply).
     - A hotkey another app holds becomes a notice."""
 
-    def __init__(self, api, settings, indexer, events, stop, ui_pids, make_hotkey=None, dialog=None):
+    def __init__(self, api, settings, indexer, events, stop, ui_pids, make_hotkey=None, dialog=None,
+                 trim=winapi.trim_working_set):
         from . import lifecycle
         self.api, self.settings, self.indexer, self.events, self.stop = api, settings, indexer, events, stop
         self.ui_pids = ui_pids
         self.make_hotkey = make_hotkey
         self.keys = []
-        self.life = lifecycle.Window(indexer, not settings.get("keep_background"), log, quitting=stop.is_set)
+        self.life = lifecycle.Window(indexer, not settings.get("keep_background"), log, quitting=stop.is_set,
+                                     trim=trim)
         api._folder_dialog = dialog if dialog is not None else winapi.pick_folder
         api._on_show = self._shown
         api._on_hide = lambda: lifecycle.after_hide(self.life, settings, bool(self.keys and self.keys[0].ok),
@@ -159,6 +188,10 @@ def main(stop=None):
                                                            "visible", "names")})
     apps = AppMemory(store)
     governor = Governor(settings, apps, activity, watchdog=watchdog, release_idle=hooks["release_idle"])
+    measure = measure_overrides(os.environ)
+    if measure["level"]:
+        governor.brain.fixed = measure["level"]
+        log(f"engine: level fixed at {measure['level']} for a measurement", "warn")
     governor.start()
     indexer = Indexer(store, settings, vindex, governor=governor, activity=activity)
     ui["indexer"] = indexer
@@ -167,7 +200,7 @@ def main(stop=None):
     api._watchdog, api.visible = watchdog, False          # no page heartbeats: the pipe closing tells instead
     api._governor, api._activity, api._apps = governor, activity, apps
     ui["api"] = api
-    rpc = Rpc(api, activity=activity)
+    rpc = Rpc(api, name=measure["pipe"], activity=activity)
     wiring = Wiring(api, settings, indexer, rpc.events, stop, rpc.ui_pids)
     if not rpc.start():
         print("The NOBAD Find pipe is in use: another engine is running for this user.")

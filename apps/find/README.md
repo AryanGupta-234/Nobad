@@ -34,7 +34,7 @@ they're about, and tells you why each result matched.
   full speed, gently, lightly (one worker) or not at all, always with a one-line reason. A game alone doesn't
   stop it: it only pauses when the PC is really busy, an app stops responding or memory runs low. It remembers
   apps that lagged (by program name only) and gives them room next time. It pauses on battery, during
-  presentations and during calls. Its own processes run in Windows background mode inside one Windows job, so
+  presentations and during calls. Its worker processes run at low CPU, memory and disk priority inside one Windows job, so
   quitting or a crash ends every one of them; a watchdog ends its own stuck or oversized workers.
 - **Full transparency.** The Indexing page shows each phase with progress and time left, NOBAD Find's own CPU,
   memory, disk and graphics use per process, every model (size, licence, in memory or not, CPU or GPU) and

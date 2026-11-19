@@ -696,6 +696,20 @@ def memory_status():
     return (int(m.dwMemoryLoad), int(m.ullAvailPhys // 1048576))
 
 
+def memory_status_total_mb():
+    """The PC's physical memory in MB; 0 if Windows can't say."""
+    if not WIN:
+        return 0
+    m = _MEMSTATUS()
+    m.dwLength = ctypes.sizeof(m)
+    try:
+        if not k32.GlobalMemoryStatusEx(ctypes.byref(m)):
+            return 0
+    except Exception:
+        return 0
+    return int(m.ullTotalPhys // 1048576)
+
+
 class _PDH_VALUE(ctypes.Structure):
     _fields_ = [("CStatus", wintypes.DWORD), ("doubleValue", ctypes.c_double)]
 
@@ -852,3 +866,103 @@ def _set_types():
 
 
 _set_types()
+
+
+# ---------- Find's own processes: EcoQoS, working set (ROADMAP Phase 1) ----------
+class _PowerThrottling(ctypes.Structure):
+    _fields_ = [("Version", wintypes.DWORD), ("ControlMask", wintypes.DWORD), ("StateMask", wintypes.DWORD)]
+
+
+_THROTTLE_EXECUTION_SPEED = 0x1         # PROCESS_POWER_THROTTLING_EXECUTION_SPEED
+_PROCESS_POWER_THROTTLING = 4           # PROCESS_INFORMATION_CLASS.ProcessPowerThrottling
+_SET_INFORMATION_QUOTA = 0x0200 | 0x0100 | 0x0400 | 0x1000   # set information + set quota + query (limited)
+_own = None
+
+
+def _own_dll():
+    """kernel32/psapi with their own argtypes (they don't leak into the rest of winapi)."""
+    global _own
+    if _own is None:
+        k, ps = ctypes.WinDLL("kernel32", use_last_error=True), ctypes.WinDLL("psapi", use_last_error=True)
+        k.OpenProcess.restype = wintypes.HANDLE
+        k.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+        k.GetCurrentProcess.restype = wintypes.HANDLE
+        k.CloseHandle.argtypes = [wintypes.HANDLE]
+        k.SetProcessInformation.argtypes = [wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD]
+        k.SetPriorityClass.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+        k.IsProcessInJob.argtypes = [wintypes.HANDLE, wintypes.HANDLE, ctypes.POINTER(wintypes.BOOL)]
+        ps.EmptyWorkingSet.argtypes = [wintypes.HANDLE]
+        _own = (k, ps)
+    return _own
+
+
+def _with_process(pid, fn):
+    """fn(handle) on this process (pid None) or on one of Find's own processes. False when it can't be opened."""
+    if not WIN:
+        return False
+    k, _ps = _own_dll()
+    if pid is None:
+        return bool(fn(k.GetCurrentProcess()))
+    h = k.OpenProcess(_SET_INFORMATION_QUOTA, False, int(pid))
+    if not h:
+        return False
+    try:
+        return bool(fn(h))
+    finally:
+        k.CloseHandle(h)
+
+
+def eco_qos(on=True, pid=None, job=None):
+    """EcoQoS ("efficiency mode", Task Manager's leaf): Windows runs the process on efficiency cores at low clocks.
+    Only for Find's worker processes (the governor, at Light and Paused). job: the worker job's handle; the process
+    must still be in it (a worker that ended may have its pid reused by another program). True if applied."""
+    st = _PowerThrottling(1, _THROTTLE_EXECUTION_SPEED, _THROTTLE_EXECUTION_SPEED if on else 0)
+
+    def apply(h):
+        k, _ps = _own_dll()
+        if job is not None:
+            inside = wintypes.BOOL()
+            if not k.IsProcessInJob(h, job, ctypes.byref(inside)) or not inside.value:
+                return False
+        return k.SetProcessInformation(h, _PROCESS_POWER_THROTTLING, ctypes.byref(st), ctypes.sizeof(st))
+    try:
+        return _with_process(pid, apply)
+    except (OSError, AttributeError):          # Windows before 10 1709 has no power throttling
+        return False
+
+
+def trim_working_set(pid=None):
+    """Hand the working set back to Windows (EmptyWorkingSet): what's needed again is paged back in on use.
+    For Find's own processes only, when they go idle. True if done."""
+    try:
+        return _with_process(pid, lambda h: _own_dll()[1].EmptyWorkingSet(h))
+    except OSError:
+        return False
+
+
+_IDLE_PRIORITY_CLASS, _NORMAL_PRIORITY_CLASS = 0x40, 0x20
+_MEMORY_PRIORITY_LOW, _MEMORY_PRIORITY_NORMAL = 2, 5
+_IO_VERY_LOW, _IO_NORMAL = 0, 2
+_PROCESS_MEMORY_PRIORITY, _PROCESS_IO_PRIORITY = 0, 33
+
+
+def worker_priority(low=True):
+    """A worker process steps aside: idle CPU priority, low memory priority (its pages are the first Windows
+    reuses) and very low I/O priority, or back to normal (low=False). Not Windows background mode: entered as a
+    process starts, background mode pins its working set near 32 MB, and a reader parsing a PDF then page-faults
+    about 400 times as often (20x slower; docs/measurements.md). Only for Find's own workers, on themselves."""
+    if not WIN:
+        return False
+    k, _ps = _own_dll()
+    h = k.GetCurrentProcess()
+    ok = bool(k.SetPriorityClass(h, _IDLE_PRIORITY_CLASS if low else _NORMAL_PRIORITY_CLASS))
+    mem = wintypes.ULONG(_MEMORY_PRIORITY_LOW if low else _MEMORY_PRIORITY_NORMAL)
+    ok = bool(k.SetProcessInformation(h, _PROCESS_MEMORY_PRIORITY, ctypes.byref(mem), 4)) and ok
+    try:
+        nt = ctypes.WinDLL("ntdll")
+        nt.NtSetInformationProcess.argtypes = [wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.ULONG]
+        io = wintypes.ULONG(_IO_VERY_LOW if low else _IO_NORMAL)
+        ok = nt.NtSetInformationProcess(h, _PROCESS_IO_PRIORITY, ctypes.byref(io), 4) == 0 and ok
+    except (OSError, AttributeError):
+        ok = False
+    return ok

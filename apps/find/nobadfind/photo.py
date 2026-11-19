@@ -31,6 +31,7 @@ PHOTO_DIM = 768
 SIDE = 224
 TEXT_LEN = 64
 EOS = 1                                   # "</s>": SigLIP pads with it too
+OUT_OF_MEMORY = "out of memory"           # the worker job's limit: read again (as extract.OUT_OF_MEMORY)
 MAX_PHOTO_BYTES = 60 * 1024 * 1024
 MIN_PHOTO_BYTES = 12 * 1024               # smaller files are icons, buttons and thumbnails
 MAX_PIXELS = 80_000_000                   # a small file may claim a huge picture: not decoded
@@ -87,6 +88,8 @@ def decode_224(data):
 
 
 _vision = None
+_threads = [2]                                        # set by init_worker from the level (indexer._photo_vectors)
+QUESTION_THREADS = 4                                  # a photo question while you type: 45 ms on 2 threads, 28 on 4
 
 
 def _vision_session(model_dir):
@@ -94,7 +97,7 @@ def _vision_session(model_dir):
     if _vision is None:
         import onnxruntime as ort
         opts = ort.SessionOptions()
-        opts.intra_op_num_threads = 2                 # one photo worker, gently
+        opts.intra_op_num_threads = _threads[0]       # 2.4 photos/s on 2 threads, 7.1 on 8 (CPU-capped by level)
         opts.log_severity_level = 3
         _vision = ort.InferenceSession(os.path.join(model_dir, "vision.onnx"), opts,
                                        providers=["CPUExecutionProvider"])
@@ -119,7 +122,7 @@ def embed_photo(job):
         out = _vision_session(model_dir).run(["pooler_output"], {"pixel_values": pixels[None]})[0]
         return file_id, mtime, _unit(out[0]).astype(np.float16).tobytes(), None
     except MemoryError:
-        return file_id, mtime, b"", "too big"
+        return file_id, mtime, b"", OUT_OF_MEMORY
     except Exception as e:                            # one bad photo never stops the others
         return file_id, mtime, b"", f"unreadable ({type(e).__name__})"
 
@@ -129,18 +132,19 @@ _mode = [True]
 
 def embed_photos(jobs, fast=False):
     """Worker entry for a batch: [(file_id, path, mtime, model_dir), ...] -> results like embed_photo.
-    fast: you're away from the PC, so the worker leaves Windows background mode for this batch."""
+    fast: you're away from the PC, so the worker runs at normal priority for this batch."""
     if fast == _mode[0]:
         from . import winapi
-        winapi.background_mode(not fast)
+        winapi.worker_priority(not fast)
         _mode[0] = not fast
     return [embed_photo(j) for j in jobs]
 
 
-def init_worker():
+def init_worker(threads=2):
     from . import jobs, winapi
+    _threads[0] = max(1, int(threads))
     jobs.join_workers()            # into Find's worker group (CPU-capped, ends with the app)
-    winapi.background_mode()
+    winapi.worker_priority()
     # winrt carries an older C++ runtime; onnxruntime must be loaded first (see ocr._load)
     import importlib
     importlib.import_module("onnxruntime")
@@ -160,7 +164,7 @@ class TextEncoder:
         from tokenizers import Tokenizer
         self.tok = Tokenizer.from_file(os.path.join(model_dir, "tokenizer.json"))
         opts = ort.SessionOptions()
-        opts.intra_op_num_threads = threads or 2
+        opts.intra_op_num_threads = threads or QUESTION_THREADS
         opts.log_severity_level = 3
         self.sess = ort.InferenceSession(os.path.join(model_dir, "text.onnx"), opts, providers=["CPUExecutionProvider"])
         self._lock = threading.Lock()

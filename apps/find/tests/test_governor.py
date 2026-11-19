@@ -259,3 +259,12 @@ def test_working_is_measured_in_cores_not_a_share_of_all_cpus():
     idle = FakeApps()
     brain(idle, cpu_count=32).decide(smp(0, hung=True, find_cpu=0.5, **GAME))
     assert idle.lags == []
+
+
+def test_fixed_level_for_measurements_wins_over_the_sensors():
+    b = brain()
+    b.fixed = g.LIGHT
+    d = b.decide(smp(t=0, idle_s=999, cpu=1.0))
+    assert d.level == g.LIGHT and "measurement" in d.reason
+    b.fixed = g.FULL
+    assert b.decide(smp(t=1, battery=True), ).level == g.FULL

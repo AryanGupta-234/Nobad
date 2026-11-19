@@ -76,7 +76,8 @@ def make(tmp_path, **changes):
     conn.events.update({"quitting", "notice", "show"})
     ev = Events(lambda: [conn], lambda c: None, api)
     stop = threading.Event()
-    w = engine.Wiring(api, st, ix, ev, stop, ui_pids=lambda: set(), make_hotkey=Key, dialog=lambda: "C:\\x")
+    w = engine.Wiring(api, st, ix, ev, stop, ui_pids=lambda: set(), make_hotkey=Key, dialog=lambda: "C:\\x",
+                      trim=lambda: None)
     return w, api, ix, ev, conn, stop
 
 
@@ -172,3 +173,31 @@ def test_only_one_folder_dialog_at_a_time(monkeypatch):
     gate.set()
     t.join(3)
     assert got == ["C:\\chosen"]
+
+
+def test_measure_overrides_only_with_a_separate_index():
+    env = {"NOBAD_FIND_MEASURE_LEVEL": "light", "NOBAD_FIND_MEASURE_PIPE": "run1"}
+    assert engine.measure_overrides(env, r"C:/D/NOBAD/Find", r"C:/D/NOBAD/Find") == {"level": None, "pipe": None}
+    got = engine.measure_overrides(env, r"C:/tmp/m", r"C:/D/NOBAD/Find", base="PIPE-S-1-5")
+    assert got == {"level": "light", "pipe": "PIPE-S-1-5-measure-run1"}
+
+
+def test_measure_overrides_refuse_odd_values():
+    env = {"NOBAD_FIND_MEASURE_LEVEL": "turbo", "NOBAD_FIND_MEASURE_PIPE": "../x"}
+    assert engine.measure_overrides(env, r"C:/tmp/m", r"C:/D", base="p") == {"level": None, "pipe": None}
+    assert engine.measure_overrides({}, r"C:/tmp/m", r"C:/D", base="p") == {"level": None, "pipe": None}
+
+
+def test_the_real_index_is_recognised_under_another_spelling(tmp_path):
+    """An 8.3 short name (or a junction) for the default folder is still the real index: no dev switches, and the
+    app's own lock."""
+    import ctypes
+    import pytest
+    real = tmp_path / "Real Index Folder"
+    real.mkdir()
+    buf = ctypes.create_unicode_buffer(1024)
+    if not ctypes.windll.kernel32.GetShortPathNameW(str(real), buf, 1024) or buf.value.lower() == str(real).lower():
+        pytest.skip("no 8.3 names on this drive")
+    env = {"NOBAD_FIND_MEASURE_LEVEL": "light", "NOBAD_FIND_MEASURE_PIPE": "x"}
+    assert engine.measure_overrides(env, buf.value, str(real), base="p") == {"level": None, "pipe": None}
+    assert engine.lock_name(buf.value, str(real)) == "Local\\NOBAD-Find"
