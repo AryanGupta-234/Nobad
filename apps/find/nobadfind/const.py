@@ -89,6 +89,10 @@ DEFAULTS = {
     "glass": True,                  # see-through acrylic window on Windows 11 (follows Windows' transparency switch)
     "bg_notice_seen": False,        # the one-time "closing keeps NOBAD Find ready" notice was dismissed
     "welcome_seen": False,          # the Flutter UI's first-run welcome was dismissed (Start searching)
+    "tray": True,                   # NOBAD Find's icon in the notification area (the engine's, works with the UI closed)
+    "text_model": "minilm-l6-v2",   # meaning model (models.CATALOG, feature "text"); used once it is downloaded
+    "photo_model": "siglip-base",   # photo model (models.CATALOG, feature "photo")
+    "language_focus": "",           # "" = from Windows languages; "english", "multilingual" or "hindi" (Settings -> Models)
     # What to index (scope.py). Old settings get a scope from their roots: [] = whole_pc, folders = custom.
     "scope": "whole_pc",            # whole_pc | my_files | custom (custom = the folders in roots)
     "include_system": True,         # Windows, Program Files, ProgramData, Recovery, PerfLogs

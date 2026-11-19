@@ -1,8 +1,29 @@
 # NOBAD Find changelog
 
-## Unreleased
+## Unreleased (0.8.0)
+
+### Added
+- Choose your models in Settings → Models. NOBAD Find looks at your PC (memory, cores, graphics card, disk) and your
+  Windows languages, and recommends Light, Balanced or Best, for English first, many languages, or Hindi. Each
+  model shows what it improves, its licence, its download size and how much memory it needs. Nothing downloads
+  without your OK, and Auto-configure sets up everything else.
+- Better English meaning search with GTE small (measured on a set of 68 questions, much of it phrased without any
+  of the file's words).
+- Hindi and mixed Hindi and English: multilingual-e5 finds Hindi files by meaning, and questions in Hindi or
+  Hinglish ("pichle hafte ki rent wali pdf", "पिछले महीने का बिजली बिल") understand kinds, times, sizes and folders
+  like English ones do. Hindi words in the text index stay whole.
+- Photos with questions in many languages (SigLIP 2, Best tier).
+- Switching the meaning model rebuilds it in the background; search keeps working with the old model until the new
+  one is ready.
+- A NOBAD Find icon in the notification area: open, the quick find bar, pause for an hour, Settings, Index, Quit.
+- The hotkey or the icon opens NOBAD Find's window when it isn't running.
+- "Open with" for a result.
 
 ### Changed
+- One- and two-letter searches, and "photos" alone, stay fast on a whole-PC index (a million files: under 25 ms a
+  keystroke, was up to half a second), and an older search stops as soon as you type the next letter.
+- "electricity bill march" finds the March bill even when it changed in another month.
+- Folders no longer crowd the results of a meaning search.
 - Much less memory: the background workers no longer load the whole app (about 4 GB committed while indexing on a
   16-thread PC, now about 0.4 GB), and the main process commits about 35 MB instead of 520 MB when idle.
 - Indexing is 3-6 times faster: the workers use low CPU, memory and disk priority instead of Windows background mode,

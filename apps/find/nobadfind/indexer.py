@@ -15,7 +15,7 @@ import time
 
 import numpy as np
 
-from . import embed, extract, ocr, photo, scope, winapi
+from . import embed, extract, models, ocr, photo, scope, winapi
 from .governor import FULL, PAUSED, workers_for
 from .kinds import READABLE_EXT, kind_of
 from .log import log
@@ -59,6 +59,17 @@ def _kill_pool(pool):
             pass
 
 
+def vector_model(store):
+    """Catalog id of the model the index's meaning vectors come from; None while there are none. Indexes made
+    before 0.8.0 have all-MiniLM-L6-v2 vectors and no id."""
+    mid = store.meta("vec_model")
+    if mid:
+        return mid
+    if store.one("SELECT 1 FROM nvecs LIMIT 1") or store.one("SELECT 1 FROM vecs LIMIT 1"):
+        return "minilm-l6-v2"
+    return None
+
+
 def plan(settings, roots):
     """How hard to work on this PC: walk threads per drive type, text workers from the CPU."""
     cpu = os.cpu_count() or 2
@@ -84,7 +95,11 @@ class Indexer:
         self.vindex = vindex
         self.embedder = None             # the query encoder for live search (CPU, in this process)
         self._vectors_in_worker = False  # index-time vectors come from the meaning worker (the real model)
-        self._mpool, self._mpool_gpu = None, None
+        self.vectors_in_process = False  # tests: index-time vectors from make_embedder, in this process
+        self.text_model = None           # catalog id of the model the index's vectors (and the encoder) use
+        self._passage = {}               # model id -> in-process passage encoder (vectors_in_process only)
+        self._notes = []                 # what _note said (tests read it)
+        self._mpool, self._mpool_gpu, self._mpool_model = None, None, None
         self._text_pool, self._photo_pool = None, None   # for worker_names (the watchdog's messages)
         self.stop_ev = threading.Event()
         self.wake = threading.Event()
@@ -107,6 +122,7 @@ class Indexer:
         self._meaning_fails, self._meaning_retry_at = 0, 0.0     # meaning workers that failed in a row
         self._memory_noted = None        # when the workers' memory limit was last reported
         self.photo_text = None           # the photo model's text half, for questions (when photo meaning is on)
+        self.photo_model = None          # catalog id of the photo model in use
         self.pindex = embed.VectorIndex(photo.PHOTO_DIM, ("SELECT file_id, v FROM pvecs WHERE length(v) > 0",))             # known_drives(), refreshed by the indexer loop (searches read it)
 
     # ---------- control ----------
@@ -259,6 +275,7 @@ class Indexer:
 
     def _note(self, text):
         """A worker Find ended, with the reason, for the activity list (and the log)."""
+        self._notes = (self._notes + [text])[-20:]
         log(text, "warn")
         if self.activity is not None:
             try:
@@ -302,6 +319,13 @@ class Indexer:
     def _run(self):
         self._recycled = False
         try:
+            try:
+                if self.store.upgrade_text_index():
+                    log("text index rebuilt so Hindi words stay whole")
+                if self.store.upgrade_name_index():
+                    log("name word index built (fast one- and two-letter searches)")
+            except Exception as e:
+                log(f"text index upgrade failed: {type(e).__name__}", "warn")
             self.status["plan"] = plan(self.settings, self.roots())
             log(f"indexer plan {self.status['plan']}")
             if self.embedder is None:               # started again after a stop: already loaded
@@ -541,23 +565,55 @@ class Indexer:
             pool.shutdown(wait=True, cancel_futures=True)
             self._text_pool = None
 
+    @staticmethod
+    def make_embedder(mid, query=False):
+        """A text model (models.CATALOG id) in this process: the question encoder (query=True) for live search."""
+        return embed.Embedder(models.model_dir(mid), gpu=False, spec=models.get(mid), query=query)
+
     def _load_embedder(self):
-        if self.settings.get("semantic") and embed.model_ready():
-            try:
-                if not embed.model_ready():
-                    raise RuntimeError("model not downloaded")
-                self.embedder = embed.Lazy(lambda: embed.Embedder(gpu=False), "meaning")    # live search only
-                self._vectors_in_worker = True
-                if self.store.meta("vec_version") != embed.VEC_VERSION:
-                    log("meaning vectors are made a better way now; computing them again")
-                    self.store.drop_vectors()
-                    self.store.set_meta("vec_version", embed.VEC_VERSION)
-                if self.vindex is not None:
-                    self.vindex.load(self.store)
-                log("meaning search on (the model loads when it's needed)")
-            except Exception as e:
-                log(f"meaning search unavailable: {type(e).__name__}", "warn")
-                self.embedder = None
+        """Meaning search with the model the index's vectors come from (indexes before 0.8.0: all-MiniLM). A fresh
+        index starts with the model chosen in Settings; a different choice is built later by _rebuild_vectors."""
+        if not self.settings.get("semantic"):
+            return
+        try:
+            wanted = models.selected(self.settings, "text")
+            active = vector_model(self.store)
+            if active and (models.get(active) is None or not models.ready(active)):
+                if not models.ready(wanted):
+                    log("meaning search unavailable: its model isn't on this PC", "warn")
+                    return
+                log(f"the meaning model {active} is gone; computing vectors again with {wanted}")
+                self.store.drop_vectors()
+                active = None
+            if active is None:
+                if not models.ready(wanted):
+                    return
+                active = wanted
+                self.store.set_meta("vec_model", active)
+            if self.store.meta("vec_version") != embed.VEC_VERSION:
+                log("meaning vectors are made a better way now; computing them again")
+                self.store.drop_vectors()
+                self.store.set_meta("vec_version", embed.VEC_VERSION)
+            blob = self.store.one("SELECT v FROM nvecs WHERE length(v) > 0 LIMIT 1") or \
+                self.store.one("SELECT v FROM vecs LIMIT 1")
+            if blob and len(blob) != 2 * models.get(active)["dim"]:
+                log(f"meaning vectors don't fit {active} (an interrupted switch); computing them again", "warn")
+                self.store.drop_vectors()
+            self._use_text_model(active)
+            log(f"meaning search on with {active} (the model loads when it's needed)")
+        except Exception as e:
+            log(f"meaning search unavailable: {type(e).__name__}", "warn")
+            self.embedder = None
+
+    def _use_text_model(self, mid):
+        """Search with `mid`: its question encoder, and the vectors made with it (never another model's)."""
+        spec = models.get(mid)
+        self.text_model = mid
+        self.embedder = embed.Lazy(lambda: self.make_embedder(mid, True), "meaning", model_id=mid)
+        self._vectors_in_worker = not self.vectors_in_process
+        if self.vindex is not None:
+            self.vindex.reset(spec["dim"], mid)
+            self.vindex.load(self.store)
 
     def _make_vectors(self):
         """Meaning vectors: first for names (short, fast, and the only clue for photos, music or bills),
@@ -567,11 +623,48 @@ class Indexer:
         if self._vectors_in_worker and self._clock() < self._meaning_retry_at:
             return                                  # the worker kept failing: wait (MEANING_BACKOFF)
         try:
-            self._name_vectors()
-            if not self._recycled:
-                self._chunk_vectors()
+            wanted = models.selected(self.settings, "text")
+            switching = bool(wanted) and wanted != self.text_model and models.ready(wanted)
+            if not switching:                       # while switching, only the new model works (one worker)
+                self._name_vectors()
+                if not self._recycled:
+                    self._chunk_vectors()
+            if not self._recycled and not self.stop_ev.is_set():
+                self._rebuild_vectors()
         finally:
             self._end_meaning_pool()                # the worker process ends when there's nothing to do
+
+    def _rebuild_vectors(self):
+        """Another text model was chosen (and is downloaded): its vectors are made beside the current ones (the
+        "rebuild" phase), which stay searchable with their own model until the new set is complete; then the two
+        swap in one transaction and search moves to the new model."""
+        wanted = models.selected(self.settings, "text")
+        if not wanted or wanted == self.text_model or not models.ready(wanted):
+            if self.store.meta("vec_model_next"):
+                self.store.drop_next_vectors()
+                self.store.set_meta("vec_model_next", "")
+            return
+        if self.store.meta("vec_model_next") != wanted:
+            self.store.drop_next_vectors()           # another switch was half done: start over for this one
+            self.store.set_meta("vec_model_next", wanted)
+            log(f"building meaning vectors with {wanted}; {self.text_model} stays in use until they're ready")
+        self.status["rebuild"] = {"from": self.text_model, "to": wanted}
+        self._name_vectors(next=wanted)
+        if not self._recycled:
+            self._chunk_vectors(next=wanted)
+        if self._recycled or self.stop_ev.is_set():
+            return
+        left = self.store.count_chunks_without_vectors(next=True) + self.store.count_names_without_vectors(
+            NAME_KINDS, next=True)
+        if left:
+            return
+        if models.selected(self.settings, "text") != wanted:
+            log(f"the meaning model was changed again during the rebuild; {wanted} isn't used")
+            return                                  # the next round starts the rebuild for the new choice
+        self.store.swap_vectors(wanted)             # the vectors and their model id, in one transaction
+        self.status.pop("rebuild", None)
+        self._use_text_model(wanted)
+        self._note(f"Meaning search now uses {models.get(wanted)['name']}")
 
     def _meaning_pause(self):
         """Before each meaning batch. False: end this phase (stopping, or a long pause ended the worker)."""
@@ -582,62 +675,70 @@ class Indexer:
             return False
         return bool(go)
 
-    def _chunk_vectors(self):
+    def _chunk_vectors(self, next=None):
+        """next: the model being switched to (its vectors go to vecs_next and aren't searched yet)."""
         while not self.stop_ev.is_set():
             if not self._meaning_pause():
                 return
-            rows = self.store.chunks_without_vectors(128)
+            rows = self.store.chunks_without_vectors(128, next=bool(next))
             if not rows:
                 return
-            self.status["phase"] = "meaning"
+            self.status["phase"] = "rebuild" if next else "meaning"
             titles = self.store.chunk_titles([r[0] for r in rows])
-            vecs = self._encode([embed.chunk_text(titles.get(r[0], ""), r[1]) for r in rows])
+            vecs = self._encode([embed.chunk_text(titles.get(r[0], ""), r[1]) for r in rows], next)
             if vecs is None:
                 return
-            self.store.add_vectors([(r[0], embed.to_blob(v)) for r, v in zip(rows, vecs)])
-            if self.vindex is not None:
+            self.store.add_vectors([(r[0], embed.to_blob(v)) for r, v in zip(rows, vecs)], next=bool(next))
+            if self.vindex is not None and not next:
                 self.vindex.add([r[0] for r in rows], vecs)
-            self.status["vectors"] += len(rows)
+            self.status["rebuilt" if next else "vectors"] = self.status.get("rebuilt" if next else "vectors", 0) + len(rows)
             self._breathe()
 
-    def _name_vectors(self):
+    def _name_vectors(self, next=None):
         while not self.stop_ev.is_set():
             if not self._meaning_pause():
                 return
-            rows = self.store.names_without_vectors(NAME_KINDS, 512)
+            rows = self.store.names_without_vectors(NAME_KINDS, 512, next=bool(next))
             if not rows:
                 return
-            self.status["phase"] = "meaning"
+            self.status["phase"] = "rebuild" if next else "meaning"
             texts = {fid: ("" if any(s in d.lower() for s in SKIP_NAME_DIRS) else embed.name_text(n, d))
                      for fid, n, d in rows}
             todo = [fid for fid, t in texts.items() if t]
-            vecs = self._encode([texts[f] for f in todo]) if todo else []
+            vecs = self._encode([texts[f] for f in todo], next) if todo else []
             if vecs is None:
                 return
             blobs = dict(zip(todo, (embed.to_blob(v) for v in vecs)))
-            self.store.add_name_vectors([(fid, blobs.get(fid, b"")) for fid in texts])
-            if self.vindex is not None and todo:
+            self.store.add_name_vectors([(fid, blobs.get(fid, b"")) for fid in texts], next=bool(next))
+            if self.vindex is not None and todo and not next:
                 self.vindex.add([embed.name_key(f) for f in todo], vecs)
-            self.status["vectors"] += len(todo)
+            self.status["rebuilt" if next else "vectors"] = self.status.get("rebuilt" if next else "vectors", 0) + len(todo)
             self._breathe()
 
-    def _encode(self, texts):
+    def _encode(self, texts, mid=None):
         """Index-time vectors, float32 (n, MODEL_DIM), made in the meaning worker process (CPU-capped with the
         other workers). GPU only at Full: when the level changes, the next batch gets a matching worker.
         None when stopping or when the worker failed (the batch is done again next round)."""
+        mid = mid or self.text_model
+        if self.vectors_in_process and mid:
+            if mid not in self._passage:
+                self._passage[mid] = self.make_embedder(mid, False)
+            return self._passage[mid].encode(texts)
         if not self._vectors_in_worker:
             return self.embedder.encode(texts)      # a stand-in model (tests): in this process
         level = self.governor.decision.level if self.governor is not None else FULL
         gpu = level == FULL
-        if self._mpool is not None and self._mpool_gpu != gpu:
+        if self._mpool is not None and (self._mpool_gpu != gpu or self._mpool_model != mid):
             self._end_meaning_pool()
         if self._mpool is None:
             plan_ = self.status.get("plan") or {}
             most = max(1, (os.cpu_count() or 2) // 2)
             threads = min(most, max(1, workers_for(level, plan_))) if plan_ else most
+            spec = models.get(mid) if mid else None
             self._mpool = cf.ProcessPoolExecutor(max_workers=1, initializer=embed.init_meaning_worker,
-                                                 initargs=(embed.MODEL_DIR, threads, gpu))
-            self._mpool_gpu = gpu
+                                                 initargs=(models.model_dir(mid) if mid else embed.MODEL_DIR,
+                                                           threads, gpu, spec))
+            self._mpool_gpu, self._mpool_model = gpu, mid
             log(f"meaning worker started ({'graphics card if there is one' if gpu else 'processor only'}, "
                 f"{threads} threads)")
         texts = list(texts)
@@ -666,10 +767,10 @@ class Indexer:
             self._end_meaning_pool()
             return None
         self._meaning_fails = 0
-        return np.frombuffer(data, np.float32).reshape(len(texts), embed.MODEL_DIM)
+        return np.frombuffer(data, np.float32).reshape(len(texts), -1)
 
     def _end_meaning_pool(self):
-        pool, self._mpool, self._mpool_gpu = self._mpool, None, None
+        pool, self._mpool, self._mpool_gpu, self._mpool_model = self._mpool, None, None, None
         if pool is not None:
             if self.stop_ev.is_set():
                 _kill_pool(pool)                    # stopping: don't wait for the batch in flight
@@ -677,14 +778,29 @@ class Indexer:
 
     # ---------- photo meaning ----------
     def _load_photo(self):
-        if self.settings.get("photo_meaning") and photo.model_ready():
-            try:
-                self.photo_text = embed.Lazy(photo.TextEncoder, "photo text")
-                self.pindex.load(self.store)
-                log(f"photo meaning on ({self.pindex.n} photos ready)")
-            except Exception as e:
-                log(f"photo meaning unavailable: {type(e).__name__}", "warn")
-                self.photo_text = None
+        """Photo meaning with the photo model chosen in Settings. Photo vectors carry the model id; another model
+        starts them again (SigLIP and SigLIP 2 vectors are never compared)."""
+        pid = models.selected(self.settings, "photo")
+        if not pid or not models.ready(pid):
+            return
+        try:
+            had = self.store.meta("pvec_model") or ("siglip-base" if self.store.one(
+                "SELECT 1 FROM pvecs LIMIT 1") else "")
+            if had and had != pid:
+                self.store.drop_photo_vectors()
+                log(f"photo model is now {pid}: the photos are looked at again")
+            self.store.set_meta("pvec_model", pid)
+            spec = models.get(pid)
+            d = models.model_dir(pid)
+            self.photo_model = pid
+            self.photo_text = embed.Lazy(lambda: photo.TextEncoder(d, style=spec.get("style", "siglip")),
+                                         "photo text", model_id=pid)
+            self.pindex.reset(spec["dim"], pid)
+            self.pindex.load(self.store)
+            log(f"photo meaning on with {pid} ({self.pindex.n} photos ready)")
+        except Exception as e:
+            log(f"photo meaning unavailable: {type(e).__name__}", "warn")
+            self.photo_text = None
 
     def _photo_vectors(self):
         """What's in each photo, made in one separate low-priority process (photos are decoded there)."""
@@ -696,6 +812,7 @@ class Indexer:
         threads = min(most, max(1, workers_for(level, plan_))) if plan_ else 2      # as the meaning worker
         pool = cf.ProcessPoolExecutor(max_workers=1, initializer=photo.init_worker, initargs=(threads,))
         self._photo_pool = pool
+        made_with = self.photo_model                 # every batch of this pass is made with this model
         try:
             while not self.stop_ev.is_set():
                 go = self._wait_while_paused(max_wait=RECYCLE_AFTER)
@@ -717,7 +834,8 @@ class Indexer:
                         break
                     batch = rows[i:i + step]
                     away = self._away()
-                    fut = pool.submit(photo.embed_photos, [(f, p, m, photo.PHOTO_DIR) for f, p, m in batch], away)
+                    pdir = models.model_dir(made_with) if made_with else photo.PHOTO_DIR
+                    fut = pool.submit(photo.embed_photos, [(f, p, m, pdir) for f, p, m in batch], away)
                     try:
                         results = self._await(fut, JOB_TIMEOUT)     # paused time doesn't count
                     except (cf.TimeoutError, cf.BrokenExecutor) as e:
@@ -738,6 +856,10 @@ class Indexer:
                     if results is RECYCLE:
                         self._recycle(pool, "photo reader")     # these photos are read again later
                         return
+                    if made_with and (self.photo_model != made_with or self.store.meta("pvec_model") != made_with):
+                        log("photo model changed during the pass: its batch is thrown away, the next pass uses "
+                            "the new model")
+                        return                      # vectors are only written under the model that made them
                     retry = False
                     for fid, mtime, blob, err in results:
                         if err == photo.OUT_OF_MEMORY:

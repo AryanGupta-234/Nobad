@@ -16,7 +16,8 @@ from ..api import DownloadRate
 from ..log import log
 
 EVENTS = {"status", "status_full", "level", "activity", "download", "notice", "show", "here", "quitting",
-          "turbo"}
+          "turbo", "models"}
+MODELS_EVERY = 1.0                 # seconds between looks for a changed models answer (it reads the model folders)
 STATUS_EVERY = 2.0                 # seconds between status events
 TICK = 0.5                         # seconds between looks for level and download changes
 MAX_NOTICES = 5
@@ -152,6 +153,9 @@ class Events:
                 self._safe("level", self._step_level, wanted, out)
             if "download" in wanted:
                 self._safe("download", self._step_downloads, now, out)
+            if "models" in wanted and now - self._models_at >= MODELS_EVERY - 1e-6:
+                self._models_at = now
+                self._safe("models", self._step_models, out)
             if self._last_status is None or now - self._last_status >= self._every - 1e-6:
                 self._last_status = now
                 if "status" in wanted:
@@ -167,6 +171,16 @@ class Events:
         prev, self._level = self._level, level
         if prev is not None and level != prev and "level" in wanted:
             out.append(("level", level))
+
+    _models_at = -1e9
+    _models_last = None
+
+    def _step_models(self, out):
+        m = self._api.models()
+        if m != self._models_last:
+            if self._models_last is not None:
+                out.append(("models", m))
+            self._models_last = m
 
     def _step_downloads(self, now, out):
         for mid, m in self._api.downloads().items():

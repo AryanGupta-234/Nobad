@@ -4,6 +4,249 @@ Numbers decide (ROADMAP §3). Every performance claim points at a row here. Newe
 now; private = committed memory only this process can use (`Get-Process` `WorkingSet64` / `PrivateMemorySize64`,
 summed over the process tree).
 
+## 2026-11-19 (night): review of #80, name results that are right at whole-PC scale (H1)
+
+The first whole-PC fix capped name candidates with `IN (SELECT rowid … MATCH ? LIMIT 2000)`, which keeps the 2,000
+*oldest* rows before any filter or ranking. Its repro: 2,500 `report*.dll` indexed first, then the one
+`Documents\report.pdf`. Searching `report` gave only dlls, and `report pdf` gave nothing. bm25 can't rank instead:
+on the trigram table every match of a word scores the same (-1.05e-6), so ties fall back to rowid order again.
+
+**Now:** the engine counts the word's FTS matches (capped at 20,000, a few ms).
+- Under 20,000: every match is joined and filtered, then ordered by name length (exact).
+- More: the files are walked shortest name first through a covering index `files(length(name), mtime, name, kind, ext)`,
+  with the filters applied, and the walk stops at 150 hits.
+
+Either way the filters are part of the query, so `report pdf` finds the pdf. The index is built once in the
+background with the name-word index: 50 s at a million entries.
+
+**Right answers** (998k-entry synthetic index plus 6,000 long `zebrafile_NNNNN_backup.dll` indexed first, then
+`zebrafile.pdf` last):
+
+| Question | Before the fix: rank of zebrafile.pdf | After |
+|---|---|---|
+| zebrafile | not in the results | **1** |
+| zebrafile pdf | no results at all | **1** |
+| zebra / ze | not in the results | **1 / 1** |
+
+On the plain synthetic index (names spread evenly) both versions match brute-force ground truth for the top 10 on 7
+of 8 questions. The 8th, `setup exe`, is wrong in both: `setup` and `exe` are read as the App kind, a parser matter
+and not H1.
+
+**Speed per keystroke** (`tools/bench_search.py`, 1,004,217 entries, two runs, quiet PC):
+
+| | p50 | p90 | max |
+|---|---|---|---|
+| 1-2 letters | 2.6-2.9 ms | **4.0-4.3 ms** | 7-8 ms |
+| Names, 3+ letters | 14-15 ms | **28-30 ms** | 39-40 ms |
+| Several words | 32-34 ms | **72-74 ms** | 97-109 ms |
+
+Each is within the ≤ 80 ms p90 budget. One run while the PC was busy showed several-word p90 at 156 ms; the quiet runs
+are the numbers above.
+
+Also from the review:
+- a cancelled search now reads as `cancelled: true` on SQLCipher too (its OperationalError isn't sqlite3's);
+- cancelling is per connection *and* `channel`, so the Home list doesn't cancel the search box;
+- Hinglish rules apply only when the focus is Hindi or many languages, or when the question is clearly Hinglish;
+- photo vectors are written only under the model that made them;
+- a rebuild never swaps in a model the user already left, and the swap and its model id are one transaction;
+- vectors that don't fit their model are rebuilt, not left off;
+- one meaning worker per round while switching;
+- `capable` counts the vectors' disk space;
+- one download per model, with its own part files;
+- a photo model starts once downloaded;
+- status cards name the models in use;
+- the tray setting applies live;
+- names and text are NFC.
+
+## 2026-11-19 (0.8.0 engine): text models, English and Hindi search quality, whole-PC search speed
+
+- **Branch:** `find-0.8-engine` (PR #80). **PC:** the reference PC (i5-12500H, 16 threads, 15.7 GB, Windows 11).
+- **Models:** every candidate was fetched once through the engine's own `embed._fetch_verified` (pinned revision,
+  exact size, SHA-256) into a throwaway data folder, never the real index. Licences were checked on each model's
+  card; only MIT and Apache-2.0 are used. OpenAI CLIP isn't one of them.
+- **Search quality:** `python tools/eval_text.py --models-dir <throwaway> --set english|hindi`. The test sets are
+  `tools/evalset/*.json`, all content made up:
+  - **English:** 112 personal files (letters, bills, a lease, payslips, insurance, recipes, READMEs, travel plans;
+    8 long ones with the answer deep inside) and 68 questions: 31 paraphrases with no shared word, 21 keyword and
+    16 mixed.
+  - **Hindi:** 40 files (Devanagari, Hinglish, mixed) and 43 questions: 15 Hindi, 14 Hinglish, 14 cross-language.
+
+  The files are indexed by the engine's own code (extract, chunks, name and chunk vectors) and each question goes
+  through the real `search.search()`. **Model alone** = the best vector per file, with no keywords, filters or
+  floors. **Search** = what a user gets. RAM is one process holding the model (the main process for questions;
+  the meaning worker holds its own copy while indexing). Passages/s are while indexing, on 8 threads.
+- **Not kept:**
+  - LaBSE: its ONNX build lacks the final pooling layer, and it scores lower;
+  - paraphrase-multilingual-MiniLM: lower everywhere;
+  - l3cube Hindi / Indic SBERT (CC-BY-4.0): no ONNX build, and converting needs PyTorch;
+  - arctic-embed s / m, nomic-embed v1.5, gte-base, bge-small: no better than GTE small and slower;
+  - bge-m3: about as good as multilingual-e5-small on Hindi, but 17x slower to index and 821 MB;
+  - SigLIP 2 large: about 880 MB, too big for a question encoder in the main process.
+
+  Their numbers are below. The ONNX OCR (PaddleOCR / RapidOCR, Apache-2.0) is available, but its text detector needs
+  OpenCV-style contour work that isn't in the locked dependencies; it's left for later (see Still open).
+
+#### Text models
+
+#### English set
+
+| Model | MB | RAM MB (1 process) | Passages/s | Model alone R@5 / MRR / nDCG | 0.7.0 search nDCG | 0.8.0 search R@5 / MRR@10 / nDCG@10 | Search p50 / p90 ms |
+|---|---|---|---|---|---|---|---|
+| keywords only (no model) | - | - | - | - | 0.309 | 0.382 / 0.382 / 0.382 | 0.9 / 1.1 |
+| minilm-l6-v2 | 23 | 38 | 32.9 | 0.941 / 0.871 / 0.883 | 0.756 | 0.897 / 0.836 / 0.847 | 6.2 / 9.7 |
+| gte-small | 33 | 56 | 54.3 | 0.941 / 0.880 / 0.903 | 0.801 | 0.897 / 0.864 / 0.873 | 6.7 / 8.3 |
+| bge-small-en-v1.5 | 33 | 54 | 26.5 | 0.934 / 0.876 / 0.891 | 0.771 | 0.882 / 0.842 / 0.851 | 12.5 / 23.0 |
+| arctic-embed-s | 33 | 54 | 23.4 | 0.875 / 0.801 / 0.832 | 0.732 | not run | 12.0 / 24.0 |
+| gte-base | 106 | 128 | 12.9 | 0.941 / 0.898 / 0.908 | 0.785 | 0.897 / 0.859 / 0.864 | 15.2 / 18.8 |
+| bge-base-en-v1.5 | 106 | 125 | 16.3 | 0.949 / 0.909 / 0.917 | 0.778 | 0.882 / 0.859 / 0.864 | 24.9 / 36.7 |
+| arctic-embed-m-v1.5 | 106 | 127 | 11.8 | 0.926 / 0.849 / 0.872 | 0.738 | 0.875 / 0.811 / 0.822 | 24.1 / 33.3 |
+| nomic-embed-text-v1.5 | 131 | 152 | 8.5 | 0.941 / 0.854 / 0.876 | 0.756 | 0.868 / 0.810 / 0.821 | 27.8 / 33.6 |
+| multilingual-e5-small | 129 | 385 | 30.2 | 0.868 / 0.824 / 0.846 | 0.732 | 0.801 / 0.766 / 0.785 | 11.1 / 18.0 |
+| multilingual-e5-base | 282 | 544 | 8.3 | 0.897 / 0.856 / 0.882 | 0.780 | 0.868 / 0.815 / 0.824 | 19.0 / 27.9 |
+| paraphrase-multilingual-minilm | 122 | 386 | 14.0 | 0.904 / 0.828 / 0.855 | 0.724 | 0.846 / 0.801 / 0.817 | 8.3 / 19.9 |
+| labse | 463 | 560 | 5.7 | 0.775 / 0.683 / 0.706 | 0.613 | not run | 28.1 / 66.0 |
+| bge-m3 | 560 | 821 | 3.1 | 0.985 / 0.887 / 0.912 | 0.759 | 0.838 / 0.797 / 0.800 | 25.8 / 32.0 |
+
+By kind of question (0.8.0 search nDCG@10): keyword, mixed, paraphrase
+
+| Model | keyword | mixed | paraphrase |
+|---|---|---|---|
+| keywords only (no model) | 0.952 | 0.375 | 0.000 |
+| minilm-l6-v2 | 0.995 | 0.995 | 0.671 |
+| gte-small | 0.995 | 0.989 | 0.731 |
+| bge-small-en-v1.5 | 0.995 | 0.976 | 0.690 |
+| gte-base | 0.997 | 0.989 | 0.709 |
+| bge-base-en-v1.5 | 0.996 | 0.987 | 0.712 |
+| arctic-embed-m-v1.5 | 0.995 | 0.976 | 0.627 |
+| nomic-embed-text-v1.5 | 0.996 | 0.976 | 0.623 |
+| multilingual-e5-small | 1.000 | 0.989 | 0.535 |
+| multilingual-e5-base | 0.996 | 0.953 | 0.642 |
+| paraphrase-multilingual-minilm | 0.987 | 0.935 | 0.640 |
+| bge-m3 | 0.998 | 0.953 | 0.586 |
+
+#### Hindi set
+
+| Model | MB | RAM MB (1 process) | Passages/s | Model alone R@5 / MRR / nDCG | 0.7.0 search nDCG | 0.8.0 search R@5 / MRR@10 / nDCG@10 | Search p50 / p90 ms |
+|---|---|---|---|---|---|---|---|
+| keywords only (no model) | - | - | - | - | 0.209 | 0.233 / 0.233 / 0.233 | 0.5 / 0.7 |
+| minilm-l6-v2 | 23 | 38 | 84.4 | 0.663 / 0.542 / 0.570 | 0.420 | 0.535 / 0.473 / 0.497 | 4.3 / 5.3 |
+| gte-small | 33 | 56 | 36.8 | 0.674 / 0.514 / 0.562 | 0.454 | 0.593 / 0.525 / 0.546 | 9.2 / 15.5 |
+| bge-small-en-v1.5 | 33 | 54 | 31.7 | 0.698 / 0.525 / 0.580 | 0.469 | 0.640 / 0.544 / 0.572 | 10.5 / 12.9 |
+| arctic-embed-s | 33 | 54 | 41.8 | 0.547 / 0.482 / 0.537 | 0.456 | not run | 11.2 / 14.6 |
+| gte-base | 106 | 128 | 13.1 | 0.674 / 0.517 / 0.569 | 0.446 | 0.570 / 0.477 / 0.520 | 12.7 / 15.9 |
+| bge-base-en-v1.5 | 106 | 125 | 8.7 | 0.698 / 0.589 / 0.635 | 0.479 | 0.593 / 0.537 / 0.567 | 28.2 / 48.7 |
+| arctic-embed-m-v1.5 | 106 | 127 | 13.0 | 0.698 / 0.604 / 0.640 | 0.477 | 0.628 / 0.546 / 0.571 | 29.2 / 41.1 |
+| nomic-embed-text-v1.5 | 131 | 152 | 16.1 | 0.663 / 0.522 / 0.563 | 0.458 | 0.581 / 0.503 / 0.525 | 15.3 / 22.4 |
+| multilingual-e5-small | 129 | 385 | 56.3 | 0.965 / 0.923 / 0.932 | 0.726 | 0.860 / 0.810 / 0.823 | 6.6 / 9.2 |
+| multilingual-e5-base | 282 | 544 | 8.7 | 0.953 / 0.834 / 0.861 | 0.719 | 0.837 / 0.798 / 0.808 | 18.4 / 30.2 |
+| paraphrase-multilingual-minilm | 122 | 386 | 36.2 | 0.919 / 0.704 / 0.757 | 0.569 | 0.791 / 0.640 / 0.691 | 7.1 / 10.8 |
+| labse | 463 | 560 | 23.4 | 0.895 / 0.727 / 0.771 | 0.626 | not run | 10.9 / 17.6 |
+| bge-m3 | 560 | 821 | 3.3 | 0.977 / 0.905 / 0.921 | 0.720 | 0.837 / 0.791 / 0.802 | 36.3 / 53.5 |
+
+By kind of question (0.8.0 search nDCG@10): cross, hindi, hinglish
+
+| Model | cross | hindi | hinglish |
+|---|---|---|---|
+| keywords only (no model) | 0.071 | 0.267 | 0.357 |
+| minilm-l6-v2 | 0.128 | 0.498 | 0.865 |
+| gte-small | 0.214 | 0.548 | 0.876 |
+| bge-small-en-v1.5 | 0.197 | 0.638 | 0.876 |
+| gte-base | 0.147 | 0.557 | 0.853 |
+| bge-base-en-v1.5 | 0.153 | 0.661 | 0.879 |
+| arctic-embed-m-v1.5 | 0.206 | 0.625 | 0.879 |
+| nomic-embed-text-v1.5 | 0.071 | 0.619 | 0.879 |
+| multilingual-e5-small | 0.733 | 0.875 | 0.857 |
+| multilingual-e5-base | 0.688 | 0.875 | 0.857 |
+| paraphrase-multilingual-minilm | 0.549 | 0.702 | 0.822 |
+| bge-m3 | 0.674 | 0.871 | 0.857 |
+
+#### The search changes, one at a time (English, search nDCG@10)
+
+| Variant | none | minilm-l6-v2 | gte-small | bge-base-en-v1.5 |
+|---|---|---|---|---|
+| base | 0.309 | 0.756 | 0.802 | 0.777 |
+| nofloor | 0.309 | 0.771 | 0.801 | 0.779 |
+| noweak | 0.309 | 0.756 | 0.801 | 0.777 |
+| fts_or | 0.459 | 0.534 | 0.539 | 0.535 |
+| synonyms | 0.309 | 0.757 | 0.801 | 0.771 |
+| rrf_equal | 0.309 | 0.756 | 0.801 | 0.777 |
+| meaning_up | 0.309 | 0.756 | 0.802 | 0.778 |
+| floors + soft time + no folder meaning (0.8.0) | 0.382 | 0.847 | 0.873 | 0.864 |
+| floors only (soft time and folder rule off) | 0.309 | 0.771 | 0.793 | 0.774 |
+
+
+**What the 0.8.0 search changes did:** the 0.7.0 search lost 0.08-0.14 nDCG against the model alone. The causes,
+found query by query:
+1. A time word became a filter on when the file changed ("electricity bill march" found nothing, because the March
+   bill changed in April). Now, when such a filter matches no file, the time is read as words and a note says so.
+2. Folders had name vectors and filled the meaning results ("Documents/Home" for "where I live"). They now count
+   only when folders are asked for.
+3. Each model scores on its own scale, so one set of floors for every model was wrong. The floors are now measured
+   per model (5th percentile of right answers, 95th percentile of their distance to the best match) and live in the
+   catalog.
+
+Keeping only what won: OR-ed keywords, synonyms, equal or higher fusion weights and dropping the floors alone each
+changed nDCG by under 0.02 or made it worse (OR: -0.22), so they stay off and remain as switches in
+`search.VARIANTS` to measure again. Not tried yet: a cross-encoder reranker and longer-document chunking.
+
+**What was picked** (`nobadfind/models.py`):
+
+| Tier | English first | Many languages | Hindi |
+|---|---|---|---|
+| Light | GTE small (33 MB, 56 MB RAM, 0.873) | all-MiniLM-L6-v2 | all-MiniLM-L6-v2 |
+| Balanced | GTE small | multilingual-e5-small (129 MB, 385 MB RAM; Hindi 0.823) | multilingual-e5-small |
+| Best | GTE small (BGE base is offered; no better here, 3x slower) | multilingual-e5-base | multilingual-e5-small |
+
+The focus is recommended from Windows' display and keyboard languages: a Hindi language means Hindi, another
+non-English one means many languages, else English first. The user can change it (`model_language`). On a Light PC
+(< 8 GB or ≤ 4 cores) a Hindi or many-languages user still gets all-MiniLM, because e5 small holds 385 MB in each
+process that loads it.
+
+**Where e5's memory goes:** 256 MB of its 385 MB is the tokenizer (`tokenizers` with XLM-R's 250,000-piece
+vocabulary) and 130 MB the ONNX session; for all-MiniLM those are 7 and 32 MB. The graph optimisation level changes
+nothing (383-385 MB at every level).
+
+#### Photo models
+
+| Model | Download | Question encoder RAM (main) | Photo worker RAM (vision) | A question | 16 pictures, English: right one first / mean rank | Hindi questions: mean rank (8.5 = chance) |
+|---|---|---|---|---|---|---|
+| SigLIP base | 211 MB | 156 MB | 144 MB | 56-65 ms | 16/16, 1.0 | 8.5 |
+| SigLIP 2 base | 393 MB | 370 MB | 139 MB | 63 ms | 16/16, 1.0 | **3.6** |
+
+The pictures are made-up coloured shapes (4 colours x 4 shapes), with questions like "a red circle" / "लाल गोला".
+SigLIP 2 base is the Best tier's photo model: same speed, and it understands Hindi questions somewhat. It costs
+another 214 MB in the main process while photo meaning is in use.
+
+#### Search speed at whole-PC scale (`python tools/bench_search.py --rows 1000000`)
+
+A synthetic index of 998,212 file entries (realistic names, folders and kinds, no text or vectors). 16 questions
+are typed one letter at a time through `search.search()`; the cache is warm.
+
+| Per keystroke | 0.8.0 before the fix: p50 / p90 / max | After: p50 / p90 / max |
+|---|---|---|
+| 1-2 letters (30) | 467 / 539 / 641 ms | **6.8 / 12.6 / 13.7 ms** |
+| Names, 3+ letters (44) | 169 / 238 / 357 ms | **16.9 / 22.5 / 24.0 ms** |
+| Several words (16) | 88 / 295 / 317 ms | **20.4 / 39.8 / 46.7 ms** |
+
+- One or two letters used `name LIKE '%ta%'`, a scan of every row. They now use `names_w`: the words of every name
+  in an FTS5 table with a prefix index, matching names with a word that starts with them. It's filled once in the
+  background (6.5 s at a million entries), then kept up by triggers.
+- "photos" alone (every photo, newest first) sorted them all: a `files(kind, mtime)` index fixed it (318-485 ms →
+  under 25 ms).
+- At most 2,000 name matches are looked at per question.
+- A newer keystroke from the same pipe client cancels the search still running (SQLite progress handler). Its answer
+  would be thrown away anyway.
+- #79 measured p90 2.5 s / max 13 s on a real 940k-entry index with text, where the same scans were the cause. This
+  bench has no text chunks, so a run on #79's index is the check still to do after both are merged.
+
+#### Still open
+- ONNX OCR for Devanagari: Windows OCR has no Hindi at all (Windows.Media.Ocr doesn't support hi-IN; this PC has
+  en-GB, en-US and pt-BR). The PaddleOCR / RapidOCR models (Apache-2.0) exist, but need a text detector with
+  contour post-processing; not built.
+- A cross-encoder reranker (Best tier) and chunking tuned for long documents: not tried.
+- e5's 256 MB tokenizer in each process: a smaller tokenizer (or one shared process for the question encoders) would
+  bring the many-languages tiers down a lot.
+- #79's "closed engine at about one core" from its backlog wasn't reproduced here (this branch doesn't have #79).
 ## 2026-11-19 (evening): a whole PC by name (the new default scope), and the turbo helper's own parts
 
 - **Why:** the new defaults (maintainer decision 2026-11-19) index Windows, Program Files, ProgramData and AppData too

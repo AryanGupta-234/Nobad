@@ -39,6 +39,11 @@ def coerce(key, value):
     if key in ("hotkey", "bar_hotkey"):
         v = str(value).lower().replace(" ", "")
         return v if _HOTKEY.match(v) else d
+    if key in ("text_model", "photo_model"):
+        from . import models
+        return value if isinstance(value, str) and value in models.ids(key[:-6]) else d
+    if key == "language_focus":
+        return value if value in ("", "english", "multilingual", "hindi") else d
     if key == "games_mode":
         return value if value in ("smart", "always", "off") else d
     if key == "wsearch_prev":

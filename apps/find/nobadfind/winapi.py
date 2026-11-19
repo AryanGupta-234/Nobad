@@ -122,6 +122,32 @@ def open_outside_job(path):
     return subprocess.Popen([explorer, path], creationflags=CREATE_BREAKAWAY_FROM_JOB, close_fds=True)
 
 
+def start_outside_job(argv):
+    """Start a program of Find's own (the UI, the Open with helper) outside Find's job, as the normal user:
+    an argument list, never a shell string. Raises OSError when Windows refuses the breakaway."""
+    return subprocess.Popen(list(argv), creationflags=CREATE_BREAKAWAY_FROM_JOB, close_fds=True)
+
+
+OAIF_EXEC = 0x4                 # run the program the user picks (never changes the default: no OAIF_REGISTER_EXT)
+
+
+class _OpenAsInfo(ctypes.Structure):
+    _fields_ = [("pcszFile", wintypes.LPCWSTR), ("pcszClass", wintypes.LPCWSTR), ("oaifInFlags", wintypes.DWORD)]
+
+
+def open_with_dialog(path):
+    """Windows' "Open with" picker for one file, in this (helper) process. 0 when it opened, else 1."""
+    if not WIN:
+        return 1
+    sh = ctypes.WinDLL("shell32")
+    sh.SHOpenWithDialog.argtypes = [wintypes.HWND, ctypes.POINTER(_OpenAsInfo)]
+    sh.SHOpenWithDialog.restype = ctypes.c_long
+    ole = ctypes.WinDLL("ole32")
+    ole.CoInitializeEx(None, 0x2)                       # apartment threaded, as shell dialogs want
+    info = _OpenAsInfo(path, None, OAIF_EXEC)
+    return 0 if sh.SHOpenWithDialog(None, ctypes.byref(info)) == 0 else 1
+
+
 def run_elevated(argv, wait=True, timeout_ms=10 * 60 * 1000):
     """Start argv elevated (UAC). Returns the exit code, or None if the user said no."""
     sei = _SEI()
@@ -966,3 +992,31 @@ def worker_priority(low=True):
     except (OSError, AttributeError):
         ok = False
     return ok
+
+
+def windows_languages():
+    """The user's display languages and keyboard languages, as tags ("en-GB", "hi-IN"); [] if Windows can't say.
+    Read from Windows only (no network): the language focus for Settings -> Models."""
+    if not WIN:
+        return []
+    out = []
+    try:
+        k = ctypes.WinDLL("kernel32")
+        n, size = wintypes.ULONG(), wintypes.ULONG(0)
+        k.GetUserPreferredUILanguages(0x8, ctypes.byref(n), None, ctypes.byref(size))       # MUI_LANGUAGE_NAME
+        buf = ctypes.create_unicode_buffer(size.value or 1)
+        if k.GetUserPreferredUILanguages(0x8, ctypes.byref(n), buf, ctypes.byref(size)):
+            out += [t for t in buf[:size.value].split("\x00") if t]
+        u = ctypes.WinDLL("user32")
+        count = u.GetKeyboardLayoutList(0, None)
+        if count > 0:
+            layouts = (ctypes.c_void_p * count)()
+            u.GetKeyboardLayoutList(count, layouts)
+            name = ctypes.create_unicode_buffer(85)
+            for h in layouts:
+                lang = (h or 0) & 0xFFFF
+                if lang and k.LCIDToLocaleName(lang, name, 85, 0):
+                    out.append(name.value)
+    except Exception:
+        pass
+    return list(dict.fromkeys(out))

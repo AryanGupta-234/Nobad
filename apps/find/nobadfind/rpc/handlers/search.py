@@ -1,9 +1,12 @@
 """search, open, reveal, thumbnail, here_folder, path_of, forget, to_main.
 
 Files are always named by result id, never by a path from the UI: the path comes from the index (Api._path)."""
+import re
+
 from ...search import FILTER_DAYS, FILTER_KINDS, FILTER_SIZES, SORTS
 from ..protocol import INVALID_PARAMS, RpcError, int_param, ok, str_param
 
+CHANNEL = re.compile(r"^[a-z][a-z0-9_]{0,15}$")     # which search of a UI: main, home, bar...
 MAX_TEXT = 2000                     # characters of typed text (search keeps the first 500)
 FILTERS = {"kind": {""} | FILTER_KINDS, "modified": {""} | set(FILTER_DAYS), "size": {""} | set(FILTER_SIZES),
            "sort": set(SORTS), "folder": None}                 # None: any string up to MAX_TEXT
@@ -33,9 +36,12 @@ def _filters(params):
 def _search_result(r):
     """Every search answer in one shape, also the empty and the failed ones (contract: search result)."""
     r = r if isinstance(r, dict) else {}
-    return {"results": list(r.get("results") or []), "understood": list(r.get("understood") or []),
-            "terms": list(r.get("terms") or []), "notes": list(r.get("notes") or []),
-            "more": bool(r.get("more")), "ms": int(r.get("ms") or 0), "error": str(r.get("error") or "")}
+    out = {"results": list(r.get("results") or []), "understood": list(r.get("understood") or []),
+           "terms": list(r.get("terms") or []), "notes": list(r.get("notes") or []),
+           "more": bool(r.get("more")), "ms": int(r.get("ms") or 0), "error": str(r.get("error") or "")}
+    if r.get("cancelled"):
+        out["cancelled"] = True         # a newer search on the same channel replaced it: show nothing from it
+    return out
 
 
 def _path(r):
@@ -45,7 +51,14 @@ def _path(r):
 def methods(api, events=None):
     def search(params, conn=None):
         text = _text(params, "text")
-        return _search_result(api.search(text, _filters(params)))
+        filters = _filters(params)
+        channel = params.get("channel", "main")
+        if not isinstance(channel, str) or not CHANNEL.match(channel):
+            raise RpcError(INVALID_PARAMS, "'channel' is a short name: main, home, bar or similar")
+        if conn is None:
+            return _search_result(api.search(text, filters))
+        # a newer search on this connection and channel cancels this one (the Home list doesn't cancel the box)
+        return _search_result(api.search(text, filters, client=id(conn), channel=channel))
 
     def thumbnail(params, conn=None):
         return {"url": str((api.thumbnail(int_param(params)) or {}).get("url") or "")}
@@ -59,6 +72,7 @@ def methods(api, events=None):
 
     return {"search": search,
             "open": lambda params, conn=None: ok(api.open(int_param(params))),
+            "open_with": lambda params, conn=None: ok(api.open_with(int_param(params))),
             "reveal": lambda params, conn=None: ok(api.reveal(int_param(params))),
             "thumbnail": thumbnail,
             "here_folder": lambda params, conn=None: _path(api.here_folder()),

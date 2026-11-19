@@ -108,10 +108,16 @@ class Wiring:
     - A hotkey another app holds becomes a notice."""
 
     def __init__(self, api, settings, indexer, events, stop, ui_pids, make_hotkey=None, dialog=None,
-                 trim=winapi.trim_working_set):
+                 trim=winapi.trim_working_set, launcher=None):
         from . import lifecycle
         self.api, self.settings, self.indexer, self.events, self.stop = api, settings, indexer, events, stop
         self.ui_pids = ui_pids
+        if launcher is None:
+            from .uilaunch import Launcher
+
+            def launcher(ev):
+                return Launcher(ev, connected=lambda: bool(self.ui_pids()), note=ev.notice)
+        self.ui = launcher(events)            # show(what): the show event, or start the UI on that page
         self.make_hotkey = make_hotkey
         self.keys = []
         self.life = lifecycle.Window(indexer, not settings.get("keep_background"), log, quitting=stop.is_set,
@@ -132,6 +138,21 @@ class Wiring:
         after_reply(self.stop.set)
         return {"ok": True}
 
+    PAUSE_S = 3600
+
+    def tray_action(self, action):
+        """A tray menu item (tray.MENU) or a left click ("open")."""
+        pages = {"open": "main", "bar": "bar", "settings": "settings", "index": "index"}
+        if action in pages:
+            self.ui.show(pages[action])
+        elif action == "pause":
+            self.api.pause_for(self.PAUSE_S)
+        elif action == "resume":
+            self.api.resume()
+        elif action == "quit":
+            self.events.quitting()
+            self.stop.set()
+
     def start(self):
         """Indexing (only with background indexing on) and the hotkeys. Returns the hotkeys."""
         from .bar import TAKEN as BAR_TAKEN
@@ -142,15 +163,29 @@ class Wiring:
             self.indexer.start()
         else:
             log("engine: indexing starts when the UI shows its window")
-        self.keys.append(make(self.settings.get("hotkey"), here_finder(self.api, self.events, self.ui_pids)))
+        self.keys.append(make(self.settings.get("hotkey"), here_finder(self.api, self.ui, self.ui_pids)))
         if self.settings.get("bar"):
-            self.keys.append(make(self.settings.get("bar_hotkey"), lambda: self.events.show("bar"), hk_id=2))
+            self.keys.append(make(self.settings.get("bar_hotkey"), lambda: self.ui.show("bar"), hk_id=2))
         for i, hk in enumerate(self.keys):
             if not hk.start():
                 log(f"engine: hotkey {hk.spec} not available (another app, or the NOBAD Find window, has it)",
                     "warn")
                 self.events.notice(BAR_TAKEN if i else MAIN_TAKEN)
         return self.keys
+
+
+def start_tray(settings, api, governor, wiring):
+    """The notification-area icon (setting "tray"), or None."""
+    if not settings.get("tray"):
+        return None
+    import time
+    from . import tray
+    icon = tray.Tray(wiring.tray_action, tip=lambda: tray.tooltip(api.status_brief()),
+                     paused=lambda: governor.brain.pause_until > time.time())
+    if not icon.start():
+        log("tray icon not available", "warn")
+        return None
+    return icon
 
 
 def main(stop=None):
@@ -212,14 +247,32 @@ def main(stop=None):
         governor.stop()
         return 1
     keys = wiring.start()
+    tray_box = {"icon": start_tray(settings, api, governor, wiring)}
+
+    def on_tray(on):                                      # Settings: the icon comes and goes at once
+        if on and tray_box["icon"] is None:
+            tray_box["icon"] = start_tray(settings, api, governor, wiring)
+        elif not on and tray_box["icon"] is not None:
+            tray_box["icon"].stop()
+            tray_box["icon"] = None
+    api._on_tray = on_tray
     log(f"engine ready (pid {os.getpid()})")
     print(f"NOBAD Find engine ready (pid {os.getpid()}). Ctrl+C stops it.", flush=True)
+    tip, n = None, 0
     try:
         while not stop.wait(0.5):
-            pass
+            n += 1
+            icon = tray_box["icon"]
+            if icon is not None and n % 10 == 0:          # the tooltip follows the level and the count (5 s)
+                now = icon.tip()
+                if now != tip:
+                    tip = now
+                    icon.update()
     except KeyboardInterrupt:
         pass
     log("engine stopping")
+    if tray_box["icon"] is not None:
+        tray_box["icon"].stop()
     for hk in keys:
         hk.stop()
     rpc.stop()

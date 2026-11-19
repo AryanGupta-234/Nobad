@@ -93,6 +93,7 @@ def test_vectors_recomputed_when_method_changes(tmp_path, monkeypatch):
     s.add_name_vectors([(1, embed.to_blob(np.ones(384) / 384 ** .5))])
     s.set_meta("vec_version", "1")
     monkeypatch.setattr(embed, "model_ready", lambda *a: True)
+    monkeypatch.setattr(indexer.models, "ready", lambda *a, **k: True)
     monkeypatch.setattr(embed, "Embedder", _Fake)
     ix = indexer.Indexer(s, _S(semantic=True), embed.VectorIndex())
     ix._load_embedder()

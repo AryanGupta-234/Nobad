@@ -4,7 +4,7 @@ import sys
 
 # Starts that never show NOBAD Find's window: the start-up picture closes at once, before the heavy imports
 # (numpy) below, instead of flashing while they load. Worker processes start this exe again too.
-NO_WINDOW = ("--background", "--version", "--wsearch", "--uninstall", "--multiprocessing-fork")
+NO_WINDOW = ("--background", "--version", "--wsearch", "--uninstall", "--multiprocessing-fork", "--open-with")
 MUTEX = "Local\\NOBAD-Find"                  # app.single_instance's name: set while a copy runs
 
 

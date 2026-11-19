@@ -87,21 +87,23 @@ def decode_224(data):
     return ((rgb / 255.0 - 0.5) / 0.5).transpose(2, 0, 1)
 
 
-_vision = None
+_vision = {}                                          # model folder -> its vision session (one per model)
 _threads = [2]                                        # set by init_worker from the level (indexer._photo_vectors)
 QUESTION_THREADS = 4                                  # a photo question while you type: 45 ms on 2 threads, 28 on 4
 
 
 def _vision_session(model_dir):
-    global _vision
-    if _vision is None:
+    """The vision session of the model in model_dir (a model switch gets its own, never the old one)."""
+    s = _vision.get(model_dir)
+    if s is None:
         import onnxruntime as ort
         opts = ort.SessionOptions()
         opts.intra_op_num_threads = _threads[0]       # 2.4 photos/s on 2 threads, 7.1 on 8 (CPU-capped by level)
         opts.log_severity_level = 3
-        _vision = ort.InferenceSession(os.path.join(model_dir, "vision.onnx"), opts,
-                                       providers=["CPUExecutionProvider"])
-    return _vision
+        _vision.clear()                               # one model in memory at a time
+        s = _vision[model_dir] = ort.InferenceSession(os.path.join(model_dir, "vision.onnx"), opts,
+                                                      providers=["CPUExecutionProvider"])
+    return s
 
 
 def _unit(v):
@@ -154,12 +156,31 @@ def init_worker(threads=2):
 _CANON = re.compile(r"[^\w\s]", re.UNICODE)
 
 
-class TextEncoder:
-    """The text half of SigLIP: a question -> a vector comparable with photo vectors."""
+PAD2 = 0                                  # SigLIP 2 (Gemma tokenizer): <pad>; <eos> is 1 there too
 
-    def __init__(self, model_dir=PHOTO_DIR, threads=None):
-        if not model_ready(model_dir):
+
+def question_ids(tok, text, style="siglip"):
+    """TEXT_LEN token ids for a question. SigLIP learned from lower-case text without punctuation, padded with
+    </s>; SigLIP 2 from lower-case text ending in <eos>, padded with <pad> (its tokenizer.json adds both)."""
+    if style == "siglip2":
+        ids = list(tok.encode(text.lower()).ids)[:TEXT_LEN]
+        if EOS not in ids:
+            ids[-1:] = [EOS]
+        return ids + [PAD2] * (TEXT_LEN - len(ids))
+    clean = " ".join(_CANON.sub(" ", text.lower()).split())
+    ids = tok.encode(clean).ids[:TEXT_LEN]
+    if ids and ids[-1] != EOS:
+        ids[-1] = EOS
+    return ids + [EOS] * (TEXT_LEN - len(ids))
+
+
+class TextEncoder:
+    """The text half of SigLIP / SigLIP 2: a question -> a vector comparable with that model's photo vectors."""
+
+    def __init__(self, model_dir=PHOTO_DIR, threads=None, style="siglip"):
+        if not os.path.isfile(os.path.join(model_dir, "text.onnx")):
             raise RuntimeError("photo model not downloaded")
+        self.style = style
         import onnxruntime as ort
         from tokenizers import Tokenizer
         self.tok = Tokenizer.from_file(os.path.join(model_dir, "tokenizer.json"))
@@ -170,12 +191,7 @@ class TextEncoder:
         self._lock = threading.Lock()
 
     def encode(self, text):
-        # SigLIP learned from lower-case text without punctuation
-        clean = " ".join(_CANON.sub(" ", text.lower()).split())
-        ids = self.tok.encode(clean).ids[:TEXT_LEN]
-        if ids and ids[-1] != EOS:
-            ids[-1] = EOS
-        ids = ids + [EOS] * (TEXT_LEN - len(ids))
+        ids = question_ids(self.tok, text, self.style)
         with self._lock:
             out = self.sess.run(["pooler_output"], {"input_ids": np.array([ids], np.int64)})[0]
         return _unit(out[0]).astype(np.float32)

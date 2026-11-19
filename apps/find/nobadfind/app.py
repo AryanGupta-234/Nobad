@@ -22,6 +22,8 @@ def parse_args(argv=None):
     p.add_argument("--version", action="store_true")
     p.add_argument("--engine", action="store_true", help="no window: serve the UI over the private pipe")
     p.add_argument("--uninstall", action="store_true", help=argparse.SUPPRESS)   # run by the uninstaller
+    # the engine's Open with helper (Api.open_with): the path of a result the engine looked up by its id
+    p.add_argument("--open-with", metavar="PATH", help=argparse.SUPPRESS)
     return p.parse_args(argv)
 
 
@@ -101,8 +103,10 @@ def quit_teardown(api, indexer, governor, hk, bar_hk, bar_ctl):
 
 def main(argv=None):
     args = parse_args(argv)
-    if args.version or args.wsearch or args.turbo or args.uninstall or args.engine:
+    if args.version or args.wsearch or args.turbo or args.uninstall or args.engine or args.open_with:
         close_splash()                              # no window to wait for
+    if args.open_with:                              # outside Find's job, so the program picked outlives Find
+        return winapi.open_with_dialog(args.open_with)
     if args.version:
         print(f"{APP_NAME} {APP_VER}")
         return 0
