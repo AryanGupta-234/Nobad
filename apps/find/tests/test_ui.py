@@ -43,7 +43,7 @@ def test_settings_pages_exist():
 
 def test_every_setting_key_has_a_control():
     from nobadfind.const import DEFAULTS
-    internal = {"wsearch_prev", "pause_fullscreen", "bg_notice_seen"}     # old/internal: no control
+    internal = {"wsearch_prev", "pause_fullscreen", "bg_notice_seen", "welcome_seen"}     # old/internal: no control
     for key in set(DEFAULTS) - internal:
         assert f'"{key}"' in JS, f"no control for setting {key}"
     for label in ("Smart (recommended)", "Always pause", "Don't change"):
