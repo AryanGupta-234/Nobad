@@ -100,110 +100,176 @@ class ResultTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = NbColors.of(context);
     final r = result;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: _CardShell(
-        result: r,
-        selected: selected,
-        onTap: onTap,
-        onSecondary: onSecondary,
-        radius: 8,
-        padding: const EdgeInsets.fromLTRB(10, 0, 8, 0),
-        builder: (context, parallax, lit) => SizedBox(
-          height: height - 4,
-          child: Row(
-            children: [
-              Transform.translate(
-                offset: parallax * .5,
-                child: ResultThumb(engine: engine, result: r, size: 34),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text.rich(
-                      TextSpan(
-                        children: highlightSpans(
-                          r.name,
-                          terms,
-                          NbType.text(13.5, c.text, weight: FontWeight.w600, height: 1.3),
-                          c,
-                        ),
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    // one line: the folder (its end, the part that tells folders apart), then the matching words
-                    Row(
-                      children: [
-                        if (r.dir.isNotEmpty)
-                          Flexible(
-                            flex: r.snippet.isEmpty ? 1 : 2,
-                            child: Tooltip(
-                              message: r.dir,
-                              waitDuration: const Duration(milliseconds: 700),
-                              child: TailText(
-                                r.dir,
-                                textAlign: TextAlign.left,
-                                style: NbType.data(11, c.dim, height: 1.3),
-                              ),
-                            ),
-                          ),
-                        if (r.snippet.isNotEmpty) ...[
-                          if (r.dir.isNotEmpty) const SizedBox(width: 10),
-                          Expanded(
-                            flex: 3,
-                            child: Text.rich(
-                              TextSpan(children: snippetSpans(r.snippet, NbType.text(12, c.muted, height: 1.3), c)),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 10),
-              // age and size; on the selected or hovered row the actions fade in in their place
-              Stack(
-                alignment: Alignment.centerRight,
+    return _FlatRow(
+      result: r,
+      selected: selected,
+      onTap: onTap,
+      onSecondary: onSecondary,
+      builder: (context, lit) => SizedBox(
+        height: height - 1,
+        child: Row(
+          children: [
+            ResultThumb(engine: engine, result: r, size: 32),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  AnimatedOpacity(
-                    opacity: lit && onAction != null ? 0 : 1,
-                    duration: NbMotion.of(context, NbMotion.fast),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        if (r.ago.isNotEmpty) Text(r.ago, style: NbType.data(11, lit ? c.muted : c.dim, height: 1.4)),
-                        if (humanSize(r.size).isNotEmpty)
-                          Text(humanSize(r.size), style: NbType.data(11, c.dim, height: 1.4)),
-                      ],
-                    ),
-                  ),
-                  if (onAction != null)
-                    IgnorePointer(
-                      ignoring: !lit,
-                      child: AnimatedOpacity(
-                        opacity: lit ? 1 : 0,
-                        duration: NbMotion.of(context, NbMotion.fast),
-                        child: InlineActions(
-                          compact: true,
-                          onAction: onAction!,
-                          onMore: (pos) => onSecondary?.call(pos),
-                        ),
+                  Text.rich(
+                    TextSpan(
+                      children: highlightSpans(
+                        r.name,
+                        terms,
+                        NbType.text(13.5, c.text, weight: FontWeight.w600, height: 1.3),
+                        c,
                       ),
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  // one line: the folder (its end, the part that tells folders apart), then the matching words
+                  Row(
+                    children: [
+                      if (r.dir.isNotEmpty)
+                        Flexible(
+                          flex: r.snippet.isEmpty ? 1 : 2,
+                          child: Tooltip(
+                            message: r.dir,
+                            waitDuration: const Duration(milliseconds: 700),
+                            child: TailText(
+                              r.dir,
+                              textAlign: TextAlign.left,
+                              style: NbType.data(11, c.dim, height: 1.3),
+                            ),
+                          ),
+                        ),
+                      if (r.snippet.isNotEmpty) ...[
+                        if (r.dir.isNotEmpty) const SizedBox(width: 10),
+                        Expanded(
+                          flex: 3,
+                          child: Text.rich(
+                            TextSpan(children: snippetSpans(r.snippet, NbType.text(12, c.muted, height: 1.3), c)),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ],
               ),
-            ],
-          ),
+            ),
+            const SizedBox(width: 10),
+            // age and size; on the selected or hovered row the actions fade in in their place
+            Stack(
+              alignment: Alignment.centerRight,
+              children: [
+                AnimatedOpacity(
+                  opacity: lit && onAction != null ? 0 : 1,
+                  duration: NbMotion.of(context, NbMotion.fast),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      if (r.ago.isNotEmpty) Text(r.ago, style: NbType.data(11, lit ? c.muted : c.dim, height: 1.4)),
+                      if (humanSize(r.size).isNotEmpty)
+                        Text(humanSize(r.size), style: NbType.data(11, c.dim, height: 1.4)),
+                    ],
+                  ),
+                ),
+                if (onAction != null)
+                  IgnorePointer(
+                    ignoring: !lit,
+                    child: AnimatedOpacity(
+                      opacity: lit ? 1 : 0,
+                      duration: NbMotion.of(context, NbMotion.fast),
+                      child: InlineActions(compact: true, onAction: onAction!, onMore: (pos) => onSecondary?.call(pos)),
+                    ),
+                  ),
+              ],
+            ),
+          ],
         ),
+      ),
+    );
+  }
+}
+
+/// A list row as in a command palette: flat on the list's panel, a 1 px line under it, a quiet lift when hovered
+/// or selected, and the orange only in the small indicator of the selected one.
+class _FlatRow extends StatefulWidget {
+  const _FlatRow({
+    required this.result,
+    required this.selected,
+    required this.onTap,
+    required this.onSecondary,
+    required this.builder,
+  });
+  final FileResult result;
+  final bool selected;
+  final void Function(bool reveal) onTap;
+  final void Function(Offset globalPosition)? onSecondary;
+  final Widget Function(BuildContext context, bool lit) builder;
+
+  @override
+  State<_FlatRow> createState() => _FlatRowState();
+}
+
+class _FlatRowState extends State<_FlatRow> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = NbColors.of(context);
+    final sel = widget.selected;
+    final lit = sel || _hover;
+    Widget row = Container(
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: c.line)),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Stack(
+        children: [
+          Positioned.fill(
+            top: 3,
+            bottom: 3,
+            child: AnimatedContainer(
+              duration: NbMotion.of(context, NbMotion.fast),
+              decoration: BoxDecoration(
+                color: sel ? c.selected : (_hover ? c.cardHover : const Color(0x00000000)),
+                borderRadius: NbRadius.rowAll,
+              ),
+            ),
+          ),
+          Positioned(
+            left: 0,
+            top: 18,
+            bottom: 18,
+            width: 3,
+            child: AnimatedOpacity(
+              opacity: sel ? 1 : 0,
+              duration: NbMotion.of(context, NbMotion.fast),
+              child: DecoratedBox(
+                decoration: BoxDecoration(color: c.orange, borderRadius: const BorderRadius.all(Radius.circular(2))),
+              ),
+            ),
+          ),
+          Padding(padding: const EdgeInsets.fromLTRB(12, 0, 6, 0), child: widget.builder(context, lit)),
+        ],
+      ),
+    );
+    if (widget.result.weak && !sel) row = Opacity(opacity: .7, child: row);
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => widget.onTap(HardwareKeyboard.instance.isControlPressed),
+        onSecondaryTapDown: widget.onSecondary == null ? null : (d) => widget.onSecondary!(d.globalPosition),
+        child: Semantics(selected: sel, button: true, label: widget.result.name, child: row),
       ),
     );
   }
@@ -238,7 +304,7 @@ class ResultCard extends StatelessWidget {
       selected: selected,
       onTap: onTap,
       onSecondary: onSecondary,
-      radius: 10,
+      radius: 8,
       padding: const EdgeInsets.all(14),
       builder: (context, parallax, lit) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -296,7 +362,7 @@ class DetailPane extends StatelessWidget {
     final r = result;
     return Glass(
       level: GlassLevel.panel,
-      radius: 12,
+      radius: 8,
       child: AnimatedSwitcher(
         duration: NbMotion.of(context, const Duration(milliseconds: 420)),
         switchInCurve: const SpringCurve(),

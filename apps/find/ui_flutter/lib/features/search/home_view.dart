@@ -17,22 +17,12 @@ import '../../engine/engine_api.dart' show Link;
 import '../../engine/models/result.dart';
 import '../../state/categories.dart';
 import '../../widgets/common.dart';
-import '../../widgets/controls.dart';
 import '../../widgets/glass.dart';
 import '../../widgets/panels.dart';
 import '../../widgets/pressable.dart';
 
-const homeExamples = [
-  'rent pdf from last week',
-  'beach photos in march',
-  'budget.xlsx',
-  'newest in my downloads',
-  'video bigger than 100 mb',
-];
-
 class HomeView extends StatefulWidget {
-  const HomeView({super.key, required this.onExample, required this.onTile});
-  final ValueChanged<String> onExample;
+  const HomeView({super.key, required this.onTile});
   final void Function(String words, SearchFilters filters) onTile;
 
   @override
@@ -116,16 +106,6 @@ class _HomeViewState extends State<HomeView> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Semantics(
-                label: 'Examples to try',
-                container: true,
-                child: Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [for (final e in homeExamples) _Example(e, onTap: () => widget.onExample(e))],
-                ),
-              ),
-              const SizedBox(height: NbSpace.x4),
-              Semantics(
                 label: 'Browse by category',
                 container: true,
                 child: CategoryTiles(
@@ -135,7 +115,7 @@ class _HomeViewState extends State<HomeView> {
               ),
               const SizedBox(height: NbSpace.x4),
               Glass(
-                radius: 12,
+                radius: 8,
                 padding: const EdgeInsets.fromLTRB(6, 10, 6, 6),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -172,14 +152,6 @@ class _HomeViewState extends State<HomeView> {
                   ],
                 ),
               ),
-              const SizedBox(height: NbSpace.x3),
-              const KeyHints([
-                (['↑', '↓'], 'move'),
-                (['Enter'], 'open'),
-                (['Ctrl', 'Enter'], 'show in folder'),
-                (['Tab'], 'use the filter'),
-                (['Esc'], 'hide'),
-              ]),
             ],
           ),
         ),
@@ -216,32 +188,6 @@ class CategoryTiles extends StatelessWidget {
         _Tile(badge: badge, label: label, on: current == f, onTap: () => onTile(f)),
     ],
   );
-}
-
-class _Example extends StatelessWidget {
-  const _Example(this.text, {required this.onTap});
-  final String text;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = NbColors.of(context);
-    return Pressable(
-      onTap: onTap,
-      semanticLabel: text,
-      ringRadius: NbRadius.pillAll,
-      builder: (context, p) => AnimatedContainer(
-        duration: NbMotion.of(context, NbMotion.fast),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: p.lit ? c.orangeA(.08) : const Color(0x00000000),
-          border: Border.all(color: p.lit ? c.orangeA(.7) : c.line2),
-          borderRadius: NbRadius.pillAll,
-        ),
-        child: Text('“$text”', style: NbType.text(12, p.lit ? c.orange : c.muted, height: 1.3)),
-      ),
-    );
-  }
 }
 
 class _Tile extends StatelessWidget {

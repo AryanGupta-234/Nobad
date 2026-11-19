@@ -34,7 +34,7 @@ class SettingsGroup extends StatelessWidget {
             child: Semantics(header: true, child: Text(title, style: sectionStyle(c))),
           ),
           Glass(
-            radius: 10,
+            radius: 8,
             child: Column(
               children: [
                 for (var i = 0; i < rows.length; i++) ...[if (i > 0) Container(height: 1, color: c.line), rows[i]],

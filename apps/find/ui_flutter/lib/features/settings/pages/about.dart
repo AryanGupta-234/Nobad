@@ -43,7 +43,7 @@ class AboutPage extends StatelessWidget {
                       children: [
                         Text(
                           'Version ${v.isNotEmpty ? v : s.version}'.toUpperCase(),
-                          style: NbType.display(22, c.text),
+                          style: NbType.text(20, c.text, weight: FontWeight.w600),
                         ),
                         const SizedBox(height: 8),
                         Text(

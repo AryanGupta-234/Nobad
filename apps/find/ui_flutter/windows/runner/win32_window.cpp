@@ -337,6 +337,11 @@ Win32Window::MessageHandler(HWND hwnd,
       return 0;
     }
     case WM_SIZE: {
+      // maximized some other way (a program, a snap gesture): back to the designed size
+      if (!popup_ && wparam == SIZE_MAXIMIZED) {
+        ShowWindow(hwnd, SW_RESTORE);
+        return 0;
+      }
       RECT rect = GetClientArea();
       if (child_content_ != nullptr) {
         // Size and position the child window.

@@ -111,8 +111,9 @@ class NbSwitch extends StatelessWidget {
           width: 40,
           height: 20,
           decoration: BoxDecoration(
-            color: value ? c.orangeA(c.isDark ? .22 : .14) : c.raised,
-            border: Border.all(color: value ? c.orange : (s.lit ? c.orangeA(.6) : c.line2)),
+            // Fluent: on is the accent (the NOBAD orange) filled, off an outline
+            color: value ? (s.lit ? Color.lerp(c.orange, c.text, .12) : c.orange) : (s.lit ? c.cardHover : c.raised),
+            border: Border.all(color: value ? c.orange : (s.lit ? c.text.withValues(alpha: .7) : c.muted)),
             borderRadius: NbRadius.pillAll,
           ),
           child: AnimatedAlign(
@@ -123,7 +124,7 @@ class NbSwitch extends StatelessWidget {
               width: 12,
               height: 12,
               margin: const EdgeInsets.symmetric(horizontal: 4),
-              decoration: BoxDecoration(shape: BoxShape.circle, color: value ? c.orange : c.dim),
+              decoration: BoxDecoration(shape: BoxShape.circle, color: value ? c.onOrange : c.muted),
             ),
           ),
         ),

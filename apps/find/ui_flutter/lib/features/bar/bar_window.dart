@@ -227,7 +227,7 @@ class _BarWindowState extends State<BarWindow> {
     // a frosted pill: Windows' Acrylic behind the window does the blur; the glass adds the tint and the rim
     return Glass(
       level: GlassLevel.panel,
-      radius: 12,
+      radius: 8,
       fill: c.glass ? c.panel : c.surface,
       child: MenuAnchor(
         controller: _menu,

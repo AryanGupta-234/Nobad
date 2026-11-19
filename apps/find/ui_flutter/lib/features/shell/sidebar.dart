@@ -55,7 +55,7 @@ class Sidebar extends StatelessWidget {
         width: width,
         child: Glass(
           level: GlassLevel.panel,
-          radius: 12,
+          radius: 8,
           padding: const EdgeInsets.fromLTRB(8, 10, 8, 8),
           child: ListenableBuilder(
             listenable: Listenable.merge([s.nav, s.find]),
@@ -173,15 +173,24 @@ class _Item extends StatelessWidget {
       builder: (context, p) => AnimatedContainer(
         duration: d,
         height: 32,
-        margin: const EdgeInsets.only(bottom: 1),
-        padding: EdgeInsets.only(left: indent ? 22 : 8, right: 8),
+        margin: const EdgeInsets.only(bottom: 2),
+        padding: EdgeInsets.only(left: indent ? 16 : 2, right: 8),
         decoration: BoxDecoration(
-          color: on ? c.orangeA(c.isDark ? .15 : .11) : (p.lit ? c.cardHover : const Color(0x00000000)),
-          borderRadius: const BorderRadius.all(Radius.circular(6)),
+          color: on ? c.selected : (p.lit ? c.cardHover : const Color(0x00000000)),
+          borderRadius: const BorderRadius.all(Radius.circular(4)),
         ),
+        foregroundDecoration: const BoxDecoration(),
         child: Row(
           children: [
-            NbIcon(glyph, size: 16, color: on ? c.orange : (p.lit || strong ? c.text : c.dim), stroke: 1.5),
+            // the pill: where you are
+            AnimatedContainer(
+              duration: d,
+              width: 3,
+              height: on ? 16 : 0,
+              margin: EdgeInsets.only(right: indent ? 8 : 9),
+              decoration: BoxDecoration(color: c.orange, borderRadius: const BorderRadius.all(Radius.circular(2))),
+            ),
+            NbIcon(glyph, size: 16, color: on ? c.orange : (p.lit || strong ? c.text : c.muted)),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -191,7 +200,7 @@ class _Item extends StatelessWidget {
                 style: NbType.text(
                   13,
                   on || strong || p.lit ? c.text : c.muted,
-                  weight: on || (strong && !indent) ? FontWeight.w600 : FontWeight.w500,
+                  weight: on || (strong && !indent) ? FontWeight.w600 : FontWeight.w400,
                   height: 1.2,
                 ),
               ),

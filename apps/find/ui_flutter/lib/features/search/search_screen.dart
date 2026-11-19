@@ -295,6 +295,8 @@ class _SearchScreenState extends State<SearchScreen> {
         const SingleActivator(LogicalKeyboardKey.enter, control: true, shift: true): () =>
             _action(ResultAction.openWith),
         const SingleActivator(LogicalKeyboardKey.contextMenu): _menuAtSelection,
+        // the action panel on the selected result, as in a command palette
+        const SingleActivator(LogicalKeyboardKey.keyK, control: true): _menuAtSelection,
         const SingleActivator(LogicalKeyboardKey.f10, shift: true): _menuAtSelection,
         const SingleActivator(LogicalKeyboardKey.enter): _open,
         const SingleActivator(LogicalKeyboardKey.numpadEnter): _open,
@@ -406,11 +408,6 @@ class _SearchScreenState extends State<SearchScreen> {
                                       : !s.find.showingResults
                                       ? HomeView(
                                           key: const ValueKey('home'),
-                                          onExample: (t) {
-                                            box.text = t;
-                                            box.selection = TextSelection.collapsed(offset: t.length);
-                                            focus.requestFocus();
-                                          },
                                           onTile: (words, f) {
                                             s.find.setFilters(f);
                                             box.text = words;
@@ -493,7 +490,10 @@ class _SearchScreenState extends State<SearchScreen> {
                   ],
                 ),
               ),
-              const StatusLine(),
+              ListenableBuilder(
+                listenable: s.find,
+                builder: (context, _) => StatusLine(keys: s.find.results.isNotEmpty),
+              ),
             ],
           );
         },
@@ -542,7 +542,7 @@ class _SearchBoxState extends State<_SearchBox> {
       ),
       child: Glass(
         level: GlassLevel.panel,
-        radius: 12,
+        radius: 8,
         rim: on ? c.orangeA(.6) : null,
         padding: const EdgeInsets.fromLTRB(4, 2, 4, 8),
         child: Column(
@@ -743,7 +743,7 @@ class _Results extends StatelessWidget {
     final head = tiles == null
         ? null
         : Padding(
-            padding: const EdgeInsets.fromLTRB(2, 0, 0, 10),
+            padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
             child: CategoryTiles(tiles: tiles!, current: s.find.filters, onTile: s.find.setFilters),
           );
     final firstWeak = rows.indexWhere((r) => r.weak);
@@ -778,34 +778,42 @@ class _Results extends StatelessWidget {
         ),
       );
     }
-    return Scrollbar(
-      controller: scroll,
-      child: ListView.builder(
-        controller: scroll,
-        padding: const EdgeInsets.fromLTRB(NbSpace.gutter, 0, NbSpace.x2, NbSpace.x4),
-        itemCount: rows.length + (divider ? 1 : 0) + (head == null ? 0 : 1),
-        itemBuilder: (context, at) {
-          if (head != null && at == 0) return head;
-          final i = head == null ? at : at - 1;
-          if (divider && i == firstWeak) return const LessSure();
-          final idx = divider && i > firstWeak ? i - 1 : i;
-          final sel = idx == s.find.selected;
-          // each new answer comes in as a short cascade; moving the selection doesn't replay it
-          return Appear(
-            key: ValueKey((s.find.revealSerial, rows[idx].id)),
-            delay: Appear.stagger(i),
-            child: ResultTile(
-              key: rowKey(rows[idx].id), // stable: moving the selection only repaints two rows
-              engine: s.engine,
-              result: rows[idx],
-              selected: sel,
-              onTap: (reveal) => onTap(idx, reveal),
-              onSecondary: (pos) => onSecondary(idx, pos),
-              onAction: (a) => onAction(idx, a),
-              terms: s.find.answer.terms,
-            ),
-          );
-        },
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(NbSpace.gutter, 0, NbSpace.x2, NbSpace.x3),
+      child: Glass(
+        level: GlassLevel.panel,
+        radius: 8,
+        padding: const EdgeInsets.fromLTRB(4, 2, 4, 2),
+        child: Scrollbar(
+          controller: scroll,
+          child: ListView.builder(
+            controller: scroll,
+            padding: EdgeInsets.zero,
+            itemCount: rows.length + (divider ? 1 : 0) + (head == null ? 0 : 1),
+            itemBuilder: (context, at) {
+              if (head != null && at == 0) return head;
+              final i = head == null ? at : at - 1;
+              if (divider && i == firstWeak) return const LessSure();
+              final idx = divider && i > firstWeak ? i - 1 : i;
+              final sel = idx == s.find.selected;
+              // each new answer comes in as a short cascade; moving the selection doesn't replay it
+              return Appear(
+                key: ValueKey((s.find.revealSerial, rows[idx].id)),
+                delay: Appear.stagger(i),
+                child: ResultTile(
+                  key: rowKey(rows[idx].id), // stable: moving the selection only repaints two rows
+                  engine: s.engine,
+                  result: rows[idx],
+                  selected: sel,
+                  onTap: (reveal) => onTap(idx, reveal),
+                  onSecondary: (pos) => onSecondary(idx, pos),
+                  onAction: (a) => onAction(idx, a),
+                  terms: s.find.answer.terms,
+                ),
+              );
+            },
+          ),
+        ),
       ),
     );
   }
@@ -975,7 +983,7 @@ class _NoResults extends StatelessWidget {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 620),
           child: Glass(
-            radius: 12,
+            radius: 8,
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

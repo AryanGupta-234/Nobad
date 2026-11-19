@@ -36,35 +36,68 @@ class KindBadge extends StatelessWidget {
   final String kind;
   final double size;
 
+  /// Small badges show the kind as a Windows icon; the large preview keeps the NOBAD kind tag.
+  static const glyphs = {
+    'pdf': 0xEA90,
+    'document': 0xE8A5,
+    'spreadsheet': 0xE80A,
+    'slides': 0xE786,
+    'text': 0xF000,
+    'code': 0xE943,
+    'email': 0xE715,
+    'image': 0xE91B,
+    'video': 0xE714,
+    'audio': 0xE8D6,
+    'archive': 0xF012,
+    'ebook': 0xE8F1,
+    'app': 0xE7B8,
+    'folder': 0xE8B7,
+  };
+
   @override
   Widget build(BuildContext context) {
     final c = NbColors.of(context);
+    final small = size <= 48;
     return Container(
       width: size,
       height: size,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        // a small pane of glass with the kind on it
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [c.orangeA(c.isDark ? .14 : .10), c.card],
-        ),
-        border: Border.all(color: c.line2),
-        borderRadius: BorderRadius.circular(size >= 96 ? 28 : 12),
+        color: small ? c.cardHover : null,
+        gradient: small
+            ? null
+            : LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [c.orangeA(c.isDark ? .12 : .08), c.card],
+              ),
+        border: Border.all(color: c.line),
+        borderRadius: BorderRadius.circular(small ? 6 : 8),
       ),
-      child: Text(
-        kindTag(kind),
-        style: NbType.data(9.5 * (size / 40).clamp(1, 3.2), c.orange, weight: FontWeight.w700),
-        maxLines: 1,
-        softWrap: false,
-      ),
+      child: small
+          ? ExcludeSemantics(
+              child: Text(
+                String.fromCharCode(glyphs[kind] ?? 0xE8A5),
+                textScaler: TextScaler.noScaling,
+                style: TextStyle(
+                  fontFamily: 'Segoe Fluent Icons',
+                  fontFamilyFallback: const ['Segoe MDL2 Assets'],
+                  fontSize: 16,
+                  height: 1,
+                  color: kind == 'folder' ? c.orange : c.muted,
+                ),
+              ),
+            )
+          : Text(
+              kindTag(kind),
+              style: NbType.data(size >= 96 ? 24 : 16, c.orange, weight: FontWeight.w600),
+              maxLines: 1,
+              softWrap: false,
+            ),
     );
   }
 }
 
-/// A result's preview from Windows' thumbnail cache, asked for (by id) only when the row is built, i.e. on screen.
-/// Shows the kind badge until (and unless) a preview arrives.
 class ResultThumb extends StatefulWidget {
   const ResultThumb({super.key, required this.engine, required this.result, this.size = 56});
   final EngineApi engine;
@@ -181,9 +214,11 @@ class TailText extends StatelessWidget {
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, c) {
       final scaler = MediaQuery.textScalerOf(context);
+      // measured with the style the Text will really paint with (the inherited one merged in)
+      final painted = DefaultTextStyle.of(context).style.merge(style);
       bool fits(String s) {
         final tp = TextPainter(
-          text: TextSpan(text: s, style: style),
+          text: TextSpan(text: s, style: painted),
           textDirection: TextDirection.ltr,
           maxLines: 1,
           textScaler: scaler,

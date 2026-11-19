@@ -4,7 +4,8 @@
 /// - Segoe UI Variable Text: everything people read.
 /// - Cascadia Mono: data only (paths, sizes, counts, times, key caps).
 ///
-/// A compact desktop scale: 11 / 12 / 13.5 / 14.5 / 16, and the one display line at 22 to 26.
+/// One scale, nothing between: 12 / 13 / 14 / 16 / 20 / 24 ([NbType] snaps any other size to it); weights 400 and
+/// 600 only.
 library;
 
 import 'dart:io';
@@ -41,24 +42,38 @@ Future<void> loadDisplayFont() async {
 }
 
 abstract final class NbSize {
-  static const micro = 10.5;
-  static const caption = 11.0;
+  static const micro = 12.0;
+  static const caption = 12.0;
   static const small = 12.0;
-  static const body = 13.5;
-  static const title = 14.5;
+  static const body = 13.0;
+  static const title = 14.0;
   static const lead = 16.0;
-  static const field = 15.0;
-  static const page = 22.0;
-  static const hero = 26.0;
+  static const field = 16.0;
+  static const page = 24.0;
+  static const hero = 24.0;
 }
 
 abstract final class NbType {
+  static const scale = [12.0, 13.0, 14.0, 16.0, 20.0, 24.0];
+
+  /// The nearest size on the scale (12 at the least).
+  static double snap(double size) {
+    var best = scale.first;
+    for (final s in scale) {
+      if ((s - size).abs() < (best - size).abs()) best = s;
+    }
+    return best;
+  }
+
+  /// 400 or 600: anything bolder is 600, anything lighter 400.
+  static FontWeight weightOf(FontWeight w) => w.value >= 550 ? FontWeight.w600 : FontWeight.w400;
+
   /// Reading text. Line height 1.5 for paragraphs; single lines pass [height] 1.3.
   static TextStyle text(double size, Color color, {FontWeight weight = FontWeight.w400, double? height}) => TextStyle(
     fontFamily: NbFont.body,
     fontFamilyFallback: NbFont.bodyFallback,
-    fontSize: size,
-    fontWeight: weight,
+    fontSize: snap(size),
+    fontWeight: weightOf(weight),
     color: color,
     height: height,
     letterSpacing: size >= NbSize.lead ? -0.01 * size : 0,
@@ -68,8 +83,8 @@ abstract final class NbType {
   static TextStyle data(double size, Color color, {FontWeight weight = FontWeight.w400, double? height}) => TextStyle(
     fontFamily: NbFont.mono,
     fontFamilyFallback: NbFont.monoFallback,
-    fontSize: size,
-    fontWeight: weight,
+    fontSize: snap(size),
+    fontWeight: weightOf(weight),
     color: color,
     height: height,
     fontFeatures: const [FontFeature.tabularFigures()],

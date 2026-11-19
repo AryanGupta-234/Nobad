@@ -47,7 +47,7 @@ void main() {
     for (final label in ['Open', 'Open with…', 'Show in folder', 'Copy path', 'Copy name', 'Details', 'Forget…']) {
       expect(find.text(label), findsWidgets, reason: label);
     }
-    expect(find.text('Ctrl+Shift+↵'), findsOneWidget); // the shortcuts are shown
+    expect(find.text('Ctrl+Shift+↵'), findsWidgets); // the shortcuts are shown (the menu and the footer)
     await tester.tap(find.text('Copy name').last);
     await tester.pumpAndSettle();
     expect(copied, 'tax notes.txt');

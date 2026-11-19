@@ -223,8 +223,11 @@ class _FeatureGroup extends StatelessWidget {
         for (final (label, models) in groups) ...[
           if (label.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-              child: Text(label.toUpperCase(), style: NbType.data(10.5, c.dim, weight: FontWeight.w600)),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(label.toUpperCase(), style: NbType.data(12, c.dim, weight: FontWeight.w600)),
+              ),
             ),
           for (final x in models) _ModelRow(x, m),
         ],
@@ -278,7 +281,12 @@ class _ModelRow extends StatelessWidget {
                     '(nDCG@10)',
                     style: NbType.data(11, c.muted, height: 1.55),
                   ),
-                if (x.source.isNotEmpty) TailText(x.source, style: NbType.data(10.5, c.dim), textAlign: TextAlign.left),
+                if (x.source.isNotEmpty)
+                  TailText(
+                    x.source.replaceFirst(RegExp(r'^https?://'), ''),
+                    style: NbType.data(12, c.dim),
+                    textAlign: TextAlign.left,
+                  ),
                 if (!x.capable && x.capableReason.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
@@ -385,7 +393,7 @@ class _Legacy extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(bottom: NbSpace.x4),
             child: Glass(
-              radius: 10,
+              radius: 8,
               padding: const EdgeInsets.all(12),
               child: Text(note, style: NbType.text(13, c.muted, height: 1.45)),
             ),

@@ -45,7 +45,7 @@ class Welcome extends StatelessWidget {
                   header: true,
                   child: Text(
                     'Your files.\nFound in a moment.\nNever sent anywhere.'.toUpperCase(),
-                    style: NbType.display(26, c.text),
+                    style: NbType.display(24, c.text),
                   ),
                 ),
                 const SizedBox(height: NbSpace.x5),
