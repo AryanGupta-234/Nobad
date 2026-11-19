@@ -1,4 +1,4 @@
-/// Small shared pieces: the NOBAD mark, kind badges, previews, key caps, highlighted snippets, tail-cut paths.
+/// Small shared pieces: the NOBAD mark, kind badges, previews, highlighted snippets, tail-cut paths.
 library;
 
 import 'dart:typed_data';
@@ -6,9 +6,10 @@ import 'dart:typed_data';
 import 'package:flutter/widgets.dart';
 
 import '../app/theme/colors.dart';
+import '../app/theme/tokens.dart';
 import '../app/theme/typography.dart';
+import '../engine/engine_api.dart';
 import '../engine/models/result.dart';
-import '../engine/rpc.dart';
 
 class NbMark extends StatelessWidget {
   const NbMark({super.key, this.size = 38});
@@ -24,27 +25,32 @@ class NbMark extends StatelessWidget {
 
 /// "PDF", "IMG", … in a small outlined square (app.css .ico).
 class KindBadge extends StatelessWidget {
-  const KindBadge(this.kind, {super.key, this.size = 38});
+  const KindBadge(this.kind, {super.key, this.size = 40});
   final String kind;
   final double size;
 
   @override
-  Widget build(BuildContext context) => Container(
-        width: size,
-        height: size,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(border: Border.all(color: Nb.line2), borderRadius: BorderRadius.circular(10)),
-        child: Text(kindTag(kind),
-            style: NbType.label(9.5, weight: FontWeight.w700, color: Nb.orange), maxLines: 1, softWrap: false),
-      );
+  Widget build(BuildContext context) {
+    final c = NbColors.of(context);
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(color: c.raised.withValues(alpha: .6), border: Border.all(color: c.line2),
+          borderRadius: NbRadius.rowAll),
+      child: Text(kindTag(kind),
+          style: NbType.data(9.5, c.orange, weight: FontWeight.w700), maxLines: 1, softWrap: false),
+    );
+  }
 }
 
 /// A result's preview from Windows' thumbnail cache, asked for (by id) only when the row is built, i.e. on screen.
 /// Shows the kind badge until (and unless) a preview arrives.
 class ResultThumb extends StatefulWidget {
-  const ResultThumb({super.key, required this.engine, required this.result});
-  final Engine engine;
+  const ResultThumb({super.key, required this.engine, required this.result, this.size = 56});
+  final EngineApi engine;
   final FileResult result;
+  final double size;
 
   @override
   State<ResultThumb> createState() => _ResultThumbState();
@@ -78,42 +84,26 @@ class _ResultThumbState extends State<ResultThumb> {
 
   @override
   Widget build(BuildContext context) {
+    final c = NbColors.of(context);
     final b = _bytes;
-    if (b == null) return KindBadge(widget.result.kind);
-    final px = (64 * MediaQuery.devicePixelRatioOf(context)).round();
+    final s = widget.size;
+    if (b == null) return SizedBox(width: s, child: Align(alignment: Alignment.topLeft, child: KindBadge(widget.result.kind)));
+    final px = (s * MediaQuery.devicePixelRatioOf(context)).round();
     return Container(
-      width: 64,
-      height: 64,
+      width: s,
+      height: s,
       clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-          color: const Color(0xFF000000), border: Border.all(color: Nb.line), borderRadius: BorderRadius.circular(10)),
+      decoration: BoxDecoration(color: c.shadow, border: Border.all(color: c.line), borderRadius: NbRadius.rowAll),
       child: Image.memory(b, fit: BoxFit.cover, cacheWidth: px, gaplessPlayback: true,
           errorBuilder: (_, _, _) => KindBadge(widget.result.kind)),
     );
   }
 }
 
-class Kbd extends StatelessWidget {
-  const Kbd(this.label, {super.key});
-  final String label;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(5),
-          border: const Border(
-              top: BorderSide(color: Nb.line2), left: BorderSide(color: Nb.line2), right: BorderSide(color: Nb.line2),
-              bottom: BorderSide(color: Nb.line2, width: 2)),
-        ),
-        child: Text(label, style: NbType.label(10.5, color: Nb.text)),
-      );
-}
-
 /// The snippet with its matched words marked (\x02 … \x03 from the engine). Plain text spans only.
-List<TextSpan> snippetSpans(String s, TextStyle base) {
+List<TextSpan> snippetSpans(String s, TextStyle base, NbColors c) {
   final out = <TextSpan>[];
-  final mark = base.copyWith(color: Nb.text, backgroundColor: Nb.orangeA(.25));
+  final mark = base.copyWith(color: c.text, backgroundColor: c.orangeA(c.isDark ? .25 : .16));
   var on = false;
   final buf = StringBuffer();
   void flush() {
@@ -135,7 +125,7 @@ List<TextSpan> snippetSpans(String s, TextStyle base) {
 }
 
 /// One line of text that, when too long, keeps the end and cuts the start ("…\Projects\2026\tax"), like the
-/// bar's `direction: rtl` folders. Measured with a TextPainter; only used for short lists (the bar's 8 rows).
+/// bar's `direction: rtl` folders. Measured with a TextPainter; only used for short lists.
 class TailText extends StatelessWidget {
   const TailText(this.text, {super.key, required this.style, this.textAlign = TextAlign.right});
   final String text;
