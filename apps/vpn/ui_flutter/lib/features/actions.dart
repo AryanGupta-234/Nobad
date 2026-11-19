@@ -12,6 +12,8 @@ import '../app/theme/tokens.dart';
 import '../app/theme/typography.dart';
 import '../engine/engine.dart';
 import '../engine/models.dart';
+import '../platform/files.dart';
+import '../platform/qr.dart';
 import '../widgets/controls.dart';
 import '../widgets/dialogs.dart';
 
@@ -68,11 +70,41 @@ Future<void> netRepair(BuildContext context, String level) async {
 /// Import files picked in Windows' Open dialog; only their text goes to the engine.
 Future<void> importFiles(BuildContext context) async {
   final scope = AppScope.of(context);
-  final vpn = scope.vpn;
   final files = await scope.files.pickConfigs(scope.window.handle);
-  if (files.isEmpty) return;
+  if (files.isEmpty || !context.mounted) return;
+  await importPicked(context, files);
+}
+
+/// Files dropped on the window: read here, as the user, then imported like picked ones.
+Future<void> importDropped(BuildContext context, List<String> paths) async {
+  final files = await readPicked(paths);
+  if (!context.mounted) return;
+  if (files.isEmpty) {
+    AppScope.of(context).vpn.toast('Drop WireGuard .conf files or a QR picture.');
+    return;
+  }
+  await importPicked(context, files);
+}
+
+/// Configs as text, pictures through their QR code (named by the user, like the WebView's QR import). Only text
+/// ever goes to the engine; it refuses script hooks on every import.
+Future<void> importPicked(BuildContext context, List<PickedFile> files) async {
+  final vpn = AppScope.of(context).vpn;
   final ok = <String>[], bad = <String>[];
-  for (final f in files) {
+  for (var f in files) {
+    if (f.bytes != null) {
+      final text = decodeQr(f.bytes!);
+      if (text == null) {
+        bad.add('${f.name}: no QR code found');
+        continue;
+      }
+      if (!context.mounted) return;
+      final stem = f.name.contains('.') ? f.name.substring(0, f.name.lastIndexOf('.')) : f.name;
+      final name = await askText(context, title: 'Name this server', label: 'Name',
+          initial: (stem.isEmpty ? 'QR-import' : stem).substring(0, stem.length > 32 ? 32 : (stem.isEmpty ? 9 : stem.length)));
+      if (name == null) continue;
+      f = PickedFile(name, text);
+    }
     try {
       final a = await vpn.engine.importConfig(f.name, f.text);
       a.ok ? ok.add(jStr(a.data['name'], f.name)) : bad.add('${f.name}: ${a.error}');
@@ -94,6 +126,9 @@ Future<void> importUrl(BuildContext context) async {
   final a = await vpn.act(() => vpn.engine.importUrl(url));
   if (a != null && a.ok) vpn.toast('Imported 1: ${jStr(a.data['name'])}', good: true);
 }
+
+/// "Import QR image": pick a picture, read its QR code here.
+Future<void> importQr(BuildContext context) => importFiles(context);
 
 Future<String?> askText(BuildContext context, {required String title, required String label, String? hint, String initial = ''}) {
   final ctl = TextEditingController(text: initial);

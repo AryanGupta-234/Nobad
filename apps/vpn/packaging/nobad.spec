@@ -17,8 +17,12 @@ hidden = [m for m in collect_submodules("webview")
 EXCLUDES = ["tkinter", "pytest", "numpy", "PyQt5", "PyQt6", "PySide2", "PySide6",
             "gi", "webview.platforms.gtk", "webview.platforms.qt", "webview.platforms.cocoa",
             "webview.platforms.android", "webview.platforms.cef"]
+# The offline country database for the 2.0 map (packaging/make_geoip.py, run by build.ps1 before this spec).
+GEOIP = os.path.join(ROOT, "nobadvpn", "data", "geoip-country.bin")
+DATAS = [(os.path.join(ROOT, "nobadvpn", "ui"), "nobadvpn/ui")] + \
+    ([(GEOIP, "nobadvpn/data")] if os.path.exists(GEOIP) else [])
 a = Analysis([os.path.join(ROOT, "nobad_vpn.py")], pathex=[ROOT],
-             datas=[(os.path.join(ROOT, "nobadvpn", "ui"), "nobadvpn/ui")],
+             datas=DATAS,
              hiddenimports=hidden, excludes=EXCLUDES, noarchive=False)
 pyz = PYZ(a.pure)
 exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name="NobadVPN", console=False, disable_windowed_traceback=False,

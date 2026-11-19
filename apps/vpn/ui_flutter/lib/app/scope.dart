@@ -8,11 +8,32 @@ import '../platform/files.dart';
 import '../platform/window.dart';
 import '../state/vpn_controller.dart';
 
-enum AppTab { home, servers, settings }
+/// The rail's screens, in order (Ctrl+1 .. Ctrl+8).
+enum AppTab { home, servers, speed, network, intel, streaming, activity, settings }
 
 class AppNav extends ValueNotifier<AppTab> {
   AppNav([super.initial = AppTab.home]);
   void go(AppTab t) => value = t;
+
+  /// A question from the command palette for the screen it opens: ('investigate', site) or ('watch', title).
+  (String, String)? ask;
+
+  void goAsk(AppTab t, String kind, String q) {
+    ask = (kind, q);
+    if (value == t) {
+      notifyListeners();
+    } else {
+      value = t;
+    }
+  }
+
+  /// The pending question of [kind], taken once.
+  String? takeAsk(String kind) {
+    final a = ask;
+    if (a == null || a.$1 != kind) return null;
+    ask = null;
+    return a.$2;
+  }
 }
 
 class AppScope extends InheritedWidget {

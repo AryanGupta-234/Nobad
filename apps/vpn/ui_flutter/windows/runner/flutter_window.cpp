@@ -1,8 +1,24 @@
 #include "flutter_window.h"
 
+#include <flutter/standard_method_codec.h>
+#include <shellapi.h>
+
 #include <optional>
+#include <string>
 
 #include "flutter/generated_plugin_registrant.h"
+
+#pragma comment(lib, "shell32.lib")
+
+namespace {
+std::string Utf8(const wchar_t* w) {
+  const int n = WideCharToMultiByte(CP_UTF8, 0, w, -1, nullptr, 0, nullptr, nullptr);
+  if (n <= 1) return std::string();
+  std::string out(n - 1, '\0');
+  WideCharToMultiByte(CP_UTF8, 0, w, -1, out.data(), n, nullptr, nullptr);
+  return out;
+}
+}  // namespace
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
@@ -26,6 +42,10 @@ bool FlutterWindow::OnCreate() {
   }
   RegisterPlugins(flutter_controller_->engine());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
+  drop_channel_ = std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+      flutter_controller_->engine()->messenger(), "nobad/drop",
+      &flutter::StandardMethodCodec::GetInstance());
+  DragAcceptFiles(GetHandle(), TRUE);
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
     this->Show();
@@ -40,6 +60,7 @@ bool FlutterWindow::OnCreate() {
 }
 
 void FlutterWindow::OnDestroy() {
+  drop_channel_ = nullptr;
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
   }
@@ -65,6 +86,23 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
     case WM_FONTCHANGE:
       flutter_controller_->engine()->ReloadSystemFonts();
       break;
+    case WM_DROPFILES: {
+      HDROP drop = reinterpret_cast<HDROP>(wparam);
+      flutter::EncodableList paths;
+      const UINT count = DragQueryFileW(drop, 0xFFFFFFFF, nullptr, 0);
+      for (UINT i = 0; i < count && i < 40; i++) {  // at most 40 files at once
+        wchar_t path[MAX_PATH * 4] = {};
+        if (DragQueryFileW(drop, i, path, MAX_PATH * 4) > 0) {
+          paths.push_back(flutter::EncodableValue(Utf8(path)));
+        }
+      }
+      DragFinish(drop);
+      if (drop_channel_ && !paths.empty()) {
+        drop_channel_->InvokeMethod("dropped",
+                                    std::make_unique<flutter::EncodableValue>(paths));
+      }
+      return 0;
+    }
   }
 
   return Win32Window::MessageHandler(hwnd, message, wparam, lparam);

@@ -97,6 +97,7 @@ const groups = [
     SettingRow('close_to_tray', 'Closing the window keeps NOBAD in the tray', 'Requires the tray icon.', keywords: 'minimize'),
     SettingRow('guardian', 'Keep guarding after the window closes', 'Stays in the background so auto-repair and the kill switch keep working.'),
     SettingRow('notifications', 'Windows notifications', 'Toasts for connect, drop, failover and kill-switch events.', keywords: 'toast alerts'),
+    SettingRow('ui_flutter', 'Try the new NOBAD VPN 2.0 window (preview)', 'Uses the new window, which runs without administrator rights, from the next start. Turn it off to come back to this one.', keywords: 'flutter new window preview 2.0'),
     SettingRow('visual_effects', 'Visual effects', 'Frosted glass and ambient animations. Off keeps NOBAD light on CPU, GPU and battery.', keywords: 'performance animation blur battery lag'),
   ]),
   SettingGroup('connectivity', 'Connectivity', [
@@ -122,6 +123,7 @@ const groups = [
   ]),
   SettingGroup('help', 'Help', [
     SettingRow.action('wizard', 'Setup checklist', 'Re-run the first-run checks and fixes.', 'Open setup', keywords: 'wizard onboarding'),
+    SettingRow.custom('credits'),
   ]),
 ];
 
@@ -500,6 +502,10 @@ class _GroupPanel extends StatelessWidget {
             ]),
           ],
         );
+      case 'credits':
+        return Text('Server locations on the map: IP Geolocation by DB-IP (db-ip.com), CC BY 4.0, bundled with the app; '
+            'nothing is looked up online unless "Look up my exit IP address" is on. Day and night are computed on this PC.',
+            style: note);
       case 'crash':
         final n = state.crashPending;
         if (n == 0) return const SizedBox.shrink();

@@ -3,6 +3,8 @@
 
 #include <flutter/dart_project.h>
 #include <flutter/flutter_view_controller.h>
+#include <flutter/method_channel.h>
+#include <flutter/encodable_value.h>
 
 #include <memory>
 
@@ -28,6 +30,10 @@ class FlutterWindow : public Win32Window {
 
   // The Flutter instance hosted by this window.
   std::unique_ptr<flutter::FlutterViewController> flutter_controller_;
+
+  // Files dropped on the window go to Dart ("nobad/drop", "dropped", a list of paths). The window reads them itself,
+  // as the signed-in user; only their text goes to the engine.
+  std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> drop_channel_;
 };
 
 #endif  // RUNNER_FLUTTER_WINDOW_H_

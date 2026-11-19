@@ -54,6 +54,29 @@ def components():
             out.append({"type": "application", "name": f"WireGuard for Windows ({arch})", "version": ver,
                         "supplier": {"name": "WireGuard LLC"}, "hashes": [{"alg": "SHA-256", "content": sha}]})
     out.append({"type": "library", "name": "jsQR", "version": "vendored", "licenses": [{"license": {"id": "Apache-2.0"}}]})
+    out.extend(flutter_components())
+    geo = os.path.join(ROOT, "nobadvpn", "data", "geoip-country.bin")
+    if os.path.exists(geo):
+        with open(geo, "rb") as f:
+            sha = hashlib.sha256(f.read()).hexdigest()
+        out.append({"type": "data", "name": "IP to Country Lite (reduced)", "supplier": {"name": "DB-IP"},
+                    "licenses": [{"license": {"id": "CC-BY-4.0"}}], "hashes": [{"alg": "SHA-256", "content": sha}]})
+    return out
+
+
+def flutter_components():
+    """The 2.0 window (ui\\): the Flutter engine and the Dart packages in ui_flutter/pubspec.lock."""
+    lock = os.path.join(ROOT, "ui_flutter", "pubspec.lock")
+    out = [{"type": "framework", "name": "Flutter engine", "licenses": [{"license": {"id": "BSD-3-Clause"}}],
+            "version": "see ui\\data\\flutter_assets\\NOTICES.Z"}]
+    if not os.path.exists(lock):
+        return out
+    import re
+    text = open(lock, encoding="utf-8").read()
+    for name, ver in re.findall(r'(?m)^  ([a-z0-9_]+):\n(?:    .*\n)*?    version: "([^"]+)"', text):
+        if name in ("ffi", "material_ui", "collection", "meta", "vector_math", "characters", "material_color_utilities"):
+            out.append({"type": "library", "name": name, "version": ver, "purl": f"pkg:pub/{name}@{ver}",
+                        "licenses": [{"license": {"id": "BSD-3-Clause"}}]})
     return out
 
 

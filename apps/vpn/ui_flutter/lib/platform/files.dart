@@ -4,15 +4,41 @@
 /// sent text, and the same idea.
 library;
 
+import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:ffi/ffi.dart';
 
+import 'qr.dart' show imageExtensions;
+
 class PickedFile {
-  const PickedFile(this.name, this.text);
+  const PickedFile(this.name, this.text, {this.bytes});
   final String name;
+
+  /// The file as text (configs), and as bytes for a picture (a QR code).
   final String text;
+  final Uint8List? bytes;
+}
+
+/// Reads files the user picked or dropped, as the user: configs up to [maxBytes] as text, pictures up to
+/// [maxImageBytes] as bytes. Anything else, too big or unreadable is skipped.
+Future<List<PickedFile>> readPicked(List<String> paths) async {
+  final out = <PickedFile>[];
+  for (final p in paths) {
+    try {
+      final f = File(p);
+      final name = p.split(Platform.pathSeparator).last;
+      final image = imageExtensions.contains(name.split('.').last.toLowerCase());
+      if (!f.existsSync() || f.lengthSync() > (image ? maxImageBytes : maxBytes)) continue;
+      final bytes = await f.readAsBytes();
+      out.add(PickedFile(name, image ? '' : utf8.decode(bytes, allowMalformed: true), bytes: image ? bytes : null));
+    } on Object {
+      // unreadable: skipped
+    }
+  }
+  return out;
 }
 
 abstract class FilePicker {
@@ -28,6 +54,7 @@ class NoFilePicker implements FilePicker {
 }
 
 const maxBytes = 400000;
+const maxImageBytes = 12 * 1024 * 1024;
 
 final class _OPENFILENAMEW extends Struct {
   @Uint32()
@@ -74,18 +101,7 @@ class WindowsFilePicker implements FilePicker {
 
   @override
   Future<List<PickedFile>> pickConfigs(int owner) async {
-    final paths = _dialog(owner);
-    final out = <PickedFile>[];
-    for (final p in paths) {
-      try {
-        final f = File(p);
-        if (f.lengthSync() > maxBytes) continue;
-        out.add(PickedFile(p.split(Platform.pathSeparator).last, await f.readAsString()));
-      } on Object {
-        // unreadable: skipped
-      }
-    }
-    return out;
+    return readPicked(_dialog(owner));
   }
 
   List<String> _dialog(int owner) {
@@ -96,7 +112,9 @@ class WindowsFilePicker implements FilePicker {
     return using((a) {
       final buf = a<Uint16>(size);
       // "label\0pattern\0...\0\0"
-      final filterText = 'WireGuard configs (*.conf)\u0000*.conf;*.txt\u0000All files\u0000*.*\u0000\u0000';
+      final filterText = 'WireGuard configs and QR pictures\u0000*.conf;*.txt;*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.webp\u0000'
+          'WireGuard configs (*.conf)\u0000*.conf;*.txt\u0000QR pictures\u0000*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.webp\u0000'
+          'All files\u0000*.*\u0000\u0000';
       final filter = a<Uint16>(filterText.length);
       for (var i = 0; i < filterText.length; i++) {
         filter[i] = filterText.codeUnitAt(i);

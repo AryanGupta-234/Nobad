@@ -43,6 +43,11 @@ class EngineEvent {
 const mainEvents = [
   'state', 'traffic', 'health', 'direct_health', 'probe', 'log', 'error_action', 'notify', 'fix_result',
   'task_done', 'ipinfo', 'endpoint_report', 'net_repair_start', 'net_repair_done', 'update', 'show', 'quitting',
+  // the Speed, Network, Intel, Streaming and Activity screens
+  'speed', 'speed_done', 'stream_start', 'stream', 'stream_done', 'network_diagnose', 'valorant_start',
+  'valorant_result', 'valorant_done', 'gaming_probe', 'guard', 'reach_report', 'et_report', 'ni_overview',
+  'ni_progress', 'ni_investigation', 'ni_lookup', 'ni_vpn', 'ni_fix', 'ni_fix_start', 'si_title',
+  'si_restrictions', 'si_verify',
 ];
 const miniEvents = ['state', 'traffic', 'error_action', 'show', 'quitting'];
 

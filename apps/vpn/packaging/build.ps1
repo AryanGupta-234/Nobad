@@ -61,6 +61,10 @@ $testSummary = (($testOut | Where-Object { "$_" -match "passed|failed|error" } |
 if ($testCode) { python packaging\journal.py fail $ver "tests" "$testSummary"; throw "tests failed" }
 python -m pyflakes nobadvpn tests; if ($LASTEXITCODE) { throw "pyflakes failed" }
 python packaging\make_version_info.py $ver packaging\version_info.txt; if ($LASTEXITCODE) { throw "version info failed" }
+# Offline country database for the 2.0 map (DB-IP IP to Country Lite, CC BY 4.0; see THIRD-PARTY-NOTICES.md).
+# Last month's file unless NOBAD_GEOIP_MONTH (YYYY-MM) says otherwise; nobad.spec bundles nobadvpn\data.
+$geoMonth = if ($env:NOBAD_GEOIP_MONTH) { $env:NOBAD_GEOIP_MONTH } else { (Get-Date).AddMonths(-1).ToString("yyyy-MM") }
+python packaging\make_geoip.py $geoMonth; if ($LASTEXITCODE) { throw "offline country database failed" }
 python -m PyInstaller --noconfirm --clean --distpath dist --workpath build packaging\nobad.spec
 if ($LASTEXITCODE) { python packaging\journal.py fail $ver "PyInstaller" "$testSummary"; throw "PyInstaller failed" }
 
@@ -89,6 +93,19 @@ function Sign($file) {
   }
 }
 Sign "dist\NobadVPN\NobadVPN.exe"
+
+# ---------------------------------------------------------------- the 2.0 window (Flutter, runs as the user)
+# Tests (with goldens) and a release build; the window goes to {app}\ui\ (rpc/launch.py, rpc/security.py pin it there).
+# NOBAD_FLUTTER: the flutter command (default: flutter on PATH). Release builds ignore the development switches.
+$flutter = if ($env:NOBAD_FLUTTER) { $env:NOBAD_FLUTTER } else { "flutter" }
+Push-Location ui_flutter
+& $flutter test; $flutterCode = $LASTEXITCODE
+if (-not $flutterCode) { & $flutter build windows --release --build-name $ver; $flutterCode = $LASTEXITCODE }
+Pop-Location
+if ($flutterCode) { python packaging\journal.py fail $ver "Flutter window" "$testSummary"; throw "Flutter window failed" }
+New-Item -ItemType Directory -Force dist\NobadVPN\ui | Out-Null
+Copy-Item -Recurse -Force ui_flutter\build\windows\x64\runner\Release\* dist\NobadVPN\ui\
+Sign "dist\NobadVPN\ui\nobad_vpn_ui.exe"
 if ($AppOnly) {
   Write-Host "App built: dist\NobadVPN\NobadVPN.exe (no installer: -AppOnly)"
   exit 0

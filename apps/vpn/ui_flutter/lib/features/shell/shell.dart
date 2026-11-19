@@ -2,6 +2,8 @@
 /// toasts, the splash while NOBAD starts, and the honest "not running" state when there's no engine.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -18,7 +20,14 @@ import '../../widgets/icons.dart';
 import '../../widgets/motion.dart';
 import '../../widgets/panels.dart';
 import '../../widgets/pressable.dart';
+import '../actions.dart' show importDropped;
+import '../activity/activity_screen.dart';
 import '../home/home_screen.dart';
+import '../intel/network_intel_screen.dart';
+import '../network/network_screen.dart';
+import '../palette/palette.dart';
+import '../speed/speed_screen.dart';
+import '../streaming/streaming_screen.dart';
 import '../onboarding/setup.dart';
 import '../servers/servers_screen.dart';
 import '../settings/settings_screen.dart';
@@ -58,10 +67,37 @@ class _ShellState extends State<Shell> {
   late bool _splash = widget.splash;
   final _keys = FocusNode(debugLabel: 'window keys');
 
+  static const _drop = MethodChannel('nobad/drop');
+  bool _startupAsked = false;
+  Timer? _startupTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    // files dropped on the window (runner: WM_DROPFILES): configs and QR pictures, read here as the user
+    _drop.setMethodCallHandler((call) async {
+      if (call.method == 'dropped' && call.arguments is List && mounted) {
+        await importDropped(context, [for (final p in call.arguments as List) if (p is String) p]);
+      }
+    });
+  }
+
   @override
   void dispose() {
+    _drop.setMethodCallHandler(null);
+    _startupTimer?.cancel();
     _keys.dispose();
     super.dispose();
+  }
+
+  /// The launch checks, once per window, 2.5 s after the first state (index.html did the same per page load).
+  void _maybeStartupChecks(VpnState? s) {
+    if (_startupAsked || s == null) return;
+    _startupAsked = true;
+    final vpn = AppScope.of(context).vpn;
+    _startupTimer = Timer(const Duration(milliseconds: 2500), () {
+      if (mounted) vpn.act(() async => Answer.fromJson(await vpn.engine.call('startup_checks')));
+    });
   }
 
   void _maybeSetup(VpnState? s) {
@@ -79,9 +115,14 @@ class _ShellState extends State<Shell> {
     final now = widget.now ?? DateTime.now;
     return CallbackShortcuts(
       bindings: {
-        const SingleActivator(LogicalKeyboardKey.digit1, control: true): () => nav.go(AppTab.home),
-        const SingleActivator(LogicalKeyboardKey.digit2, control: true): () => nav.go(AppTab.servers),
-        const SingleActivator(LogicalKeyboardKey.digit3, control: true): () => nav.go(AppTab.settings),
+        for (final (i, key) in const [
+          LogicalKeyboardKey.digit1, LogicalKeyboardKey.digit2, LogicalKeyboardKey.digit3, LogicalKeyboardKey.digit4,
+          LogicalKeyboardKey.digit5, LogicalKeyboardKey.digit6, LogicalKeyboardKey.digit7, LogicalKeyboardKey.digit8,
+        ].indexed)
+          SingleActivator(key, control: true): () => nav.go(AppTab.values[i]),
+        const SingleActivator(LogicalKeyboardKey.keyK, control: true): () {
+          if (scope.vpn.online) showPalette(context);
+        },
       },
       child: Focus(
         focusNode: _keys,
@@ -93,6 +134,7 @@ class _ShellState extends State<Shell> {
             final vpn = scope.vpn;
             final s = vpn.state;
             _maybeSetup(s);
+            if (vpn.online) _maybeStartupChecks(s);
             final tone = switch (s?.protection) {
               Protection.protected => c.sealed,
               Protection.connecting => c.amber,
@@ -139,6 +181,11 @@ class _ShellState extends State<Shell> {
                                   child: switch (nav.value) {
                                     AppTab.home => const HomeScreen(),
                                     AppTab.servers => const ServersScreen(),
+                                    AppTab.speed => const SpeedScreen(),
+                                    AppTab.network => const NetworkScreen(),
+                                    AppTab.intel => const NetworkIntelScreen(),
+                                    AppTab.streaming => const StreamingScreen(),
+                                    AppTab.activity => const ActivityScreen(),
                                     AppTab.settings => const SettingsScreen(),
                                   },
                                 ),
@@ -252,11 +299,16 @@ class _RailItems extends StatelessWidget {
   const _RailItems({required this.tab, required this.onGo});
   final AppTab tab;
   final ValueChanged<AppTab> onGo;
-  static const _h = 50.0, _gap = 4.0;
+  static const _h = 46.0, _gap = 2.0;
   static const _items = [
     (AppTab.home, NbGlyph.home, 'Home', 'Ctrl+1'),
     (AppTab.servers, NbGlyph.globe, 'Servers', 'Ctrl+2'),
-    (AppTab.settings, NbGlyph.settings, 'Settings', 'Ctrl+3'),
+    (AppTab.speed, NbGlyph.bolt, 'Speed', 'Ctrl+3'),
+    (AppTab.network, NbGlyph.wifi, 'Network', 'Ctrl+4'),
+    (AppTab.intel, NbGlyph.rings, 'Intel', 'Ctrl+5'),
+    (AppTab.streaming, NbGlyph.play, 'Stream', 'Ctrl+6'),
+    (AppTab.activity, NbGlyph.list, 'Activity', 'Ctrl+7'),
+    (AppTab.settings, NbGlyph.settings, 'Settings', 'Ctrl+8'),
   ];
 
   @override
@@ -298,7 +350,7 @@ class _RailItems extends StatelessWidget {
                 onTap: () => onGo(_items[k].$1),
                 selected: tab == _items[k].$1,
                 semanticLabel: _items[k].$3,
-                tooltip: '${_items[k].$3} (${_items[k].$4})',
+                tooltip: '${_items[k].$1 == AppTab.streaming ? 'Streaming' : _items[k].$3} (${_items[k].$4})',
                 builder: (context, s) {
                   final on = tab == _items[k].$1;
                   return AnimatedContainer(

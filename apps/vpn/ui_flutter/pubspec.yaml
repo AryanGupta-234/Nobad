@@ -12,7 +12,9 @@ dependencies:
   ffi: ^2.2.0
   flutter:
     sdk: flutter
+  image: ^4.13.1
   material_ui: ^1.1.0
+  zxing2: ^0.2.4
 
 dev_dependencies:
   flutter_lints: ^6.0.0
