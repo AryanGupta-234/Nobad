@@ -42,6 +42,12 @@ class _ShellState extends State<Shell> {
     _scope = s;
     _shows?.cancel();
     _shows = s.engine.events.listen((e) {
+      // the engine's tray menu: open the window on a page
+      if (e is ShowEvent && (e.what == 'settings' || e.what == 'index')) {
+        s.window.front();
+        s.nav.go(e.what == 'settings' ? AppTab.settings : AppTab.indexing);
+        unawaited(s.engine.uiShown('main').catchError((Object _) {}));
+      }
       if (e is ShowEvent && e.what == 'main') {
         final t = e.text;
         if (t != null) s.find.handOver(t); // kept until the search screen takes it

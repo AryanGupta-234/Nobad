@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart' show EditableText, Opacity, RichText, Text;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nobad_find/app/app.dart';
+import 'package:nobad_find/app/scope.dart';
 import 'package:nobad_find/engine/engine_api.dart';
 import 'package:nobad_find/engine/events.dart';
 import 'package:nobad_find/engine/models/result.dart';
@@ -20,6 +21,28 @@ Future<void> ctrl(WidgetTester tester, LogicalKeyboardKey k) async {
 }
 
 void main() {
+  testWidgets("the engine's tray menu opens a page: show settings / show index", (tester) async {
+    final engine = FakeEngine();
+    final w = await pumpApp(tester, engine);
+    engine.emit(const ShowEvent('settings'));
+    await tester.pumpAndSettle();
+    expect(find.text('General'), findsWidgets);
+    expect(w.calls, contains('front'));
+    engine.emit(const ShowEvent('index'));
+    await tester.pumpAndSettle();
+    expect(find.text('INDEX'), findsOneWidget);
+  });
+
+  testWidgets('--page settings starts on Settings', (tester) async {
+    tester.view.physicalSize = const Size(1080, 720);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(NobadFindApp(engine: FakeEngine(), window: FakeWindow(), splash: false,
+        startPage: AppPage.parse(['--page', 'settings'])));
+    await tester.pumpAndSettle();
+    expect(find.text('SETTINGS'), findsOneWidget);
+  });
+
   testWidgets('no engine: Index shows no numbers and no actions, Settings says so and is read-only', (tester) async {
     final engine = FakeEngine();
     await pumpApp(tester, engine, size: const Size(1080, 1200));

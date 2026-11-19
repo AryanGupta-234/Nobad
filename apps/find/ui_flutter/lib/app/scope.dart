@@ -24,9 +24,23 @@ enum SettingsPage {
   final String label;
 }
 
+/// The page to start on: `--page search|index|settings` when the engine starts the UI from its tray menu.
+abstract final class AppPage {
+  static AppTab parse(List<String> args) {
+    final i = args.indexOf('--page');
+    final v = i >= 0 && i + 1 < args.length ? args[i + 1] : '';
+    return switch (v) {
+      'settings' => AppTab.settings,
+      'index' => AppTab.indexing,
+      _ => AppTab.search,
+    };
+  }
+}
+
 /// The open tab and Settings page (Ctrl+1/2/3 like 0.7.0).
 class AppNav extends ChangeNotifier {
-  AppTab _tab = AppTab.search;
+  AppNav([this._tab = AppTab.search]);
+  AppTab _tab;
   SettingsPage _page = SettingsPage.general;
 
   AppTab get tab => _tab;

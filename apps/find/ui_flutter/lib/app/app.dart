@@ -33,7 +33,11 @@ class NobadFindApp extends StatefulWidget {
     this.demo,
     this.splash = true,
     this.reduceMotion,
+    this.startPage = AppTab.search,
   });
+
+  /// The page the window opens on (`--page`).
+  final AppTab startPage;
   final EngineApi engine;
 
   /// Animations off: Windows' "Animation effects" switch (read at start and when the window comes back), or
@@ -55,7 +59,7 @@ class _NobadFindAppState extends State<NobadFindApp> {
   late final settings = SettingsController(widget.engine, toasts: toasts);
   late final status = StatusController(widget.engine);
   late final find = FindController(widget.engine, toasts: toasts);
-  final nav = AppNav();
+  late final nav = AppNav(widget.startPage);
   bool _glass = false;
   (bool, bool)? _applied;
   late bool _motionOff = widget.reduceMotion ?? systemAnimationsOff();

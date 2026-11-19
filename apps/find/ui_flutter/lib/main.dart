@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'app/app.dart';
+import 'app/scope.dart';
 import 'app/theme/typography.dart';
 import 'engine/engine_api.dart';
 import 'engine/events.dart';
@@ -50,7 +51,8 @@ Future<void> main(List<String> args) async {
     )..start();
     engine = PipeEngine(pipe, beforeDialog: allowSetForeground); // never the fake: offline is shown as offline
   }
-  runApp(NobadFindApp(engine: engine, mode: mode, window: Win32Window.create(), demo: Demo.fromEnvironment()));
+  runApp(NobadFindApp(engine: engine, mode: mode, window: Win32Window.create(), demo: Demo.fromEnvironment(),
+      startPage: AppPage.parse(args)));
   startFrameLog();
   WidgetsBinding.instance.waitUntilFirstFrameRasterized.then((_) => recordTiming('first-frame ${mode.name}'));
 }

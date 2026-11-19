@@ -116,7 +116,10 @@ class _HomeViewState extends State<HomeView> {
     final hero = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Semantics(header: true, child: Text('Find anything on this PC.'.toUpperCase(), style: NbType.display(NbSize.hero, c.text))),
+        Semantics(
+          header: true,
+          child: Text('Find anything on this PC.'.toUpperCase(), style: NbType.display(NbSize.hero, c.text)),
+        ),
         const SizedBox(height: NbSpace.x4),
         ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 560),
