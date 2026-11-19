@@ -59,6 +59,7 @@ def methods(api, events=None):
 
     return {"search": search,
             "open": lambda params, conn=None: ok(api.open(int_param(params))),
+            "open_with": lambda params, conn=None: ok(api.open_with(int_param(params))),
             "reveal": lambda params, conn=None: ok(api.reveal(int_param(params))),
             "thumbnail": thumbnail,
             "here_folder": lambda params, conn=None: _path(api.here_folder()),

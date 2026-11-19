@@ -10,7 +10,7 @@ import threading
 import time
 from collections import deque
 
-from . import embed, jobs, ocr, photo, thumbs, wsearch, winapi
+from . import embed, jobs, models, ocr, photo, thumbs, wsearch, winapi
 from . import hardware as hw
 from .const import APP_VER, MODEL_FILES
 from .indexer import NAME_KINDS
@@ -24,7 +24,9 @@ RATE_WINDOW = 15                 # status polls a progress rate is measured over
 MAX_PAUSE_S = 24 * 3600
 QUIT_TIMEOUT = 15                # seconds a quit may take before the process ends anyway
 PHASES = (("names", "Finding file names"), ("text", "Reading documents"), ("ocr", "Reading words in pictures"),
-          ("meaning", "Learning what files mean"), ("photos", "Looking at photos"), ("watching", "Watching for changes"))
+          ("meaning", "Learning what files mean"),
+          ("rebuild", "Rebuilding meaning for the new model"),          # a switched text model (indexer._rebuild)
+          ("photos", "Looking at photos"), ("watching", "Watching for changes"))
 
 
 class Api:
@@ -94,6 +96,19 @@ class Api:
             return {"ok": True}
         except OSError as e:
             return {"ok": False, "error": e.strerror or "Windows couldn't open it."}
+
+    def open_with(self, file_id):
+        """Windows' "Open with" picker for a result (by id only). It runs in a small helper started outside Find's
+        job, so the program picked there (its child) survives Quit like a file opened with open()."""
+        p = self._path(file_id)
+        if not p:
+            return {"ok": False, "error": "That file isn't there any more."}
+        try:
+            winapi.start_outside_job(winapi.self_command("--open-with", p))
+            return {"ok": True, "error": ""}
+        except OSError as e:
+            log(f"could not start the Open with picker (error {e.winerror or e.errno})", "warn")
+            return {"ok": False, "error": "Windows couldn't show the Open with list."}
 
     def reveal(self, file_id):
         p = self._path(file_id)
@@ -231,6 +246,10 @@ class Api:
                                   st.count_chunks_without_vectors() + st.count_names_without_vectors(NAME_KINDS)),
                       "photos": (st.count_photos(photo.PHOTO_EXT, photo.MIN_PHOTO_BYTES, photo.MAX_PHOTO_BYTES),
                                  st.count_photos_to_read(photo.PHOTO_EXT, photo.MIN_PHOTO_BYTES, photo.MAX_PHOTO_BYTES))}
+            if st.meta("vec_model_next"):
+                counts["rebuild"] = ((st.one("SELECT count(*) FROM chunks") or 0) + st.count_names(NAME_KINDS),
+                                     st.count_chunks_without_vectors(next=True)
+                                     + st.count_names_without_vectors(NAME_KINDS, next=True))
         except Exception as e:
             log(f"status counts failed: {type(e).__name__}", "warn")
             counts = counts or {p: (0, 0) for p in ("text", "ocr", "meaning", "photos")}
@@ -244,8 +263,9 @@ class Api:
         content = bool(s.get("content"))
         on = {"names": True, "text": content, "ocr": content and bool(s.get("ocr")) and bool(ocr.available()),
               "meaning": bool(s.get("semantic")) and embed.model_ready(),
-              "photos": bool(s.get("photo_meaning")) and photo.model_ready(), "watching": True}
-        counter = {"text": "texts", "ocr": "texts", "meaning": "vectors", "photos": "photos"}
+              "photos": bool(s.get("photo_meaning")) and photo.model_ready(), "watching": True,
+              "rebuild": cur == "rebuild" or "rebuild" in counts}
+        counter = {"text": "texts", "ocr": "texts", "meaning": "vectors", "photos": "photos", "rebuild": "rebuilt"}
         out = []
         for pid, label in PHASES:
             total = remaining = None
@@ -279,8 +299,11 @@ class Api:
         return self._rate.sample(mid, m, now)
 
     def downloads(self):
-        """Each model download's state ({"state", "got", "size", "error"}, bytes), for the pipe's download event."""
-        return {"meaning": dict(self._model), "photo": dict(self._photo_model)}
+        """Each model download's state ({"state", "got", "size", "error"}, bytes), for the pipe's download event:
+        meaning / photo (download_model, download_photo_model) and every model_download by its model id."""
+        out = {"meaning": dict(self._model), "photo": dict(self._photo_model)}
+        out.update({mid: dict(st) for mid, st in getattr(self, "_mdl", {}).items()})
+        return out
 
     def _models(self, now, st, procs):
         """Cards describe the model doing the work (its worker process), else the in-process query encoder."""
@@ -360,6 +383,13 @@ class Api:
                     self._store.remove_paths([d["root"].rstrip("\\") for d in self._indexer.drive_list
                                               if d.get("type") == kind])
                 self._indexer.wake.set()
+        if "photo_model" in changed and self._settings.get("photo_meaning") and "photo_meaning" not in changed:
+            threading.Thread(target=self._indexer._load_photo, daemon=True).start()
+            self._indexer.wake.set()
+        if "text_model" in changed:
+            wake = getattr(self._indexer, "wake", None)
+            if wake is not None:
+                wake.set()                              # the indexer builds the new model's vectors (rebuild)
         if "photo_meaning" in changed:
             if self._settings.get("photo_meaning"):
                 threading.Thread(target=self._indexer._load_photo, daemon=True).start()
@@ -445,6 +475,144 @@ class Api:
         return {"ok": True}
 
     # ---------- Windows Search ----------
+    # ---------- model tiers (contract: models, model_use, model_download, model_remove, auto_configure) ----------
+    _models_dir = None                 # the data folder models live in (tests point it elsewhere)
+    _mdl_thread = None
+
+    def _mdir(self):
+        return self._models_dir or models.DATA_DIR
+
+    def _focus(self):
+        return self._settings.get("language_focus") or models.focus_from_languages(winapi.windows_languages())
+
+    def _model_state(self, m):
+        d = getattr(self, "_mdl", {}).get(m["id"])
+        if d and d["state"] == "downloading":
+            return "downloading"
+        ready = models.ready(m["id"], self._mdir())
+        if m["feature"] == "ocr":
+            return ("active" if self._settings.get("ocr") else "ready") if ocr.available() else "failed"
+        if not ready:
+            return "failed" if d and d.get("error") else "not_downloaded"
+        if m["feature"] == "text":
+            in_use = getattr(self._indexer, "text_model", None) or models.selected(self._settings, "text")
+            return "active" if self._settings.get("semantic") and in_use == m["id"] else "ready"
+        return "active" if models.selected(self._settings, "photo") == m["id"] else "ready"
+
+    def models(self):
+        pc = hw.scan()
+        focus = self._focus()
+        rec = models.recommend(pc)
+        choice = models.tier_choice(rec, focus)
+        out = []
+        for m in models.CATALOG:
+            ok, why = models.capable(m, pc)
+            if m["feature"] == "ocr" and not ocr.available():
+                ok, why = False, ocr.why_missing() or "Windows OCR isn't available on this PC"
+            out.append({"id": m["id"], "feature": m["feature"], "name": m["name"], "tier": m["tier"],
+                        "licence": m["licence"], "source": m["source"], "size_mb": models.size_mb(m),
+                        "ram_mb": int(m.get("ram_mb") or 0), "speed_note": m.get("speed_note") or "",
+                        "languages": list(m.get("languages") or []), "improves": m.get("improves") or "",
+                        "builtin": bool(m["builtin"]), "state": self._model_state(m), "capable": ok,
+                        "capable_reason": why, "recommended": choice.get(m["feature"]) == m["id"],
+                        "quality": dict(m["quality"]) if m.get("quality") else None})
+        return {"pc": pc, "tier_recommended": rec, "tier_current": models.tier_current(self._settings, focus),
+                "language_focus": focus, "models": out}
+
+    def model_use(self, feature, mid):
+        m = models.get(mid) if isinstance(mid, str) else None
+        if m is None or m["feature"] != feature:
+            return {"ok": False, "error": "There's no such model for that.", "needs_download": False}
+        changes = {"text": {"text_model": mid, "semantic": True}, "photo": {"photo_model": mid, "photo_meaning": True},
+                   "ocr": {"ocr": True}}[feature]
+        self.set_settings(changes)
+        wake = getattr(self._indexer, "wake", None)
+        if wake is not None:
+            wake.set()                          # a switched text model is rebuilt by the indexer (phase rebuild)
+        return {"ok": True, "error": "", "needs_download": not models.ready(mid, self._mdir())}
+
+    def model_download(self, mid, consent):
+        m = models.get(mid) if isinstance(mid, str) else None
+        if m is None or m["builtin"]:
+            return {"ok": False, "error": "There's nothing to download for that."}
+        if consent != "DOWNLOAD":
+            return {"ok": False, "error": "A model is only downloaded when you say Download."}
+        self._mdl = getattr(self, "_mdl", {})
+        if self._mdl.get(mid, {}).get("state") == "downloading":
+            return {"ok": True, "error": ""}
+        self._settings.update({"allow_model_download" if m["feature"] == "text" else "allow_photo_model_download": True})
+        st = self._mdl[mid] = {"state": "downloading", "got": 0, "size": sum(f[1] for f in m["files"].values()),
+                               "error": ""}
+        d = models.model_dir(mid, self._mdir())
+
+        def run():
+            done = {}
+            try:
+                os.makedirs(d, exist_ok=True)
+                for name, (path, size, sha) in m["files"].items():
+                    def progress(_n, got, _size, name=name):
+                        done[name] = got
+                        st["got"] = sum(done.values())
+                    embed._fetch_verified(models.url(m, path), os.path.join(d, name), size, sha, name, progress)
+                    done[name] = size
+                    st["got"] = sum(done.values())
+                st["state"] = "ready"
+                log(f"model {mid} downloaded and verified")
+                wake = getattr(self._indexer, "wake", None)
+                if m["feature"] == "text" and models.selected(self._settings, "text") == mid and \
+                        not getattr(self._indexer, "text_model", None):
+                    threading.Thread(target=self._indexer._load_embedder, daemon=True).start()
+                if wake is not None:
+                    wake.set()
+            except Exception as e:
+                log(f"model {mid} download failed: {type(e).__name__}", "warn")
+                st.update(state="missing", error=str(e)[:200] or "The download failed.")
+        self._mdl_thread = threading.Thread(target=run, daemon=True, name="model-download")
+        self._mdl_thread.start()
+        return {"ok": True, "error": ""}
+
+    def model_remove(self, mid):
+        m = models.get(mid) if isinstance(mid, str) else None
+        if m is None or m["builtin"]:
+            return {"ok": False, "error": "That model is part of Windows or NOBAD Find."}
+        in_use = {getattr(self._indexer, "text_model", None), self._store.meta("vec_model") if self._store else None}
+        if m["feature"] == "photo" and self._settings.get("photo_meaning"):
+            in_use.add(models.selected(self._settings, "photo"))
+        if mid in in_use:
+            return {"ok": False, "error": "NOBAD Find is using that model. Choose another one first."}
+        d = models.model_dir(mid, self._mdir())
+        for name in m["files"]:
+            for p in (os.path.join(d, name), os.path.join(d, name + ".part")):
+                try:
+                    os.remove(p)
+                except FileNotFoundError:
+                    pass
+                except OSError as e:
+                    return {"ok": False, "error": e.strerror or "Windows couldn't delete it."}
+        try:
+            os.rmdir(d)
+        except OSError:
+            pass                                # other files in there (not ours) stay
+        return {"ok": True, "error": ""}
+
+    def auto_configure(self):
+        tier = models.recommend(hw.scan())
+        choice = models.tier_choice(tier, self._focus())
+        changes = {"text_model": choice["text"], "semantic": True, "ocr": True}
+        changes.update({"photo_model": choice["photo"], "photo_meaning": True} if choice["photo"] else
+                       {"photo_meaning": False})
+        self.set_settings(changes)
+        steps = [{"feature": f, "id": choice[f],
+                  "needs_download": bool(choice[f]) and not models.ready(choice[f], self._mdir())}
+                 for f in ("text", "photo", "ocr")]
+        return {"tier": tier, "steps": steps}
+
+    def model_language(self, focus):
+        if focus not in models.FOCUSES:
+            return {"ok": False, "error": "Choose English, many languages or Hindi."}
+        self._settings.update({"language_focus": focus})
+        return {"ok": True, "error": ""}
+
     def wsearch_state(self):
         s = wsearch.state()
         s["saved"] = self._settings.get("wsearch_prev")

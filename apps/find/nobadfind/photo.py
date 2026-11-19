@@ -154,12 +154,31 @@ def init_worker(threads=2):
 _CANON = re.compile(r"[^\w\s]", re.UNICODE)
 
 
-class TextEncoder:
-    """The text half of SigLIP: a question -> a vector comparable with photo vectors."""
+PAD2 = 0                                  # SigLIP 2 (Gemma tokenizer): <pad>; <eos> is 1 there too
 
-    def __init__(self, model_dir=PHOTO_DIR, threads=None):
-        if not model_ready(model_dir):
+
+def question_ids(tok, text, style="siglip"):
+    """TEXT_LEN token ids for a question. SigLIP learned from lower-case text without punctuation, padded with
+    </s>; SigLIP 2 from lower-case text ending in <eos>, padded with <pad> (its tokenizer.json adds both)."""
+    if style == "siglip2":
+        ids = list(tok.encode(text.lower()).ids)[:TEXT_LEN]
+        if EOS not in ids:
+            ids[-1:] = [EOS]
+        return ids + [PAD2] * (TEXT_LEN - len(ids))
+    clean = " ".join(_CANON.sub(" ", text.lower()).split())
+    ids = tok.encode(clean).ids[:TEXT_LEN]
+    if ids and ids[-1] != EOS:
+        ids[-1] = EOS
+    return ids + [EOS] * (TEXT_LEN - len(ids))
+
+
+class TextEncoder:
+    """The text half of SigLIP / SigLIP 2: a question -> a vector comparable with that model's photo vectors."""
+
+    def __init__(self, model_dir=PHOTO_DIR, threads=None, style="siglip"):
+        if not os.path.isfile(os.path.join(model_dir, "text.onnx")):
             raise RuntimeError("photo model not downloaded")
+        self.style = style
         import onnxruntime as ort
         from tokenizers import Tokenizer
         self.tok = Tokenizer.from_file(os.path.join(model_dir, "tokenizer.json"))
@@ -170,12 +189,7 @@ class TextEncoder:
         self._lock = threading.Lock()
 
     def encode(self, text):
-        # SigLIP learned from lower-case text without punctuation
-        clean = " ".join(_CANON.sub(" ", text.lower()).split())
-        ids = self.tok.encode(clean).ids[:TEXT_LEN]
-        if ids and ids[-1] != EOS:
-            ids[-1] = EOS
-        ids = ids + [EOS] * (TEXT_LEN - len(ids))
+        ids = question_ids(self.tok, text, self.style)
         with self._lock:
             out = self.sess.run(["pooler_output"], {"input_ids": np.array([ids], np.int64)})[0]
         return _unit(out[0]).astype(np.float32)

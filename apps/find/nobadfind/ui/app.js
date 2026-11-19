@@ -465,6 +465,8 @@ const PAGES = {
       ["pause_on_call", "switch", "Pause during calls", "While an app uses the microphone or camera."],
       ["keep_background", "switch", "Keep indexing in the background",
         "Closing the window stops indexing and every worker; NOBAD Find stays as one small idle process so the hotkey works. On: keeps indexing after closing."],
+      ["tray", "switch", "Show NOBAD Find in the notification area",
+        "An icon next to the clock: click it to open NOBAD Find, right-click for the quick find bar, Pause and Quit."],
       ["workers", "num", "Text reading workers", "0 = choose from your CPU: two threads stay free while you use the PC, one when you're away."],
     ]],
     ["Apps NOBAD Find has learned", [["_learned", "learned", "Apps that slowed your PC down",

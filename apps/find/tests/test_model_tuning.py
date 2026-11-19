@@ -9,6 +9,7 @@ def test_meaning_batches_are_small():
     """Batch 64 x up to 256 tokens kept ~1.1 GB in ONNX Runtime's arena in the meaning worker; batch 4 keeps
     ~115 MB and runs faster (40 vs 30 chunks/s), with the same search quality."""
     e = embed.Embedder.__new__(embed.Embedder)
+    e.spec, e.query = embed.DEFAULT_SPEC, False
     sizes = []
     e._encode = lambda texts: (sizes.append(len(texts)), np.ones((len(texts), embed.MODEL_DIM), np.float32))[1]
     out = e.encode([f"text {i}" for i in range(10)])
@@ -62,6 +63,7 @@ def test_photo_question_encoder_uses_four_threads(monkeypatch, tmp_path):
     monkeypatch.setattr(photo, "model_ready", lambda d=None: True)
     import tokenizers
     monkeypatch.setattr(tokenizers.Tokenizer, "from_file", staticmethod(lambda p: None))
+    (tmp_path / "text.onnx").write_bytes(b"")
     photo.TextEncoder(str(tmp_path))
     assert seen["threads"] == photo.QUESTION_THREADS == 4
 

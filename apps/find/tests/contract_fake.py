@@ -27,8 +27,9 @@ class FakeApi:
         self.gov = FakeGov()
         self.paused = ""
         self.settings = dict(DEFAULTS)
-        self.models = {"meaning": {"state": "missing", "got": 0, "size": 0, "error": ""},
-                       "photo": {"state": "missing", "got": 0, "size": 0, "error": ""}}
+        self.dl = {"meaning": {"state": "missing", "got": 0, "size": 0, "error": ""},
+                   "photo": {"state": "missing", "got": 0, "size": 0, "error": ""}}
+        self.ready = set()                       # model ids "downloaded" in this fake
 
     def _note(self, *call):
         self.calls.append(call)
@@ -43,6 +44,10 @@ class FakeApi:
 
     def open(self, file_id):
         self._note("open", file_id)
+        return {"ok": True} if file_id == 7 else {"ok": False, "error": "That file isn't there any more."}
+
+    def open_with(self, file_id):
+        self._note("open_with", file_id)
         return {"ok": True} if file_id == 7 else {"ok": False, "error": "That file isn't there any more."}
 
     def reveal(self, file_id):
@@ -71,7 +76,7 @@ class FakeApi:
         return dict(STATUS_FULL, level=self.gov.level, reason=self.gov.reason, paused=self.paused)
 
     def downloads(self):
-        return {k: dict(v) for k, v in self.models.items()}
+        return {k: dict(v) for k, v in self.dl.items()}
 
     def pause_for(self, seconds):
         self._note("pause_for", seconds)
@@ -123,13 +128,87 @@ class FakeApi:
     def download_model(self):
         if not self.settings["allow_model_download"]:
             return {"ok": False, "error": "Allow the download in Settings first."}
-        self.models["meaning"].update(state="downloading", got=0, size=0)
+        self.dl["meaning"].update(state="downloading", got=0, size=0)
         return {"ok": True}
 
     def download_photo_model(self):
         if not self.settings["allow_photo_model_download"]:
             return {"ok": False, "error": "Allow the photo model download in Settings first."}
-        self.models["photo"].update(state="downloading", got=0, size=0)
+        self.dl["photo"].update(state="downloading", got=0, size=0)
+        return {"ok": True}
+
+    # model tiers: the real catalog, a fixed PC, nothing downloaded unless the transcript downloads it
+    def models(self):
+        from nobadfind import models as cat
+        pc = self.hardware()
+        focus = self.settings.get("language_focus") or "english"
+        rec = cat.recommend(pc)
+        choice = cat.tier_choice(rec, focus)
+        out = []
+        for m in cat.CATALOG:
+            ok, why = cat.capable(m, pc)
+            if m["builtin"]:
+                state = "active" if self.settings.get("ocr") else "ready"
+            elif self.dl.get(m["id"], {}).get("state") == "downloading":
+                state = "downloading"
+            elif m["id"] in self.ready:
+                state = "active" if cat.selected(self.settings, m["feature"]) == m["id"] else "ready"
+            else:
+                state = "not_downloaded"
+            out.append({"id": m["id"], "feature": m["feature"], "name": m["name"], "tier": m["tier"],
+                        "licence": m["licence"], "source": m["source"], "size_mb": cat.size_mb(m),
+                        "ram_mb": int(m.get("ram_mb") or 0), "speed_note": m.get("speed_note") or "",
+                        "languages": list(m.get("languages") or []), "improves": m.get("improves") or "",
+                        "builtin": bool(m["builtin"]), "state": state, "capable": ok, "capable_reason": why,
+                        "recommended": choice.get(m["feature"]) == m["id"],
+                        "quality": dict(m["quality"]) if m.get("quality") else None})
+        return {"pc": pc, "tier_recommended": rec, "tier_current": cat.tier_current(self.settings, focus),
+                "language_focus": focus, "models": out}
+
+    def model_use(self, feature, mid):
+        from nobadfind import models as cat
+        m = cat.get(mid)
+        if m is None or m["feature"] != feature:
+            return {"ok": False, "error": "There's no such model for that.", "needs_download": False}
+        self.set_settings({"text": {"text_model": mid, "semantic": True}, "photo": {"photo_model": mid,
+                           "photo_meaning": True}, "ocr": {"ocr": True}}[feature])
+        return {"ok": True, "error": "", "needs_download": not m["builtin"] and mid not in self.ready}
+
+    def model_download(self, mid, consent):
+        from nobadfind import models as cat
+        m = cat.get(mid)
+        if m is None or m["builtin"]:
+            return {"ok": False, "error": "There's nothing to download for that."}
+        if consent != "DOWNLOAD":
+            return {"ok": False, "error": "A model is only downloaded when you say Download."}
+        self.dl[mid] = {"state": "downloading", "got": 0, "size": sum(f[1] for f in m["files"].values()), "error": ""}
+        return {"ok": True}
+
+    def model_remove(self, mid):
+        from nobadfind import models as cat
+        m = cat.get(mid)
+        if m is None or m["builtin"]:
+            return {"ok": False, "error": "That model is part of Windows or NOBAD Find."}
+        if cat.selected(self.settings, m["feature"]) == mid:
+            return {"ok": False, "error": "NOBAD Find is using that model. Choose another one first."}
+        self.ready.discard(mid)
+        return {"ok": True}
+
+    def auto_configure(self):
+        from nobadfind import models as cat
+        tier = cat.recommend(self.hardware())
+        choice = cat.tier_choice(tier, self.settings.get("language_focus") or "english")
+        self.set_settings({"text_model": choice["text"], "semantic": True, "ocr": True,
+                           "photo_model": choice["photo"] or self.settings["photo_model"],
+                           "photo_meaning": bool(choice["photo"])})
+        return {"tier": tier, "steps": [{"feature": f, "id": choice[f],
+                                         "needs_download": bool(choice[f]) and f != "ocr" and choice[f] not in self.ready}
+                                        for f in ("text", "photo", "ocr")]}
+
+    def model_language(self, focus):
+        if focus not in ("english", "multilingual", "hindi"):
+            return {"ok": False, "error": "Choose English, many languages or Hindi."}
+        self.settings["language_focus"] = focus
         return {"ok": True}
 
     # Windows Search
@@ -230,7 +309,10 @@ class Engine:
         elif do == "activity":
             self.activity.add(t["kind"], t["text"])
         elif do == "download":
-            self.api.models[t["id"]].update({k: t[k] for k in ("state", "got", "size", "error") if k in t})
+            self.api.dl.setdefault(t["id"], {"state": "missing", "got": 0, "size": 0, "error": ""}).update(
+                {k: t[k] for k in ("state", "got", "size", "error") if k in t})
+            if t.get("state") == "ready":
+                self.api.ready.add(t["id"])
         elif do == "hotkey":
             self.events.show(t["what"])
         elif do == "here":

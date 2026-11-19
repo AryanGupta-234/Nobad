@@ -8,6 +8,7 @@
 import datetime as dt
 import ntpath
 import re
+import unicodedata
 from dataclasses import dataclass, field
 
 from .kinds import AMBIGUOUS_APPS, APP_CUES, APPS, WORDS
@@ -173,11 +174,70 @@ def _take_path(s, is_dir):
     return None, s[:m.start()] + " " + " ".join(words[1:])        # looks like a path, but isn't a folder
 
 
+# ---------- Hindi and Hinglish (Hindi typed in Latin letters) ----------
+# The filters are read the same way as in English: each Hindi or Hinglish phrase becomes the English one before the
+# question is parsed ("पिछले हफ्ते की पीडीएफ" -> "last week pdf", "pichle hafte ki rent wali pdf" -> "last week rent
+# pdf"). Linking words (का, की, वाली, wala, mein...) are left out like "the" and "of". Devanagari letters include
+# their vowel signs, so a Hindi word is one word ("बिजली"), not pieces.
+WORD = r"[\w\u0900-\u097F.\-+#]+"
+_B, _E = r"(?<![\w\u0900-\u097F])", r"(?![\w\u0900-\u097F])"
+_PICHLE = r"(?:पिछले|पिछला|पिछली|pich+h?l[ae]|pic+h?h?l[ae]|last)"
+_IS = r"(?:इस|is)"
+_HAFTA = r"(?:हफ्ते|हफ़्ते|हफ्ता|हफ़्ता|सप्ताह|haf+t[ae]|week)"
+_MAHINA = r"(?:महीने|महीना|माह|mahin[ae]|month)"
+_SAAL = r"(?:साल|वर्ष|saa?l|year)"
+_PEHLE = r"(?:पहले|pe?h?le|pahle)"
+_BADA = r"(?:बड़ी|बड़े|बड़ा|बडी|बडे|बडा|badi|bade|bada|bari|bare|bara)"
+_CHHOTA = r"(?:छोटी|छोटे|छोटा|chh?oti|chh?ote|chh?ota)"
+_SE = r"(?:से|se)"
+_FILES = r"(?:फाइलें|फ़ाइलें|फाइल|फ़ाइल|files?)"
+_MEIN = r"(?:में|mein|me|के अंदर|ke andar)"
+HINDI_PHRASES = [
+    # times
+    (_PICHLE + " " + _HAFTA, "last week"), (_IS + " " + _HAFTA, "this week"),
+    (_PICHLE + " " + _MAHINA, "last month"), (_IS + " " + _MAHINA, "this month"),
+    (_PICHLE + " " + _SAAL, "last year"), (_IS + " " + _SAAL, "this year"),
+    (r"(\d+) (?:दिन|din) " + _PEHLE, r"\1 days ago"), (r"(\d+) " + _HAFTA + " " + _PEHLE, r"\1 weeks ago"),
+    (r"(\d+) " + _MAHINA + " " + _PEHLE, r"\1 months ago"),
+    (r"(?:आज|aaj)", "today"), (r"(?:कल|kal)", "yesterday"),
+    # sizes
+    (r"(\d+(?:\.\d+)?) ?(gb|mb|kb) " + _SE + " " + _BADA, r"bigger than \1 \2"),
+    (r"(\d+(?:\.\d+)?) ?(gb|mb|kb) " + _SE + " " + _CHHOTA, r"smaller than \1 \2"),
+    (_BADA + " " + _FILES, "big files"),
+    # the user's folders
+    (r"(?:डाउनलोड्स|डाउनलोड|downloads?) " + _MEIN, "in downloads"),
+    (r"(?:डेस्कटॉप|desktop) (?:पर|par|में|mein)", "on desktop"),
+    (r"(?:डॉक्यूमेंट्स|डॉक्यूमेंट|documents?) " + _MEIN, "in documents"),
+    (r"(?:डाउनलोड्स|डाउनलोड)", "downloads"), (r"डेस्कटॉप", "desktop"), (r"(?:फोल्डर|फ़ोल्डर)", "folder"),
+    # kinds
+    (r"(?:फोटो|फ़ोटो|फोटोज़|फोटोज|तस्वीरें|तस्वीर|चित्र|tasveer(?:ein|en)?)", "photos"),
+    (r"(?:पीडीएफ|पी डी एफ)", "pdf"), (r"(?:वीडियो|विडियो)", "videos"), (r"(?:ईमेल|मेल)", "email"),
+    (r"(?:दस्तावेज़|दस्तावेज|डॉक्यूमेंट)", "document"), (_FILES, "files"),
+    # "having / containing"
+    (r"(?:जिसमें|जिसमे|jisme|jismein|jis ?mein)", "containing"),
+]
+HINDI_PHRASES = [(re.compile(_B + unicodedata.normalize("NFC", p) + _E), r) for p, r in HINDI_PHRASES]
+HINDI_STOP = {"का", "की", "के", "को", "में", "से", "पर", "और", "है", "हैं", "था", "थी", "थे", "वाला", "वाली", "वाले",
+              "एक", "मेरा", "मेरी", "मेरे", "वो", "वह", "यह", "ये", "कहाँ", "कहां", "कौन", "क्या", "भी", "तो", "ही",
+              "wala", "wali", "wale", "vala", "vali", "vale", "ka", "ki", "ke", "ko", "mein", "se", "aur", "hai", "hain",
+              "tha", "thi", "the", "mera", "meri", "mere", "wo", "woh", "yeh", "ye", "kahan", "kaha", "kya", "bhi",
+              "to", "hi", "ek", "par"}
+_DEVANAGARI_DIGITS = str.maketrans("०१२३४५६७८९", "0123456789")
+
+
+def hindi_to_english(low):
+    """Hindi and Hinglish filter words -> the English the parser reads (other words are left as they are)."""
+    low = unicodedata.normalize("NFC", low).translate(_DEVANAGARI_DIGITS)
+    for pattern, english in HINDI_PHRASES:
+        low = pattern.sub(english, low)
+    return low
+
+
 SIZE_UNITS = {"bytes": 1, "kb": 1024, "mb": 1 << 20, "gb": 1 << 30}
 _SIZE = r"(\d+(?:\.\d+)?) ?(gb|mb|kb|bytes)\b"            # a real unit: "less than 5 m" is not guessed at
 
 
-def parse(text, now=None, labels=(), is_dir=None):
+def parse(text, now=None, labels=(), is_dir=None, times=True):
     """labels: names of drives this PC knows ("SANDISK"), so "on sandisk" means that drive.
     is_dir: checks whether a typed path is a real folder (so "C:\\Work" in a question is understood)."""
     now = now or dt.datetime.now()
@@ -195,7 +255,7 @@ def parse(text, now=None, labels=(), is_dir=None):
         q.phrases.append(m.strip())
     s = re.sub(r'"[^"]*"', " ", s)
 
-    low = " " + s.lower() + " "
+    low = " " + hindi_to_english(s.lower()) + " "
     # "the word appreciation" says what is inside the file; it doesn't ask for Word documents
     low = re.sub(r" (?:the|a) (?:words?|phrase|term) ", " ", low)
 
@@ -236,7 +296,7 @@ def parse(text, now=None, labels=(), is_dir=None):
 
     def take(pattern, fn):
         nonlocal low
-        m = re.search(pattern, low)
+        m = re.search(pattern, low) if times else None    # times=False: "march" is a word to look for
         if not m or q.t0 is not None:
             return False
         r = fn(m)
@@ -314,7 +374,7 @@ def parse(text, now=None, labels=(), is_dir=None):
     # apps, kinds and extensions
     for phrase, joined in APP_PHRASES.items():
         low = low.replace(" " + phrase + " ", " " + joined + " ")
-    words = re.findall(r"[\w.\-+#]+", low)
+    words = re.findall(WORD, low)
     asked = []                                      # ASKING words seen (see the end)
     cue_at = -1                                    # "projects" in "blender projects" is part of the app filter
     for i, w in enumerate(words):
@@ -335,7 +395,7 @@ def parse(text, now=None, labels=(), is_dir=None):
         if re.fullmatch(r"\.[a-z0-9]{1,6}", w):
             q.exts.add(w)
             continue
-        if w in STOP or w in NUM:
+        if w in STOP or w in NUM or w in HINDI_STOP:
             continue
         if w in ASKING:
             asked.append(w)

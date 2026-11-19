@@ -69,6 +69,8 @@ be `""` when not). Files are always named by a result **`id`** from `search`, ne
     ago: string, why: [string], snippet: string, weak: bool}`. `weak` = a loose match, show it as less sure.
     Every string is untrusted text from the user's disk: show it as plain text, never as markup.
 - **`open`** `{id}` → `Ok`: open with the default program (outside NOBAD Find's process group, so it survives Quit).
+- **`open_with`** `{id}` → `Ok`: Windows' "Open with" list for that result. It runs in a small helper started outside
+  NOBAD Find's process group, so the program chosen there survives Quit like `open`. By id only, never a path.
 - **`reveal`** `{id}` → `Ok`: File Explorer with the file selected.
 - **`thumbnail`** `{id}` → `{url: string}`: `data:image/png;base64,…` (or jpeg/bmp) from Windows' thumbnail cache for
   photos, videos and PDFs, or `""` (keep the kind badge).
@@ -125,6 +127,31 @@ be `""` when not). Files are always named by a result **`id`** from `search`, ne
 - **`download_model`** `{}` → `Ok`: download the meaning model; needs `allow_model_download` on (else `ok: false` with a
   sentence). Progress comes as `download` events.
 - **`download_photo_model`** `{}` → `Ok`: the same for the photo model (`allow_photo_model_download`).
+  Both stay for older UIs; the 0.8.0 Settings → Models page uses the methods below.
+- **`models`** `{}` → `{pc: Hardware, tier_recommended: light|balanced|best, tier_current: light|balanced|best|custom,
+  language_focus: english|multilingual|hindi, models: [Model]}`. `Model` = `{id, feature: text|photo|ocr, name, tier,
+  licence, source, size_mb, ram_mb, speed_note, languages: [string], improves, builtin, state:
+  not_downloaded|downloading|ready|active|failed, capable, capable_reason, recommended, quality?:
+  {english, hindi}|null}`. `quality`: a text model's measured search quality on the English and Hindi test sets
+  (nDCG@10 of the whole search, 0-1). `ram_mb` and `speed_note`
+  were measured on the reference PC (0 / "" when not measured); `improves`, `licence`, `size_mb`, `source` and
+  `ram_mb` are what the consent dialog shows. `recommended`: in the recommended tier for this PC and language focus.
+  The `models` event brings the same object whenever it changes.
+- **`model_use`** `{feature, id}` → `{ok, error, needs_download: bool}`: choose the model for a feature (and turn the
+  feature on). Not downloaded yet: it is chosen, `needs_download` is true, and it's used once downloaded. A new text
+  model rebuilds the meaning vectors in the background (`status_full.phases` has `{id: "rebuild"}`); the old vectors
+  and their model stay in use until the new ones are complete, then they swap at once. Vectors of two models are
+  never searched together.
+- **`model_download`** `{id, consent}` → `Ok`: download a model, only with `consent: "DOWNLOAD"` (the consent dialog's
+  button; anything else is `ok: false`). Pinned revision, exact size and SHA-256 are checked before a file is used.
+  Progress comes as `download` events with `id` = the model id.
+- **`model_remove`** `{id}` → `Ok`: delete a downloaded model's files; not for built-in models or the one in use.
+- **`auto_configure`** `{}` → `{tier, steps: [{feature, id, needs_download}]}`: apply the recommended tier for this PC
+  and language focus. Everything that needs no download is applied at once; for each step with `needs_download`, the
+  UI asks for consent and calls `model_download`. A step's `id` is `""` when the tier turns that feature off.
+- **`model_language`** `{focus: english|multilingual|hindi}` → `Ok`: "English first", "Many languages" or "Hindi" in
+  Settings → Models. It changes the recommendation only; nothing is downloaded or switched by itself. Until it is
+  set, the focus comes from Windows' display and keyboard languages (read from Windows, no network).
 
 ### Windows Search
 
@@ -164,12 +191,15 @@ Subscribe with `subscribe`. Each is `{"jsonrpc":"2.0","method":"<name>","params"
 - **`level`** → `{level, reason, paused}`: the work level, its reason or the pause changed (seen within half a second).
   Not sent for the state at the time you subscribed: read `status` once.
 - **`activity`** → `{t, kind: level|kill|model|info, text}`: a new Recent decisions entry (within half a second).
-- **`download`** → `{id: meaning|photo, state: missing|downloading|ready, got_mb, size_mb, mb_s, error}`: a model
+- **`download`** → `{id: meaning|photo|<model id>, state: missing|downloading|ready, got_mb, size_mb, mb_s, error}`: a model
   download moved on: progress up to twice a second while `downloading`, then `ready`, or `missing` with `error` saying
   why it failed.
 - **`notice`** → `{text}`: a sentence to show as a toast (for example a hotkey another app took). A notice nobody was
   subscribed to waits (the last 5) and goes to the first connection that subscribes to `notice`.
-- **`show`** → `{what: main|bar, text: string|null}`: bring that window up. `text` null: a hotkey was pressed, keep the
+- **`models`** → the `models` result: something in it changed (a download changed state, a model was chosen,
+  removed or became active, the language focus changed). Looked at about once a second.
+- **`show`** → `{what: main|bar|settings|index, text: string|null}`: bring that window up (`settings`, `index`: the
+  main window on that page, from the tray menu). `text` null: a hotkey was pressed, keep the
   search box as it is; a string: the bar's Alt+Enter (`to_main`), put it in the search box and search. The engine
   has already allowed the UI processes to take the front.
 - **`here`** → `{path}`: after the main hotkey, the File Explorer folder it was pressed in (`""` if none). Comes shortly
@@ -198,3 +228,4 @@ lines, rewrites the `recv` lines), then review the diff.
 | `02-events.jsonl` | every event: status, level, activity, download progress/ready/failed, show (hotkeys and to_main), here, a notice waiting for a listener, unsubscribe, quit and quitting |
 | `03-settings-and-system.jsonl` | get/set_settings (and a bad one), pick_folder, Windows Search, model downloads with and without consent, rescan, wipe and quit confirm words |
 | `04-indexing-page.jsonl` | status_full method and event, pause_for/resume with level events, bad pauses (a string, 0), learned_apps, reset_learned, hardware, forget |
+| `05-models-and-tray.jsonl` | models (method and event), model_language, model_use (and a model for the wrong feature), model_download without and with consent and its download events, model_remove (downloaded, built-in, a bad id), auto_configure, open_with, show settings / index (the tray) |

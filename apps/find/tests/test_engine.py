@@ -77,7 +77,7 @@ def make(tmp_path, **changes):
     ev = Events(lambda: [conn], lambda c: None, api)
     stop = threading.Event()
     w = engine.Wiring(api, st, ix, ev, stop, ui_pids=lambda: set(), make_hotkey=Key, dialog=lambda: "C:\\x",
-                      trim=lambda: None)
+                      trim=lambda: None, launcher=lambda events: events)
     return w, api, ix, ev, conn, stop
 
 
@@ -201,3 +201,47 @@ def test_the_real_index_is_recognised_under_another_spelling(tmp_path):
     env = {"NOBAD_FIND_MEASURE_LEVEL": "light", "NOBAD_FIND_MEASURE_PIPE": "x"}
     assert engine.measure_overrides(env, buf.value, str(real), base="p") == {"level": None, "pipe": None}
     assert engine.lock_name(buf.value, str(real)) == "Local\\NOBAD-Find"
+
+
+class FakeUi:
+    def __init__(self):
+        self.asked = []
+
+    def show(self, what, text=None):
+        self.asked.append(what)
+
+    def here(self, path):
+        pass
+
+
+def test_hotkeys_with_no_ui_go_through_the_launcher(tmp_path):
+    """No UI connected: the launcher starts one on the right page (uilaunch.Launcher)."""
+    st = settings_mod.Settings(str(tmp_path / "s.json"))
+    st.update({"hotkey": "ctrl+alt+shift+f11", "bar_hotkey": "ctrl+alt+shift+f12"})
+    ix, ui = Ix(), FakeUi()
+    api = Api(None, st, ix, None, lambda: None)
+    ev = Events(lambda: [], lambda c: None, api)
+    w = engine.Wiring(api, st, ix, ev, threading.Event(), ui_pids=lambda: set(), make_hotkey=Key,
+                      dialog=lambda: "x", trim=lambda: None, launcher=lambda events: ui)
+    keys = w.start()
+    keys[1].callback()
+    keys[0].callback()
+    assert ui.asked == ["bar", "main"]
+
+
+def test_tray_actions(tmp_path):
+    st = settings_mod.Settings(str(tmp_path / "s.json"))
+    ix, ui = Ix(), FakeUi()
+    api = Api(None, st, ix, None, lambda: None)
+    paused = []
+    api.pause_for = lambda s: paused.append(s) or {"ok": True}
+    api.resume = lambda: paused.append("resume") or {"ok": True}
+    ev = Events(lambda: [], lambda c: None, api)
+    stop = threading.Event()
+    w = engine.Wiring(api, st, ix, ev, stop, ui_pids=lambda: set(), make_hotkey=Key, dialog=lambda: "x",
+                      trim=lambda: None, launcher=lambda events: ui)
+    for action in ("open", "bar", "settings", "index", "pause", "resume"):
+        w.tray_action(action)
+    assert ui.asked == ["main", "bar", "settings", "index"] and paused == [3600, "resume"]
+    w.tray_action("quit")
+    assert stop.is_set()

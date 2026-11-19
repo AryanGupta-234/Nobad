@@ -271,3 +271,40 @@ def test_model_download_rejects_wrong_checksum(tmp_path, monkeypatch):
     with pytest.raises(IOError, match="checksum"):
         embed.download_model(str(tmp_path))
     assert not os.listdir(tmp_path)
+
+
+def test_a_time_that_matches_no_file_is_read_as_words(tmp_path):
+    """"electricity bill march": nothing changed in March, so the bill *for* March is what was meant."""
+    import datetime as dt
+    from nobadfind import search as search_mod
+    from nobadfind.store import Store
+    s = Store(str(tmp_path / "i.db"), encrypt=False)
+    now = dt.datetime(2026, 11, 19).timestamp()
+    s.upsert_files([("C:/d/power.txt", "power.txt", "C:/d", ".txt", "text", 10, now, now, 1)])
+    s.set_text(1, now, ["Electricity bill for March: 54 pounds"], None)
+    r = search_mod.search(s, "electricity bill march", now=now)
+    assert [x["name"] for x in r["results"]] == ["power.txt"]
+    assert any("match the words instead" in n for n in r["notes"])
+    s.close()
+
+
+def test_folders_dont_crowd_meaning_results(tmp_path):
+    import numpy as np
+    from nobadfind import embed, search as search_mod
+    from nobadfind.store import Store
+    s = Store(str(tmp_path / "i.db"), encrypt=False)
+    s.upsert_files([("C:/d/Home", "Home", "C:/d", "", "folder", 0, 1.0, 1.0, 1),
+                    ("C:/d/lease.txt", "lease.txt", "C:/d", ".txt", "text", 10, 1.0, 1.0, 1)])
+    vi = embed.VectorIndex(3)
+    v = np.array([[1.0, 0, 0]], np.float32)
+    vi.add([embed.name_key(1), embed.name_key(2)], np.vstack([v, v]))
+
+    class E:
+        def encode(self, texts):
+            return v
+    names = [x["name"] for x in search_mod.search(s, "where i live", embedder=E(), vindex=vi)["results"]]
+    assert names == ["lease.txt"]
+    names = [x["name"] for x in search_mod.search(s, "where i live", embedder=E(), vindex=vi,
+                                                  filters={"kind": "folder"})["results"]]
+    assert names == ["Home"]                               # asked for folders: they count
+    s.close()

@@ -118,17 +118,25 @@ def _fetch_verified(url, dest, size, sha, name, progress=None):
     log(f"model file {name} verified")
 
 
-class Embedder:
-    """gpu=False: CPU only (the query encoder in the app; workers below Full). gpu=True: DirectML when there."""
+DEFAULT_SPEC = {"id": "minilm-l6-v2", "query_prefix": "", "passage_prefix": "", "pooling": "mean", "dim": MODEL_DIM}
 
-    def __init__(self, model_dir=MODEL_DIR, threads=None, gpu=True):
-        if not model_ready(model_dir):
+
+class Embedder:
+    """gpu=False: CPU only (the query encoder in the app; workers below Full). gpu=True: DirectML when there.
+
+    spec: the model's catalog entry (models.CATALOG): its prefixes ("query: " / "passage: " for e5), its pooling
+    (mean or CLS) and its id. query=True: this one encodes questions (the query prefix), else passages."""
+
+    def __init__(self, model_dir=MODEL_DIR, threads=None, gpu=True, spec=None, query=False):
+        self.spec, self.query = spec or DEFAULT_SPEC, query
+        if not os.path.isfile(os.path.join(model_dir, "model.onnx")) or (spec is None and not model_ready(model_dir)):
             raise RuntimeError("model not downloaded")
         import onnxruntime as ort
         from tokenizers import Tokenizer
         self.tok = Tokenizer.from_file(os.path.join(model_dir, "tokenizer.json"))
         self.tok.enable_truncation(MAX_TOKENS)
-        self.tok.enable_padding(pad_id=0, pad_token="[PAD]")
+        pad = next((t for t in ("[PAD]", "<pad>") if self.tok.token_to_id(t) is not None), None)
+        self.tok.enable_padding(pad_id=self.tok.token_to_id(pad) if pad else 0, pad_token=pad or "[PAD]")
         opts = ort.SessionOptions()
         opts.intra_op_num_threads = threads or max(1, (os.cpu_count() or 2) // 2)
         opts.log_severity_level = 3
@@ -139,17 +147,31 @@ class Embedder:
         self.device = "GPU" if providers and providers[0] == "DmlExecutionProvider" else "CPU"
         self._lock = threading.Lock()
 
+    @property
+    def model_id(self):
+        return self.spec["id"]
+
     def encode(self, texts):
         """Unit-length float32 vectors, one row per text. Similar lengths are batched together (less padding)."""
-        texts = list(texts)
+        prefix = self.spec["query_prefix"] if self.query else self.spec["passage_prefix"]
+        texts = [prefix + t for t in texts]
         if not texts:
-            return np.zeros((0, MODEL_DIM), np.float32)
+            return np.zeros((0, self.spec.get("dim", MODEL_DIM)), np.float32)
         order = sorted(range(len(texts)), key=lambda i: len(texts[i]))
-        out = np.zeros((len(texts), MODEL_DIM), np.float32)
+        out = None
         for i in range(0, len(order), BATCH):
             part = order[i:i + BATCH]
-            out[part] = self._encode([texts[j] for j in part])
+            v = self._encode([texts[j] for j in part])
+            if out is None:
+                out = np.zeros((len(texts), v.shape[1]), np.float32)
+            out[part] = v
         return out
+
+    def _pool(self, hidden, mask):
+        if self.spec.get("pooling") == "cls":
+            return hidden[:, 0]
+        m = mask[..., None].astype(np.float32)
+        return (hidden * m).sum(1) / np.maximum(m.sum(1), 1e-9)          # mean pooling
 
     def _encode(self, texts):
         enc = self.tok.encode_batch(texts)
@@ -160,8 +182,7 @@ class Embedder:
             feed["token_type_ids"] = np.zeros_like(ids)
         with self._lock:
             out = self.sess.run(None, feed)[0]                       # (batch, tokens, dim)
-        m = mask[..., None].astype(np.float32)
-        v = (out * m).sum(1) / np.maximum(m.sum(1), 1e-9)          # mean pooling
+        v = self._pool(out, mask)
         return v / np.maximum(np.linalg.norm(v, axis=1, keepdims=True), 1e-9)
 
 
@@ -169,13 +190,13 @@ class Embedder:
 _worker = None
 
 
-def init_meaning_worker(model_dir, threads, gpu):
+def init_meaning_worker(model_dir, threads, gpu, spec=None):
     """Pool initializer: join Find's worker group (CPU-capped by the governor), low priority, own model."""
     global _worker
     from . import jobs, winapi
     jobs.join_workers()
     winapi.worker_priority()
-    _worker = Embedder(model_dir, threads=threads, gpu=gpu)
+    _worker = Embedder(model_dir, threads=threads, gpu=gpu, spec=spec)
 
 
 def encode_job(texts):
@@ -189,8 +210,8 @@ class Lazy:
 
     IDLE = 180
 
-    def __init__(self, factory, name):
-        self._factory, self.name = factory, name
+    def __init__(self, factory, name, model_id=None):
+        self._factory, self.name, self.model_id = factory, name, model_id
         self._model, self._used = None, 0.0
         self._lock = threading.Lock()
 
@@ -246,6 +267,7 @@ class VectorIndex:
     def __init__(self, dim=MODEL_DIM, queries=TEXT_QUERIES):
         """dim: numbers per vector; queries: SQL that yields (key, float16 blob) rows to load."""
         self.dim, self.queries = dim, queries
+        self.model = None                 # catalog id of the model these vectors come from (search checks it)
         self._ids = np.zeros(1024, np.int64)
         self._mat = np.zeros((1024, dim), np.float16)
         self.n = 0
@@ -253,6 +275,14 @@ class VectorIndex:
         self._proj = None
         self._fitted_at = 0
         self._lock = threading.Lock()
+
+    def reset(self, dim, model=None):
+        """Empty, for vectors of `dim` numbers from `model` (a model switch)."""
+        with self._lock:
+            self.dim, self.model, self.n = dim, model, 0
+            self._ids = np.zeros(1024, np.int64)
+            self._mat = np.zeros((1024, dim), np.float16)
+            self._coarse, self._proj, self._fitted_at = None, None, 0
 
     @property
     def ids(self):

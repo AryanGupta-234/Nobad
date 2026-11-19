@@ -175,11 +175,18 @@ class Ix:
         self.status = {"phase": "text", "files": 3, "texts": 0, "vectors": 0, "paused": "", "rate": 0, "errors": 0,
                        "plan": {}, "last_scan": 0}
         self.calls = []
+        self.text_model = None
 
         class W:
             def set(self_):
                 self.calls.append("wake")
         self.wake = W()
+
+    def _load_embedder(self):
+        pass
+
+    def _load_photo(self):
+        pass
 
     def models_loaded(self):
         return []
@@ -371,12 +378,12 @@ def test_download_progress_events():
     e.conn.events.add("download")
     e.events.step(0.0)
     assert e.conn.sent == []
-    e.api.models["meaning"].update(state="downloading", got=2 * 1048576, size=23 * 1048576)
+    e.api.dl["meaning"].update(state="downloading", got=2 * 1048576, size=23 * 1048576)
     e.events.step(1.0)
-    e.api.models["meaning"]["got"] = 4 * 1048576
+    e.api.dl["meaning"]["got"] = 4 * 1048576
     e.events.step(2.0)
     e.events.step(2.5)                                      # nothing new: no event
-    e.api.models["meaning"].update(state="ready", got=23 * 1048576)
+    e.api.dl["meaning"].update(state="ready", got=23 * 1048576)
     e.events.step(3.0)
     got = [m["params"] for m in e.conn.sent]
     assert [g["state"] for g in got] == ["downloading", "downloading", "ready"]
@@ -429,11 +436,11 @@ def test_download_speed_counts_from_the_last_change():
     """Looks that find nothing new don't move the speed's starting point (that overstated the speed)."""
     e = engine()
     e.conn.events.add("download")
-    e.api.models["meaning"].update(state="downloading", got=2 * 1048576, size=23 * 1048576)
+    e.api.dl["meaning"].update(state="downloading", got=2 * 1048576, size=23 * 1048576)
     e.events.step(1.0)
     e.events.step(1.5)
     e.events.step(2.0)
-    e.api.models["meaning"]["got"] = 4 * 1048576
+    e.api.dl["meaning"]["got"] = 4 * 1048576
     e.events.step(3.0)
     assert [m["params"]["mb_s"] for m in e.conn.sent] == [0.0, 1.0]
 
@@ -459,7 +466,7 @@ def test_events_are_sent_outside_the_ticker_lock():
     e.events.step(0.0)
     e.api.gov.level = "light"
     e.activity.add("info", "x")
-    e.api.models["photo"].update(state="downloading", got=1, size=2)
+    e.api.dl["photo"].update(state="downloading", got=1, size=2)
     e.events.step(2.0)
     assert len(held) >= 6 and not any(held)
 

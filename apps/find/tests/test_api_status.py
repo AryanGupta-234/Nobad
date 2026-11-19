@@ -64,7 +64,7 @@ def test_status_has_transparency_keys(tmp_path):
     assert r["gpu"] == 2.0 and isinstance(r["processes"], list)
     for p in r["processes"]:
         assert set(p) == {"name", "pid", "cpu", "memory_mb"}
-    assert {p["id"] for p in st["phases"]} == {"names", "text", "ocr", "meaning", "photos", "watching"}
+    assert {p["id"] for p in st["phases"]} == {"names", "text", "ocr", "meaning", "rebuild", "photos", "watching"}
     for p in st["phases"]:
         assert p["state"] in ("waiting", "running", "done", "off")
         assert isinstance(p["label"], str) and isinstance(p["done"], int) and isinstance(p["rate"], float)
@@ -395,7 +395,10 @@ API_METHODS = {"download_model", "download_photo_model", "downloads", "forget", 
                "here_folder", "hide", "learned_apps", "open", "page_visible", "path_of", "pause_for", "pick_folder",
                "quit", "rescan", "reset_learned", "resume", "reveal", "search", "set_settings", "status",
                "status_brief", "thumbnail", "ui_shown",
-               "use_instead_of_windows_search", "wipe", "wsearch_set", "wsearch_state"}
+               "use_instead_of_windows_search", "wipe", "wsearch_set", "wsearch_state",
+               # 0.8.0: Open with and the model tiers (the WebView page may call them like any Api method)
+               "open_with", "models", "model_use", "model_download", "model_remove", "auto_configure",
+               "model_language"}
 
 
 def test_the_page_sees_only_the_api_methods(tmp_path):
