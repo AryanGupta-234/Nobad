@@ -20,14 +20,14 @@ class Appear extends StatefulWidget {
   final double lift;
 
   /// The delay for the n-th item of a list: the first dozen stagger, the rest come with the last of them.
-  static Duration stagger(int n) => Duration(milliseconds: 22 * (n < 12 ? n : 12));
+  static Duration stagger(int n) => Duration(milliseconds: 14 * (n < 12 ? n : 12));
 
   @override
   State<Appear> createState() => _AppearState();
 }
 
 class _AppearState extends State<Appear> with SingleTickerProviderStateMixin {
-  late final _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 260));
+  late final _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 200));
   late final _a = CurvedAnimation(parent: _c, curve: NbMotion.curve);
   Timer? _wait;
   var _started = false;

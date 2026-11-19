@@ -1,4 +1,4 @@
-// Screenshots of every main screen, dark and light, drawn with the real Windows fonts (test/support loads them
+// Screenshots of every main screen, dark (0.8.5 is dark only), drawn with the real Windows fonts (test/support loads them
 // from C:\Windows\Fonts; on a PC without them the test font's boxes are drawn instead and the goldens differ).
 // Update with: flutter test --update-goldens test/golden
 import 'package:flutter/services.dart';
@@ -30,7 +30,7 @@ void main() {
   setUpAll(loadWindowsFonts);
 
   const sizes = {'860': Size(860, 600), '1180': Size(1180, 760)};
-  for (final theme in ['dark', 'light']) {
+  for (final theme in ['dark']) { // 0.8.5 is dark only
     group(theme, () {
       for (final MapEntry(key: w, value: size) in sizes.entries) {
         testWidgets('home $w', (tester) async {

@@ -128,7 +128,7 @@ class LevelGlyph extends StatelessWidget {
         dimension: size,
         child: TweenAnimationBuilder<_Shape>(
           tween: _ShapeTween(end: _shapeOf(level)),
-          duration: off ? Duration.zero : const Duration(milliseconds: 520),
+          duration: off ? Duration.zero : const Duration(milliseconds: 300),
           curve: const Cubic(.2, .7, .2, 1),
           builder: (context, s, _) => CustomPaint(painter: _LevelPainter(s, color, dim, glow)),
         ),

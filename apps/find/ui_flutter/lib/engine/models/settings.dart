@@ -56,7 +56,8 @@ class Settings {
   int number(String key) => jInt(this[key]);
   List<String> list(String key) => jStrs(this[key]);
 
-  bool get dark => text('theme') != 'light';
+  /// 0.8.5 is dark only (maintainer decision 2026-11-19), whatever an older engine says.
+  bool get dark => true;
   bool get glass => flag('glass');
 
   Settings merged(Map<String, Object?> changes) => Settings({...values, ...changes});

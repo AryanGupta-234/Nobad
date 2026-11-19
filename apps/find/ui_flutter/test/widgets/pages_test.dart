@@ -35,17 +35,14 @@ void main() {
       expect(find.text('Working gently'), findsOneWidget);
     });
 
-    testWidgets('watches status_full only while open, also across a theme change', (tester) async {
+    testWidgets('watches status_full only while open; there is no light theme to pick (0.8.5 is dark only)', (tester) async {
       final engine = FakeEngine();
       await pumpApp(tester, engine);
       await ctrl(tester, LogicalKeyboardKey.digit2);
       expect(engine.watching, isTrue);
       await ctrl(tester, LogicalKeyboardKey.digit3);
-      await tester.tap(find.text('Dark'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Light').last);
-      await tester.pumpAndSettle();
-      expect(engine.settingsSet.last, {'theme': 'light'});
+      expect(find.text('Light'), findsNothing);
       await ctrl(tester, LogicalKeyboardKey.digit1);
       expect(engine.watching, isFalse);
     });
