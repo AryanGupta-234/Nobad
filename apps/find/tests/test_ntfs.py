@@ -373,3 +373,19 @@ def test_helper_refuses_to_run_without_admin(monkeypatch):
 def test_filetime():
     assert ntfs.filetime(ft(1_700_000_000)) == pytest.approx(1_700_000_000)
     assert ntfs.filetime(0) is None
+
+
+def test_the_root_comes_from_the_volume():
+    """Record 5 is the root; its sequence number is whatever the volume says, and it is its own parent."""
+    t = ntfs.Tree("D:\\", root=0)
+    root = frn(5, seq=9)
+    t.set_root(root)
+    t.add_dir(root, root, ".")                          # ignored: no loop through the root
+    t.add_dir(frn(40), root, "Data")
+    assert t.path(frn(40)) == "D:\Data" and t.path(root) == "D:\\"
+
+
+def test_enum_input_is_the_padded_v1_struct():
+    import inspect
+    assert '"<QqqHH4x"' in inspect.getsource(ntfs.Volume.enum)
+    assert struct.calcsize("<QqqHH4x") == 32

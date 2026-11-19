@@ -20,7 +20,7 @@ Rules is the one place the walker (walker.Walker), live changes (Walker.excluded
 """
 import os
 
-from .const import CACHE_NAMES, DEFAULTS, FIXED_NAMES, SECRET_EXT, SECRET_NAMES, SYSTEM_NAMES
+from .const import CACHE_NAMES, DATA_DIR, DEFAULTS, FIXED_NAMES, SECRET_EXT, SECRET_NAMES, SYSTEM_NAMES
 
 SCOPES = ("whole_pc", "my_files", "custom")
 CATEGORIES = ("system", "caches", "secrets", "other_profiles", "removable", "network")
@@ -105,6 +105,7 @@ class Rules:
         self.others = set(other_profiles() if others is None else (norm(o) for o in others))
         self.system_set = {norm(d) for d in system_dirs()}
         self.appdata = norm(os.path.join(self.profile, "AppData"))
+        self.own = norm(DATA_DIR)                        # NOBAD Find's own index, wherever NOBAD_FIND_DATA_DIR puts it
 
     @classmethod
     def from_settings(cls, s, **kw):
@@ -130,8 +131,8 @@ class Rules:
 
     def _path_cat(self, n):
         """Category of a folder by where it is (n normcased), or None."""
-        if n in self.others or any(_under(n, o) for o in self.others):
-            return "other_profiles"
+        if n in self.others or any(_under(n, o) for o in self.others) or n == self.own:
+            return "other_profiles"                     # (Find's own data: always out, like the fixed names)
         if os.path.dirname(n) == self.users and n not in (self.profile, self.public):
             return "other_profiles"                     # Default, stale profiles, anyone ProfileList missed
         if n in self.system_set:

@@ -28,6 +28,8 @@ from .walker import Walker
 
 CONNECT_TIMEOUT = 60             # seconds from the permission prompt being answered to the helper connecting
 SAVE_USN_EVERY = 30              # seconds between saves of the journal place while following
+HELLO_WAIT = 10                  # seconds a scan waits for the helper to list its drives
+FULL_EVERY = 24 * 3600           # a catch-up can't see folders deleted while the engine was off: read it all daily
 
 DECLINED = ("Windows didn't get permission (the prompt was closed or answered No). NOBAD Find keeps using its "
             "normal folder walk.")
@@ -57,6 +59,7 @@ class Turbo:
         self._mlock = threading.Lock()             # state touched by the helper's messages
         self._link = None
         self._helper_volumes = set()
+        self._hello = threading.Event()            # the helper said which drives it can read
         self._vols = {}                            # drive -> {files, usn_ok, last_scan}
         self._waiting = {}                         # drive -> {"ev", "on_rows", "gen", "check", "result"}
         self._asked = False
@@ -116,6 +119,7 @@ class Turbo:
             if not self.state()["available"]:
                 self.error = UNAVAILABLE
                 return self._failed(keep_on_failure)
+            self._hello.clear()
             try:
                 link = self._launch()
             except Declined:
@@ -217,13 +221,15 @@ class Turbo:
         except OSError:
             self.link_closed()
             return full, caught
+        self._hello.wait(HELLO_WAIT)
         rules = self.indexer.rules()
         check = _Checker(Walker(roots, exclude=cfg["exclude"], rules=rules), rules)
         saved = self._saved()
         want = sorted({drive_of(r) for r in roots} & self._helper_volumes)
         for d in want:
             prev = saved.get(d) if isinstance(saved.get(d), dict) else None
-            since = {"journal": prev["journal"], "usn": prev["usn"]} if prev and prev.get("key") == key and all(
+            fresh = prev and self._clock() - float(prev.get("full_at") or 0) < FULL_EVERY
+            since = {"journal": prev["journal"], "usn": prev["usn"]} if fresh and prev.get("key") == key and all(
                 isinstance(prev.get(k), int) for k in ("journal", "usn")) else None
             w = {"ev": threading.Event(), "on_rows": on_rows, "gen": gen, "check": check, "result": None, "files": 0}
             with self._mlock:
@@ -241,7 +247,8 @@ class Turbo:
             if r is None:
                 continue
             (full if r["full"] else caught).add(d)
-            saved[d] = {"journal": r["journal"], "usn": r["usn"], "key": key}
+            full_at = self._clock() if r["full"] else float((prev or {}).get("full_at") or 0)
+            saved[d] = {"journal": r["journal"], "usn": r["usn"], "key": key, "full_at": full_at}
             self.store.set_meta("turbo", json.dumps(saved))
             with self._mlock:
                 v = self._vols.setdefault(d, {})
@@ -273,6 +280,7 @@ class Turbo:
             if isinstance(vols, list):
                 self._helper_volumes = {v["drive"].upper() for v in vols if isinstance(v, dict) and isinstance(
                     v.get("drive"), str) and ntfs.DRIVE_RE.match(v["drive"])}
+            self._hello.set()
         elif t == "rows":
             with self._mlock:
                 w = self._waiting.get(d)

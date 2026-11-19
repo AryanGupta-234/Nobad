@@ -210,7 +210,15 @@ class Tree:
         self.dirs = {}
         self._paths = {root: self.drive}
 
+    def set_root(self, ref):
+        """The root folder's own reference number (MFT record 5; its sequence number comes from the volume)."""
+        if ref != self.root:
+            self.root = ref
+            self._paths = {ref: self.drive}
+
     def add_dir(self, ref, parent, name):
+        if ref == self.root or (ref & 0xFFFFFFFFFFFF) == 5:
+            return                                       # the root is the drive itself (its parent is itself)
         old = self.dirs.get(ref)
         if old is not None and old != (parent, name):
             self._paths = {self.root: self.drive}        # a rename or a move: paths below it changed
@@ -559,7 +567,8 @@ class Volume:
         start = 0
         v1 = True
         while True:
-            inb = struct.pack("<QqqHH", start, 0, high_usn, 2, 2) if v1 else struct.pack("<Qqq", start, 0, high_usn)
+            # MFT_ENUM_DATA_V1 is 32 bytes (28 + alignment padding); V0, for older Windows, is 24
+            inb = struct.pack("<QqqHH4x", start, 0, high_usn, 2, 2) if v1 else struct.pack("<Qqq", start, 0, high_usn)
             ok, err, n = self._ioctl(FSCTL_ENUM_USN_DATA, inb, out)
             if not ok:
                 if err == ERROR_HANDLE_EOF:
@@ -779,7 +788,7 @@ def _connect_to_parent():
     ppid = parent_pid(me)
     if not ppid:
         raise PermissionError("no parent process")
-    hp = k.OpenProcess(0x1000 | 0x100000 | 0x0400 | 0x0040, False, ppid)  # query limited, synchronize, query, dup
+    hp = k.OpenProcess(0x1000 | 0x100000, False, ppid)           # query limited information, synchronize
     if not hp:
         raise PermissionError("parent process can't be opened")
     if os.path.normcase(image_of(hp)) != os.path.normcase(image_of(k.GetCurrentProcess())):
@@ -838,7 +847,9 @@ class Scanner:
         for recs in self.vol.enum(high):
             for r in recs:
                 n += 1
-                if r.is_dir:
+                if (r.frn & 0xFFFFFFFFFFFF) == 5:
+                    self.tree.set_root(r.frn)
+                elif r.is_dir:
                     self.tree.add_dir(r.frn, r.parent, r.name)
         self.stats.update(entries=n, dirs=len(self.tree.dirs), enum_s=round(time.perf_counter() - t0, 2))
 

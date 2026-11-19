@@ -335,3 +335,16 @@ def test_rescan_forgets_the_journal_place_and_overflow_trusts_the_journal(tmp_pa
     ix._on_overflow(str(root))
     assert s.meta("last_scan") == "0"
     s.close()
+
+
+def test_a_catch_up_is_at_most_a_day_after_a_full_read(env):
+    t, s, _st, _ix, _p = env
+    now = [1_000_000.0]
+    t._clock = lambda: now[0]
+    _r, link = start(t)
+    t.scan([PROF, DRIVE], 1, lambda rows: None, threading.Event())
+    link.full = False
+    now[0] += turbo.FULL_EVERY + 1
+    link.sent.clear()
+    t.scan([PROF, DRIVE], 2, lambda rows: None, threading.Event())
+    assert [m for m in link.sent if m["t"] == "scan"][0]["since"] is None

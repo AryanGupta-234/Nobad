@@ -239,3 +239,14 @@ def test_category_of_a_path():
     assert r.category(os.path.join(PROF, ".ssh", "id_rsa")) == "secrets"
     assert r.category(os.path.join(USERS, "Other", "x")) == "other_profiles"
     assert r.category(os.path.join(PROF, "Documents", "x.docx")) is None
+
+
+def test_finds_own_data_folder_is_never_indexed_wherever_it_is(tmp_path, monkeypatch):
+    """NOBAD_FIND_DATA_DIR can point anywhere (measurements use the temp folder): indexing its own database
+    writes would feed itself."""
+    data = tmp_path / "somewhere" / "data"
+    monkeypatch.setattr(scope, "DATA_DIR", str(data))
+    r = rules(include_caches=True, include_system=True, include_secrets=True)
+    assert r.skip_dir(str(data), "data")
+    assert r.out(str(data / "index.db-wal"))
+    assert not r.out(str(tmp_path / "somewhere" / "other.txt"))

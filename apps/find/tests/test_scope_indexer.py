@@ -150,3 +150,18 @@ def test_scope_info_from_the_api(tmp_path, monkeypatch):
     info = a.scope_info()
     assert info["scope"] == "whole_pc" and [c["id"] for c in info["categories"]] == list(scope.CATEGORIES)
     s.close()
+
+
+def test_the_watching_loop_counts_the_index_at_most_every_half_minute(tmp_path):
+    s = Store(str(tmp_path / "i.db"), encrypt=False)
+    ix = indexer.Indexer(s, S())
+    now = [1000.0]
+    ix._clock = lambda: now[0]
+    calls = []
+    s.stats = lambda: calls.append(1) or {"files": 1}
+    ix._refresh_stats()
+    ix._refresh_stats()
+    now[0] += indexer.STATS_EVERY + 1
+    ix._refresh_stats()
+    assert len(calls) == 2 and ix.status["files"] == 1
+    s.close()
