@@ -44,21 +44,32 @@ class FakeTransport implements Transport {
 }
 
 Object? engineReplies(String method, Map params) => switch (method) {
-      'hello' => {'protocol': 1, 'app': 'NOBAD Find', 'version': '0.7.0'},
-      'subscribe' => {'events': ['show', 'status']},
-      'status' => {'level': 'gentle', 'reason': 'Gentle: you are using the PC', 'phase': 'watching', 'files': 1234},
-      'search' => {
-          'results': [
-            {'id': 9, 'name': 'a.pdf', 'dir': r'C:\x', 'kind': 'pdf', 'size': 10, 'why': ['name matches']},
-            {'id': 'bad', 'name': 'no id'},
-            'not a row',
-          ],
-          'ms': 7,
-        },
-      'open' => {'ok': true},
-      'thumbnail' => {'url': 'data:image/png;base64,${base64Encode([1, 2, 3])}'},
-      _ => null,
-    };
+  'hello' => {'protocol': 1, 'app': 'NOBAD Find', 'version': '0.7.0'},
+  'subscribe' => {
+    'events': ['show', 'status'],
+  },
+  'status' => {'level': 'gentle', 'reason': 'Gentle: you are using the PC', 'phase': 'watching', 'files': 1234},
+  'search' => {
+    'results': [
+      {
+        'id': 9,
+        'name': 'a.pdf',
+        'dir': r'C:\x',
+        'kind': 'pdf',
+        'size': 10,
+        'why': ['name matches'],
+      },
+      {'id': 'bad', 'name': 'no id'},
+      'not a row',
+    ],
+    'ms': 7,
+  },
+  'open' => {'ok': true},
+  'thumbnail' => {
+    'url': 'data:image/png;base64,${base64Encode([1, 2, 3])}',
+  },
+  _ => null,
+};
 
 void main() {
   group('RpcSession', () {
@@ -71,7 +82,11 @@ void main() {
       expect(t.sent[1]['params'], {'x': 1});
       expect(t.sent[0]['jsonrpc'], '2.0');
       t.push({'jsonrpc': '2.0', 'id': 2, 'result': 'second'});
-      t.push({'jsonrpc': '2.0', 'id': 1, 'error': {'code': -32601, 'message': 'Method not found'}});
+      t.push({
+        'jsonrpc': '2.0',
+        'id': 1,
+        'error': {'code': -32601, 'message': 'Method not found'},
+      });
       expect(await b, 'second');
       await expectLater(a, throwsA(isA<RpcException>().having((e) => e.code, 'code', -32601)));
     });
@@ -83,8 +98,16 @@ void main() {
       t.push('this is not json');
       t.push('[1,2]');
       t.push({'jsonrpc': '2.0', 'id': 77, 'result': 'nobody asked'});
-      t.push({'jsonrpc': '2.0', 'method': 'status', 'params': {'files': 5, 'phase': 'names'}});
-      t.push({'jsonrpc': '2.0', 'method': 'show', 'params': {'what': 'bar'}});
+      t.push({
+        'jsonrpc': '2.0',
+        'method': 'status',
+        'params': {'files': 5, 'phase': 'names'},
+      });
+      t.push({
+        'jsonrpc': '2.0',
+        'method': 'show',
+        'params': {'what': 'bar'},
+      });
       t.push({'jsonrpc': '2.0', 'method': 'from_the_future', 'params': {}});
       await pumpEventQueue();
       expect(got, hasLength(2));
@@ -116,12 +139,20 @@ void main() {
       await pumpEventQueue();
       expect(c.link.value, Link.connected);
       expect(t.sent.map((m) => m['method']).take(2), ['hello', 'subscribe']);
-      expect((t.sent[1]['params'] as Map)['events'], ['status', 'show']);
+      expect((t.sent[1]['params'] as Map)['events'], EngineEvent.mainWindow);
+      expect(c.served, prototypeMethods); // a hello without `methods`: the prototype engine
       expect(c.lastStatus?.files, 1234);
-      final a = await c.search('a', filters: {'kind': 'pdf'});
+      final a = await c.search('a', filters: const SearchFilters(kind: 'pdf'));
+      expect((t.sent.last['params'] as Map)['filters'], {
+        'kind': 'pdf',
+        'modified': '',
+        'size': '',
+        'folder': '',
+        'sort': '',
+      });
       expect(a.results.single.id, 9); // rows without a whole-number id are dropped
       expect(a.ms, 7);
-      expect(await c.open(9), isTrue);
+      expect((await c.open(9)).ok, isTrue);
       expect(await c.thumbnail(9), Uint8List.fromList([1, 2, 3]));
       final asked = t.sent.where((m) => m['method'] == 'thumbnail').length;
       await c.thumbnail(9); // cached
@@ -138,8 +169,7 @@ void main() {
         final t = FakeTransport(autoReply: engineReplies);
         transports.add(t);
         return t;
-      }, backoff: const [Duration(milliseconds: 1)])
-        ..start();
+      }, backoff: const [Duration(milliseconds: 1)])..start();
       await pumpEventQueue();
       expect(c.link.value, Link.connected);
       transports.single.drop();
@@ -182,7 +212,14 @@ void main() {
     });
 
     test('models survive odd values', () {
-      final r = FileResult.fromJson({'id': 3, 'name': 7, 'kind': null, 'size': 'big', 'why': ['a', 1], 'mtime': 1.5});
+      final r = FileResult.fromJson({
+        'id': 3,
+        'name': 7,
+        'kind': null,
+        'size': 'big',
+        'why': ['a', 1],
+        'mtime': 1.5,
+      });
       expect(r!.name, '');
       expect(r.kind, 'other');
       expect(r.size, isNull);
@@ -192,7 +229,6 @@ void main() {
       final s = EngineStatus.fromJson({'files': -5, 'level': 'paused', 'paused': 'on battery'});
       expect(s.files, 0);
       expect(s.phaseLabel, 'Paused · on battery');
-      expect(groupDigits(1234567), '1,234,567');
       expect(humanSize(482113), '471 KB');
       expect(humanSize(null), '');
     });

@@ -11,12 +11,24 @@ import 'dart:ffi';
 import 'dart:io' show Platform;
 
 import 'package:ffi/ffi.dart';
+import 'package:flutter/services.dart' show SystemChannels;
+
+import '../app/theme/glass.dart';
 
 abstract class WindowControl {
   void hide();
   void showBar();
   void fitBar(int rows);
   void front();
+
+  /// Dark or light title bar, Mica glass on or off. True when Windows took the glass.
+  bool look({required bool dark, required bool glass, required int canvasRgb});
+
+  /// Close the window, which ends this UI process (the engine keeps running).
+  void close();
+
+  /// This window's handle (0 in tests), as the owner of dialogs.
+  int get handle;
 }
 
 /// Tests and non-Windows: does nothing.
@@ -30,6 +42,12 @@ class NoWindow implements WindowControl {
   void fitBar(int rows) {}
   @override
   void front() {}
+  @override
+  bool look({required bool dark, required bool glass, required int canvasRgb}) => false;
+  @override
+  void close() {}
+  @override
+  int get handle => 0;
 }
 
 /// Bar geometry in logical pixels, the same as bar.py (WIDTH, HEIGHT, ROW, MAX_ROWS).
@@ -82,29 +100,43 @@ class Win32Window implements WindowControl {
   static final _u32 = DynamicLibrary.open('user32.dll');
   static final _k32 = DynamicLibrary.open('kernel32.dll');
   static final _shcore = DynamicLibrary.open('shcore.dll');
-  static final _findWindowEx = _u32.lookupFunction<IntPtr Function(IntPtr, IntPtr, Pointer<Utf16>, Pointer<Utf16>),
-      int Function(int, int, Pointer<Utf16>, Pointer<Utf16>)>('FindWindowExW');
-  static final _windowPid = _u32.lookupFunction<Uint32 Function(IntPtr, Pointer<Uint32>),
-      int Function(int, Pointer<Uint32>)>('GetWindowThreadProcessId');
+  static final _findWindowEx = _u32
+      .lookupFunction<
+        IntPtr Function(IntPtr, IntPtr, Pointer<Utf16>, Pointer<Utf16>),
+        int Function(int, int, Pointer<Utf16>, Pointer<Utf16>)
+      >('FindWindowExW');
+  static final _windowPid = _u32
+      .lookupFunction<Uint32 Function(IntPtr, Pointer<Uint32>), int Function(int, Pointer<Uint32>)>(
+        'GetWindowThreadProcessId',
+      );
   static final _pid = _k32.lookupFunction<Uint32 Function(), int Function()>('GetCurrentProcessId');
-  static final _showAsync =
-      _u32.lookupFunction<Int32 Function(IntPtr, Int32), int Function(int, int)>('ShowWindowAsync');
-  static final _setPos = _u32.lookupFunction<Int32 Function(IntPtr, IntPtr, Int32, Int32, Int32, Int32, Uint32),
-      int Function(int, int, int, int, int, int, int)>('SetWindowPos');
+  static final _showAsync = _u32.lookupFunction<Int32 Function(IntPtr, Int32), int Function(int, int)>(
+    'ShowWindowAsync',
+  );
+  static final _setPos = _u32
+      .lookupFunction<
+        Int32 Function(IntPtr, IntPtr, Int32, Int32, Int32, Int32, Uint32),
+        int Function(int, int, int, int, int, int, int)
+      >('SetWindowPos');
   static final _dpiForWindow = _u32.lookupFunction<Uint32 Function(IntPtr), int Function(int)>('GetDpiForWindow');
-  static final _cursor =
-      _u32.lookupFunction<Int32 Function(Pointer<_POINT>), int Function(Pointer<_POINT>)>('GetCursorPos');
-  static final _monitorFromPoint =
-      _u32.lookupFunction<IntPtr Function(_POINT, Uint32), int Function(_POINT, int)>('MonitorFromPoint');
-  static final _monitorInfo = _u32.lookupFunction<Int32 Function(IntPtr, Pointer<_MONITORINFO>),
-      int Function(int, Pointer<_MONITORINFO>)>('GetMonitorInfoW');
-  static final _dpiForMonitor = _shcore.lookupFunction<Int32 Function(IntPtr, Int32, Pointer<Uint32>, Pointer<Uint32>),
-      int Function(int, int, Pointer<Uint32>, Pointer<Uint32>)>('GetDpiForMonitor');
-  static final _setForeground =
-      _u32.lookupFunction<Int32 Function(IntPtr), int Function(int)>('SetForegroundWindow');
+  static final _cursor = _u32.lookupFunction<Int32 Function(Pointer<_POINT>), int Function(Pointer<_POINT>)>(
+    'GetCursorPos',
+  );
+  static final _monitorFromPoint = _u32.lookupFunction<IntPtr Function(_POINT, Uint32), int Function(_POINT, int)>(
+    'MonitorFromPoint',
+  );
+  static final _monitorInfo = _u32
+      .lookupFunction<Int32 Function(IntPtr, Pointer<_MONITORINFO>), int Function(int, Pointer<_MONITORINFO>)>(
+        'GetMonitorInfoW',
+      );
+  static final _dpiForMonitor = _shcore
+      .lookupFunction<
+        Int32 Function(IntPtr, Int32, Pointer<Uint32>, Pointer<Uint32>),
+        int Function(int, int, Pointer<Uint32>, Pointer<Uint32>)
+      >('GetDpiForMonitor');
+  static final _setForeground = _u32.lookupFunction<Int32 Function(IntPtr), int Function(int)>('SetForegroundWindow');
   static final _currentProcess = _k32.lookupFunction<IntPtr Function(), int Function()>('GetCurrentProcess');
-  static final _emptyWorkingSet =
-      _k32.lookupFunction<Int32 Function(IntPtr), int Function(int)>('K32EmptyWorkingSet');
+  static final _emptyWorkingSet = _k32.lookupFunction<Int32 Function(IntPtr), int Function(int)>('K32EmptyWorkingSet');
 
   static const _swHide = 0, _swRestore = 9;
   static const _noSize = 0x1, _noMove = 0x2, _noZOrder = 0x4, _noActivate = 0x10, _showWindow = 0x40;
@@ -139,10 +171,18 @@ class Win32Window implements WindowControl {
 
   /// Hide, then hand this process's working set back to Windows: a hidden bar needs next to no RAM, and the
   /// pages come back on their own when it's shown. Only ever this process.
+  /// Skia's GPU cache while shown (main.dart sets it at start); hidden, it's emptied.
+  static int shownCacheBytes = 12 << 20;
+
+  static void _gpuCache(int bytes) =>
+      SystemChannels.skia.invokeMethod<void>('Skia.setResourceCacheMaxBytes', bytes).catchError((Object _) {});
+
   @override
   void hide() {
     if (hwnd == 0) return;
     _showAsync(hwnd, _swHide);
+    _gpuCache(0); // nothing to draw while hidden: give the GPU memory back
+    Future<void>.delayed(const Duration(milliseconds: 120), () => _gpuCache(shownCacheBytes));
     Future<void>.delayed(const Duration(milliseconds: 300), () => _emptyWorkingSet(_currentProcess()));
   }
 
@@ -150,8 +190,15 @@ class Win32Window implements WindowControl {
   void fitBar(int rows) {
     if (hwnd == 0) return;
     final s = _scale;
-    _setPos(hwnd, 0, 0, 0, (BarSize.width * s).round(), (BarSize.height(rows) * s).round(),
-        _noMove | _noZOrder | _noActivate | _async);
+    _setPos(
+      hwnd,
+      0,
+      0,
+      0,
+      (BarSize.width * s).round(),
+      (BarSize.height(rows) * s).round(),
+      _noMove | _noZOrder | _noActivate | _async,
+    );
   }
 
   @override
@@ -183,4 +230,53 @@ class Win32Window implements WindowControl {
     _setForeground(hwnd);
   }
 
+  @override
+  bool look({required bool dark, required bool glass, required int canvasRgb}) =>
+      WindowLook.apply(hwnd, dark: dark, glass: glass, canvasRgb: canvasRgb, acrylic: acrylic);
+
+  /// The quick find bar: Acrylic and round corners (set by main.dart for `--bar`).
+  static bool acrylic = false;
+
+  static final _postMessage = _u32
+      .lookupFunction<Int32 Function(IntPtr, Uint32, IntPtr, IntPtr), int Function(int, int, int, int)>('PostMessageW');
+
+  @override
+  void close() {
+    if (hwnd != 0) _postMessage(hwnd, 0x0010, 0, 0); // WM_CLOSE: the runner quits when its window closes
+  }
+
+  @override
+  int get handle => hwnd;
+}
+
+/// Lets the engine's process bring its own dialog (folder picker, Windows' permission prompt) to the front.
+void allowSetForeground(int pid) {
+  if (!Platform.isWindows || pid <= 0) return;
+  try {
+    final u32 = DynamicLibrary.open('user32.dll');
+    u32.lookupFunction<Int32 Function(Uint32), int Function(int)>('AllowSetForegroundWindow')(pid);
+  } on Object {
+    // best effort: the dialog still opens, maybe behind this window
+  }
+}
+
+/// Windows' Settings > Accessibility > Visual effects > "Animation effects" (SPI_GETCLIENTAREAANIMATION): true when
+/// it is off, so the UI shows changes at once. False off Windows or if Windows can't say.
+bool systemAnimationsOff() {
+  if (!Platform.isWindows) return false;
+  try {
+    final u32 = DynamicLibrary.open('user32.dll');
+    final spi = u32
+        .lookupFunction<
+          Int32 Function(Uint32, Uint32, Pointer<Int32>, Uint32),
+          int Function(int, int, Pointer<Int32>, int)
+        >('SystemParametersInfoW');
+    return using((a) {
+      final v = a<Int32>();
+      if (spi(0x1042, 0, v, 0) == 0) return false; // SPI_GETCLIENTAREAANIMATION
+      return v.value == 0;
+    });
+  } on Object {
+    return false;
+  }
 }
