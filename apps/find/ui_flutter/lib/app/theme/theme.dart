@@ -56,13 +56,29 @@ ThemeData nbTheme(NbColors c) {
         backgroundColor: WidgetStatePropertyAll(c.surface),
         surfaceTintColor: const WidgetStatePropertyAll(Color(0x00000000)),
         shadowColor: WidgetStatePropertyAll(c.shadow),
-        elevation: const WidgetStatePropertyAll(12),
-        padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: NbSpace.x1)),
+        elevation: const WidgetStatePropertyAll(8),
+        padding: const WidgetStatePropertyAll(EdgeInsets.all(NbSpace.x1)),
         shape: WidgetStatePropertyAll(
           RoundedRectangleBorder(
-            borderRadius: NbRadius.rowAll,
+            borderRadius: NbRadius.panelAll,
             side: BorderSide(color: c.line2),
           ),
+        ),
+      ),
+    ),
+    // the action panel's rows (Ctrl+K, right-click): 32 px, a quiet fill on the one under the pointer or keys
+    menuButtonTheme: MenuButtonThemeData(
+      style: ButtonStyle(
+        minimumSize: const WidgetStatePropertyAll(Size(200, 32)),
+        padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 10)),
+        shape: const WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4)))),
+        textStyle: WidgetStatePropertyAll(NbType.text(13, c.text)),
+        foregroundColor: WidgetStateProperty.resolveWith((st) => st.contains(WidgetState.disabled) ? c.dim : c.text),
+        overlayColor: WidgetStatePropertyAll(c.selected),
+        backgroundColor: WidgetStateProperty.resolveWith(
+          (st) => st.contains(WidgetState.focused) || st.contains(WidgetState.hovered)
+              ? c.selected
+              : const Color(0x00000000),
         ),
       ),
     ),

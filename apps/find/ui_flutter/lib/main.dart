@@ -9,6 +9,8 @@ import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'app/app.dart';
+import 'app/scope.dart';
+import 'state/recent_searches.dart';
 import 'app/theme/typography.dart';
 import 'engine/engine_api.dart';
 import 'engine/events.dart';
@@ -30,6 +32,8 @@ Future<void> main(List<String> args) async {
   Win32Window.shownCacheBytes = cacheMb << 20;
   SystemChannels.skia.invokeMethod<void>('Skia.setResourceCacheMaxBytes', cacheMb << 20);
   final mode = args.contains('--bar') ? AppMode.bar : AppMode.main;
+  final recent = RecentSearches(mode == AppMode.main ? RecentSearches.defaultFile() : null);
+  await recent.load();
   Win32Window.acrylic = mode == AppMode.bar;
   Glass.noBlur = Platform.environment['NOBAD_FIND_NO_BLUR'] == '1';
   final EngineApi engine;
@@ -50,7 +54,16 @@ Future<void> main(List<String> args) async {
     )..start();
     engine = PipeEngine(pipe, beforeDialog: allowSetForeground); // never the fake: offline is shown as offline
   }
-  runApp(NobadFindApp(engine: engine, mode: mode, window: Win32Window.create(), demo: Demo.fromEnvironment()));
+  runApp(
+    NobadFindApp(
+      engine: engine,
+      mode: mode,
+      window: Win32Window.create(),
+      demo: Demo.fromEnvironment(),
+      startPage: AppPage.parse(args),
+      recent: recent,
+    ),
+  );
   startFrameLog();
   WidgetsBinding.instance.waitUntilFirstFrameRasterized.then((_) => recordTiming('first-frame ${mode.name}'));
 }

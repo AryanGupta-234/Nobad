@@ -169,7 +169,8 @@ class _SlowSearch extends _Unused {
   _SlowSearch(this.next);
   Future<SearchAnswer> next;
   @override
-  Future<SearchAnswer> search(String text, {SearchFilters filters = SearchFilters.none}) => next;
+  Future<SearchAnswer> search(String text, {SearchFilters filters = SearchFilters.none, String channel = 'main'}) =>
+      next;
 }
 
 /// The rest of the interface, never called by these tests.

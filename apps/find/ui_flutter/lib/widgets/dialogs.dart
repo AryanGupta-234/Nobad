@@ -31,7 +31,7 @@ class NbDialog extends StatelessWidget {
         constraints: BoxConstraints(maxWidth: width),
         child: Glass(
           level: GlassLevel.blur,
-          radius: 26,
+          radius: 8,
           fill: c.isDark ? const Color(0xB8181B24) : const Color(0xD9FFFFFF),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(NbSpace.x6, NbSpace.x5, NbSpace.x6, NbSpace.x5),

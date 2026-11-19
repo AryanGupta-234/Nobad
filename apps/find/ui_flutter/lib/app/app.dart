@@ -12,6 +12,7 @@ import '../features/bar/bar_window.dart';
 import '../features/shell/shell.dart';
 import '../platform/demo.dart';
 import '../platform/window.dart';
+import '../state/recent_searches.dart';
 import '../state/search_controller.dart';
 import '../state/settings_controller.dart';
 import '../state/status_controller.dart';
@@ -33,7 +34,15 @@ class NobadFindApp extends StatefulWidget {
     this.demo,
     this.splash = true,
     this.reduceMotion,
+    this.startPage = AppTab.search,
+    this.recent,
   });
+
+  /// Recent searches (main.dart gives the one kept on disk; tests none, or one in memory).
+  final RecentSearches? recent;
+
+  /// The page the window opens on (`--page`).
+  final AppTab startPage;
   final EngineApi engine;
 
   /// Animations off: Windows' "Animation effects" switch (read at start and when the window comes back), or
@@ -54,8 +63,8 @@ class _NobadFindAppState extends State<NobadFindApp> {
   late final toasts = ToastController(engine: widget.engine);
   late final settings = SettingsController(widget.engine, toasts: toasts);
   late final status = StatusController(widget.engine);
-  late final find = FindController(widget.engine, toasts: toasts);
-  final nav = AppNav();
+  late final find = FindController(widget.engine, toasts: toasts, recent: widget.recent);
+  late final nav = AppNav(widget.startPage);
   bool _glass = false;
   (bool, bool)? _applied;
   late bool _motionOff = widget.reduceMotion ?? systemAnimationsOff();

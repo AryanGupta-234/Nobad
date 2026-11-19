@@ -1,8 +1,11 @@
-/// Type, led by one face: Segoe UI Variable. Big display lines are set thin (weight 300) with tight tracking, the
-/// confident, quiet voice of the frosted design; body text is Segoe UI Variable Text; Cascadia Mono only for
-/// numbers and paths. System fonts only: nothing bundled, nothing downloaded.
+/// Type (the 0.7.0 look, kept by the maintainer): system fonts only, nothing bundled, nothing downloaded.
 ///
-/// The scale: 11 / 12 / 13 / 14 / 16 / 18 / 21 / 28 / 40 / 60.
+/// - Arial Black, upper case: one display line per screen ("Find anything on this PC.", the level on Index).
+/// - Segoe UI Variable Text: everything people read.
+/// - Cascadia Mono: data only (paths, sizes, counts, times, key caps).
+///
+/// One scale, nothing between: 12 / 13 / 14 / 16 / 20 / 24 ([NbType] snaps any other size to it); weights 400 and
+/// 600 only.
 library;
 
 import 'dart:io';
@@ -12,22 +15,24 @@ import 'package:flutter/widgets.dart';
 
 abstract final class NbFont {
   static const body = 'Segoe UI Variable Text';
-  static const bodyFallback = ['Segoe UI', 'Segoe UI Emoji', 'Segoe UI Symbol'];
-  static const mono = 'Cascadia Mono';
-  static const monoFallback = ['Consolas', 'Segoe UI', 'Segoe UI Symbol'];
 
-  /// Segoe UI Variable (the variable font file), registered at start ([loadDisplayFont]) so its weight axis can be
-  /// set exactly: asked for by name, Windows' font matching doesn't give the thin weights reliably.
+  /// Nirmala UI: Devanagari and the other Indic scripts (Hindi file names and snippets).
+  static const bodyFallback = ['Segoe UI', 'Nirmala UI', 'Segoe UI Emoji', 'Segoe UI Symbol'];
+  static const mono = 'Cascadia Mono';
+  static const monoFallback = ['Consolas', 'Segoe UI', 'Nirmala UI', 'Segoe UI Symbol'];
+
+  /// Arial Black, registered from the Windows fonts folder at start ([loadDisplayFont]): asked for by name,
+  /// Windows' font matching gives plain Arial (Arial Black is a weight of the Arial family there).
   static const display = 'NOBAD Display';
-  static const displayFallback = ['Segoe UI Variable Display', 'Segoe UI Light', 'Segoe UI'];
+  static const displayFallback = ['Arial Black', 'Segoe UI Black', 'Segoe UI'];
 }
 
-/// Registers Windows' own Segoe UI Variable (Fonts\SegUIVar.ttf in the Windows folder) as [NbFont.display].
+/// Registers Windows' own Arial Black (Fonts\ariblk.ttf in the Windows folder, 170 KB) as [NbFont.display].
 /// Nothing is bundled or downloaded; without the file the fallbacks are used.
 Future<void> loadDisplayFont() async {
   try {
     final dir = Platform.environment['WINDIR'] ?? r'C:\Windows';
-    final f = File('$dir${Platform.pathSeparator}Fonts${Platform.pathSeparator}SegUIVar.ttf');
+    final f = File('$dir${Platform.pathSeparator}Fonts${Platform.pathSeparator}ariblk.ttf');
     if (!f.existsSync()) return;
     final bytes = await f.readAsBytes();
     await (FontLoader(NbFont.display)..addFont(Future.value(ByteData.sublistView(bytes)))).load();
@@ -37,24 +42,38 @@ Future<void> loadDisplayFont() async {
 }
 
 abstract final class NbSize {
-  static const micro = 10.5;
-  static const caption = 11.5;
-  static const small = 12.5;
-  static const body = 14.0;
-  static const title = 16.0;
-  static const lead = 18.0;
-  static const field = 21.0;
-  static const page = 40.0;
-  static const hero = 60.0;
+  static const micro = 12.0;
+  static const caption = 12.0;
+  static const small = 12.0;
+  static const body = 13.0;
+  static const title = 14.0;
+  static const lead = 16.0;
+  static const field = 16.0;
+  static const page = 24.0;
+  static const hero = 24.0;
 }
 
 abstract final class NbType {
+  static const scale = [12.0, 13.0, 14.0, 16.0, 20.0, 24.0];
+
+  /// The nearest size on the scale (12 at the least).
+  static double snap(double size) {
+    var best = scale.first;
+    for (final s in scale) {
+      if ((s - size).abs() < (best - size).abs()) best = s;
+    }
+    return best;
+  }
+
+  /// 400 or 600: anything bolder is 600, anything lighter 400.
+  static FontWeight weightOf(FontWeight w) => w.value >= 550 ? FontWeight.w600 : FontWeight.w400;
+
   /// Reading text. Line height 1.5 for paragraphs; single lines pass [height] 1.3.
   static TextStyle text(double size, Color color, {FontWeight weight = FontWeight.w400, double? height}) => TextStyle(
     fontFamily: NbFont.body,
     fontFamilyFallback: NbFont.bodyFallback,
-    fontSize: size,
-    fontWeight: weight,
+    fontSize: snap(size),
+    fontWeight: weightOf(weight),
     color: color,
     height: height,
     letterSpacing: size >= NbSize.lead ? -0.01 * size : 0,
@@ -64,22 +83,20 @@ abstract final class NbType {
   static TextStyle data(double size, Color color, {FontWeight weight = FontWeight.w400, double? height}) => TextStyle(
     fontFamily: NbFont.mono,
     fontFamilyFallback: NbFont.monoFallback,
-    fontSize: size,
-    fontWeight: weight,
+    fontSize: snap(size),
+    fontWeight: weightOf(weight),
     color: color,
     height: height,
     fontFeatures: const [FontFeature.tabularFigures()],
   );
 
-  /// Display lines: thin, tight, sentence case. [weight] on the variable font's axis (300 = light).
-  static TextStyle display(double size, Color color, {double weight = 300}) => TextStyle(
+  /// The one display line per screen. Callers upper-case the words (the 0.7.0 look).
+  static TextStyle display(double size, Color color) => TextStyle(
     fontFamily: NbFont.display,
     fontFamilyFallback: NbFont.displayFallback,
     fontSize: size,
-    fontWeight: weight <= 350 ? FontWeight.w300 : FontWeight.w500,
-    fontVariations: [FontVariation('wght', weight), FontVariation('opsz', size.clamp(8, 36).toDouble())],
     color: color,
-    height: 1.06,
-    letterSpacing: -0.028 * size,
+    height: 1.02,
+    letterSpacing: -0.03 * size,
   );
 }

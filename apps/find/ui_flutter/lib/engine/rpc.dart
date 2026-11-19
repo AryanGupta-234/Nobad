@@ -12,6 +12,8 @@ import 'package:flutter/foundation.dart';
 import 'engine_api.dart';
 import 'events.dart';
 import 'models/json.dart';
+import 'models/models_info.dart';
+import 'models/scope_info.dart';
 import 'models/result.dart';
 import 'models/settings.dart';
 import 'models/status.dart';
@@ -291,8 +293,13 @@ class EngineClient {
       ActionResult.fromJson(await call(method, params, wait));
 
   // ---- search and results ----
-  Future<SearchAnswer> search(String text, {SearchFilters filters = SearchFilters.none}) async =>
-      SearchAnswer.fromJson(await call('search', {'text': _cap(text), 'filters': filters.toJson()}));
+  Future<SearchAnswer> search(
+    String text, {
+    SearchFilters filters = SearchFilters.none,
+    String channel = 'main',
+  }) async => SearchAnswer.fromJson(
+    await call('search', {'text': _cap(text), 'filters': filters.toJson(), 'channel': channel}),
+  );
   Future<ActionResult> open(int id) => _ok('open', {'id': id});
   Future<ActionResult> reveal(int id) => _ok('reveal', {'id': id});
   Future<ActionResult> forget(int id) async {
@@ -373,6 +380,19 @@ class EngineClient {
   }
 
   Future<ActionResult> quit() => _ok('quit', {'confirm': 'QUIT'});
+
+  // ---- 0.8 ----
+  Future<ModelsInfo> models() async => ModelsInfo.fromJson(await call('models'));
+  Future<ModelUse> modelUse(String feature, String id) async =>
+      ModelUse.fromJson(await call('model_use', {'feature': feature, 'id': id}));
+  Future<ActionResult> modelDownload(String id) => _ok('model_download', {'id': id, 'consent': 'DOWNLOAD'});
+  Future<ActionResult> modelRemove(String id) => _ok('model_remove', {'id': id});
+  Future<AutoConfig> autoConfigure() async => AutoConfig.fromJson(await call('auto_configure'));
+  Future<ActionResult> modelLanguage(String focus) => _ok('model_language', {'focus': focus});
+  Future<ActionResult> openWith(int id) => _ok('open_with', {'id': id}, false);
+  Future<ScopeInfo> scopeInfo() async => ScopeInfo.fromJson(await call('scope_info'));
+  Future<TurboState> turboState() async => TurboState.fromJson(await call('turbo_state'));
+  Future<TurboSet> turboSet(bool on) async => TurboSet.fromJson(await call('turbo_set', {'on': on}, false));
 
   Future<Uint8List?> thumbnail(int id) {
     if (_thumbs.containsKey(id)) {

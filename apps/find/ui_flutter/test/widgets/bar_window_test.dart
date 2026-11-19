@@ -1,9 +1,12 @@
+import 'package:flutter/gestures.dart' show kSecondaryButton;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:nobad_find/app/app.dart';
 import 'package:nobad_find/engine/events.dart';
 import 'package:nobad_find/platform/window.dart';
+
+import 'package:nobad_find/widgets/pressable.dart';
 
 import '../support/fake_engine.dart';
 
@@ -24,9 +27,9 @@ Future<void> type(WidgetTester tester, String text) async {
 }
 
 void main() {
-  test('bar geometry matches bar.py', () {
-    expect(BarSize.height(0), 64);
-    expect(BarSize.height(3), 64 + 1 + 3 * 44);
+  test('bar geometry: a 52 px box, 38 px rows, placed like bar.py', () {
+    expect(BarSize.height(0), 52);
+    expect(BarSize.height(3), 52 + 1 + 3 * 38);
     expect(BarSize.height(20), BarSize.height(8));
     expect(BarSize.place(0, 0, 1920, 1040, 640, 64), (640, 314));
     expect(BarSize.place(-1920, 0, 0, 1080, 640, 64), (-1280, 328));
@@ -113,5 +116,29 @@ void main() {
     final shown = find.textContaining('Archive');
     expect(shown, findsOneWidget);
     expect(tester.widget<Text>(shown).data, startsWith('…'));
+  });
+
+  testWidgets('right-click on a row: Open with and Copy path; the window grows for the menu', (tester) async {
+    final engine = FakeEngine();
+    final w = await pumpBar(tester, engine);
+    await type(tester, 'tax');
+    await tester.tap(find.text('tax notes.txt'), buttons: kSecondaryButton);
+    await tester.pumpAndSettle();
+    expect(w.fits.last, BarSize.maxRows);
+    expect(find.text('Copy path'), findsOneWidget);
+    await tester.tap(find.text('Open with…'));
+    await tester.pumpAndSettle();
+    expect(engine.openedWith, [2]);
+  });
+
+  testWidgets('the n mark opens the app menu: pause, quit', (tester) async {
+    final engine = FakeEngine();
+    await pumpBar(tester, engine);
+    await tester.tap(find.byWidgetPredicate((w) => w is Pressable && w.semanticLabel == 'NOBAD Find menu'));
+    await tester.pumpAndSettle();
+    expect(find.text('Open NOBAD Find'), findsOneWidget);
+    await tester.tap(find.text('Pause for 1 hour'));
+    await tester.pumpAndSettle();
+    expect(engine.calls, contains('pause_for'));
   });
 }

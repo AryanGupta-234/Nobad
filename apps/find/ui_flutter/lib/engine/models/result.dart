@@ -76,14 +76,22 @@ class SearchAnswer {
     this.results = const [],
     this.ms = 0,
     this.understood = const [],
+    this.terms = const [],
     this.notes = const [],
     this.more = false,
     this.error = '',
+    this.cancelled = false,
   });
+
+  /// A newer search on the same channel replaced this one: ignore the answer (no message, no empty state).
+  final bool cancelled;
 
   final List<FileResult> results;
   final int ms;
   final List<String> understood;
+
+  /// The words to highlight in names and snippets (contract `terms`).
+  final List<String> terms;
   final List<String> notes;
   final bool more;
   final String error;
@@ -97,9 +105,11 @@ class SearchAnswer {
       results: rows is List ? [for (final r in rows) ?FileResult.fromJson(r)] : const [],
       ms: _int(json['ms']) ?? 0,
       understood: _strs(json['understood']),
+      terms: _strs(json['terms']),
       notes: _strs(json['notes']),
       more: json['more'] == true,
       error: _str(json['error']),
+      cancelled: json['cancelled'] == true,
     );
   }
 }

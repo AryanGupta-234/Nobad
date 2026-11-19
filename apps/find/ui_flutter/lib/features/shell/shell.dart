@@ -18,7 +18,7 @@ import '../search/search_screen.dart';
 import '../settings/settings_screen.dart';
 import '../splash/splash.dart';
 import '../welcome/welcome.dart';
-import 'rail.dart';
+import 'sidebar.dart';
 
 class Shell extends StatefulWidget {
   const Shell({super.key, this.splash = true, this.demo});
@@ -42,6 +42,12 @@ class _ShellState extends State<Shell> {
     _scope = s;
     _shows?.cancel();
     _shows = s.engine.events.listen((e) {
+      // the engine's tray menu: open the window on a page
+      if (e is ShowEvent && (e.what == 'settings' || e.what == 'index')) {
+        s.window.front();
+        s.nav.go(e.what == 'settings' ? AppTab.settings : AppTab.indexing);
+        unawaited(s.engine.uiShown('main').catchError((Object _) {}));
+      }
       if (e is ShowEvent && e.what == 'main') {
         final t = e.text;
         if (t != null) s.find.handOver(t); // kept until the search screen takes it
@@ -84,7 +90,7 @@ class _ShellState extends State<Shell> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Rail(),
+                const Sidebar(),
                 Expanded(
                   child: ListenableBuilder(
                     listenable: s.nav,
@@ -110,7 +116,7 @@ class _ShellState extends State<Shell> {
             ),
           ),
           Positioned(
-            left: Rail.room,
+            left: Sidebar.room,
             right: 0,
             bottom: 52,
             child: Center(child: ToastHost(toasts: s.toasts)),

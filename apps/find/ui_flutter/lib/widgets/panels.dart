@@ -29,10 +29,10 @@ class NbPanel extends StatelessWidget {
     final c = NbColors.of(context);
     // a card of frosted glass on the backdrop (no blur: fill and rim)
     return Glass(
-      radius: 22,
+      radius: 8,
       padding: padding,
       rim: live ? c.orangeA(.55) : null,
-      child: clip ? ClipRSuperellipse(borderRadius: BorderRadius.circular(18), child: child) : child,
+      child: clip ? ClipRSuperellipse(borderRadius: BorderRadius.circular(8), child: child) : child,
     );
   }
 }
@@ -52,8 +52,8 @@ class PageTitle extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(text, style: NbType.display(size, c.text)),
-          const SizedBox(height: 12),
+          Text(text.toUpperCase(), style: NbType.display(size, c.text)),
+          const SizedBox(height: 8),
           const SignalRule(),
         ],
       ),
@@ -82,7 +82,7 @@ class SignalRule extends StatelessWidget {
 
 /// A section heading inside a page: sentence case, quiet, with an optional line of help after it.
 class SectionTitle extends StatelessWidget {
-  const SectionTitle(this.text, {super.key, this.trailing, this.top = NbSpace.x8});
+  const SectionTitle(this.text, {super.key, this.trailing, this.top = NbSpace.x5});
   final String text;
   final Widget? trailing;
   final double top;
@@ -91,14 +91,54 @@ class SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = NbColors.of(context);
     return Padding(
-      padding: EdgeInsets.only(top: top, bottom: NbSpace.x3),
+      padding: EdgeInsets.only(top: top, bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(left: 2),
+              child: Semantics(header: true, child: Text(text, style: sectionStyle(c))),
+            ),
+          ),
+          ?trailing,
+        ],
+      ),
+    );
+  }
+}
+
+/// The one section-header style: Settings groups, Index sections, Home's lists.
+TextStyle sectionStyle(NbColors c) => NbType.text(NbSize.small, c.dim, weight: FontWeight.w600, height: 1.3);
+
+/// Every page's header: where you are ([crumb], small), the page's one display line, and actions on the right.
+/// It sits on the page gutter; the page's toolbar and content start on the same left line under it.
+class PageHeader extends StatelessWidget {
+  const PageHeader(this.title, {super.key, this.crumb, this.trailing});
+  final String title;
+  final String? crumb;
+  final Widget? trailing;
+
+  static const padding = EdgeInsets.fromLTRB(NbSpace.gutter, 14, NbSpace.gutter, 12);
+
+  @override
+  Widget build(BuildContext context) {
+    final c = NbColors.of(context);
+    return Padding(
+      padding: padding,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Expanded(
-            child: Semantics(
-              header: true,
-              child: Text(text, style: NbType.text(NbSize.title, c.text, weight: FontWeight.w600, height: 1.25)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (crumb != null) ...[
+                  Text(crumb!, style: NbType.text(NbSize.small, c.dim, weight: FontWeight.w600)),
+                  const SizedBox(height: 3),
+                ],
+                PageTitle(title),
+              ],
             ),
           ),
           ?trailing,
@@ -119,7 +159,7 @@ class StatTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = NbColors.of(context);
     return NbPanel(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -130,10 +170,10 @@ class StatTile extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             // a number reads as data; a long name (a graphics card) reads better as text
             style: value.length > 12
-                ? NbType.text(15, live ? c.orange : c.text, weight: FontWeight.w600, height: 1.3)
-                : NbType.data(19, live ? c.orange : c.text, weight: FontWeight.w600, height: 1.25),
+                ? NbType.text(13.5, live ? c.orange : c.text, weight: FontWeight.w600, height: 1.3)
+                : NbType.data(16, live ? c.orange : c.text, weight: FontWeight.w600, height: 1.25),
           ),
-          const SizedBox(height: 3),
+          const SizedBox(height: 2),
           Text(
             label,
             maxLines: 3,

@@ -487,6 +487,23 @@ model runs in the next section use the fixed code.
 | Engine with the window open, idle, models released | ≤ 120 MB | 88 MB working set, 62 MB private |
 | Cold start to usable engine | ≤ 1.5 s (window) | engine 0.39 s, first pipe answer 0.66 s |
 | Search keystroke | ≤ 80 ms names | median 2.6 ms; 9 of 114 over 80 ms (short words matching text inside files) |
+## 2026-11-19: UI round 2 (sidebar, compact density, size cap), Phase 3
+
+- **How:** release build, fake engine, window sized with `SetWindowPos` (it can no longer be maximized), 10 s to
+  settle, 15 s idle, on the 1920 x 1200 (125 %) screen. Same counters as the section below. Measured before the
+  last polish commits (flat rows, Windows icons); later on-screen runs were not allowed (the maintainer's desktop),
+  so these were not repeated.
+
+| Window | Working set | Private | GPU memory | CPU idle | Frames per 5 s, settled |
+|---|---|---|---|---|---|
+| 1180 x 760, Home | 163-167 MB | 163-165 MB | 58 MB | 0.5-0.9 % (pointer moving over it) | 0-25 |
+| 1440 x 900 (the largest), Home | 148 MB | 150 MB | 62 MB | 0.03 % | 0 |
+| 1180 x 760, after every page (tour, no captures) | 160 MB | 158 MB | 57 MB | 0.05 % | 0 |
+| Quick find bar hidden after focus loss | 1.7 MB | | | | |
+
+Runs that capture every page to PNG in-process end at 220-260 MB: that is the captures, not the UI. Still over the
+100 MB window budget, for the reason below (the GPU driver in-process).
+
 ## 2026-11-19: frosted glass redesign, maximized (Phase 3)
 
 - **How:** release build, fake engine (`NOBAD_FIND_FAKE_ENGINE=1`), the window maximized on the 1920 x 1200 (125 %)

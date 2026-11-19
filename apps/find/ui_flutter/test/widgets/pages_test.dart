@@ -28,7 +28,7 @@ void main() {
       await tester.tap(find.text('Pause for 1 hour'));
       await tester.pumpAndSettle();
       expect(engine.calls, contains('pause_for'));
-      expect(find.text('Paused'), findsOneWidget);
+      expect(find.text('Paused'), findsWidgets);
       expect(find.text('Paused: you paused NOBAD Find for 60 min'), findsWidgets);
       await tester.tap(find.text('Resume'));
       await tester.pumpAndSettle();
@@ -72,12 +72,21 @@ void main() {
   });
 
   group('Settings', () {
-    testWidgets('six pages with the 0.7.0 rows; a switch goes to the engine', (tester) async {
+    testWidgets('eight pages in the sidebar; a switch goes to the engine', (tester) async {
       final engine = FakeEngine();
       await pumpApp(tester, engine, size: const Size(1080, 1000));
       await ctrl(tester, LogicalKeyboardKey.digit3);
-      for (final p in ['General', 'Indexing', 'Models', 'Performance', 'Privacy', 'About']) {
-        expect(find.text(p), findsOneWidget);
+      for (final p in [
+        'General',
+        'Search',
+        'What to index',
+        'Models & languages',
+        'Performance',
+        'Privacy & data',
+        'Shortcuts',
+        'About',
+      ]) {
+        expect(find.text(p), findsWidgets);
       }
       await tester.tap(find.byWidgetPredicate((w) => w is NbSwitch && w.label == 'Start with Windows'));
       await tester.pumpAndSettle();
@@ -97,8 +106,11 @@ void main() {
       final engine = FakeEngine();
       await pumpApp(tester, engine, size: const Size(1080, 1200));
       await ctrl(tester, LogicalKeyboardKey.digit3);
-      await tester.tap(find.text('Indexing'));
+      await tester.tap(find.text('What to index'));
       await tester.pumpAndSettle();
+      await tester.tap(find.text('Custom'));
+      await tester.pumpAndSettle();
+      expect(engine.settingsSet.last, {'scope': 'custom'});
       await tester.tap(find.text('Add folder').first);
       await tester.pumpAndSettle();
       expect(engine.settingsSet.last, {
@@ -106,7 +118,7 @@ void main() {
       });
       expect(find.text(r'C:\Users\me\Projects'), findsOneWidget);
 
-      await tester.tap(find.text('Privacy'));
+      await tester.tap(find.text('Privacy & data'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Delete index'));
       await tester.pumpAndSettle();
@@ -127,7 +139,7 @@ void main() {
       final engine = FakeEngine();
       await pumpApp(tester, engine, size: const Size(1080, 1000));
       await ctrl(tester, LogicalKeyboardKey.digit3);
-      await tester.tap(find.text('Privacy'));
+      await tester.tap(find.text('Privacy & data'));
       await tester.pumpAndSettle();
       expect(find.textContaining('Windows Search indexing is on (delayed-auto, running)'), findsOneWidget);
       await tester.tap(find.text('Switch to NOBAD Find'));

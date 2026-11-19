@@ -18,6 +18,8 @@ import '../../platform/demo.dart';
 import '../../platform/window.dart';
 import '../../state/search_controller.dart';
 import '../../widgets/common.dart';
+import '../../widgets/pressable.dart';
+import '../search/result_actions.dart';
 import '../../widgets/glass.dart';
 import '../../widgets/motion.dart';
 
@@ -83,6 +85,67 @@ class _BarWindowState extends State<BarWindow> {
     },
   );
 
+  // ---- menus: the n mark's app menu, and a result's actions ----
+  final _menu = MenuController();
+  final _menuAnchor = GlobalKey();
+  List<Widget> _menuItems = const [];
+
+  void _openMenu(List<Widget> items, Offset global) {
+    final box = _menuAnchor.currentContext?.findRenderObject() as RenderBox?;
+    setState(() => _menuItems = items);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (box != null && mounted) _menu.open(position: box.globalToLocal(global));
+    });
+  }
+
+  Future<void> _rowAction(ResultAction a) async {
+    final ok = switch (a) {
+      ResultAction.open => await find.openSelected(),
+      ResultAction.openWith => await find.openWithSelected(),
+      ResultAction.reveal => await find.revealSelected(),
+      ResultAction.copyPath => await find.copySelected(),
+      ResultAction.copyName => await find.copyNameSelected(),
+      ResultAction.details || ResultAction.forget => false,
+    };
+    if (ok && (a == ResultAction.open || a == ResultAction.openWith || a == ResultAction.reveal)) hide();
+    if (mounted) setState(() {});
+  }
+
+  MenuItemButton _item(String label, VoidCallback onPressed, {SingleActivator? shortcut}) => MenuItemButton(
+    onPressed: onPressed,
+    shortcut: shortcut,
+    child: Text(label, style: NbType.text(13, NbColors.of(context).text)),
+  );
+
+  List<Widget> _rowMenu() => [
+    for (final a in [ResultAction.open, ResultAction.openWith, ResultAction.reveal, ResultAction.copyPath])
+      _item(a.label, () => _rowAction(a), shortcut: a.shortcut),
+  ];
+
+  List<Widget> _appMenu() {
+    final paused = widget.engine.lastStatus?.isPaused ?? false;
+    return [
+      _item('Open NOBAD Find', () {
+        unawaited(widget.engine.toMain(box.text).catchError((Object _) {}));
+        hide();
+      }),
+      _item('Settings', () => _openPage('settings')),
+      _item('Index', () => _openPage('index')),
+      _item(paused ? 'Resume' : 'Pause for 1 hour', () {
+        final f = paused ? widget.engine.resume() : widget.engine.pauseFor(const Duration(hours: 1));
+        unawaited(f.then((_) {}, onError: (Object _) {}));
+      }),
+      _item('Quit NOBAD Find', () => unawaited(widget.engine.quit().then((_) {}, onError: (Object _) {}))),
+    ];
+  }
+
+  /// Settings or Index from the bar: starts the main window on that page (`--page`). If the main window already
+  /// runs, Windows brings it forward on the page it shows (the engine has no "show this page" method yet).
+  void _openPage(String page) {
+    hide();
+    openMainPage(page);
+  }
+
   void show() {
     _hiding?.cancel();
     _visible = true;
@@ -140,6 +203,7 @@ class _BarWindowState extends State<BarWindow> {
   void dispose() {
     _shows.cancel();
     _hiding?.cancel();
+    _menu.close();
     _life.dispose();
     _settle?.cancel();
     find.dispose();
@@ -163,62 +227,80 @@ class _BarWindowState extends State<BarWindow> {
     // a frosted pill: Windows' Acrylic behind the window does the blur; the glass adds the tint and the rim
     return Glass(
       level: GlassLevel.panel,
-      radius: 12,
+      radius: 8,
       fill: c.glass ? c.panel : c.surface,
-      child: CallbackShortcuts(
-        bindings: {
-          const SingleActivator(LogicalKeyboardKey.arrowDown): () => find.move(1),
-          const SingleActivator(LogicalKeyboardKey.arrowUp): () => find.move(-1),
-          const SingleActivator(LogicalKeyboardKey.enter): _act,
-          const SingleActivator(LogicalKeyboardKey.numpadEnter): _act,
-          const SingleActivator(LogicalKeyboardKey.enter, control: true): () => _act(reveal: true),
-          const SingleActivator(LogicalKeyboardKey.enter, alt: true): _toMain,
-          const SingleActivator(LogicalKeyboardKey.escape): hide,
+      child: MenuAnchor(
+        controller: _menu,
+        menuChildren: _menuItems,
+        onOpen: () => widget.window.fitBar(BarSize.maxRows), // room for the menu inside the bar's window
+        onClose: () {
+          _rows = -1;
+          _fit();
         },
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SizedBox(
-              height: BarSize.field - 2,
-              child: _Field(box: box, focus: focus, find: find),
+        child: KeyedSubtree(
+          key: _menuAnchor,
+          child: CallbackShortcuts(
+            bindings: {
+              const SingleActivator(LogicalKeyboardKey.enter, control: true, shift: true): () =>
+                  _rowAction(ResultAction.openWith),
+              const SingleActivator(LogicalKeyboardKey.arrowDown): () => find.move(1),
+              const SingleActivator(LogicalKeyboardKey.arrowUp): () => find.move(-1),
+              const SingleActivator(LogicalKeyboardKey.enter): _act,
+              const SingleActivator(LogicalKeyboardKey.numpadEnter): _act,
+              const SingleActivator(LogicalKeyboardKey.enter, control: true): () => _act(reveal: true),
+              const SingleActivator(LogicalKeyboardKey.enter, alt: true): _toMain,
+              const SingleActivator(LogicalKeyboardKey.escape): hide,
+            },
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(
+                  height: BarSize.field - 2,
+                  child: _Field(box: box, focus: focus, find: find, onMark: (pos) => _openMenu(_appMenu(), pos)),
+                ),
+                Expanded(
+                  child: ListenableBuilder(
+                    listenable: find,
+                    builder: (context, _) {
+                      if (rowsNeeded == 0) return const SizedBox.shrink();
+                      return Container(
+                        decoration: BoxDecoration(
+                          border: Border(top: BorderSide(color: c.line)),
+                        ),
+                        child: find.results.isEmpty
+                            ? _NoMatch(
+                                find.notice.isNotEmpty ? find.notice : find.askedFor.trim(),
+                                isError: find.notice.isNotEmpty,
+                              )
+                            : Column(
+                                children: [
+                                  for (var i = 0; i < find.results.length; i++)
+                                    Appear(
+                                      key: ValueKey((find.serial, find.results[i].id)),
+                                      delay: Appear.stagger(i),
+                                      lift: 3,
+                                      child: _Row(
+                                        result: find.results[i],
+                                        selected: i == find.selected,
+                                        onSecondary: (pos) {
+                                          find.select(i);
+                                          _openMenu(_rowMenu(), pos);
+                                        },
+                                        onTap: (reveal) {
+                                          find.select(i);
+                                          _act(reveal: reveal);
+                                        },
+                                      ),
+                                    ),
+                                ],
+                              ),
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
-            Expanded(
-              child: ListenableBuilder(
-                listenable: find,
-                builder: (context, _) {
-                  if (rowsNeeded == 0) return const SizedBox.shrink();
-                  return Container(
-                    decoration: BoxDecoration(
-                      border: Border(top: BorderSide(color: c.line)),
-                    ),
-                    child: find.results.isEmpty
-                        ? _NoMatch(
-                            find.notice.isNotEmpty ? find.notice : find.askedFor.trim(),
-                            isError: find.notice.isNotEmpty,
-                          )
-                        : Column(
-                            children: [
-                              for (var i = 0; i < find.results.length; i++)
-                                Appear(
-                                  key: ValueKey((find.serial, find.results[i].id)),
-                                  delay: Appear.stagger(i),
-                                  lift: 3,
-                                  child: _Row(
-                                    result: find.results[i],
-                                    selected: i == find.selected,
-                                    onTap: (reveal) {
-                                      find.select(i);
-                                      _act(reveal: reveal);
-                                    },
-                                  ),
-                                ),
-                            ],
-                          ),
-                  );
-                },
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -226,10 +308,13 @@ class _BarWindowState extends State<BarWindow> {
 }
 
 class _Field extends StatefulWidget {
-  const _Field({required this.box, required this.focus, required this.find});
+  const _Field({required this.box, required this.focus, required this.find, required this.onMark});
   final TextEditingController box;
   final FocusNode focus;
   final FindController find;
+
+  /// The n mark: the app menu (open NOBAD Find, Settings, Index, pause, quit).
+  final void Function(Offset globalPosition) onMark;
 
   @override
   State<_Field> createState() => _FieldState();
@@ -255,29 +340,48 @@ class _FieldState extends State<_Field> {
     final c = NbColors.of(context);
     return Stack(
       children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 16, right: 20),
-          child: Row(
-            children: [
-              const NbMark(size: 30),
-              const SizedBox(width: 14),
-              Expanded(
-                child: TextField(
-                  controller: widget.box,
-                  focusNode: widget.focus,
-                  autofocus: true,
-                  cursorColor: c.orange,
-                  inputFormatters: [LengthLimitingTextInputFormatter(maxTextLength)],
-                  style: NbType.display(24, c.text, weight: 330),
-                  decoration: InputDecoration(
-                    isCollapsed: true,
-                    border: InputBorder.none,
-                    hintText: 'Find a file',
-                    hintStyle: NbType.display(24, c.dim, weight: 300),
+        Positioned.fill(
+          bottom: 6, // the key hint has the last few pixels
+          child: Padding(
+            padding: const EdgeInsets.only(left: 16, right: 20),
+            child: Row(
+              children: [
+                Builder(
+                  builder: (ctx) => Pressable(
+                    onTap: () {
+                      final b = ctx.findRenderObject() as RenderBox?;
+                      widget.onMark(b == null ? Offset.zero : b.localToGlobal(Offset(0, b.size.height + 6)));
+                    },
+                    semanticLabel: 'NOBAD Find menu',
+                    tooltip: 'NOBAD Find menu',
+                    canRequestFocus: false,
+                    ringRadius: NbRadius.controlAll,
+                    builder: (context, p) => AnimatedScale(
+                      scale: p.lit ? 1.06 : 1,
+                      duration: NbMotion.of(context, NbMotion.fast),
+                      child: const NbMark(size: 24),
+                    ),
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: widget.box,
+                    focusNode: widget.focus,
+                    autofocus: true,
+                    cursorColor: c.orange,
+                    inputFormatters: [LengthLimitingTextInputFormatter(maxTextLength)],
+                    style: NbType.text(16, c.text),
+                    decoration: InputDecoration(
+                      isCollapsed: true,
+                      border: InputBorder.none,
+                      hintText: 'Find a file',
+                      hintStyle: NbType.text(16, c.dim),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         // the one loud thing: an orange line under the box while it has focus
@@ -300,7 +404,7 @@ class _FieldState extends State<_Field> {
         ),
         Positioned(
           right: 20,
-          bottom: 4,
+          bottom: 3,
           child: IgnorePointer(
             child: ListenableBuilder(
               listenable: widget.find,
@@ -321,10 +425,11 @@ class _FieldState extends State<_Field> {
 }
 
 class _Row extends StatefulWidget {
-  const _Row({required this.result, required this.selected, required this.onTap});
+  const _Row({required this.result, required this.selected, required this.onTap, required this.onSecondary});
   final FileResult result;
   final bool selected;
   final void Function(bool reveal) onTap;
+  final void Function(Offset globalPosition) onSecondary;
 
   @override
   State<_Row> createState() => _RowState();
@@ -344,6 +449,7 @@ class _RowState extends State<_Row> {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () => widget.onTap(HardwareKeyboard.instance.isControlPressed),
+        onSecondaryTapDown: (d) => widget.onSecondary(d.globalPosition),
         child: Semantics(
           selected: widget.selected,
           button: true,
@@ -361,15 +467,15 @@ class _RowState extends State<_Row> {
                       margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: ShapeDecoration(
                         color: c.orangeA(c.isDark ? .16 : .12),
-                        shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(14)),
+                        shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(8)),
                       ),
                     ),
                   ),
                 ),
                 Positioned(
                   left: 0,
-                  top: 8,
-                  bottom: 8,
+                  top: 9,
+                  bottom: 9,
                   width: 3,
                   child: AnimatedScale(
                     scale: widget.selected ? 1 : 0,
@@ -387,7 +493,7 @@ class _RowState extends State<_Row> {
                   child: Row(
                     children: [
                       SizedBox(
-                        width: 46,
+                        width: 40,
                         child: Text(
                           kindTag(widget.result.kind),
                           style: NbType.data(9.5, c.orange, weight: FontWeight.w700),
@@ -401,7 +507,7 @@ class _RowState extends State<_Row> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           softWrap: false,
-                          style: NbType.text(14.5, c.text, weight: FontWeight.w600),
+                          style: NbType.text(13.5, c.text, weight: FontWeight.w600),
                         ),
                       ),
                       const SizedBox(width: 12),

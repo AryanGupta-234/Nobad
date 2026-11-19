@@ -36,35 +36,68 @@ class KindBadge extends StatelessWidget {
   final String kind;
   final double size;
 
+  /// Small badges show the kind as a Windows icon; the large preview keeps the NOBAD kind tag.
+  static const glyphs = {
+    'pdf': 0xEA90,
+    'document': 0xE8A5,
+    'spreadsheet': 0xE80A,
+    'slides': 0xE786,
+    'text': 0xF000,
+    'code': 0xE943,
+    'email': 0xE715,
+    'image': 0xE91B,
+    'video': 0xE714,
+    'audio': 0xE8D6,
+    'archive': 0xF012,
+    'ebook': 0xE8F1,
+    'app': 0xE7B8,
+    'folder': 0xE8B7,
+  };
+
   @override
   Widget build(BuildContext context) {
     final c = NbColors.of(context);
+    final small = size <= 48;
     return Container(
       width: size,
       height: size,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        // a small pane of glass with the kind on it
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [c.orangeA(c.isDark ? .14 : .10), c.card],
-        ),
-        border: Border.all(color: c.line2),
-        borderRadius: BorderRadius.circular(size >= 96 ? 28 : 12),
+        color: small ? c.cardHover : null,
+        gradient: small
+            ? null
+            : LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [c.orangeA(c.isDark ? .12 : .08), c.card],
+              ),
+        border: Border.all(color: c.line),
+        borderRadius: BorderRadius.circular(small ? 6 : 8),
       ),
-      child: Text(
-        kindTag(kind),
-        style: NbType.data(9.5 * (size / 40).clamp(1, 3.2), c.orange, weight: FontWeight.w700),
-        maxLines: 1,
-        softWrap: false,
-      ),
+      child: small
+          ? ExcludeSemantics(
+              child: Text(
+                String.fromCharCode(glyphs[kind] ?? 0xE8A5),
+                textScaler: TextScaler.noScaling,
+                style: TextStyle(
+                  fontFamily: 'Segoe Fluent Icons',
+                  fontFamilyFallback: const ['Segoe MDL2 Assets'],
+                  fontSize: 16,
+                  height: 1,
+                  color: kind == 'folder' ? c.orange : c.muted,
+                ),
+              ),
+            )
+          : Text(
+              kindTag(kind),
+              style: NbType.data(size >= 96 ? 24 : 16, c.orange, weight: FontWeight.w600),
+              maxLines: 1,
+              softWrap: false,
+            ),
     );
   }
 }
 
-/// A result's preview from Windows' thumbnail cache, asked for (by id) only when the row is built, i.e. on screen.
-/// Shows the kind badge until (and unless) a preview arrives.
 class ResultThumb extends StatefulWidget {
   const ResultThumb({super.key, required this.engine, required this.result, this.size = 56});
   final EngineApi engine;
@@ -181,9 +214,11 @@ class TailText extends StatelessWidget {
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, c) {
       final scaler = MediaQuery.textScalerOf(context);
+      // measured with the style the Text will really paint with (the inherited one merged in)
+      final painted = DefaultTextStyle.of(context).style.merge(style);
       bool fits(String s) {
         final tp = TextPainter(
-          text: TextSpan(text: s, style: style),
+          text: TextSpan(text: s, style: painted),
           textDirection: TextDirection.ltr,
           maxLines: 1,
           textScaler: scaler,
@@ -210,4 +245,34 @@ class TailText extends StatelessWidget {
       return Text(shown, style: style, maxLines: 1, softWrap: false, overflow: TextOverflow.clip, textAlign: textAlign);
     },
   );
+}
+
+/// [text] with the search's [terms] marked (case-insensitive), as plain text spans: names are never parsed.
+List<TextSpan> highlightSpans(String text, List<String> terms, TextStyle base, NbColors c) {
+  final words = [
+    for (final t in terms)
+      if (t.trim().length > 1) t.trim().toLowerCase(),
+  ];
+  if (words.isEmpty) return [TextSpan(text: text, style: base)];
+  final lower = text.toLowerCase();
+  final marks = List<bool>.filled(text.length, false);
+  for (final w in words) {
+    var i = lower.indexOf(w);
+    while (i >= 0) {
+      for (var k = i; k < i + w.length && k < marks.length; k++) {
+        marks[k] = true;
+      }
+      i = lower.indexOf(w, i + w.length);
+    }
+  }
+  final mark = base.copyWith(color: c.text, backgroundColor: c.orangeA(c.isDark ? .28 : .18));
+  final out = <TextSpan>[];
+  var start = 0;
+  for (var i = 1; i <= text.length; i++) {
+    if (i == text.length || marks[i] != marks[start]) {
+      out.add(TextSpan(text: text.substring(start, i), style: marks[start] ? mark : base));
+      start = i;
+    }
+  }
+  return out;
 }
