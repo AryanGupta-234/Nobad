@@ -1,0 +1,53 @@
+{"note": "Every event the engine pushes, in the order a session might see them."}
+{"send": {"jsonrpc": "2.0", "id": 1, "method": "subscribe", "params": {"events": ["status", "level", "activity", "download", "show", "here", "quitting"]}}}
+{"recv": {"jsonrpc": "2.0", "id": 1, "result": {"events": ["activity", "download", "here", "level", "quitting", "show", "status"]}}}
+{"engine": {"do": "tick", "at": 0.0}}
+{"recv": {"jsonrpc": "2.0", "method": "status", "params": {"level": "gentle", "reason": "Gentle: you're using the PC", "phase": "text", "files": 1200, "paused": ""}}}
+{"engine": {"do": "level", "level": "light", "reason": "Light: on battery"}}
+{"engine": {"do": "tick", "at": 0.5}}
+{"recv": {"jsonrpc": "2.0", "method": "level", "params": {"level": "light", "reason": "Light: on battery", "paused": ""}}}
+{"engine": {"do": "activity", "kind": "level", "text": "Light: on battery"}}
+{"recv": {"jsonrpc": "2.0", "method": "activity", "params": {"t": 1763400000.0, "kind": "level", "text": "Light: on battery"}}}
+{"engine": {"do": "download", "id": "meaning", "state": "downloading", "got": 2097152, "size": 24117248}}
+{"engine": {"do": "tick", "at": 1.0}}
+{"recv": {"jsonrpc": "2.0", "method": "download", "params": {"id": "meaning", "state": "downloading", "got_mb": 2.0, "size_mb": 23.0, "mb_s": 0.0, "error": ""}}}
+{"engine": {"do": "download", "id": "meaning", "got": 6291456}}
+{"engine": {"do": "tick", "at": 2.0}}
+{"recv": {"jsonrpc": "2.0", "method": "download", "params": {"id": "meaning", "state": "downloading", "got_mb": 6.0, "size_mb": 23.0, "mb_s": 4.0, "error": ""}}}
+{"recv": {"jsonrpc": "2.0", "method": "status", "params": {"level": "light", "reason": "Light: on battery", "phase": "text", "files": 1200, "paused": ""}}}
+{"engine": {"do": "download", "id": "meaning", "state": "ready", "got": 24117248}}
+{"engine": {"do": "tick", "at": 2.5}}
+{"recv": {"jsonrpc": "2.0", "method": "download", "params": {"id": "meaning", "state": "ready", "got_mb": 23.0, "size_mb": 23.0, "mb_s": 0.0, "error": ""}}}
+{"engine": {"do": "download", "id": "photo", "state": "downloading", "got": 0, "size": 221249536}}
+{"engine": {"do": "tick", "at": 3.0}}
+{"recv": {"jsonrpc": "2.0", "method": "download", "params": {"id": "photo", "state": "downloading", "got_mb": 0.0, "size_mb": 211.0, "mb_s": 0.0, "error": ""}}}
+{"engine": {"do": "download", "id": "photo", "state": "missing", "error": "The download was interrupted. Try again."}}
+{"engine": {"do": "tick", "at": 3.5}}
+{"recv": {"jsonrpc": "2.0", "method": "download", "params": {"id": "photo", "state": "missing", "got_mb": 0.0, "size_mb": 211.0, "mb_s": 0.0, "error": "The download was interrupted. Try again."}}}
+{"note": "Main hotkey: show first, then here once the File Explorer folder is known."}
+{"engine": {"do": "hotkey", "what": "main"}}
+{"recv": {"jsonrpc": "2.0", "method": "show", "params": {"what": "main", "text": null}}}
+{"engine": {"do": "here", "path": "C:\\Users\\me\\Downloads"}}
+{"recv": {"jsonrpc": "2.0", "method": "here", "params": {"path": "C:\\Users\\me\\Downloads"}}}
+{"send": {"jsonrpc": "2.0", "id": 2, "method": "here_folder", "params": {}}}
+{"recv": {"jsonrpc": "2.0", "id": 2, "result": {"path": "C:\\Users\\me\\Downloads"}}}
+{"engine": {"do": "hotkey", "what": "bar"}}
+{"recv": {"jsonrpc": "2.0", "method": "show", "params": {"what": "bar", "text": null}}}
+{"note": "The bar's Alt+Enter."}
+{"send": {"jsonrpc": "2.0", "id": 3, "method": "to_main", "params": {"text": "tax pdf"}}}
+{"recv": {"jsonrpc": "2.0", "method": "show", "params": {"what": "main", "text": "tax pdf"}}}
+{"recv": {"jsonrpc": "2.0", "id": 3, "result": {"ok": true}}}
+{"note": "A notice before anyone listens waits for the first subscriber."}
+{"engine": {"do": "notice", "text": "The hotkey is used by another app. Pick another one in Settings."}}
+{"send": {"jsonrpc": "2.0", "id": 4, "method": "subscribe", "params": {"events": ["notice"]}}}
+{"recv": {"jsonrpc": "2.0", "method": "notice", "params": {"text": "The hotkey is used by another app. Pick another one in Settings."}}}
+{"recv": {"jsonrpc": "2.0", "id": 4, "result": {"events": ["activity", "download", "here", "level", "notice", "quitting", "show", "status"]}}}
+{"engine": {"do": "notice", "text": "The quick find bar shortcut is used by another app. Pick another one in Settings."}}
+{"recv": {"jsonrpc": "2.0", "method": "notice", "params": {"text": "The quick find bar shortcut is used by another app. Pick another one in Settings."}}}
+{"send": {"jsonrpc": "2.0", "id": 5, "method": "unsubscribe", "params": {"events": ["status", "level"]}}}
+{"recv": {"jsonrpc": "2.0", "id": 5, "result": {"events": ["activity", "download", "here", "notice", "quitting", "show"]}}}
+{"engine": {"do": "tick", "at": 4.0}}
+{"note": "Quit: the quitting event goes out before the reply; then the pipe closes."}
+{"send": {"jsonrpc": "2.0", "id": 6, "method": "quit", "params": {"confirm": "QUIT"}}}
+{"recv": {"jsonrpc": "2.0", "method": "quitting", "params": {}}}
+{"recv": {"jsonrpc": "2.0", "id": 6, "result": {"ok": true, "error": ""}}}
