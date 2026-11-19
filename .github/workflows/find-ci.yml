@@ -65,12 +65,12 @@ jobs:
         run: python -m pyflakes nobadfind tests
 
   build:
-    # Builds the per-user installer (packaging/build.ps1: fresh venv, hash-pinned dependencies, tests, PyInstaller,
-    # Inno Setup) and keeps it as a workflow artifact. Nothing is published: NOBAD Find isn't released yet.
+    # Builds the per-user installer (packaging/build.ps1: fresh venv, hash-pinned dependencies, tests, the Flutter UI's
+    # tests and release build, PyInstaller, Inno Setup) and keeps it as a workflow artifact. Nothing is published here.
     name: find-build
     needs: test
     runs-on: windows-latest
-    timeout-minutes: 40
+    timeout-minutes: 60
     defaults:
       run:
         shell: pwsh
@@ -100,6 +100,14 @@ jobs:
         if: steps.scope.outputs.run == 'true'
         with:
           python-version: "3.11"
+
+      - name: Install the Flutter SDK (pinned; builds the window, apps/find/ui_flutter)
+        if: steps.scope.outputs.run == 'true'
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          channel: stable
+          flutter-version: "3.50.0"
+          cache: false
 
       - name: Install Inno Setup (pinned)
         if: steps.scope.outputs.run == 'true'
