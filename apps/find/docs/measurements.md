@@ -4,6 +4,26 @@ Numbers decide (ROADMAP §3). Every performance claim points at a row here. Newe
 now; private = committed memory only this process can use (`Get-Process` `WorkingSet64` / `PrivateMemorySize64`,
 summed over the process tree).
 
+## 2026-11-19: full Flutter UI (Phase 3)
+
+- **Branch:** `find-flutter-ui` (draft PR #77), Flutter 3.50, release build, Skia, the same PC as below.
+- **How:** the UI process only (`Get-Process` on its PID), sampled once a second. Engine: `python -m nobadfind --engine`
+  from source on a throwaway data folder (`NOBAD_FIND_DATA_DIR`) with a 362-file made-up corpus. The UI typed its own
+  searches (`NOBAD_FIND_UI_DEMO=1`) or went through every screen (`NOBAD_FIND_UI_DEMO=tour`).
+
+| UI process | Working set | Private | Notes |
+|---|---|---|---|
+| Main window, Home, just started | 128 MB | 128 MB | real engine |
+| Main window after 5 searches | 140 MB | 139 MB | real engine |
+| Main window after every screen, dark and light, then 10 s idle | 150-168 MB | 150-162 MB | real engine and fake engine runs |
+| Quick find bar, shown with 8 rows | ~140 MB | ~130 MB | |
+| Quick find bar, hidden (Esc) | 2-10 MB | 109 MB | hiding empties Skia's cache and the working set |
+
+Skia's GPU resource cache, after the full tour (fake engine): 8 MB cap → 145 MB, 12 MB → 150 MB, 24 MB → 163 MB,
+64 MB → 212 MB, 256 MB (Flutter's default) → 207 MB and still growing. The UI caps it at 12 MB
+(`NOBAD_FIND_SKIA_CACHE_MB`) and empties it while hidden. The ≤ 100 MB window budget is still missed, as for the
+prototype: about 100 MB of each number is the Intel D3D11 driver loaded in-process.
+
 ## 2026-11-18: Flutter prototype vs the 0.7.0 WebView2 window (ROADMAP Phase 3 step 1)
 
 - **Commit:** `610921b` (branch `find-flutter-prototype`), Flutter 3.50 stable (Dart 3.14), release build, Skia renderer.
