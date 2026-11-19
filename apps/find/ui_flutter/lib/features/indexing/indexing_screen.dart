@@ -15,6 +15,7 @@ import '../../app/theme/tokens.dart';
 import '../../app/theme/typography.dart';
 import '../../engine/models/format.dart';
 import '../../engine/models/status.dart';
+import '../../widgets/smooth_scroll.dart';
 import '../../widgets/controls.dart';
 import '../../widgets/icons.dart';
 import '../../widgets/motion.dart';
@@ -59,7 +60,7 @@ class _IndexingScreenState extends State<IndexingScreen> {
         return LayoutBuilder(
           builder: (context, box) {
             final wide = box.maxWidth >= NbSpace.wide;
-            final body = SingleChildScrollView(
+            final body = SmoothScroll(builder: (sc) => SingleChildScrollView(controller: sc, 
               padding: const EdgeInsets.fromLTRB(NbSpace.gutter, 0, NbSpace.gutter, NbSpace.x6),
               child: Align(
                 alignment: Alignment.topLeft,
@@ -99,7 +100,7 @@ class _IndexingScreenState extends State<IndexingScreen> {
                   ),
                 ),
               ),
-            );
+            ));
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [

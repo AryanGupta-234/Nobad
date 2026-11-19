@@ -10,6 +10,7 @@ import '../../app/scope.dart';
 import '../../app/theme/colors.dart';
 import '../../app/theme/tokens.dart';
 import '../../app/theme/typography.dart';
+import '../../widgets/smooth_scroll.dart';
 import '../../widgets/panels.dart';
 import 'pages/about.dart';
 import 'pages/general.dart';
@@ -57,7 +58,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         children: [
           PageHeader(s.nav.page.label, crumb: 'Settings'),
           Expanded(
-            child: SingleChildScrollView(
+            child: SmoothScroll(builder: (sc) => SingleChildScrollView(controller: sc, 
               key: PageStorageKey(s.nav.page),
               padding: const EdgeInsets.fromLTRB(NbSpace.gutter, 0, NbSpace.gutter, NbSpace.x6),
               // top-left at a reading width
@@ -82,7 +83,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
               ),
-            ),
+            )),
           ),
         ],
       ),

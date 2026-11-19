@@ -10,6 +10,7 @@ import '../../app/scope.dart';
 import '../../app/theme/colors.dart';
 import '../../app/theme/tokens.dart';
 import '../../app/theme/typography.dart';
+import '../../widgets/smooth_scroll.dart';
 import '../../widgets/common.dart';
 import '../../widgets/controls.dart';
 import '../../widgets/panels.dart';
@@ -30,7 +31,7 @@ class Welcome extends StatelessWidget {
     final st = s.settings.settings;
     return ColoredBox(
       color: c.bg,
-      child: SingleChildScrollView(
+      child: SmoothScroll(builder: (sc) => SingleChildScrollView(controller: sc, 
         padding: const EdgeInsets.fromLTRB(48, 32, 48, 24),
         child: Align(
           alignment: Alignment.topLeft,
@@ -131,7 +132,7 @@ class Welcome extends StatelessWidget {
             ),
           ),
         ),
-      ),
+      )),
     );
   }
 }
