@@ -1,0 +1,2816 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nobad.studio/find/contract/methods.schema.json",
+  "title": "NOBAD Find engine: RPC methods",
+  "description": "JSON-RPC 2.0 over \\\\.\\pipe\\NOBADFind-<user SID>, one JSON object per line, at most 1 MiB per line. Each method has the schema of its params and of its result. Plain-language descriptions: contract/README.md.",
+  "protocol": 1,
+  "methods": {
+    "hello": {
+      "description": "First call after connecting: the protocol version, the engine's version and process id, and every method and event it knows.",
+      "params": {
+        "$ref": "#/$defs/no_params"
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "protocol": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "app": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "pid": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "methods": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "protocol",
+          "app",
+          "version",
+          "pid",
+          "events",
+          "methods"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "subscribe": {
+      "description": "Start getting these events on this connection. Unknown names are ignored. Notices that waited for a listener are sent before this reply.",
+      "params": {
+        "$ref": "#/$defs/event_names"
+      },
+      "result": {
+        "$ref": "#/$defs/subscriptions"
+      }
+    },
+    "unsubscribe": {
+      "description": "Stop getting these events on this connection.",
+      "params": {
+        "$ref": "#/$defs/event_names"
+      },
+      "result": {
+        "$ref": "#/$defs/subscriptions"
+      }
+    },
+    "search": {
+      "description": "Search the index. Empty text with no filter gives no results. filters is an object or left out (null is refused); its values must be the listed words.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 2000,
+            "description": "What the user typed; the engine uses the first 500 characters."
+          },
+          "filters": {
+            "$ref": "#/$defs/filters"
+          },
+          "channel": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,15}$",
+            "description": "Which search of this UI it is (default \"main\"; e.g. \"home\" for the Home list, \"bar\"). A newer search on the same connection and channel cancels this one, which then answers with cancelled: true."
+          }
+        },
+        "additionalProperties": false,
+        "examples": [
+          {
+            "text": "tax pdf"
+          },
+          {
+            "text": "",
+            "filters": {
+              "kind": "pdf",
+              "sort": "newest"
+            }
+          },
+          {
+            "text": ""
+          }
+        ]
+      },
+      "result": {
+        "$ref": "#/$defs/search_result"
+      }
+    },
+    "suggest": {
+      "description": "Autocomplete while typing (0.8.5): the user's own past questions (only while the setting search_history is on), names in the index and the phrases search understands (\"in downloads\", \"images\", \"last week\"). Each item's text is the whole question to search; complete is the inline completion of what's typed (starts with exactly the typed text), or \"\". Fast enough for every keystroke; it never fails (a problem gives no items).",
+      "params": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 2000,
+            "description": "What's typed so far (a trailing space counts: \"pdf \" asks for what comes next)."
+          },
+          "channel": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,15}$",
+            "description": "\"main\" (up to 8 items) or \"bar\" (up to 5)."
+          }
+        },
+        "additionalProperties": false,
+        "examples": [
+          {
+            "text": "inv"
+          },
+          {
+            "text": "2 boys in d",
+            "channel": "bar"
+          },
+          {
+            "text": ""
+          }
+        ]
+      },
+      "result": {
+        "$ref": "#/$defs/suggestions"
+      }
+    },
+    "history_add": {
+      "description": "The user used this question (Enter, opened a result, picked a suggestion): keep it for autocomplete. Only while search_history is on (saved false otherwise, or when the text is too short). Kept inside the encrypted index, at most 200, oldest dropped first.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "additionalProperties": false,
+        "examples": [
+          {
+            "text": "tax pdf"
+          },
+          {
+            "text": "x"
+          }
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "saved": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "saved"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "history_forget": {
+      "description": "Forget one kept question (the x on a history suggestion). ok false when it wasn't kept.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "additionalProperties": false,
+        "examples": [
+          {
+            "text": "tax pdf"
+          },
+          {
+            "text": "never typed"
+          }
+        ]
+      },
+      "result": {
+        "$ref": "#/$defs/ok"
+      }
+    },
+    "history_clear": {
+      "description": "Settings > Privacy: \"Clear search history\". Deletes every kept question.",
+      "params": {
+        "$ref": "#/$defs/no_params"
+      },
+      "result": {
+        "$ref": "#/$defs/ok"
+      }
+    },
+    "open": {
+      "description": "Open a result with its default program (outside NOBAD Find's process group).",
+      "params": {
+        "$ref": "#/$defs/id_params"
+      },
+      "result": {
+        "$ref": "#/$defs/ok"
+      }
+    },
+    "reveal": {
+      "description": "Show a result selected in File Explorer.",
+      "params": {
+        "$ref": "#/$defs/id_params"
+      },
+      "result": {
+        "$ref": "#/$defs/ok"
+      }
+    },
+    "thumbnail": {
+      "description": "A small preview from Windows' thumbnail cache for photos, videos and PDFs: a data: URL, or \"\" when there is none.",
+      "params": {
+        "$ref": "#/$defs/id_params"
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "pattern": "^(|data:image/(png|jpeg|bmp);base64,[A-Za-z0-9+/=]+)$"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "here_folder": {
+      "description": "The File Explorer folder the hotkey was pressed in (\"here\" in a question), or \"\".",
+      "params": {
+        "$ref": "#/$defs/no_params"
+      },
+      "result": {
+        "$ref": "#/$defs/path"
+      }
+    },
+    "path_of": {
+      "description": "The full path of a result, for Copy path. \"\" if it is no longer there.",
+      "params": {
+        "$ref": "#/$defs/id_params"
+      },
+      "result": {
+        "$ref": "#/$defs/path"
+      }
+    },
+    "forget": {
+      "description": "Remove a result (file or folder) from the index and add it to the excluded folders.",
+      "params": {
+        "$ref": "#/$defs/id_params"
+      },
+      "result": {
+        "$ref": "#/$defs/ok"
+      }
+    },
+    "to_main": {
+      "description": "The quick find bar's Alt+Enter: the engine sends a show event {what: main, text} so the main window comes up with these words.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "additionalProperties": false,
+        "examples": [
+          {
+            "text": "tax pdf"
+          },
+          {}
+        ]
+      },
+      "result": {
+        "$ref": "#/$defs/done"
+      }
+    },
+    "status": {
+      "description": "The short status: the same object as the status event.",
+      "params": {
+        "$ref": "#/$defs/no_params"
+      },
+      "result": {
+        "$ref": "#/$defs/status_brief"
+      }
+    },
+    "status_full": {
+      "description": "Everything the Indexing page shows: the same object as the status_full event.",
+      "params": {
+        "$ref": "#/$defs/no_params"
+      },
+      "result": {
+        "$ref": "#/$defs/status_full"
+      }
+    },
+    "pause_for": {
+      "description": "Pause indexing for this many seconds (at most 24 hours; more is cut to 24 hours). Less than 1 is a bad-params error.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "seconds": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "seconds"
+        ],
+        "additionalProperties": false,
+        "examples": [
+          {
+            "seconds": 3600
+          }
+        ]
+      },
+      "result": {
+        "$ref": "#/$defs/ok"
+      }
+    },
+    "resume": {
+      "description": "End a pause now.",
+      "params": {
+        "$ref": "#/$defs/no_params"
+      },
+      "result": {
+        "$ref": "#/$defs/ok"
+      }
+    },
+    "learned_apps": {
+      "description": "What NOBAD Find learned about apps (games) it slowed down: program file names only.",
+      "params": {
+        "$ref": "#/$defs/no_params"
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "apps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/learned_app"
+            }
+          }
+        },
+        "required": [
+          "apps"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "reset_learned": {
+      "description": "Forget what was learned about one app (exe), or about every app (exe null or left out).",
+      "params": {
+        "type": "object",
+        "properties": {
+          "exe": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 260
+          }
+        },
+        "additionalProperties": false,
+        "examples": [
+          {
+            "exe": "game.exe"
+          },
+          {}
+        ]
+      },
+      "result": {
+        "$ref": "#/$defs/ok"
+      }
+    },
+    "hardware": {
+      "description": "The \"Your PC\" facts (measured once per engine run).",
+      "params": {
+        "$ref": "#/$defs/no_params"
+      },
+      "result": {
+        "$ref": "#/$defs/hardware"
+      }
+    },
+    "get_settings": {
+      "description": "Every setting with its current value.",
+      "params": {
+        "$ref": "#/$defs/no_params"
+      },
+      "result": {
+        "$ref": "#/$defs/settings"
+      }
+    },
+    "set_settings": {
+      "description": "Change settings. Each value is checked by the engine (settings.coerce): a value that doesn't fit becomes the default. Unknown names, wsearch_prev and turbo are ignored.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "changes": {
+            "$ref": "#/$defs/settings_changes"
+          }
+        },
+        "required": [
+          "changes"
+        ],
+        "additionalProperties": false,
+        "examples": [
+          {
+            "changes": {
+              "theme": "light",
+              "content_max_mb": 50
+            }
+          },
+          {
+            "changes": {}
+          }
+        ]
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "changed": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The names whose value really changed."
+          },
+          "settings": {
+            "$ref": "#/$defs/settings"
+          }
+        },
+        "required": [
+          "changed",
+          "settings"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "pick_folder": {
+      "description": "Windows' folder dialog, shown by the engine, topmost. The answer comes when the user closes it (no time limit: don't time this call out). path \"\" if cancelled. busy true (answered at once, path \"\"): a folder dialog was already open, and it was brought to the front again.",
+      "params": {
+        "$ref": "#/$defs/no_params"
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "busy": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "path",
+          "busy"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "rescan": {
+      "description": "Walk every folder again now.",
+      "params": {
+        "$ref": "#/$defs/no_params"
+      },
+      "result": {
+        "$ref": "#/$defs/ok"
+      }
+    },
+    "wipe": {
+      "description": "Delete the whole index and start over. Only with confirm \"DELETE\"; any other word gives ok false.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "confirm": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "confirm"
+        ],
+        "additionalProperties": false,
+        "examples": [
+          {
+            "confirm": "DELETE"
+          },
+          {
+            "confirm": "no"
+          }
+        ]
+      },
+      "result": {
+        "$ref": "#/$defs/ok"
+      }
+    },
+    "download_model": {
+      "description": "Download the meaning model (needs allow_model_download). Progress comes as download events.",
+      "params": {
+        "$ref": "#/$defs/no_params"
+      },
+      "result": {
+        "$ref": "#/$defs/ok"
+      }
+    },
+    "download_photo_model": {
+      "description": "Download the photo model (needs allow_photo_model_download). Progress comes as download events.",
+      "params": {
+        "$ref": "#/$defs/no_params"
+      },
+      "result": {
+        "$ref": "#/$defs/ok"
+      }
+    },
+    "wsearch_state": {
+      "description": "How Windows Search indexing is set up now (runs sc.exe: about 100 ms).",
+      "params": {
+        "$ref": "#/$defs/no_params"
+      },
+      "result": {
+        "$ref": "#/$defs/wsearch_state"
+      }
+    },
+    "wsearch_set": {
+      "description": "Turn Windows Search indexing off (off true) or back as it was (off false). Windows asks the user's permission; the answer comes after that prompt (don't time this call out). While one prompt is open, another call answers at once with ok false and a sentence.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "off": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "off"
+        ],
+        "additionalProperties": false,
+        "examples": [
+          {
+            "off": true
+          },
+          {
+            "off": false
+          }
+        ]
+      },
+      "result": {
+        "$ref": "#/$defs/wsearch_change"
+      }
+    },
+    "use_instead_of_windows_search": {
+      "description": "One switch: Windows Search indexing off and NOBAD Find starts with Windows (on true), or Windows Search back as it was (on false). Asks permission like wsearch_set.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "on": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "on"
+        ],
+        "additionalProperties": false,
+        "examples": [
+          {
+            "on": true
+          },
+          {
+            "on": false
+          }
+        ]
+      },
+      "result": {
+        "$ref": "#/$defs/wsearch_change"
+      }
+    },
+    "scope_info": {
+      "description": "What is indexed: the scope (Whole PC, My files, Custom), the folders it walks and every category (system folders, caches, secrets, other people's files, USB and network drives) with what it is, why, examples, whether it's in, whether the user can change it and how many entries of it are indexed (null when not known cheaply).",
+      "params": {
+        "$ref": "#/$defs/no_params"
+      },
+      "result": {
+        "$ref": "#/$defs/scope_info"
+      }
+    },
+    "turbo_state": {
+      "description": "The optional turbo index (an elevated helper that reads the NTFS file list and change journal: names and changes only, never file contents). available: this PC can use it (Windows, an NTFS fixed drive in the scope); enabled: the turbo setting; running: the helper is connected now.",
+      "params": {
+        "$ref": "#/$defs/no_params"
+      },
+      "result": {
+        "$ref": "#/$defs/turbo_state"
+      }
+    },
+    "turbo_set": {
+      "description": "Turn the turbo index on (Windows asks for administrator permission once per engine run; the answer comes after that prompt, don't time this call out) or off (the helper ends, the normal folder walk and change notifications take over). While one prompt is open, another call answers at once with ok false and a sentence. Saying no at the prompt gives ok false and leaves the setting off.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "on": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "on"
+        ],
+        "additionalProperties": false,
+        "examples": [
+          {
+            "on": true
+          },
+          {
+            "on": false
+          }
+        ]
+      },
+      "result": {
+        "$ref": "#/$defs/turbo_change"
+      }
+    },
+    "ui_shown": {
+      "description": "This UI's window came up (main by default). For the main window, indexing starts (the engine starts idle unless keep_background is on) or resumes after a close stopped it. Ignored once this connection's pipe has closed.",
+      "params": {
+        "$ref": "#/$defs/window_params"
+      },
+      "result": {
+        "$ref": "#/$defs/done"
+      }
+    },
+    "ui_hidden": {
+      "description": "This UI's window was hidden or closed. For the main window, with \"Keep indexing in the background\" off, indexing stops and only the engine's idle process stays. A UI whose pipe closes counts as ui_hidden too.",
+      "params": {
+        "$ref": "#/$defs/window_params"
+      },
+      "result": {
+        "$ref": "#/$defs/done"
+      }
+    },
+    "quit": {
+      "description": "End NOBAD Find (the engine, and so every UI). Only with confirm \"QUIT\"; any other word gives ok false. A quitting event goes out first, then the reply; the engine stops only after the reply is written, and what was written stays readable after the pipe closes.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "confirm": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "confirm"
+        ],
+        "additionalProperties": false,
+        "examples": [
+          {
+            "confirm": "QUIT"
+          },
+          {
+            "confirm": "no"
+          }
+        ]
+      },
+      "result": {
+        "$ref": "#/$defs/ok"
+      }
+    },
+    "open_with": {
+      "description": "Windows' Open with list for a result (by id only), started outside NOBAD Find's process group like open.",
+      "params": {
+        "$ref": "#/$defs/id_params"
+      },
+      "result": {
+        "$ref": "#/$defs/ok"
+      }
+    },
+    "models": {
+      "description": "Settings -> Models: this PC, the recommended and current tier, the language focus and every model in the catalog with its state. The models event brings the same object.",
+      "params": {
+        "$ref": "#/$defs/no_params"
+      },
+      "result": {
+        "$ref": "#/$defs/models"
+      }
+    },
+    "model_use": {
+      "description": "Choose the model for a feature (it turns the feature on). Not downloaded yet: it is chosen, needs_download is true and it is used once downloaded. A switched text model rebuilds the meaning vectors in the background (status_full phase rebuild); the old ones stay in use until then.",
+      "params": {
+        "$ref": "#/$defs/model_use_params"
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "error": {
+            "type": "string"
+          },
+          "needs_download": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "error",
+          "needs_download"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "model_download": {
+      "description": "Download a model, only with consent \"DOWNLOAD\" (the consent dialog's button); pinned revision, exact size and SHA-256 checked. Progress comes as download events with id = the model id.",
+      "params": {
+        "$ref": "#/$defs/model_download_params"
+      },
+      "result": {
+        "$ref": "#/$defs/ok"
+      }
+    },
+    "model_remove": {
+      "description": "Delete a downloaded model's files. Not for built-in models or the one in use.",
+      "params": {
+        "$ref": "#/$defs/model_id_params"
+      },
+      "result": {
+        "$ref": "#/$defs/ok"
+      }
+    },
+    "auto_configure": {
+      "description": "Apply the recommended tier for this PC and language focus: every choice that needs no download is applied now; steps lists each feature's model and whether the UI must still ask to download it.",
+      "params": {
+        "$ref": "#/$defs/no_params"
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "tier": {
+            "enum": [
+              "light",
+              "balanced",
+              "best"
+            ]
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "feature": {
+                  "enum": [
+                    "text",
+                    "photo",
+                    "ocr"
+                  ]
+                },
+                "id": {
+                  "type": "string",
+                  "description": "\"\" = the feature is off in this tier"
+                },
+                "needs_download": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "feature",
+                "id",
+                "needs_download"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "tier",
+          "steps"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "model_language": {
+      "description": "\"English first\", \"Many languages\" or \"Hindi\" (Settings -> Models): changes the recommendation; nothing is downloaded or switched by itself.",
+      "params": {
+        "$ref": "#/$defs/model_language_params"
+      },
+      "result": {
+        "$ref": "#/$defs/ok"
+      }
+    }
+  },
+  "$defs": {
+    "request": {
+      "type": "object",
+      "properties": {
+        "jsonrpc": {
+          "const": "2.0"
+        },
+        "id": {
+          "type": [
+            "integer",
+            "string"
+          ]
+        },
+        "method": {
+          "type": "string"
+        },
+        "params": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "jsonrpc",
+        "id",
+        "method"
+      ],
+      "additionalProperties": false
+    },
+    "response": {
+      "type": "object",
+      "properties": {
+        "jsonrpc": {
+          "const": "2.0"
+        },
+        "id": {
+          "type": [
+            "integer",
+            "string"
+          ]
+        },
+        "result": true
+      },
+      "required": [
+        "jsonrpc",
+        "id",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "error_response": {
+      "description": "Codes: -32700 not JSON, -32600 not a request (also: message too big, then the pipe closes), -32601 unknown method, -32602 bad params, -32603 the engine failed (message never has details).",
+      "type": "object",
+      "properties": {
+        "jsonrpc": {
+          "const": "2.0"
+        },
+        "id": {
+          "type": [
+            "integer",
+            "string",
+            "null"
+          ]
+        },
+        "error": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "enum": [
+                -32700,
+                -32600,
+                -32601,
+                -32602,
+                -32603
+              ]
+            },
+            "message": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "jsonrpc",
+        "id",
+        "error"
+      ],
+      "additionalProperties": false
+    },
+    "no_params": {
+      "type": "object",
+      "additionalProperties": false,
+      "examples": [
+        {}
+      ]
+    },
+    "id_params": {
+      "description": "A result id from search. Never a path: the engine looks the path up in the index.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false,
+      "examples": [
+        {
+          "id": 7
+        },
+        {
+          "id": 999999
+        }
+      ]
+    },
+    "window_params": {
+      "type": "object",
+      "properties": {
+        "window": {
+          "enum": [
+            "main",
+            "bar"
+          ],
+          "default": "main"
+        }
+      },
+      "additionalProperties": false,
+      "examples": [
+        {},
+        {
+          "window": "main"
+        },
+        {
+          "window": "bar"
+        }
+      ]
+    },
+    "event_names": {
+      "type": "object",
+      "properties": {
+        "events": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "events"
+      ],
+      "additionalProperties": false,
+      "examples": [
+        {
+          "events": [
+            "status",
+            "level",
+            "activity",
+            "download",
+            "notice",
+            "show",
+            "here",
+            "quitting"
+          ]
+        },
+        {
+          "events": []
+        }
+      ]
+    },
+    "subscriptions": {
+      "description": "Every event this connection gets now, sorted.",
+      "type": "object",
+      "properties": {
+        "events": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "events"
+      ],
+      "additionalProperties": false
+    },
+    "ok": {
+      "description": "Did it work; error is a plain sentence for the user when it didn't (\"\" when it did, or when there is nothing to say).",
+      "type": "object",
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "error": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "ok",
+        "error"
+      ],
+      "additionalProperties": false
+    },
+    "done": {
+      "type": "object",
+      "properties": {
+        "ok": {
+          "const": true
+        }
+      },
+      "required": [
+        "ok"
+      ],
+      "additionalProperties": false
+    },
+    "path": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false
+    },
+    "filters": {
+      "description": "The filter bar. Every key is optional; \"\" or a missing key means no filter.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "",
+            "pdf",
+            "document",
+            "spreadsheet",
+            "slides",
+            "text",
+            "code",
+            "email",
+            "image",
+            "video",
+            "audio",
+            "archive",
+            "ebook",
+            "app",
+            "folder"
+          ]
+        },
+        "modified": {
+          "enum": [
+            "",
+            "today",
+            "week",
+            "month",
+            "year"
+          ]
+        },
+        "size": {
+          "enum": [
+            "",
+            "small",
+            "medium",
+            "large"
+          ]
+        },
+        "folder": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "\"here\", a known folder word (\"downloads\", \"desktop\", ...) or a folder path already in the index."
+        },
+        "sort": {
+          "enum": [
+            "",
+            "newest",
+            "oldest",
+            "largest",
+            "name"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "search_result": {
+      "type": "object",
+      "properties": {
+        "results": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/result"
+          }
+        },
+        "understood": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "How the question was read, as chips (\"pdf\", \"last week\")."
+        },
+        "terms": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Words and phrases searched for (for highlighting)."
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Sentences for the user (e.g. a folder that isn't indexed)."
+        },
+        "more": {
+          "type": "boolean",
+          "description": "There were more matches than shown."
+        },
+        "ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "error": {
+          "type": "string",
+          "description": "\"\" or a sentence when the search failed."
+        },
+        "cancelled": {
+          "const": true,
+          "description": "Only there when a newer search on the same channel replaced this one: ignore this answer."
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/part"
+          },
+          "description": "How the question was understood, as removable chips in display order (0.8.5): where, what kind, when, size, order, then what it's about. Removing a chip = searching its without text."
+        },
+        "best": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/best_guess"
+            }
+          ],
+          "description": "The best guess: one result the engine is sure of, always results[0] when there is one; null when unsure (a wrong guess is worse than none)."
+        }
+      },
+      "required": [
+        "results",
+        "understood",
+        "terms",
+        "notes",
+        "more",
+        "ms",
+        "error",
+        "parts",
+        "best"
+      ],
+      "additionalProperties": false
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer"
+        },
+        "path": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "dir": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "size": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "mtime": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Seconds since 1970 (UTC)."
+        },
+        "ago": {
+          "type": "string",
+          "description": "\"3 days ago\", or \"\"."
+        },
+        "why": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "snippet": {
+          "type": "string",
+          "description": "Text around the match (plain text; never markup)."
+        },
+        "weak": {
+          "type": "boolean",
+          "description": "Only a loose match: show it as less sure."
+        }
+      },
+      "required": [
+        "id",
+        "path",
+        "name",
+        "dir",
+        "kind",
+        "size",
+        "mtime",
+        "ago",
+        "why",
+        "snippet",
+        "weak"
+      ],
+      "additionalProperties": false
+    },
+    "part": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "folder",
+            "drive",
+            "kind",
+            "time",
+            "size",
+            "sort",
+            "meaning",
+            "words"
+          ],
+          "description": "meaning: what it's about, searched by meaning (photo or text model); words: the same, by words only (no model)."
+        },
+        "label": {
+          "type": "string",
+          "description": "Plain text for the chip (\"Downloads\", \"Images\", \"2 boys\"); from the user's own words or the index, never markup."
+        },
+        "without": {
+          "type": "string",
+          "description": "The question with this part taken out (may be \"\")."
+        }
+      },
+      "required": [
+        "kind",
+        "label",
+        "without"
+      ],
+      "additionalProperties": false
+    },
+    "best_guess": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "description": "A result id in results (results[0])."
+        },
+        "reason": {
+          "type": "string",
+          "description": "Why it's the guess, in plain words (\"Exact name\", \"The only match\")."
+        }
+      },
+      "required": [
+        "id",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "suggestion": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "The whole question to put in the box and search."
+        },
+        "kind": {
+          "enum": [
+            "history",
+            "filter",
+            "file",
+            "folder"
+          ],
+          "description": "history: one of the user's own past questions (show it marked, with a remove x: history_forget); filter: a phrase search understands; file / folder: a name in the index."
+        },
+        "label": {
+          "type": "string",
+          "description": "What to show (plain text, never markup)."
+        },
+        "detail": {
+          "type": "string",
+          "description": "A file's folder, a filter's kind, or \"\"."
+        },
+        "id": {
+          "type": "integer",
+          "description": "file and folder items: the result id (open by id)."
+        }
+      },
+      "required": [
+        "text",
+        "kind",
+        "label",
+        "detail"
+      ],
+      "additionalProperties": false
+    },
+    "suggestions": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/suggestion"
+          },
+          "description": "At most 8 (5 for the bar), in order."
+        },
+        "complete": {
+          "type": "string",
+          "description": "Inline completion: the typed text plus the rest (ghost text), or \"\"."
+        }
+      },
+      "required": [
+        "items",
+        "complete"
+      ],
+      "additionalProperties": false
+    },
+    "level": {
+      "enum": [
+        "full",
+        "gentle",
+        "light",
+        "paused",
+        ""
+      ]
+    },
+    "status_brief": {
+      "type": "object",
+      "properties": {
+        "level": {
+          "$ref": "#/$defs/level"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "phase": {
+          "type": "string",
+          "description": "starting, names, text, images, meaning, photos, rebuild, watching, error"
+        },
+        "files": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "paused": {
+          "type": "string",
+          "description": "\"\" or why indexing is paused."
+        }
+      },
+      "required": [
+        "level",
+        "reason",
+        "phase",
+        "files",
+        "paused"
+      ],
+      "additionalProperties": false
+    },
+    "model_state": {
+      "type": "object",
+      "properties": {
+        "state": {
+          "enum": [
+            "missing",
+            "downloading",
+            "ready"
+          ]
+        },
+        "got": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "error": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "state",
+        "got",
+        "size",
+        "error"
+      ],
+      "additionalProperties": false
+    },
+    "drive": {
+      "type": "object",
+      "properties": {
+        "root": {
+          "type": "string"
+        },
+        "type": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "label": {
+          "type": "string"
+        },
+        "present": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "root",
+        "type",
+        "label",
+        "present"
+      ],
+      "additionalProperties": false
+    },
+    "history_point": {
+      "type": "object",
+      "properties": {
+        "t": {
+          "type": "number"
+        },
+        "cpu": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "gpu": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "find_cpu": {
+          "type": "number"
+        },
+        "find_mb": {
+          "type": "number"
+        },
+        "level": {
+          "$ref": "#/$defs/level"
+        }
+      },
+      "required": [
+        "t",
+        "cpu",
+        "gpu",
+        "find_cpu",
+        "find_mb",
+        "level"
+      ],
+      "additionalProperties": false
+    },
+    "process": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "pid": {
+          "type": "integer"
+        },
+        "cpu": {
+          "type": "number"
+        },
+        "memory_mb": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name",
+        "pid",
+        "cpu",
+        "memory_mb"
+      ],
+      "additionalProperties": false
+    },
+    "resources": {
+      "type": "object",
+      "properties": {
+        "cpu": {
+          "type": "number"
+        },
+        "memory_mb": {
+          "type": "integer"
+        },
+        "read_mb_s": {
+          "type": "number"
+        },
+        "gpu": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "processes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/process"
+          }
+        }
+      },
+      "required": [
+        "cpu",
+        "memory_mb",
+        "read_mb_s",
+        "gpu",
+        "processes"
+      ],
+      "additionalProperties": false
+    },
+    "phase": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "enum": [
+            "names",
+            "text",
+            "ocr",
+            "meaning",
+            "photos",
+            "watching",
+            "rebuild"
+          ]
+        },
+        "label": {
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "off",
+            "running",
+            "waiting",
+            "done"
+          ]
+        },
+        "done": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "rate": {
+          "type": "number",
+          "description": "Items per second while running."
+        },
+        "eta_s": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "state",
+        "done",
+        "total",
+        "rate",
+        "eta_s"
+      ],
+      "additionalProperties": false
+    },
+    "model_card": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "enum": [
+            "meaning",
+            "photo",
+            "ocr"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "license": {
+          "type": "string"
+        },
+        "size_mb": {
+          "type": "integer"
+        },
+        "on_disk": {
+          "type": "boolean"
+        },
+        "loaded": {
+          "type": "boolean"
+        },
+        "memory_mb": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "device": {
+          "type": "string"
+        },
+        "items": {
+          "type": "integer"
+        },
+        "download": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "got_mb": {
+                  "type": "number"
+                },
+                "size_mb": {
+                  "type": "number"
+                },
+                "mb_s": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "got_mb",
+                "size_mb",
+                "mb_s"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "license",
+        "size_mb",
+        "on_disk",
+        "loaded",
+        "memory_mb",
+        "device",
+        "items",
+        "download"
+      ],
+      "additionalProperties": false
+    },
+    "activity_entry": {
+      "type": "object",
+      "properties": {
+        "t": {
+          "type": "number",
+          "description": "Seconds since 1970 (UTC)."
+        },
+        "kind": {
+          "enum": [
+            "level",
+            "kill",
+            "model",
+            "info"
+          ]
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "t",
+        "kind",
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "status_full": {
+      "description": "Extra keys may appear (indexer details such as speed, error); the listed ones are always there.",
+      "type": "object",
+      "properties": {
+        "phase": {
+          "type": "string"
+        },
+        "files": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "texts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "vectors": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "paused": {
+          "type": "string"
+        },
+        "rate": {
+          "type": "number"
+        },
+        "errors": {
+          "type": "integer"
+        },
+        "plan": {
+          "type": "object"
+        },
+        "last_scan": {
+          "type": "number"
+        },
+        "with_text": {
+          "type": "integer"
+        },
+        "chunks": {
+          "type": "integer"
+        },
+        "name_vectors": {
+          "type": "integer"
+        },
+        "photo_vectors": {
+          "type": "integer"
+        },
+        "encrypted": {
+          "type": "boolean"
+        },
+        "db_bytes": {
+          "type": "integer"
+        },
+        "version": {
+          "type": "string"
+        },
+        "model": {
+          "$ref": "#/$defs/model_state"
+        },
+        "photo_model": {
+          "$ref": "#/$defs/model_state"
+        },
+        "memory_mb": {
+          "type": "integer"
+        },
+        "models_loaded": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "admin": {
+          "type": "boolean"
+        },
+        "roots": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ocr": {
+          "description": "true when Windows OCR works, else a sentence saying why not (\"\" if unknown).",
+          "type": [
+            "boolean",
+            "string"
+          ]
+        },
+        "drives": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/drive"
+          }
+        },
+        "level": {
+          "$ref": "#/$defs/level"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "history": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/history_point"
+          },
+          "description": "The last 5 minutes, one point per governor tick (2 s)."
+        },
+        "resources": {
+          "$ref": "#/$defs/resources"
+        },
+        "phases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/phase"
+          }
+        },
+        "models": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/model_card"
+          }
+        },
+        "activity": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/activity_entry"
+          },
+          "description": "Newest first, at most 50."
+        }
+      },
+      "required": [
+        "phase",
+        "files",
+        "texts",
+        "vectors",
+        "paused",
+        "rate",
+        "errors",
+        "plan",
+        "last_scan",
+        "with_text",
+        "chunks",
+        "name_vectors",
+        "photo_vectors",
+        "encrypted",
+        "db_bytes",
+        "version",
+        "model",
+        "photo_model",
+        "memory_mb",
+        "models_loaded",
+        "admin",
+        "roots",
+        "ocr",
+        "drives",
+        "level",
+        "reason",
+        "history",
+        "resources",
+        "phases",
+        "models",
+        "activity"
+      ],
+      "additionalProperties": true
+    },
+    "learned_app": {
+      "type": "object",
+      "properties": {
+        "exe": {
+          "type": "string"
+        },
+        "seen": {
+          "type": "integer"
+        },
+        "lag_events": {
+          "type": "integer"
+        },
+        "worst_cpu": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "worst_gpu": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "start_level": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/level"
+            }
+          ]
+        },
+        "last_seen": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "exe",
+        "seen",
+        "lag_events",
+        "worst_cpu",
+        "worst_gpu",
+        "start_level",
+        "last_seen",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "hardware": {
+      "type": "object",
+      "properties": {
+        "ram_gb": {
+          "type": "number"
+        },
+        "cores": {
+          "type": "integer"
+        },
+        "threads": {
+          "type": "integer"
+        },
+        "avx2": {
+          "type": "boolean"
+        },
+        "avx512_vnni": {
+          "type": "boolean"
+        },
+        "gpu": {
+          "type": "string"
+        },
+        "vram_gb": {
+          "type": "number"
+        },
+        "directml": {
+          "type": "boolean"
+        },
+        "disk_free_gb": {
+          "type": "number"
+        },
+        "ssd": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "ram_gb",
+        "cores",
+        "threads",
+        "avx2",
+        "avx512_vnni",
+        "gpu",
+        "vram_gb",
+        "directml",
+        "disk_free_gb",
+        "ssd"
+      ],
+      "additionalProperties": false
+    },
+    "wsearch_state": {
+      "type": "object",
+      "properties": {
+        "missing": {
+          "type": "boolean",
+          "description": "Windows Search isn't installed."
+        },
+        "start": {
+          "enum": [
+            "",
+            "auto",
+            "delayed-auto",
+            "demand",
+            "disabled"
+          ]
+        },
+        "running": {
+          "type": "boolean"
+        },
+        "saved": {
+          "enum": [
+            "",
+            "auto",
+            "delayed-auto",
+            "demand",
+            "disabled"
+          ],
+          "description": "How it started before NOBAD Find turned it off (\"\" if it didn't)."
+        }
+      },
+      "required": [
+        "missing",
+        "start",
+        "running",
+        "saved"
+      ],
+      "additionalProperties": false
+    },
+    "wsearch_change": {
+      "type": "object",
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "error": {
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/$defs/wsearch_state"
+        }
+      },
+      "required": [
+        "ok",
+        "error",
+        "state"
+      ],
+      "additionalProperties": false
+    },
+    "scope_category": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "enum": [
+            "system",
+            "caches",
+            "secrets",
+            "other_profiles",
+            "removable",
+            "network"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "why": {
+          "type": "string",
+          "description": "A sentence or two for the user: what it is and why it's in or out."
+        },
+        "examples": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Example paths or folder names."
+        },
+        "included": {
+          "type": "boolean"
+        },
+        "locked": {
+          "type": "boolean",
+          "description": "The user can't change it here (other people's files are always out; system folders aren't part of My files; USB/network drives in Custom come from the folder list)."
+        },
+        "count": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "description": "Entries of this category in the index now; null when it can't be counted cheaply."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "why",
+        "examples",
+        "included",
+        "locked",
+        "count"
+      ],
+      "additionalProperties": false
+    },
+    "scope_info": {
+      "type": "object",
+      "properties": {
+        "scope": {
+          "enum": [
+            "whole_pc",
+            "my_files",
+            "custom"
+          ]
+        },
+        "roots": {
+          "$ref": "#/$defs/folders",
+          "description": "The folders the walk starts from."
+        },
+        "categories": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/scope_category"
+          }
+        }
+      },
+      "required": [
+        "scope",
+        "roots",
+        "categories"
+      ],
+      "additionalProperties": false
+    },
+    "turbo_volume": {
+      "type": "object",
+      "properties": {
+        "drive": {
+          "type": "string",
+          "description": "Like C:\\"
+        },
+        "ntfs": {
+          "type": "boolean"
+        },
+        "files": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Entries the helper sent from this drive (after its privacy filter)."
+        },
+        "usn_ok": {
+          "type": "boolean",
+          "description": "Changes are being followed from the change journal."
+        },
+        "last_scan": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "When the last full read of this drive ended (seconds since 1970)."
+        }
+      },
+      "required": [
+        "drive",
+        "ntfs",
+        "files",
+        "usn_ok",
+        "last_scan"
+      ],
+      "additionalProperties": false
+    },
+    "turbo_state": {
+      "type": "object",
+      "properties": {
+        "available": {
+          "type": "boolean"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "running": {
+          "type": "boolean"
+        },
+        "volumes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/turbo_volume"
+          }
+        },
+        "error": {
+          "type": "string",
+          "description": "\"\" or a sentence: why turbo isn't running (the folder walk is used instead)."
+        }
+      },
+      "required": [
+        "available",
+        "enabled",
+        "running",
+        "volumes",
+        "error"
+      ],
+      "additionalProperties": false
+    },
+    "turbo_change": {
+      "type": "object",
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "error": {
+          "type": "string"
+        },
+        "state": {
+          "$ref": "#/$defs/turbo_state"
+        }
+      },
+      "required": [
+        "ok",
+        "error",
+        "state"
+      ],
+      "additionalProperties": false
+    },
+    "hotkey": {
+      "type": "string",
+      "pattern": "^(?:(?:ctrl|alt|shift|win)\\+){1,3}(?:[a-z0-9]|space|f(?:[1-9]|1[0-2]))$"
+    },
+    "folders": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Absolute folder paths (at most 200)."
+    },
+    "settings": {
+      "type": "object",
+      "properties": {
+        "roots": {
+          "$ref": "#/$defs/folders",
+          "description": "Folders to index; [] = your profile and every other fixed drive."
+        },
+        "exclude": {
+          "$ref": "#/$defs/folders"
+        },
+        "content": {
+          "type": "boolean"
+        },
+        "content_max_mb": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500
+        },
+        "semantic": {
+          "type": "boolean"
+        },
+        "photo_meaning": {
+          "type": "boolean"
+        },
+        "allow_photo_model_download": {
+          "type": "boolean"
+        },
+        "allow_model_download": {
+          "type": "boolean"
+        },
+        "src_mail": {
+          "type": "boolean"
+        },
+        "ocr": {
+          "type": "boolean"
+        },
+        "index_removable": {
+          "type": "boolean"
+        },
+        "index_network": {
+          "type": "boolean"
+        },
+        "pause_on_battery": {
+          "type": "boolean"
+        },
+        "pause_fullscreen": {
+          "type": "boolean",
+          "description": "Old: replaced by games_mode."
+        },
+        "games_mode": {
+          "enum": [
+            "smart",
+            "always",
+            "off"
+          ]
+        },
+        "keep_background": {
+          "type": "boolean"
+        },
+        "stay_running": {
+          "type": "boolean"
+        },
+        "bar": {
+          "type": "boolean"
+        },
+        "bar_hotkey": {
+          "$ref": "#/$defs/hotkey"
+        },
+        "pause_on_call": {
+          "type": "boolean"
+        },
+        "workers": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64,
+          "description": "0 = picked from the CPU."
+        },
+        "hotkey": {
+          "$ref": "#/$defs/hotkey"
+        },
+        "autostart": {
+          "type": "boolean"
+        },
+        "hide_after_open": {
+          "type": "boolean"
+        },
+        "wsearch_prev": {
+          "enum": [
+            "",
+            "auto",
+            "delayed-auto",
+            "demand",
+            "disabled"
+          ],
+          "description": "Read-only: set_settings ignores it."
+        },
+        "theme": {
+          "enum": [
+            "dark",
+            "light"
+          ]
+        },
+        "glass": {
+          "type": "boolean"
+        },
+        "bg_notice_seen": {
+          "type": "boolean"
+        },
+        "welcome_seen": {
+          "type": "boolean"
+        },
+        "scope": {
+          "enum": [
+            "whole_pc",
+            "my_files",
+            "custom"
+          ],
+          "description": "What to index: whole_pc = your profile and every fixed drive, my_files = your own folders, custom = the folders in roots."
+        },
+        "include_system": {
+          "type": "boolean",
+          "description": "Windows, Program Files, ProgramData, Recovery, PerfLogs."
+        },
+        "include_caches": {
+          "type": "boolean",
+          "description": "AppData, caches, temp, node_modules, .git, venv."
+        },
+        "include_secrets": {
+          "type": "boolean",
+          "description": "Keys, browser passwords/cookies/history, Windows Credentials, chat and developer tokens, password vaults, wallets: names only, never their content. Browser profiles and app databases are names only even with this off and caches on."
+        },
+        "turbo": {
+          "type": "boolean",
+          "description": "Read-only: the turbo index is turned on and off with turbo_set (it needs the permission prompt); set_settings ignores it."
+        },
+        "tray": {
+          "type": "boolean",
+          "description": "NOBAD Find's icon in the notification area."
+        },
+        "text_model": {
+          "$ref": "#/$defs/model_id"
+        },
+        "photo_model": {
+          "$ref": "#/$defs/model_id"
+        },
+        "language_focus": {
+          "enum": [
+            "",
+            "english",
+            "multilingual",
+            "hindi"
+          ],
+          "description": "\"\" = from Windows' languages."
+        },
+        "search_history": {
+          "type": "boolean",
+          "description": "Keep your own typed questions (encrypted, at most 200) for autocomplete; off deletes them."
+        }
+      },
+      "required": [
+        "roots",
+        "exclude",
+        "content",
+        "content_max_mb",
+        "semantic",
+        "photo_meaning",
+        "allow_photo_model_download",
+        "allow_model_download",
+        "src_mail",
+        "ocr",
+        "index_removable",
+        "index_network",
+        "pause_on_battery",
+        "pause_fullscreen",
+        "games_mode",
+        "keep_background",
+        "stay_running",
+        "bar",
+        "bar_hotkey",
+        "pause_on_call",
+        "workers",
+        "hotkey",
+        "autostart",
+        "hide_after_open",
+        "wsearch_prev",
+        "theme",
+        "glass",
+        "bg_notice_seen",
+        "welcome_seen",
+        "scope",
+        "include_system",
+        "include_caches",
+        "include_secrets",
+        "turbo",
+        "tray",
+        "text_model",
+        "photo_model",
+        "language_focus",
+        "search_history"
+      ],
+      "additionalProperties": false
+    },
+    "settings_changes": {
+      "description": "Any of the settings (not wsearch_prev or turbo), each with its own type; values that don't fit become the default.",
+      "type": "object",
+      "properties": {
+        "roots": {
+          "$ref": "#/$defs/folders"
+        },
+        "exclude": {
+          "$ref": "#/$defs/folders"
+        },
+        "content": {
+          "type": "boolean"
+        },
+        "content_max_mb": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500
+        },
+        "semantic": {
+          "type": "boolean"
+        },
+        "photo_meaning": {
+          "type": "boolean"
+        },
+        "allow_photo_model_download": {
+          "type": "boolean"
+        },
+        "allow_model_download": {
+          "type": "boolean"
+        },
+        "src_mail": {
+          "type": "boolean"
+        },
+        "ocr": {
+          "type": "boolean"
+        },
+        "index_removable": {
+          "type": "boolean"
+        },
+        "index_network": {
+          "type": "boolean"
+        },
+        "pause_on_battery": {
+          "type": "boolean"
+        },
+        "pause_fullscreen": {
+          "type": "boolean"
+        },
+        "games_mode": {
+          "enum": [
+            "smart",
+            "always",
+            "off"
+          ]
+        },
+        "keep_background": {
+          "type": "boolean"
+        },
+        "stay_running": {
+          "type": "boolean"
+        },
+        "bar": {
+          "type": "boolean"
+        },
+        "bar_hotkey": {
+          "$ref": "#/$defs/hotkey"
+        },
+        "pause_on_call": {
+          "type": "boolean"
+        },
+        "workers": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64
+        },
+        "hotkey": {
+          "$ref": "#/$defs/hotkey"
+        },
+        "autostart": {
+          "type": "boolean"
+        },
+        "hide_after_open": {
+          "type": "boolean"
+        },
+        "theme": {
+          "enum": [
+            "dark",
+            "light"
+          ]
+        },
+        "glass": {
+          "type": "boolean"
+        },
+        "bg_notice_seen": {
+          "type": "boolean"
+        },
+        "welcome_seen": {
+          "type": "boolean"
+        },
+        "scope": {
+          "enum": [
+            "whole_pc",
+            "my_files",
+            "custom"
+          ]
+        },
+        "include_system": {
+          "type": "boolean"
+        },
+        "include_caches": {
+          "type": "boolean"
+        },
+        "include_secrets": {
+          "type": "boolean"
+        },
+        "tray": {
+          "type": "boolean",
+          "description": "NOBAD Find's icon in the notification area."
+        },
+        "text_model": {
+          "$ref": "#/$defs/model_id"
+        },
+        "photo_model": {
+          "$ref": "#/$defs/model_id"
+        },
+        "language_focus": {
+          "enum": [
+            "",
+            "english",
+            "multilingual",
+            "hindi"
+          ],
+          "description": "\"\" = from Windows' languages."
+        },
+        "search_history": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "model_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z0-9][a-z0-9.-]*$",
+      "description": "A catalog id (models result), e.g. multilingual-e5-small."
+    },
+    "model_entry": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/model_id"
+        },
+        "feature": {
+          "enum": [
+            "text",
+            "photo",
+            "ocr"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "tier": {
+          "enum": [
+            "light",
+            "balanced",
+            "best"
+          ]
+        },
+        "licence": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "size_mb": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "The download."
+        },
+        "ram_mb": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Measured memory while it's loaded (0 = not measured)."
+        },
+        "speed_note": {
+          "type": "string"
+        },
+        "languages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "improves": {
+          "type": "string",
+          "description": "What it improves, in plain words, for the consent dialog."
+        },
+        "builtin": {
+          "type": "boolean",
+          "description": "Part of Windows or NOBAD Find: nothing to download."
+        },
+        "state": {
+          "enum": [
+            "not_downloaded",
+            "downloading",
+            "ready",
+            "active",
+            "failed"
+          ]
+        },
+        "capable": {
+          "type": "boolean"
+        },
+        "capable_reason": {
+          "type": "string",
+          "description": "\"\" when capable, else why this PC shouldn't run it."
+        },
+        "recommended": {
+          "type": "boolean",
+          "description": "In the recommended tier for this PC and language focus."
+        },
+        "quality": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Text models: search quality measured on NOBAD Find's English and Hindi test sets (nDCG@10 of the whole search, 0-1, higher is better; tools/eval_text.py); null for other models.",
+          "properties": {
+            "english": {
+              "type": "number"
+            },
+            "hindi": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "english",
+            "hindi"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "id",
+        "feature",
+        "name",
+        "tier",
+        "licence",
+        "source",
+        "size_mb",
+        "ram_mb",
+        "speed_note",
+        "languages",
+        "improves",
+        "builtin",
+        "state",
+        "capable",
+        "capable_reason",
+        "recommended"
+      ],
+      "additionalProperties": false
+    },
+    "models": {
+      "type": "object",
+      "properties": {
+        "pc": {
+          "$ref": "#/$defs/hardware"
+        },
+        "tier_recommended": {
+          "enum": [
+            "light",
+            "balanced",
+            "best"
+          ]
+        },
+        "tier_current": {
+          "enum": [
+            "light",
+            "balanced",
+            "best",
+            "custom"
+          ]
+        },
+        "language_focus": {
+          "enum": [
+            "english",
+            "multilingual",
+            "hindi"
+          ]
+        },
+        "models": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/model_entry"
+          }
+        }
+      },
+      "required": [
+        "pc",
+        "tier_recommended",
+        "tier_current",
+        "language_focus",
+        "models"
+      ],
+      "additionalProperties": false
+    },
+    "model_use_params": {
+      "type": "object",
+      "properties": {
+        "feature": {
+          "enum": [
+            "text",
+            "photo",
+            "ocr"
+          ]
+        },
+        "id": {
+          "$ref": "#/$defs/model_id"
+        }
+      },
+      "required": [
+        "feature",
+        "id"
+      ],
+      "additionalProperties": false,
+      "examples": [
+        {
+          "feature": "text",
+          "id": "multilingual-e5-small"
+        }
+      ]
+    },
+    "model_download_params": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/model_id"
+        },
+        "consent": {
+          "type": "string",
+          "maxLength": 32
+        }
+      },
+      "required": [
+        "id",
+        "consent"
+      ],
+      "additionalProperties": false,
+      "examples": [
+        {
+          "id": "multilingual-e5-small",
+          "consent": "DOWNLOAD"
+        }
+      ]
+    },
+    "model_id_params": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/model_id"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false,
+      "examples": [
+        {
+          "id": "multilingual-e5-small"
+        }
+      ]
+    },
+    "model_language_params": {
+      "type": "object",
+      "properties": {
+        "focus": {
+          "enum": [
+            "english",
+            "multilingual",
+            "hindi"
+          ]
+        }
+      },
+      "required": [
+        "focus"
+      ],
+      "additionalProperties": false,
+      "examples": [
+        {
+          "focus": "multilingual"
+        }
+      ]
+    }
+  }
+}

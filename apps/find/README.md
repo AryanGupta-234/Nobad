@@ -34,7 +34,7 @@ they're about, and tells you why each result matched.
   full speed, gently, lightly (one worker) or not at all, always with a one-line reason. A game alone doesn't
   stop it: it only pauses when the PC is really busy, an app stops responding or memory runs low. It remembers
   apps that lagged (by program name only) and gives them room next time. It pauses on battery, during
-  presentations and during calls. Its own processes run in Windows background mode inside one Windows job, so
+  presentations and during calls. Its worker processes run at low CPU, memory and disk priority inside one Windows job, so
   quitting or a crash ends every one of them; a watchdog ends its own stuck or oversized workers.
 - **Full transparency.** The Indexing page shows each phase with progress and time left, NOBAD Find's own CPU,
   memory, disk and graphics use per process, every model (size, licence, in memory or not, CPU or GPU) and
@@ -61,9 +61,11 @@ they're about, and tells you why each result matched.
 - **Files are untrusted.** Office files are checked for zip bombs, XML is parsed without external entities,
   files are size-limited and read in separate low-priority processes, images are decoded only by Windows' own
   decoders, and nothing is ever run.
-- **Its only connections:** two optional one-time model downloads from Hugging Face, each off until you allow it
-  in Settings, pinned to one revision and checked against its SHA-256 before use: the meaning-search model
-  (23 MB, all-MiniLM-L6-v2) and the photo model (about 211 MB, SigLIP base by Google, Apache-2.0). (Network drives, if you turn them on, are read over your
+- **Its only connections:** optional one-time model downloads from Hugging Face, each only when you say Download
+  in Settings → Models, pinned to one revision and checked against its SHA-256 before use. The meaning-search
+  models are all-MiniLM-L6-v2 (23 MB), GTE small (33 MB), BGE base (106 MB) and multilingual-e5 small and base
+  (129 / 282 MB); all MIT or Apache-2.0. The photo models are SigLIP base (211 MB) and SigLIP 2 base (393 MB), by
+  Google, Apache-2.0. (Network drives, if you turn them on, are read over your
   own network like any other program opening files there.)
 
 ## Windows Search switch
@@ -71,18 +73,28 @@ Turning Windows Search indexing off frees CPU and disk, but the Start menu, Expl
 files by their content. It's off by default. When you turn it off, NOBAD Find saves the start type Windows had
 and puts it back when you turn it on again, or when you uninstall NOBAD Find.
 
+## How it's built
+Two programs: the engine, `NobadFind.exe` (Python 3.11: the encrypted index, the indexer, the hotkeys, the
+notification-area icon), and the window, `nobad_find.exe` (Flutter, in [`ui_flutter/`](ui_flutter)). The engine
+starts the window; they talk only over a private named pipe that only your Windows account can open
+([`contract/`](contract)). Closing the window ends its process; the engine stays, idle, for the hotkey.
+
 ## Run from source
 ```
 cd apps/find
 python -m pip install --require-hashes -r requirements-lock.txt
-python -m nobadfind              # or: python -m nobadfind --background
+cd ui_flutter && flutter build windows --release && cd ..   # the window, once (needs the Flutter SDK)
+python -m nobadfind              # the engine + the window; --page settings|index, --bar, --background, --engine
 ```
-Windows 10 (1809+) or 11, Python 3.11. Data lives in `%LOCALAPPDATA%\NOBAD\Find`.
+Windows 10 (1809+) or 11, Python 3.11. From source the engine starts the window from
+`ui_flutter\build\windows\x64\runner\Release\nobad_find.exe` (or `NOBAD_FIND_UI_EXE`). Data lives in
+`%LOCALAPPDATA%\NOBAD\Find`.
 
 ## Develop
 ```
 python -m pytest -q tests
 python -m pyflakes nobadfind tests
+cd ui_flutter && flutter analyze && flutter test
 ```
 
 ## Build the installer

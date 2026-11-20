@@ -7,7 +7,8 @@ import os
 import time
 
 from .query import parse
-from .store import fts_quote
+from .store import OperationalError, fts_quote
+from .understand import best_guess, folder_finder, parts, place_bases
 
 RRF_K = 60
 W_NAME, W_TEXT, W_MEANING = 1.3, 1.0, 0.8
@@ -20,6 +21,28 @@ MEANING_SPREAD = 0.13
 # match for this question, or strong on its own.
 NAME_SPREAD = 0.08
 NAME_STRONG = 0.32
+VARIANTS = set()        # ranking variants switched on by tools/eval_text.py to measure them one at a time
+# Words people use for the same personal files (both ways). Only for the keyword side: the meaning model knows these.
+_SYN_GROUPS = [("flat", "apartment"), ("invoice", "bill", "receipt"), ("cv", "resume", "résumé"),
+               ("rent", "lease", "tenancy"), ("salary", "payslip", "wage", "pay"), ("doctor", "gp", "physician"),
+               ("car", "vehicle", "auto"), ("insurance", "policy", "cover"), ("holiday", "vacation", "trip"),
+               ("flight", "plane", "airline"), ("phone", "mobile", "cell"), ("tax", "hmrc", "irs"),
+               ("electricity", "power", "energy"), ("internet", "broadband", "wifi"), ("bank", "account"),
+               ("medicine", "prescription", "medication"), ("job", "work", "employment"), ("school", "class"),
+               ("recipe", "cook", "cooking"), ("photo", "picture", "image"), ("notes", "minutes")]
+SYNONYMS = {}
+for _g in _SYN_GROUPS:
+    for _w in _g:
+        SYNONYMS.setdefault(_w, set()).update(x for x in _g if x != _w)
+
+
+def floors(model_id):
+    """(min score, spread, name spread, name strong) for a text model: every model scores on its own scale
+    (multilingual-e5 puts unrelated text near 0.75), so the catalog carries each one's measured floors."""
+    from .models import get
+    m = get(model_id) or {}
+    return (m.get("min_score", MIN_MEANING), m.get("spread", MEANING_SPREAD), m.get("name_spread", NAME_SPREAD),
+            m.get("name_strong", NAME_STRONG))
 
 
 UNC = "\\\\"                    # \\server\share paths (folders added by hand)
@@ -51,6 +74,7 @@ def _filters(q, alias="f"):
     sql, args = [], []
     roots = place_roots(q.place, q.drives)
     if roots is not None:
+        roots = [r for r in roots if r.upper() not in getattr(q, "empty_roots", ())]
         if not roots:
             sql.append("0")                         # a drive this PC has never seen: nothing can match
         else:
@@ -70,6 +94,9 @@ def _filters(q, alias="f"):
     if q.path:                                      # a typed path, "here", or the Folder filter
         sql.append(f"{alias}.path LIKE ? ESCAPE '\\'")
         args.append(like_prefix(q.path))
+    elif q.dirs:                                    # "in projects": the indexed folders of that name
+        sql.append("(" + " OR ".join(f"{alias}.path LIKE ? ESCAPE '\\'" for _ in q.dirs) + ")")
+        args += [like_prefix(d) for d in q.dirs]
     if q.min_size is not None:
         sql.append(f"{alias}.size >= ?")
         args.append(q.min_size)
@@ -86,23 +113,94 @@ def _filters(q, alias="f"):
     return (" AND " + " AND ".join(sql)) if sql else "", args
 
 
+WALK_LIMIT = 150         # name matches a common-word walk collects (the fusion ranks the best 60 anyway)
+FTS_PROBE = 20000        # name matches counted to choose between joining them all and walking names shortest first
+
+
+def _like(t):
+    return "%" + t.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+
+
 def _name_hits(store, q, limit):
-    long_terms = [t for t in q.terms + q.phrases if len(t) >= 3]
+    """Files whose name matches, shortest name first (then the newest). A rare word: every FTS match is joined and
+    ordered (exact). A common one (FTS_PROBE matches or more on a whole-PC index): the names are walked shortest
+    first through an index and the walk stops once `limit` match, so a million matches are never all sorted.
+    Filters are part of both, so "report pdf" finds the one report.pdf among thousands of report*.dll."""
+    # a plural word matches its singular in a name ("letters" -> letter from hmrc.txt): names match any part, so
+    # the singular also still finds the plural
+    long_terms = [_singular(t) for t in q.terms] + q.phrases
+    long_terms = [t for t in long_terms if len(t) >= 3]
     short = [t for t in q.terms if len(t) < 3]
     if not long_terms and not short:
         return []
     where, args = _filters(q)
-    parts, pargs = [], []
+    ready = store.name_index_ready()
+    use_words = bool(short) and ready and all(_wordy(t) for t in short)
+    parts, pargs, probes = [], [], []
     if long_terms:
+        m = " ".join("name:" + fts_quote(t) for t in long_terms)
         parts.append("f.id IN (SELECT rowid FROM names WHERE names MATCH ?)")
-        pargs.append(" ".join("name:" + fts_quote(t) for t in long_terms))
-    for t in short:
-        parts.append("f.name LIKE ? ESCAPE '\\'")
-        pargs.append("%" + t.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%")
+        pargs.append(m)
+        probes.append(("names", m))
+    if use_words:
+        # one or two letters: words of the name that start with them, from the prefix index (not every row)
+        m = " ".join(fts_quote(t) + "*" for t in short)
+        parts.append("f.id IN (SELECT rowid FROM names_w WHERE names_w MATCH ?)")
+        pargs.append(m)
+        probes.append(("names_w", m))
+    elif short:
+        for t in short:
+            parts.append("f.name LIKE ? ESCAPE '\\'")
+            pargs.append(_like(t))
+    common = ready and probes and all(
+        (store.one(f"SELECT count(*) FROM (SELECT rowid FROM {t} WHERE {t} MATCH ? LIMIT ?)", (m, FTS_PROBE)) or 0)
+        >= FTS_PROBE for t, m in probes)
+    if common:
+        # walk files shortest name first and stop at `limit` (each name tested; the filters too)
+        likes = [_like(t) for t in long_terms + short]
+        cond = " AND ".join("f.name LIKE ? ESCAPE '\\'" for _ in likes)
+        rows = store.q(f"SELECT f.id FROM files f INDEXED BY files_namelen WHERE {cond}{where} "
+                       "ORDER BY length(f.name), f.mtime DESC LIMIT ?", (*likes, *args, min(limit, WALK_LIMIT)))
+        return [r[0] for r in rows]
     # shorter names and recently changed files first among equal matches
     rows = store.q(f"SELECT f.id FROM files f WHERE {' AND '.join(parts)}{where} "
                    "ORDER BY length(f.name), f.mtime DESC LIMIT ?", (*pargs, *args, limit))
     return [r[0] for r in rows]
+
+
+W_EXACT = 3.0            # an exact name outranks any one list's best (3/61 against 1.8/61 at most)
+
+
+def _exact_name_hits(store, text, q=None):
+    """Files whose whole name (or name without the extension) is what was typed, separators aside. The filters
+    still apply (the filter bar's kind, a folder), except a time read from the words themselves."""
+    import copy
+    from .understand import _norm_name, _stem
+    key = _norm_name(text)
+    toks = [t for t in key.split(" ") if len(t) >= 3]
+    if len(key) < 3 or len(key) > 120 or not toks:
+        return []
+    where, args = "", []
+    if q is not None:
+        q2 = copy.copy(q)
+        q2.t0 = q2.t1 = None
+        where, args = _filters(q2)
+    m = " ".join("name:" + fts_quote(t) for t in toks)
+    rows = store.q("SELECT f.id, f.name FROM files f WHERE f.id IN (SELECT rowid FROM names WHERE names MATCH ? "
+                   f"LIMIT 2000){where}", (m, *args))
+    return [fid for fid, name in rows if _norm_name(name) == key or _norm_name(_stem(name)) == key][:5]
+
+
+def _singular(t):
+    """letters -> letter, invoices -> invoice (only plain English plurals of 5+ letters; glass, news stay)."""
+    if len(t) >= 5 and t.isascii() and t.isalpha() and t.endswith("s") and not t.endswith(("ss", "us", "is")):
+        return t[:-1]
+    return t
+
+
+def _wordy(term):
+    """A short term the word index can find: letters or digits ("c#", "++" and "-" go the LIKE way)."""
+    return any(ch.isalnum() for ch in term) and all(ch.isalnum() or ch in "._-" for ch in term)
 
 
 def _text_hits(store, q, limit):
@@ -110,6 +208,10 @@ def _text_hits(store, q, limit):
     if not words:
         return [], {}
     match = " AND ".join(fts_quote(w) for w in words)
+    if "fts_or" in VARIANTS or "synonyms" in VARIANTS:
+        alts = [[w] + (sorted(SYNONYMS.get(w, ())) if "synonyms" in VARIANTS else []) for w in words]
+        groups = ["(" + " OR ".join(fts_quote(a) for a in alt) + ")" for alt in alts]
+        match = (" OR " if "fts_or" in VARIANTS else " AND ").join(groups)
     where, args = _filters(q)
     # bm25() can't sit inside GROUP BY, so rank chunks first and keep each file's best chunk here
     rows = store.q(
@@ -128,14 +230,20 @@ def _text_hits(store, q, limit):
 def _meaning_hits(store, q, embedder, vindex, limit):
     if not embedder or not vindex or not q.text.strip():
         return [], {}
+    model, asked = getattr(vindex, "model", None), getattr(embedder, "model_id", None)
+    if model and asked and model != asked:
+        return [], {}                        # vectors and question from different models: never compared
     from .embed import is_name
     qv = embedder.encode([q.text])[0]
     hits = vindex.search(qv, k=limit * 4)
     if not hits:
         return [], {}
+    min_score, spread, name_spread, name_strong = floors(model or asked or "")
     best_score = hits[0][1]
-    floor = max(MIN_MEANING, best_score - MEANING_SPREAD)
-    name_floor = min(NAME_STRONG, max(MIN_MEANING, best_score - NAME_SPREAD))
+    floor = max(min_score, best_score - spread)
+    name_floor = min(name_strong, max(min_score, best_score - name_spread))
+    if "nofloor" in VARIANTS:
+        floor = name_floor = min_score
     hits = [(key, s) for key, s in hits if s >= (name_floor if is_name(key) else floor)]
     chunk_ids = [k for k, _s in hits if not is_name(k)]
     file_ids = [-k for k, _s in hits if is_name(k)]
@@ -148,7 +256,9 @@ def _meaning_hits(store, q, embedder, vindex, limit):
         by_chunk = {r[0]: (r[1], r[2]) for r in rows}
     if file_ids:
         marks = ",".join("?" * len(file_ids))
-        by_name = {r[0] for r in store.q(f"SELECT f.id FROM files f WHERE f.id IN ({marks}){where}", (*file_ids, *args))}
+        no_folders = "" if "folder_meaning" in VARIANTS or "folder" in q.kinds else " AND f.kind != 'folder'"
+        by_name = {r[0] for r in store.q(f"SELECT f.id FROM files f WHERE f.id IN ({marks}){where}{no_folders}",
+                                         (*file_ids, *args))}
     best, order = {}, []                     # file id -> (score, snippet, "text" | "name")
     for key, s in hits:
         if is_name(key):
@@ -179,9 +289,13 @@ W_PHOTO_ASKED = 1.8
 def _photo_hits(store, q, photo_text, pindex, limit):
     if not photo_text or pindex is None or not pindex.n or not q.text.strip():
         return [], {}
+    model, asked = getattr(pindex, "model", None), getattr(photo_text, "model_id", None)
+    if model and asked and model != asked:
+        return [], {}                                 # photo vectors and question from different models
     if q.kinds and "image" not in q.kinds:
         return [], {}                                 # "pdf ..." isn't asking about photos
-    hits = pindex.search(photo_text.encode(q.text), k=limit * 3)
+    # the description in the user's own order ("2 boys", "dog on the beach"), not the bag of keywords
+    hits = pindex.search(photo_text.encode(q.meaning or q.text), k=limit * 3)
     if not hits:
         return [], {}
     floor = max(PHOTO_MIN, hits[0][1] - PHOTO_SPREAD, hits[0][1] * PHOTO_RATIO)
@@ -273,16 +387,90 @@ def folder_checker(store, drives=(), roots=()):
     return is_dir
 
 
+def _keep_named(store, q):
+    """A Hinglish linking word left out ("ko", "par") is kept after all when it is all the question had, or when a
+    file name has it as a word (the name index answers that in a lookup)."""
+    if not q.dropped:
+        return
+    if not q.terms and not q.phrases and not q.has_filters():
+        q.terms = list(q.dropped)
+        return
+    if store.name_index_ready():
+        for w in q.dropped:
+            if store.one("SELECT 1 FROM names_w WHERE names_w MATCH ? LIMIT 1", (fts_quote(w),)):
+                q.terms.append(w)
+
+
+class Cancelled(Exception):
+    """A newer keystroke from the same client: this search's answer would be thrown away."""
+
+
 def search(store, text, embedder=None, vindex=None, limit=60, now=None, drives=None, here="", filters=None,
-           is_dir=None, roots=(), photo_text=None, pindex=None):
+           is_dir=None, roots=(), photo_text=None, pindex=None, cancelled=None, romanized=False):
     """drives: every drive the index knows, [{'root', 'type', 'label', 'present'}] (indexer.known_drives).
-    here: the File Explorer folder NOBAD Find was opened from ("" if none). filters: the filter bar."""
+    here: the File Explorer folder NOBAD Find was opened from ("" if none). filters: the filter bar.
+
+    A time in the question ("electricity bill march") is first a filter on when the file changed. When nothing
+    changed then, it is read as words instead (the bill *for* March), and a note says so."""
+    t_start = time.perf_counter()
+    args = dict(embedder=embedder, vindex=vindex, limit=limit, now=now, drives=drives, here=here, filters=filters,
+                is_dir=is_dir, roots=roots, photo_text=photo_text, pindex=pindex, romanized=romanized)
+    db = None
+    if cancelled is not None:
+        db = store.db                                   # this thread's connection: SQLite stops when told to
+        db.set_progress_handler(lambda: 1 if cancelled() else 0, 5000)
+    try:
+        if cancelled is not None and cancelled():
+            raise Cancelled()
+        r = _search(store, text, **args)
+        if not r["results"] and r.get("_time_from_text") and "hard_time" not in VARIANTS:
+            when = r["_time_from_text"]
+            r = _search(store, text, times=False, **args)
+            if r["results"]:
+                r["notes"] = [f"Nothing changed {when}, so these match the words instead."] + r["notes"]
+        if not r["results"] and r.get("_soft") and "hard_kind" not in VARIANTS:
+            # "job application letter": no Word document says it, but a text file may (query.SOFT_KINDS)
+            words = r["_soft"]
+            r2 = _search(store, text, soft=False, **args)
+            if r2["results"]:
+                r = r2
+                r["notes"] = [f"No file of that kind matched, so “{words}” is read as a word."] + r["notes"]
+    except (Cancelled,) + OperationalError as e:
+        if not isinstance(e, Cancelled) and "interrupt" not in str(e).lower():
+            raise
+        return {"results": [], "understood": [], "terms": [], "notes": [], "more": False, "cancelled": True,
+                "parts": [], "best": None,
+                "ms": round((time.perf_counter() - t_start) * 1000)}
+    finally:
+        if db is not None:
+            db.set_progress_handler(None, 0)
+    r.pop("_time_from_text", None)
+    r.pop("_soft", None)
+    r["ms"] = round((time.perf_counter() - t_start) * 1000)
+    return r
+
+
+def _search(store, text, embedder=None, vindex=None, limit=60, now=None, drives=None, here="", filters=None,
+            is_dir=None, roots=(), photo_text=None, pindex=None, times=True, romanized=False, soft=True):
     t_start = time.perf_counter()
     drives = drives or []
     now = now or time.time()
     is_dir = is_dir or folder_checker(store, drives, roots)
-    q = parse(text, labels=[d.get("label") or "" for d in drives], is_dir=is_dir)
+    # "in projects": folders of the index by name, near the top of your folders, the roots or a drive
+    finder = folder_finder(store, place_bases(roots, drives))
+    q = parse(text, labels=[d.get("label") or "" for d in drives], is_dir=is_dir, times=times, romanized=romanized,
+              find_folder=finder, soft_kinds=soft)
+    _keep_named(store, q)
+    time_from_text = q.when if q.t0 is not None else ""
     q.drives = drives
+    if len(q.place) == 2 and q.place[1] == ":":
+        # "on d drive" with nothing from D: in the index: answer at once instead of scanning for it (a drive letter
+        # is the start of every path on it, so the path index answers in one lookup)
+        root = q.place + "\\"
+        if not store.one("SELECT 1 FROM files WHERE path >= ? AND path < ? LIMIT 1", (root, q.place + "]")) and \
+                not store.one("SELECT 1 FROM files WHERE path >= ? AND path < ? LIMIT 1",
+                              (root.lower(), q.place.lower() + "]")):
+            q.empty_roots = {root.upper()}
     if q.here and not q.path:
         if here:
             q.path = os.path.normpath(here)
@@ -291,15 +479,26 @@ def search(store, text, embedder=None, vindex=None, limit=60, now=None, drives=N
                            "Open NOBAD Find that way to search a folder.")
     apply_filters(q, filters, now)
     lists = []
+    w_name, w_text, w_meaning = W_NAME, W_TEXT, W_MEANING
+    if "rrf_equal" in VARIANTS:
+        w_name = w_text = w_meaning = 1.0
+    if "meaning_up" in VARIANTS:
+        w_meaning = 1.6
     names = _name_hits(store, q, 300)
-    lists.append((W_NAME, names))
+    lists.append((w_name, names))
     texts, snippets = _text_hits(store, q, 300)
-    lists.append((W_TEXT, texts))
+    lists.append((w_text, texts))
     meaning, best = _meaning_hits(store, q, embedder, vindex, 150)
-    lists.append((W_MEANING, meaning))
+    lists.append((w_meaning, meaning))
     photos, pbest = _photo_hits(store, q, photo_text, pindex, 100)
     # asking for photos ("beach photos", the Images filter): what's in the picture counts most
     lists.append((W_PHOTO_ASKED if "image" in q.kinds else W_PHOTO, photos))
+    # a file named exactly what was typed wins, even when part of it read as a filter ("invoices 2023" is a name,
+    # not invoices from 2023)
+    exact = _exact_name_hits(store, text, q) if q.has_filters() or q.dropped else []
+    if exact:
+        lists.append((W_EXACT, exact))
+        names = exact + [n for n in names if n not in exact]
 
     score = {}
     for w, ids in lists:
@@ -316,9 +515,14 @@ def search(store, text, embedder=None, vindex=None, limit=60, now=None, drives=N
         score = {fid: 1.0 / (i + 1) for i, fid in enumerate(ids)}
 
     ranked = sorted(score, key=score.get, reverse=True)
+    meaning_on = bool(meaning or photos or (embedder and vindex and q.text.strip()) or
+                      (photo_text and pindex is not None and getattr(pindex, "n", 0) and q.meaning))
+    chips = parts(q, meaning_on=meaning_on)
     if not ranked:
         return {"results": [], "understood": q.understood(), "terms": q.terms + q.phrases, "notes": q.notes,
-                "ms": round((time.perf_counter() - t_start) * 1000)}
+                "parts": chips, "best": None,
+                "ms": round((time.perf_counter() - t_start) * 1000), "_time_from_text": time_from_text,
+                "_soft": " ".join(q.soft)}
     # with an order asked for, the best matches are put in that order (weak matches don't jump ahead)
     pool = ranked[:max(limit + 1, SORT_POOL)] if (q.sort and not listing) else ranked[:limit + 1]
     info = {}
@@ -366,7 +570,16 @@ def search(store, text, embedder=None, vindex=None, limit=60, now=None, drives=N
                   or (fid in best and best[fid][0] >= 0.38) or listing)
         out.append({"id": fid, "path": r[1], "name": r[2], "dir": r[3], "kind": r[4], "size": r[5], "mtime": r[6],
                     "ago": _ago(r[6], now) if r[6] else "", "why": why, "snippet": snippet, "weak": not strong})
-    if not q.sort and not listing:                   # sure results first, the less sure ones after them
+    if not q.sort and not listing and "noweak" not in VARIANTS:     # sure results first, the less sure after
         out.sort(key=lambda x: x["weak"])
+    # the best guess (understand.best_guess): one result the engine is sure of, shown first; None when unsure
+    guess = best_guess(q, out, score, pbest, listing=listing) if "noguess" not in VARIANTS else None
+    best = None
+    if guess:
+        gid, reason = guess
+        i = next(i for i, x in enumerate(out) if x["id"] == gid)
+        out.insert(0, out.pop(i))
+        best = {"id": gid, "reason": reason}
     return {"results": out, "understood": q.understood(), "terms": q.terms + q.phrases, "notes": q.notes,
-            "more": more, "ms": round((time.perf_counter() - t_start) * 1000)}
+            "parts": chips, "best": best, "more": more, "ms": round((time.perf_counter() - t_start) * 1000), "_time_from_text": time_from_text,
+            "_soft": " ".join(q.soft)}

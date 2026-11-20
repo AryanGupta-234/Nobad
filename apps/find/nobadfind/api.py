@@ -1,6 +1,6 @@
-"""The methods the UI can call (pywebview js_api). Every argument from the page is checked here.
+"""The methods the UI can call (through the pipe handlers in nobadfind/rpc). Every argument from the UI is checked here.
 
-The page never hands the app a path to open: it sends a result id, and the path comes from the index.
+The UI never hands the engine a path to open: it sends a result id, and the path comes from the index.
 """
 import ctypes
 import os
@@ -10,9 +10,9 @@ import threading
 import time
 from collections import deque
 
-from . import embed, jobs, ocr, photo, thumbs, wsearch, winapi
+from . import embed, jobs, models, ocr, photo, scope, thumbs, wsearch, winapi
 from . import hardware as hw
-from .const import APP_VER, MODEL_FILES
+from .const import APP_VER
 from .indexer import NAME_KINDS
 from .kinds import READABLE_EXT
 from .log import log
@@ -20,26 +20,27 @@ from .search import SORTS, search
 
 MAX_QUERY = 500
 TOTALS_TTL = 10                  # seconds: the phase counts are COUNT queries, too heavy for every 2 s poll
+STATS_TTL = 10                   # seconds the index counts (Store.stats) are reused by status()
+COUNT_SHARE = 20                 # and at least 20x as long as they took to count: <= 5% of a core on a big index
 RATE_WINDOW = 15                 # status polls a progress rate is measured over (about 30 s)
 MAX_PAUSE_S = 24 * 3600
 QUIT_TIMEOUT = 15                # seconds a quit may take before the process ends anyway
 PHASES = (("names", "Finding file names"), ("text", "Reading documents"), ("ocr", "Reading words in pictures"),
-          ("meaning", "Learning what files mean"), ("photos", "Looking at photos"), ("watching", "Watching for changes"))
+          ("meaning", "Learning what files mean"),
+          ("rebuild", "Rebuilding meaning for the new model"),          # a switched text model (indexer._rebuild)
+          ("photos", "Looking at photos"), ("watching", "Watching for changes"))
 
 
 class Api:
-    def __init__(self, store, settings, indexer, vindex, window_ref):
+    def __init__(self, store, settings, indexer, vindex):
         self._store = store
         self._settings = settings
         self._indexer = indexer
         self._vindex = vindex
-        self._win = window_ref            # callable returning the pywebview window (or None)
-        self._watchdog = None             # set by app.py
-        self.visible = True               # the main window is shown (the watchdog expects heartbeats)
-        self.here = ""                    # the Explorer folder the hotkey was pressed in (see app.bring_up)
+        self.here = ""                    # the Explorer folder the hotkey was pressed in (engine.here_finder)
         self._model = {"state": "ready" if embed.model_ready() else "missing", "got": 0, "size": 0, "error": ""}
         self._photo_model = {"state": "ready" if photo.model_ready() else "missing", "got": 0, "size": 0, "error": ""}
-        self._governor = None             # set by app.py (the status page reads the governor, the activity log,
+        self._governor = None             # set by engine.py (the status page reads the governor, the activity log,
         self._activity = None             # and what was learned about apps); None in tests
         self._apps = None
         self._slock = threading.Lock()
@@ -49,13 +50,25 @@ class Api:
         self._prev = None                 # (time, cpu_seconds, read_bytes) of the last status() call
         self._pcpu = {}                   # pid -> (time, cpu_seconds)
         self._progress = {k: deque(maxlen=RATE_WINDOW) for k, _l in PHASES}
-        self._dl = {}                     # model id -> (time, got bytes) for the download speed
-        self._on_hide = None              # app.py: what hiding the window means for indexing (lifecycle.after_hide)
+        self._rate = DownloadRate()       # the download speed on the model cards
+        self._on_hide = None              # engine.py: what hiding the window means for indexing (lifecycle.after_hide)
+        self._on_show = None              # engine.py: the UI's main window came up (indexing resumes)
+        self._folder_dialog = None        # engine.py: Windows' own folder dialog
+        self._turbo = None                # engine.py: turbo.Turbo, the optional elevated NTFS index helper
         self._timer, self._exit = threading.Timer, os._exit     # tests replace them
 
     # ---------- search ----------
-    def search(self, text, filters=None):
+    def search(self, text, filters=None, client=None, channel="main"):
+        """client: who asked (one pipe connection); channel: which of its searches ("main" box, "home" list,
+        "bar"). A newer search on the same client and channel cancels this one: its answer would only be thrown
+        away, and on a whole-PC index the old one may still be running. Other channels are left alone."""
         empty = {"results": [], "understood": [], "terms": [], "notes": [], "ms": 0}
+        cancelled = None
+        if client is not None:
+            seqs = self.__dict__.setdefault("_search_seq", {})
+            key = (client, channel)
+            seqs[key] = mine = seqs.get(key, 0) + 1
+            cancelled = (lambda: seqs.get(key) != mine)          # noqa: E731 (a newer search came in)
         if not isinstance(text, str):
             return empty
         text = text.strip()[:MAX_QUERY]
@@ -66,10 +79,45 @@ class Api:
         try:
             return search(self._store, text, self._indexer.embedder, self._vindex, drives=self._indexer.drive_list,
                           here=self.here, filters=filters, roots=self._indexer.roots(self._indexer.drive_list),
-                          photo_text=self._indexer.photo_text, pindex=self._indexer.pindex)
+                          photo_text=self._indexer.photo_text, pindex=self._indexer.pindex, cancelled=cancelled,
+                          romanized=self._romanized())
         except Exception as e:
             log(f"search failed: {type(e).__name__}", "warn")
             return {"results": [], "understood": [], "terms": [], "ms": 0, "error": "Search failed. Try other words."}
+
+    # ---------- smart search (0.8.5): suggestions while typing, your own search history ----------
+    def suggest(self, text, channel="main"):
+        """Autocomplete (suggest.py): your past questions (when search_history is on), names in the index and the
+        phrases search understands. Never fails a keystroke: a problem gives no suggestions."""
+        from . import suggest as sg
+        from .understand import place_bases
+        if not isinstance(text, str):
+            return {"items": [], "complete": ""}
+        try:
+            drives = self._indexer.drive_list
+            bases = place_bases(self._indexer.roots(drives), drives)
+            return sg.suggest(self._store, text[:MAX_QUERY], history_on=bool(self._settings.get("search_history")),
+                              limit=5 if channel == "bar" else 8, bases=bases, drives=drives)
+        except Exception as e:
+            log(f"suggest failed: {type(e).__name__}", "warn")
+            return {"items": [], "complete": ""}
+
+    def history_add(self, text):
+        """The UI says a question was used (Enter, a result opened, a suggestion picked): kept for autocomplete,
+        only while search_history is on."""
+        from . import history
+        if not self._settings.get("search_history"):
+            return {"ok": True, "saved": False}
+        return {"ok": True, "saved": history.add(self._store, text)}
+
+    def history_forget(self, text):
+        from . import history
+        return {"ok": history.forget(self._store, text)}
+
+    def history_clear(self):
+        from . import history
+        history.clear(self._store)
+        return {"ok": True}
 
     def _path(self, file_id):
         if not isinstance(file_id, int) or isinstance(file_id, bool):
@@ -93,6 +141,19 @@ class Api:
         except OSError as e:
             return {"ok": False, "error": e.strerror or "Windows couldn't open it."}
 
+    def open_with(self, file_id):
+        """Windows' "Open with" picker for a result (by id only). It runs in a small helper started outside Find's
+        job, so the program picked there (its child) survives Quit like a file opened with open()."""
+        p = self._path(file_id)
+        if not p:
+            return {"ok": False, "error": "That file isn't there any more."}
+        try:
+            winapi.start_outside_job(winapi.self_command("--open-with", p))
+            return {"ok": True, "error": ""}
+        except OSError as e:
+            log(f"could not start the Open with picker (error {e.winerror or e.errno})", "warn")
+            return {"ok": False, "error": "Windows couldn't show the Open with list."}
+
     def reveal(self, file_id):
         p = self._path(file_id)
         if not p:
@@ -106,6 +167,8 @@ class Api:
         row = self._store.q("SELECT path, kind, mtime FROM files WHERE id=?", (file_id,))
         if not row or row[0][1] not in thumbs.KINDS:
             return {"url": ""}
+        if scope.Rules.from_settings(self._settings).names_only(row[0][0]):
+            return {"url": ""}                      # a preview is the content: secrets are names only
         return {"url": thumbs.data_url(row[0][0], row[0][2])}
 
     def here_folder(self):
@@ -130,7 +193,7 @@ class Api:
     # ---------- status and settings ----------
     def status(self):
         st = dict(self._indexer.status)
-        st.update(self._store.stats())
+        st.update(self._stats())
         st["version"] = APP_VER
         st["model"] = dict(self._model)
         st["photo_model"] = dict(self._photo_model)
@@ -143,6 +206,31 @@ class Api:
         with self._slock:
             self._transparency(st)
         return st
+
+    def _stats(self):
+        """Store.stats (six COUNTs over the whole index: seconds on a whole PC), reused for STATS_TTL seconds or
+        COUNT_SHARE times as long as the last count took, whichever is longer."""
+        at, ttl, cached = getattr(self, "_stats_cache", (None, 0.0, None))
+        now = self._clock()
+        if cached is not None and now - at < ttl:
+            return cached
+        cached = self._store.stats()
+        took = self._clock() - now
+        self._stats_cache = (now, max(STATS_TTL, COUNT_SHARE * took), cached)
+        return cached
+
+    def status_brief(self):
+        """The few status fields a status line needs, cheap enough for every 2 s (the pipe's status event)."""
+        st = self._indexer.status
+        gov = self._governor
+        if gov is not None:
+            level, reason = gov.decision.level, gov.decision.reason
+        else:
+            level, reason = st.get("level", ""), st.get("reason", "")
+        files = st.get("files", 0)
+        return {"level": str(level or ""), "reason": str(reason or ""), "phase": str(st.get("phase") or ""),
+                "files": int(files) if isinstance(files, (int, float)) and not isinstance(files, bool) else 0,
+                "paused": str(st.get("paused") or "")}
 
     # ---------- transparency: what NOBAD Find is doing, what it uses, and why ----------
     def _transparency(self, st):
@@ -178,7 +266,7 @@ class Api:
             if last and now > last[0]:
                 cpu = max(0.0, min(100.0, (info["cpu_seconds"] - last[1]) / (now - last[0]) / cores * 100))
             seen[pid] = (now, info["cpu_seconds"])
-            procs.append({"name": names.get(pid, "Window (WebView2)"), "pid": int(pid), "cpu": round(cpu, 1),
+            procs.append({"name": names.get(pid, "Helper"), "pid": int(pid), "cpu": round(cpu, 1),
                           "memory_mb": int(info["memory_mb"])})
         self._pcpu = seen
         use = jobs.OUTER.usage() if jobs.OUTER is not None else {"cpu_seconds": 0.0, "read_bytes": 0}
@@ -196,7 +284,8 @@ class Api:
         at, k, counts = self._totals
         if not counts:
             return self._refresh(now, key)                  # the very first call computes inline
-        if (k != key or now - at >= TOTALS_TTL) and not (self._refresher and self._refresher.is_alive()):
+        ttl = max(TOTALS_TTL, COUNT_SHARE * getattr(self, "_totals_took", 0.0))
+        if (k != key or now - at >= ttl) and not (self._refresher and self._refresher.is_alive()):
             self._refresher = threading.Thread(target=self._refresh, args=(now, key), daemon=True, name="counts")
             self._refresher.start()                         # the COUNT queries never hold up a status poll
         return counts
@@ -208,6 +297,7 @@ class Api:
         if not s.get("src_mail"):
             text_ext -= {".eml", ".mbox"}
         mx = s.get("content_max_mb") * 1024 * 1024
+        t0 = time.monotonic()
         try:
             counts = {"text": (st.count_readable(text_ext, mx), st.count_needs_text(text_ext, mx)),
                       "ocr": (st.count_readable(ocr.OCR_EXT, mx, ocr.MIN_IMAGE_BYTES),
@@ -216,9 +306,14 @@ class Api:
                                   st.count_chunks_without_vectors() + st.count_names_without_vectors(NAME_KINDS)),
                       "photos": (st.count_photos(photo.PHOTO_EXT, photo.MIN_PHOTO_BYTES, photo.MAX_PHOTO_BYTES),
                                  st.count_photos_to_read(photo.PHOTO_EXT, photo.MIN_PHOTO_BYTES, photo.MAX_PHOTO_BYTES))}
+            if st.meta("vec_model_next"):
+                counts["rebuild"] = ((st.one("SELECT count(*) FROM chunks") or 0) + st.count_names(NAME_KINDS),
+                                     st.count_chunks_without_vectors(next=True)
+                                     + st.count_names_without_vectors(NAME_KINDS, next=True))
         except Exception as e:
             log(f"status counts failed: {type(e).__name__}", "warn")
             counts = counts or {p: (0, 0) for p in ("text", "ocr", "meaning", "photos")}
+        self._totals_took = time.monotonic() - t0
         self._totals = (now, key, counts)
         return counts
 
@@ -228,9 +323,11 @@ class Api:
         cur = {"images": "ocr"}.get(st.get("phase"), st.get("phase"))
         content = bool(s.get("content"))
         on = {"names": True, "text": content, "ocr": content and bool(s.get("ocr")) and bool(ocr.available()),
-              "meaning": bool(s.get("semantic")) and embed.model_ready(),
-              "photos": bool(s.get("photo_meaning")) and photo.model_ready(), "watching": True}
-        counter = {"text": "texts", "ocr": "texts", "meaning": "vectors", "photos": "photos"}
+              "meaning": bool(s.get("semantic")) and models.ready(self._text_in_use(), self._mdir()),
+              "photos": bool(s.get("photo_meaning")) and models.ready(self._photo_in_use(), self._mdir()),
+              "watching": True,
+              "rebuild": cur == "rebuild" or "rebuild" in counts}
+        counter = {"text": "texts", "ocr": "texts", "meaning": "vectors", "photos": "photos", "rebuild": "rebuilt"}
         out = []
         for pid, label in PHASES:
             total = remaining = None
@@ -261,13 +358,14 @@ class Api:
         return out
 
     def _download(self, mid, m, now):
-        if m["state"] != "downloading":
-            self._dl.pop(mid, None)
-            return None
-        prev, self._dl[mid] = self._dl.get(mid), (now, m["got"])
-        speed = max(0.0, (m["got"] - prev[1]) / (now - prev[0]) / 1048576) if prev and now > prev[0] else 0.0
-        return {"got_mb": round(m["got"] / 1048576, 1), "size_mb": round(m["size"] / 1048576, 1),
-                "mb_s": round(speed, 2)}
+        return self._rate.sample(mid, m, now)
+
+    def downloads(self):
+        """Each model download's state ({"state", "got", "size", "error"}, bytes), for the pipe's download event:
+        meaning / photo (download_model, download_photo_model) and every model_download by its model id."""
+        out = {"meaning": dict(self._model), "photo": dict(self._photo_model)}
+        out.update({mid: dict(st) for mid, st in getattr(self, "_mdl", {}).items()})
+        return out
 
     def _models(self, now, st, procs):
         """Cards describe the model doing the work (its worker process), else the in-process query encoder."""
@@ -283,18 +381,17 @@ class Api:
         pdev = "GPU" if getattr(pho, "device", "CPU") == "GPU" else "CPU"
         enc = [(emb, mw), (pho, pw)]
         mem = [w["memory_mb"] if w else None for _e, w in enc]
-        meaning_mb = sum(v[1] for v in MODEL_FILES.values()) / 1048576
-        photo_mb = sum(v[1] for v in photo.PHOTO_FILES.values()) / 1048576
+        tm, pm = models.get(self._text_in_use()), models.get(self._photo_in_use())
         ocr_total, ocr_left = self._counts(now).get("ocr", (0, 0))
         return [
-            {"id": "meaning", "name": "Meaning search (all-MiniLM-L6-v2)", "license": "Apache-2.0",
-             "size_mb": round(meaning_mb), "on_disk": bool(embed.model_ready()),
+            {"id": "meaning", "name": f"Meaning search ({tm['name']})", "license": tm["licence"],
+             "size_mb": models.size_mb(tm), "on_disk": models.ready(tm["id"], self._mdir()),
              "loaded": bool(mw) or bool(getattr(emb, "loaded", False)), "memory_mb": mem[0],
              "device": mdev,
              "items": int(st.get("vectors", 0)) + int(st.get("name_vectors", 0)),
              "download": self._download("meaning", self._model, now)},
-            {"id": "photo", "name": "Photo search (SigLIP base)", "license": "Apache-2.0",
-             "size_mb": round(photo_mb), "on_disk": bool(photo.model_ready()),
+            {"id": "photo", "name": f"Photo search ({pm['name']})", "license": pm["licence"],
+             "size_mb": models.size_mb(pm), "on_disk": models.ready(pm["id"], self._mdir()),
              "loaded": bool(pw) or bool(getattr(pho, "loaded", False)), "memory_mb": mem[1],
              "device": pdev,
              "items": int(st.get("photo_vectors", 0)),
@@ -335,11 +432,16 @@ class Api:
     def set_settings(self, changes):
         if not isinstance(changes, dict):
             return {"changed": []}
-        changes = {k: v for k, v in changes.items() if k not in ("wsearch_prev",)}
+        changes = {k: v for k, v in changes.items() if k not in ("wsearch_prev", "turbo")}   # turbo: turbo_set (UAC)
+        changes = scope.derive_changes(changes, self._settings.all())     # an older UI only sends roots
         changed = self._settings.update(changes)
         if "autostart" in changed:
             set_autostart(self._settings.get("autostart"))
-        if set(changed) & {"roots", "exclude"}:
+        if "search_history" in changed and not self._settings.get("search_history"):
+            self.history_clear()                     # off: what was kept goes now, not later
+        if "include_secrets" in changed and not self._settings.get("include_secrets"):
+            self._remove_secrets()                   # off: their names leave the index now, not at the next walk
+        if set(changed) & {"roots", "exclude", "scope", "include_system", "include_caches", "include_secrets"}:
             self._indexer.rescan()
         for key, kind in (("index_removable", "removable"), ("index_network", "network")):
             if key in changed:
@@ -347,6 +449,15 @@ class Api:
                     self._store.remove_paths([d["root"].rstrip("\\") for d in self._indexer.drive_list
                                               if d.get("type") == kind])
                 self._indexer.wake.set()
+        if "photo_model" in changed and self._settings.get("photo_meaning") and "photo_meaning" not in changed:
+            threading.Thread(target=self._indexer._load_photo, daemon=True).start()
+            self._indexer.wake.set()
+        if "tray" in changed and getattr(self, "_on_tray", None) is not None:
+            self._on_tray(bool(self._settings.get("tray")))
+        if "text_model" in changed:
+            wake = getattr(self._indexer, "wake", None)
+            if wake is not None:
+                wake.set()                              # the indexer builds the new model's vectors (rebuild)
         if "photo_meaning" in changed:
             if self._settings.get("photo_meaning"):
                 threading.Thread(target=self._indexer._load_photo, daemon=True).start()
@@ -362,13 +473,52 @@ class Api:
             self._indexer.wake.set()
         return {"changed": changed}
 
+    def _remove_secrets(self):
+        """Every secret (scope category) out of the index: key files by extension, secret folders by name."""
+        from .const import BROWSER_SECRET_FILES, SECRET_EXT, SECRET_FILES, SECRET_NAMES, SECRET_PATHS
+        rules = scope.Rules.from_settings(self._settings)
+        exts = sorted(SECRET_EXT)
+        names = sorted(SECRET_NAMES | SECRET_FILES | BROWSER_SECRET_FILES)
+        names += [n + t for n in sorted(SECRET_FILES | BROWSER_SECRET_FILES) for t in ("-journal", "-wal", "-shm")]
+
+        def esc(t):
+            return t.replace("!", "!!").replace("%", "!%").replace("_", "!_")
+        folders = ["%\\" + esc(n) + "\\%" for n in sorted(SECRET_NAMES)]
+        folders += ["%\\" + esc("\\".join(p)) + "\\%" for p in SECRET_PATHS]
+        like = " OR ".join(["lower(path) LIKE ? ESCAPE '!'"] * len(folders))
+        rows = self._store.q(f"SELECT path FROM files WHERE ext IN ({','.join('?' * len(exts))}) OR lower(name) IN "
+                             f"({','.join('?' * len(names))}) OR {like}", (*exts, *names, *folders))
+        gone = [r[0] for r in rows if rules.category(r[0]) == "secrets"]
+        if gone:
+            self._store.remove_paths(gone)
+        return len(gone)
+
+    def scope_info(self):
+        """What is indexed: the scope, its folders and every category with what's in it (scope.info)."""
+        return scope.info(self._settings, winapi.drives(), self._store)
+
+    # ---------- turbo index ----------
+    def turbo_state(self):
+        """The turbo index (turbo.Turbo.state); never running without one (tests)."""
+        if self._turbo is not None:
+            return self._turbo.state()
+        return {"available": False, "enabled": bool(self._settings.get("turbo")), "running": False, "volumes": [],
+                "error": "The turbo index runs with the NOBAD Find engine only."}
+
+    def turbo_set(self, on):
+        """On: Windows asks for permission (once per run), the helper starts. Off: it ends."""
+        if self._turbo is None:
+            return {"ok": False, "error": "The turbo index runs with the NOBAD Find engine only.",
+                    "state": self.turbo_state()}
+        r = self._turbo.turn_on() if on else self._turbo.turn_off()
+        if r.get("ok") and on:
+            self._indexer.rescan()                  # read the drives with turbo now
+        return dict(r, state=self._turbo.state())
+
     def pick_folder(self):
-        w = self._win()
-        if not w:
-            return {"path": ""}
-        import webview
-        r = w.create_file_dialog(webview.FOLDER_DIALOG)
-        return {"path": r[0] if r else ""}
+        dialog = self._folder_dialog              # Windows' own dialog, shown by this process
+        path = dialog() if dialog is not None else ""
+        return {"path": "", "busy": True} if path is None else {"path": path or ""}
 
     def rescan(self):
         self._indexer.rescan()
@@ -430,6 +580,174 @@ class Api:
         return {"ok": True}
 
     # ---------- Windows Search ----------
+    # ---------- model tiers (contract: models, model_use, model_download, model_remove, auto_configure) ----------
+    _models_dir = None                 # the data folder models live in (tests point it elsewhere)
+    _mdl_thread = None
+
+    def _mdir(self):
+        return self._models_dir or models.DATA_DIR
+
+    def _text_in_use(self):
+        """The text model whose vectors search uses now (or the one chosen, before there are any)."""
+        return (getattr(self._indexer, "text_model", None) or models.selected(self._settings, "text")
+                or models.DEFAULT_TEXT)
+
+    def _photo_in_use(self):
+        return getattr(self._indexer, "photo_model", None) or models.selected(self._settings, "photo") or \
+            models.DEFAULT_PHOTO
+
+    def _romanized(self):
+        """Hinglish is read in every question when the language focus is Hindi or many languages (cached 60 s:
+        the focus may come from Windows' languages)."""
+        import time as _t
+        at, val = getattr(self, "_roman_cache", (0.0, False))
+        if _t.monotonic() - at > 60:
+            try:
+                val = self._focus() in ("hindi", "multilingual")
+            except Exception:
+                val = False
+            self._roman_cache = (_t.monotonic(), val)
+        return val
+
+    def _focus(self):
+        return self._settings.get("language_focus") or models.focus_from_languages(winapi.windows_languages())
+
+    def _model_state(self, m):
+        d = getattr(self, "_mdl", {}).get(m["id"])
+        if d and d["state"] == "downloading":
+            return "downloading"
+        ready = models.ready(m["id"], self._mdir())
+        if m["feature"] == "ocr":
+            return ("active" if self._settings.get("ocr") else "ready") if ocr.available() else "failed"
+        if not ready:
+            return "failed" if d and d.get("error") else "not_downloaded"
+        if m["feature"] == "text":
+            in_use = getattr(self._indexer, "text_model", None) or models.selected(self._settings, "text")
+            return "active" if self._settings.get("semantic") and in_use == m["id"] else "ready"
+        return "active" if models.selected(self._settings, "photo") == m["id"] else "ready"
+
+    def models(self):
+        pc = hw.scan()
+        focus = self._focus()
+        rec = models.recommend(pc)
+        choice = models.tier_choice(rec, focus)
+        out = []
+        for m in models.CATALOG:
+            ok, why = models.capable(m, pc)
+            if m["feature"] == "ocr" and not ocr.available():
+                ok, why = False, ocr.why_missing() or "Windows OCR isn't available on this PC"
+            out.append({"id": m["id"], "feature": m["feature"], "name": m["name"], "tier": m["tier"],
+                        "licence": m["licence"], "source": m["source"], "size_mb": models.size_mb(m),
+                        "ram_mb": int(m.get("ram_mb") or 0), "speed_note": m.get("speed_note") or "",
+                        "languages": list(m.get("languages") or []), "improves": m.get("improves") or "",
+                        "builtin": bool(m["builtin"]), "state": self._model_state(m), "capable": ok,
+                        "capable_reason": why, "recommended": choice.get(m["feature"]) == m["id"],
+                        "quality": dict(m["quality"]) if m.get("quality") else None})
+        return {"pc": pc, "tier_recommended": rec, "tier_current": models.tier_current(self._settings, focus),
+                "language_focus": focus, "models": out}
+
+    def model_use(self, feature, mid):
+        m = models.get(mid) if isinstance(mid, str) else None
+        if m is None or m["feature"] != feature:
+            return {"ok": False, "error": "There's no such model for that.", "needs_download": False}
+        changes = {"text": {"text_model": mid, "semantic": True}, "photo": {"photo_model": mid, "photo_meaning": True},
+                   "ocr": {"ocr": True}}[feature]
+        self.set_settings(changes)
+        wake = getattr(self._indexer, "wake", None)
+        if wake is not None:
+            wake.set()                          # a switched text model is rebuilt by the indexer (phase rebuild)
+        return {"ok": True, "error": "", "needs_download": not models.ready(mid, self._mdir())}
+
+    def model_download(self, mid, consent):
+        m = models.get(mid) if isinstance(mid, str) else None
+        if m is None or m["builtin"]:
+            return {"ok": False, "error": "There's nothing to download for that."}
+        if consent != "DOWNLOAD":
+            return {"ok": False, "error": "A model is only downloaded when you say Download."}
+        self._mdl = getattr(self, "_mdl", {})
+        lock = self.__dict__.setdefault("_mdl_lock", threading.Lock())
+        with lock:
+            if self._mdl.get(mid, {}).get("state") == "downloading":
+                return {"ok": True, "error": ""}            # already on its way: one download per model
+            self._mdl[mid] = {"state": "downloading", "got": 0, "size": 0, "error": ""}
+        self._settings.update({"allow_model_download" if m["feature"] == "text" else "allow_photo_model_download": True})
+        st = self._mdl[mid] = {"state": "downloading", "got": 0, "size": sum(f[1] for f in m["files"].values()),
+                               "error": ""}
+        d = models.model_dir(mid, self._mdir())
+
+        def run():
+            done = {}
+            try:
+                os.makedirs(d, exist_ok=True)
+                for name, (path, size, sha) in m["files"].items():
+                    def progress(_n, got, _size, name=name):
+                        done[name] = got
+                        st["got"] = sum(done.values())
+                    embed._fetch_verified(models.url(m, path), os.path.join(d, name), size, sha, name, progress,
+                                          part=".dl.part")      # not the 0.7.0 download's file names
+                    done[name] = size
+                    st["got"] = sum(done.values())
+                st["state"] = "ready"
+                log(f"model {mid} downloaded and verified")
+                wake = getattr(self._indexer, "wake", None)
+                if m["feature"] == "text" and models.selected(self._settings, "text") == mid and \
+                        not getattr(self._indexer, "text_model", None):
+                    threading.Thread(target=self._indexer._load_embedder, daemon=True).start()
+                if m["feature"] == "photo" and models.selected(self._settings, "photo") == mid:
+                    threading.Thread(target=self._indexer._load_photo, daemon=True).start()
+                if wake is not None:
+                    wake.set()
+            except Exception as e:
+                log(f"model {mid} download failed: {type(e).__name__}", "warn")
+                st.update(state="missing", error=str(e)[:200] or "The download failed.")
+        self._mdl_thread = threading.Thread(target=run, daemon=True, name="model-download")
+        self._mdl_thread.start()
+        return {"ok": True, "error": ""}
+
+    def model_remove(self, mid):
+        m = models.get(mid) if isinstance(mid, str) else None
+        if m is None or m["builtin"]:
+            return {"ok": False, "error": "That model is part of Windows or NOBAD Find."}
+        in_use = {getattr(self._indexer, "text_model", None)}
+        if self._store is not None:
+            in_use |= {self._store.meta("vec_model"), self._store.meta("vec_model_next")}
+        if m["feature"] == "photo" and self._settings.get("photo_meaning"):
+            in_use.add(models.selected(self._settings, "photo"))
+        if mid in in_use:
+            return {"ok": False, "error": "NOBAD Find is using that model. Choose another one first."}
+        d = models.model_dir(mid, self._mdir())
+        for name in m["files"]:
+            for p in (os.path.join(d, name), os.path.join(d, name + ".part"), os.path.join(d, name + ".dl.part")):
+                try:
+                    os.remove(p)
+                except FileNotFoundError:
+                    pass
+                except OSError as e:
+                    return {"ok": False, "error": e.strerror or "Windows couldn't delete it."}
+        try:
+            os.rmdir(d)
+        except OSError:
+            pass                                # other files in there (not ours) stay
+        return {"ok": True, "error": ""}
+
+    def auto_configure(self):
+        tier = models.recommend(hw.scan())
+        choice = models.tier_choice(tier, self._focus())
+        changes = {"text_model": choice["text"], "semantic": True, "ocr": True}
+        changes.update({"photo_model": choice["photo"], "photo_meaning": True} if choice["photo"] else
+                       {"photo_meaning": False})
+        self.set_settings(changes)
+        steps = [{"feature": f, "id": choice[f],
+                  "needs_download": bool(choice[f]) and not models.ready(choice[f], self._mdir())}
+                 for f in ("text", "photo", "ocr")]
+        return {"tier": tier, "steps": steps}
+
+    def model_language(self, focus):
+        if focus not in models.FOCUSES:
+            return {"ok": False, "error": "Choose English, many languages or Hindi."}
+        self._settings.update({"language_focus": focus})
+        return {"ok": True, "error": ""}
+
     def wsearch_state(self):
         s = wsearch.state()
         s["saved"] = self._settings.get("wsearch_prev")
@@ -463,37 +781,26 @@ class Api:
         return r
 
     # ---------- window ----------
-    def heartbeat(self):
-        if self._watchdog is not None:
-            self._watchdog.beat()
-        return {"ok": True}
-
-    def page_visible(self, on):
-        if self._watchdog is not None:
-            self._watchdog.page_visible(bool(on))
+    def ui_shown(self):
+        """The UI's main window came up (the pipe's ui_shown): indexing resumes if closing had stopped it."""
+        if self._on_show is not None:
+            self._on_show()
         return {"ok": True}
 
     def hide(self):
-        self.visible = False
-        w = self._win()
-        if w:
-            w.hide()
+        """The UI's main window went away (ui_hidden, or its pipe closed): what that means for indexing."""
         if self._on_hide is not None:
             self._on_hide()
         return {"ok": True}
 
     def quit(self):
-        self._quitting = True                  # app.py: closing now really quits instead of hiding
+        self._quitting = True
         self._indexer.stop()
         self._arm_hard_exit()
-        w = self._win()
-        if w:
-            w.destroy()
         return {"ok": True}
 
     def _arm_hard_exit(self):
-        """If closing the windows (WebView2, WinForms) or the exit hangs, end the process anyway; the job then
-        ends every worker and WebView2 with it. Used by Quit and by closing the window when that quits."""
+        """If the exit hangs, end the process anyway; the job then ends every worker with it."""
         if getattr(self, "_hard_exit_timer", None) is not None:
             return
         t = self._hard_exit_timer = self._timer(QUIT_TIMEOUT, self._hard_exit)
@@ -505,6 +812,23 @@ class Api:
         self._indexer.stop()
         self._indexer.join(5)                  # a database write in progress is committed first
         self._exit(0)
+
+
+class DownloadRate:
+    """MB done, MB in all and MB/s of one download from successive looks at its {"state", "got", "size"}."""
+
+    def __init__(self):
+        self._last = {}                   # model id -> (time, got bytes)
+
+    def sample(self, mid, m, now):
+        """{"got_mb", "size_mb", "mb_s"} while m is downloading, else None (and the speed starts over)."""
+        if m["state"] != "downloading":
+            self._last.pop(mid, None)
+            return None
+        prev, self._last[mid] = self._last.get(mid), (now, m["got"])
+        speed = max(0.0, (m["got"] - prev[1]) / (now - prev[0]) / 1048576) if prev and now > prev[0] else 0.0
+        return {"got_mb": round(m["got"] / 1048576, 1), "size_mb": round(m["size"] / 1048576, 1),
+                "mb_s": round(speed, 2)}
 
 
 def reveal_in_explorer(path):
@@ -542,4 +866,4 @@ def set_autostart(on):
                 pass
 
 
-__all__ = ["Api", "reveal_in_explorer", "set_autostart", "sys"]
+__all__ = ["Api", "DownloadRate", "reveal_in_explorer", "set_autostart", "sys"]

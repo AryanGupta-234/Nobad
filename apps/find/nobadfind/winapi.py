@@ -16,14 +16,22 @@ if WIN:
 INVALID_HANDLE = ctypes.c_void_p(-1).value
 
 SHOW_EVENT = "Local\\NOBAD-Find-Show"         # a second start asks the running copy to show its window
+SHOW_WHAT = ("main", "settings", "index", "bar")   # what it may ask for: one event each (main keeps the old name)
 
 
-def show_event():
-    """The running copy's auto-reset "show the window" event (None off Windows or on failure)."""
+def show_event_name(what="main", base=SHOW_EVENT):
+    if what not in SHOW_WHAT:
+        raise ValueError(what)
+    return base if what == "main" else f"{base}-{what}"
+
+
+def show_event(what="main", base=SHOW_EVENT):
+    """The running copy's auto-reset "show the window" event for one page (None off Windows or on failure)."""
     if not WIN:
         return None
     k32.CreateEventW.restype = ctypes.c_void_p
-    return k32.CreateEventW(None, False, False, SHOW_EVENT) or None
+    k32.CreateEventW.argtypes = [ctypes.c_void_p, wintypes.BOOL, wintypes.BOOL, wintypes.LPCWSTR]
+    return k32.CreateEventW(None, False, False, show_event_name(what, base)) or None
 
 
 def wait_event(handle, timeout_ms):
@@ -32,16 +40,25 @@ def wait_event(handle, timeout_ms):
     return k32.WaitForSingleObject(handle, timeout_ms) == 0          # WAIT_OBJECT_0
 
 
-def ask_running_copy_to_show():
-    """Signal the copy that is already running to bring its window up. True if it was reached."""
+def wait_any(handles, timeout_ms):
+    """The index of the first signalled handle within the timeout, else None (at most 64 handles)."""
+    arr = (ctypes.c_void_p * len(handles))(*handles)
+    k32.WaitForMultipleObjects.argtypes = [wintypes.DWORD, ctypes.c_void_p, wintypes.BOOL, wintypes.DWORD]
+    k32.WaitForMultipleObjects.restype = wintypes.DWORD
+    r = k32.WaitForMultipleObjects(len(handles), arr, False, timeout_ms)
+    return r if r < len(handles) else None                           # WAIT_OBJECT_0 + i; timeout or failure
+
+
+def ask_running_copy_to_show(what="main", base=SHOW_EVENT):
+    """Signal the copy that is already running to bring its window up on that page. True if it was reached."""
     if not WIN:
         return False
     k32.OpenEventW.restype = ctypes.c_void_p
-    h = k32.OpenEventW(0x0002, False, SHOW_EVENT)                     # EVENT_MODIFY_STATE
+    h = k32.OpenEventW(0x0002, False, show_event_name(what, base))   # EVENT_MODIFY_STATE
     if not h:
         return False
     try:
-        user32.AllowSetForegroundWindow(wintypes.DWORD(0xFFFFFFFF))  # ASFW_ANY: it may take the front
+        user32.AllowSetForegroundWindow(wintypes.DWORD(0xFFFFFFFF))  # ASFW_ANY: it (and its UI) may take the front
         k32.SetEvent.argtypes = [ctypes.c_void_p]
         return bool(k32.SetEvent(h))
     finally:
@@ -120,6 +137,32 @@ def open_outside_job(path):
     refuses the breakaway (the caller falls back to os.startfile)."""
     explorer = os.path.join(os.environ.get("WINDIR") or "C:\\Windows", "explorer.exe")
     return subprocess.Popen([explorer, path], creationflags=CREATE_BREAKAWAY_FROM_JOB, close_fds=True)
+
+
+def start_outside_job(argv):
+    """Start a program of Find's own (the UI, the Open with helper) outside Find's job, as the normal user:
+    an argument list, never a shell string. Raises OSError when Windows refuses the breakaway."""
+    return subprocess.Popen(list(argv), creationflags=CREATE_BREAKAWAY_FROM_JOB, close_fds=True)
+
+
+OAIF_EXEC = 0x4                 # run the program the user picks (never changes the default: no OAIF_REGISTER_EXT)
+
+
+class _OpenAsInfo(ctypes.Structure):
+    _fields_ = [("pcszFile", wintypes.LPCWSTR), ("pcszClass", wintypes.LPCWSTR), ("oaifInFlags", wintypes.DWORD)]
+
+
+def open_with_dialog(path):
+    """Windows' "Open with" picker for one file, in this (helper) process. 0 when it opened, else 1."""
+    if not WIN:
+        return 1
+    sh = ctypes.WinDLL("shell32")
+    sh.SHOpenWithDialog.argtypes = [wintypes.HWND, ctypes.POINTER(_OpenAsInfo)]
+    sh.SHOpenWithDialog.restype = ctypes.c_long
+    ole = ctypes.WinDLL("ole32")
+    ole.CoInitializeEx(None, 0x2)                       # apartment threaded, as shell dialogs want
+    info = _OpenAsInfo(path, None, OAIF_EXEC)
+    return 0 if sh.SHOpenWithDialog(None, ctypes.byref(info)) == 0 else 1
 
 
 def run_elevated(argv, wait=True, timeout_ms=10 * 60 * 1000):
@@ -253,6 +296,103 @@ def _window_title(hwnd):
     return buf.value
 
 
+class _BROWSEINFOW(ctypes.Structure):
+    _fields_ = [("hwndOwner", wintypes.HWND), ("pidlRoot", ctypes.c_void_p), ("pszDisplayName", wintypes.LPWSTR),
+                ("lpszTitle", wintypes.LPCWSTR), ("ulFlags", wintypes.UINT), ("lpfn", ctypes.c_void_p),
+                ("lParam", wintypes.LPARAM), ("iImage", ctypes.c_int)]
+
+
+_dialog = {"hwnd": None}
+_dialog_lock = None                 # made on first use (threading is imported lazily here)
+
+
+def _to_front(hwnd):
+    """Topmost and in front: the engine has no window of its own, so the dialog has no owner to sit on."""
+    u = ctypes.WinDLL("user32")
+    u.SetWindowPos.argtypes = [wintypes.HWND, wintypes.HWND, ctypes.c_int, ctypes.c_int, ctypes.c_int,
+                               ctypes.c_int, wintypes.UINT]
+    u.SetForegroundWindow.argtypes = [wintypes.HWND]
+    u.SetWindowPos(hwnd, wintypes.HWND(-1), 0, 0, 0, 0, 0x1 | 0x2 | 0x40)   # TOPMOST; NOSIZE|NOMOVE|SHOWWINDOW
+    u.SetForegroundWindow(hwnd)
+
+
+def _front_dialog():
+    hwnd = _dialog["hwnd"]
+    if hwnd:
+        _to_front(hwnd)
+
+
+_BFFCALLBACK = ctypes.WINFUNCTYPE(ctypes.c_int, wintypes.HWND, wintypes.UINT, wintypes.LPARAM,
+                                  wintypes.LPARAM) if WIN else None
+
+
+def _on_dialog(hwnd, msg, lparam, data):
+    if msg == 1:                                                   # BFFM_INITIALIZED
+        _dialog["hwnd"] = hwnd
+        try:
+            _to_front(hwnd)
+        except OSError:
+            pass
+    return 0
+
+
+_on_dialog_c = _BFFCALLBACK(_on_dialog) if WIN else None
+
+
+def _browse_folder(title, out):
+    ole32, sh = ctypes.WinDLL("ole32"), ctypes.WinDLL("shell32")
+    sh.SHBrowseForFolderW.argtypes = [ctypes.POINTER(_BROWSEINFOW)]
+    sh.SHBrowseForFolderW.restype = ctypes.c_void_p
+    sh.SHGetPathFromIDListW.argtypes = [ctypes.c_void_p, wintypes.LPWSTR]
+    ole32.CoTaskMemFree.argtypes = [ctypes.c_void_p]
+    inited = ole32.CoInitializeEx(None, 0x2) in (0, 1)           # COINIT_APARTMENTTHREADED: the dialog needs STA
+    try:
+        name = ctypes.create_unicode_buffer(260)
+        info = _BROWSEINFOW(None, None, ctypes.cast(name, wintypes.LPWSTR), title,
+                            0x1 | 0x40,                             # BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE
+                            ctypes.cast(_on_dialog_c, ctypes.c_void_p), 0, 0)
+        try:
+            pidl = sh.SHBrowseForFolderW(ctypes.byref(info))
+        finally:
+            _dialog["hwnd"] = None
+        if pidl:
+            try:
+                path = ctypes.create_unicode_buffer(260)
+                if sh.SHGetPathFromIDListW(pidl, path):
+                    out.append(path.value)
+            finally:
+                ole32.CoTaskMemFree(pidl)
+    finally:
+        if inited:
+            ole32.CoUninitialize()
+
+
+def pick_folder(title="Choose a folder for NOBAD Find"):
+    """Windows' folder dialog, shown by this process (the engine, for the pipe's pick_folder), topmost and in
+    front. The chosen folder, "" if cancelled, or None at once when a dialog is already open (that one is
+    brought to the front again). Runs on a thread of its own so COM is set up the way the dialog needs."""
+    global _dialog_lock
+    if not WIN:
+        return ""
+    import threading
+    if _dialog_lock is None:
+        _dialog_lock = threading.Lock()
+    if not _dialog_lock.acquire(blocking=False):
+        try:
+            _front_dialog()
+        except OSError:
+            pass
+        return None
+    try:
+        out = []
+        t = threading.Thread(target=_browse_folder, args=(title, out), daemon=True, name="folder-dialog")
+        t.start()
+        t.join()
+        return out[0] if out else ""
+    finally:
+        _dialog_lock.release()
+
+
 def foreground_window():
     if not WIN:
         return 0
@@ -311,58 +451,6 @@ def foreground_folder(hwnd=None):
         from .log import log
         log(f"couldn't read the File Explorer folder: {type(e).__name__}", "warn")
         return ""
-
-
-def own_window(title):
-    """The handle of this process's top-level window with this title (0 if none yet)."""
-    if not WIN:
-        return 0
-    found = []
-    pid = os.getpid()
-    proc = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
-
-    def each(h, _l):
-        if window_pid(h) == pid and _window_title(h) == title:
-            found.append(h)
-            return False
-        return True
-    user32.EnumWindows(proc(each), 0)
-    return found[0] if found else 0
-
-
-def transparency_allowed():
-    """Windows' own "Transparency effects" switch (Settings > Personalization > Colors)."""
-    if not WIN:
-        return False
-    import winreg
-    try:
-        with winreg.OpenKey(winreg.HKEY_CURRENT_USER,
-                            r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize") as k:
-            return bool(winreg.QueryValueEx(k, "EnableTransparency")[0])
-    except OSError:
-        return True
-
-
-class _MARGINS(ctypes.Structure):
-    _fields_ = [("l", ctypes.c_int), ("r", ctypes.c_int), ("t", ctypes.c_int), ("b", ctypes.c_int)]
-
-
-def glass(hwnd):
-    """Windows 11 acrylic behind the whole window, dark title bar. True if Windows took it (22H2 and later)."""
-    if not WIN or not hwnd:
-        return False
-    try:
-        dwm = ctypes.WinDLL("dwmapi")
-        h = wintypes.HWND(hwnd)
-        dark = ctypes.c_int(1)
-        dwm.DwmSetWindowAttribute(h, 20, ctypes.byref(dark), 4)              # DWMWA_USE_IMMERSIVE_DARK_MODE
-        backdrop = ctypes.c_int(3)                                           # DWMSBT_TRANSIENTWINDOW (acrylic)
-        if dwm.DwmSetWindowAttribute(h, 38, ctypes.byref(backdrop), 4) != 0:  # DWMWA_SYSTEMBACKDROP_TYPE
-            return False
-        m = _MARGINS(-1, -1, -1, -1)                                          # the backdrop fills the client area
-        return dwm.DwmExtendFrameIntoClientArea(h, ctypes.byref(m)) == 0
-    except Exception:
-        return False
 
 
 class _PMC(ctypes.Structure):
@@ -599,6 +687,20 @@ def memory_status():
     return (int(m.dwMemoryLoad), int(m.ullAvailPhys // 1048576))
 
 
+def memory_status_total_mb():
+    """The PC's physical memory in MB; 0 if Windows can't say."""
+    if not WIN:
+        return 0
+    m = _MEMSTATUS()
+    m.dwLength = ctypes.sizeof(m)
+    try:
+        if not k32.GlobalMemoryStatusEx(ctypes.byref(m)):
+            return 0
+    except Exception:
+        return 0
+    return int(m.ullTotalPhys // 1048576)
+
+
 class _PDH_VALUE(ctypes.Structure):
     _fields_ = [("CStatus", wintypes.DWORD), ("doubleValue", ctypes.c_double)]
 
@@ -755,3 +857,131 @@ def _set_types():
 
 
 _set_types()
+
+
+# ---------- Find's own processes: EcoQoS, working set (ROADMAP Phase 1) ----------
+class _PowerThrottling(ctypes.Structure):
+    _fields_ = [("Version", wintypes.DWORD), ("ControlMask", wintypes.DWORD), ("StateMask", wintypes.DWORD)]
+
+
+_THROTTLE_EXECUTION_SPEED = 0x1         # PROCESS_POWER_THROTTLING_EXECUTION_SPEED
+_PROCESS_POWER_THROTTLING = 4           # PROCESS_INFORMATION_CLASS.ProcessPowerThrottling
+_SET_INFORMATION_QUOTA = 0x0200 | 0x0100 | 0x0400 | 0x1000   # set information + set quota + query (limited)
+_own = None
+
+
+def _own_dll():
+    """kernel32/psapi with their own argtypes (they don't leak into the rest of winapi)."""
+    global _own
+    if _own is None:
+        k, ps = ctypes.WinDLL("kernel32", use_last_error=True), ctypes.WinDLL("psapi", use_last_error=True)
+        k.OpenProcess.restype = wintypes.HANDLE
+        k.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+        k.GetCurrentProcess.restype = wintypes.HANDLE
+        k.CloseHandle.argtypes = [wintypes.HANDLE]
+        k.SetProcessInformation.argtypes = [wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.DWORD]
+        k.SetPriorityClass.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+        k.IsProcessInJob.argtypes = [wintypes.HANDLE, wintypes.HANDLE, ctypes.POINTER(wintypes.BOOL)]
+        ps.EmptyWorkingSet.argtypes = [wintypes.HANDLE]
+        _own = (k, ps)
+    return _own
+
+
+def _with_process(pid, fn):
+    """fn(handle) on this process (pid None) or on one of Find's own processes. False when it can't be opened."""
+    if not WIN:
+        return False
+    k, _ps = _own_dll()
+    if pid is None:
+        return bool(fn(k.GetCurrentProcess()))
+    h = k.OpenProcess(_SET_INFORMATION_QUOTA, False, int(pid))
+    if not h:
+        return False
+    try:
+        return bool(fn(h))
+    finally:
+        k.CloseHandle(h)
+
+
+def eco_qos(on=True, pid=None, job=None):
+    """EcoQoS ("efficiency mode", Task Manager's leaf): Windows runs the process on efficiency cores at low clocks.
+    Only for Find's worker processes (the governor, at Light and Paused). job: the worker job's handle; the process
+    must still be in it (a worker that ended may have its pid reused by another program). True if applied."""
+    st = _PowerThrottling(1, _THROTTLE_EXECUTION_SPEED, _THROTTLE_EXECUTION_SPEED if on else 0)
+
+    def apply(h):
+        k, _ps = _own_dll()
+        if job is not None:
+            inside = wintypes.BOOL()
+            if not k.IsProcessInJob(h, job, ctypes.byref(inside)) or not inside.value:
+                return False
+        return k.SetProcessInformation(h, _PROCESS_POWER_THROTTLING, ctypes.byref(st), ctypes.sizeof(st))
+    try:
+        return _with_process(pid, apply)
+    except (OSError, AttributeError):          # Windows before 10 1709 has no power throttling
+        return False
+
+
+def trim_working_set(pid=None):
+    """Hand the working set back to Windows (EmptyWorkingSet): what's needed again is paged back in on use.
+    For Find's own processes only, when they go idle. True if done."""
+    try:
+        return _with_process(pid, lambda h: _own_dll()[1].EmptyWorkingSet(h))
+    except OSError:
+        return False
+
+
+_IDLE_PRIORITY_CLASS, _NORMAL_PRIORITY_CLASS = 0x40, 0x20
+_MEMORY_PRIORITY_LOW, _MEMORY_PRIORITY_NORMAL = 2, 5
+_IO_VERY_LOW, _IO_NORMAL = 0, 2
+_PROCESS_MEMORY_PRIORITY, _PROCESS_IO_PRIORITY = 0, 33
+
+
+def worker_priority(low=True):
+    """A worker process steps aside: idle CPU priority, low memory priority (its pages are the first Windows
+    reuses) and very low I/O priority, or back to normal (low=False). Not Windows background mode: entered as a
+    process starts, background mode pins its working set near 32 MB, and a reader parsing a PDF then page-faults
+    about 400 times as often (20x slower; docs/measurements.md). Only for Find's own workers, on themselves."""
+    if not WIN:
+        return False
+    k, _ps = _own_dll()
+    h = k.GetCurrentProcess()
+    ok = bool(k.SetPriorityClass(h, _IDLE_PRIORITY_CLASS if low else _NORMAL_PRIORITY_CLASS))
+    mem = wintypes.ULONG(_MEMORY_PRIORITY_LOW if low else _MEMORY_PRIORITY_NORMAL)
+    ok = bool(k.SetProcessInformation(h, _PROCESS_MEMORY_PRIORITY, ctypes.byref(mem), 4)) and ok
+    try:
+        nt = ctypes.WinDLL("ntdll")
+        nt.NtSetInformationProcess.argtypes = [wintypes.HANDLE, ctypes.c_int, ctypes.c_void_p, wintypes.ULONG]
+        io = wintypes.ULONG(_IO_VERY_LOW if low else _IO_NORMAL)
+        ok = nt.NtSetInformationProcess(h, _PROCESS_IO_PRIORITY, ctypes.byref(io), 4) == 0 and ok
+    except (OSError, AttributeError):
+        ok = False
+    return ok
+
+
+def windows_languages():
+    """The user's display languages and keyboard languages, as tags ("en-GB", "hi-IN"); [] if Windows can't say.
+    Read from Windows only (no network): the language focus for Settings -> Models."""
+    if not WIN:
+        return []
+    out = []
+    try:
+        k = ctypes.WinDLL("kernel32")
+        n, size = wintypes.ULONG(), wintypes.ULONG(0)
+        k.GetUserPreferredUILanguages(0x8, ctypes.byref(n), None, ctypes.byref(size))       # MUI_LANGUAGE_NAME
+        buf = ctypes.create_unicode_buffer(size.value or 1)
+        if k.GetUserPreferredUILanguages(0x8, ctypes.byref(n), buf, ctypes.byref(size)):
+            out += [t for t in buf[:size.value].split("\x00") if t]
+        u = ctypes.WinDLL("user32")
+        count = u.GetKeyboardLayoutList(0, None)
+        if count > 0:
+            layouts = (ctypes.c_void_p * count)()
+            u.GetKeyboardLayoutList(count, layouts)
+            name = ctypes.create_unicode_buffer(85)
+            for h in layouts:
+                lang = (h or 0) & 0xFFFF
+                if lang and k.LCIDToLocaleName(lang, name, 85, 0):
+                    out.append(name.value)
+    except Exception:
+        pass
+    return list(dict.fromkeys(out))

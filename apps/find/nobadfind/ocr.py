@@ -42,6 +42,8 @@ def _load():
         _engine = OcrEngine.try_create_from_user_profile_languages()
         if _engine is None:
             _missing = "no OCR language installed"
+    except MemoryError:                          # the worker job's limit: not a missing OCR, try again later
+        raise
     except Exception as e:                       # ImportError, or the WinRT class isn't registered
         _missing = f"OCR not available ({type(e).__name__})"
     return _engine
@@ -100,6 +102,8 @@ def image_bytes_text(data):
         return ""
     try:
         return _recognize(bytes(data))
+    except MemoryError:
+        raise
     except Exception:                            # an image Windows can't decode is simply not read
         return ""
 
@@ -191,6 +195,8 @@ def pdf_image_payloads(page):
                 g = _raw_to_gray(x.get_data(), w, h, bpc, space, inverted)
                 if g:
                     out.append(gray_bmp(w, h, g))
+        except MemoryError:
+            raise
         except Exception:
             continue
     return out

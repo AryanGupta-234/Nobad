@@ -2,7 +2,7 @@
 import os
 
 APP_NAME = "NOBAD Find"
-APP_VER = "0.7.0"
+APP_VER = "0.8.5"
 
 # NOBAD Find runs as the normal user, so its data lives in the user's own profile (not readable by other users).
 DATA_DIR = os.environ.get("NOBAD_FIND_DATA_DIR") or os.path.join(
@@ -33,6 +33,33 @@ ALWAYS_EXCLUDE_NAMES = {
 }
 ALWAYS_EXCLUDE_EXT = {".kdbx", ".kdb", ".pem", ".key", ".pfx", ".p12", ".ppk", ".gpg", ".asc", ".ovpn", ".conf"}
 
+# The same names, split into the categories Settings shows (scope.py; maintainer decision 2026-11-19: nothing is
+# skipped silently, the user sees every category and chooses). Each name is in exactly one group.
+SECRET_NAMES = {".ssh", ".gnupg", ".aws", ".azure", ".kube", ".docker", "1password", "bitwarden", "keepass",
+                "keepassxc", "lastpass", "dashlane"}
+SECRET_NAMES |= {"gcloud"}
+SECRET_EXT = set(ALWAYS_EXCLUDE_EXT) | {".1pux", ".1pif", ".wallet"}
+# Credential stores inside AppData and the profile, by exact file name (a "-journal"/"-wal"/"-shm" twin too): browser
+# passwords, cookies, history and form data (Chromium and Firefox), developer tokens, wallets. Security review of #79.
+SECRET_FILES = {"key3.db", "key4.db", "logins.json", "cookies.sqlite", "places.sqlite", "formhistory.sqlite",
+                "signons.sqlite", ".npmrc", ".pypirc", ".netrc", "_netrc", ".git-credentials", "wallet.dat"}
+# Generic names that are secrets inside a browser profile (NAMES_ONLY_PATHS) only: "History" elsewhere is yours
+BROWSER_SECRET_FILES = {"login data", "login data for account", "cookies", "history", "web data", "local state"}
+# ... and by folder: these folder names one after the other anywhere in a path (lower case)
+SECRET_PATHS = (("microsoft", "credentials"), ("microsoft", "vault"), ("microsoft", "protect"),
+                ("discord", "local storage"), ("slack", "local storage"), ("teams", "local storage"))
+# Browser profiles and app databases: caches, not secrets, but their content is never read (binary noise)
+NAMES_ONLY_PATHS = (("chrome", "user data"), ("chromium", "user data"), ("edge", "user data"),
+                    ("brave-browser", "user data"), ("vivaldi", "user data"), ("opera software",),
+                    ("firefox", "profiles"), ("thunderbird", "profiles"), ("leveldb",), ("indexeddb",))
+NAMES_ONLY_EXT = {".sqlite", ".sqlite3", ".db", ".ldb", ".sqlite-wal", ".sqlite-shm", ".db-wal", ".db-shm",
+                  ".db-journal", ".leveldb"}
+CACHE_NAMES = {"node_modules", "__pycache__", ".git", ".svn", ".hg", ".venv", "venv", ".cache", "cache", "cache2",
+               "code cache", "gpucache", "temp", "tmp"}
+SYSTEM_NAMES = {"windowsapps", "winsxs", "$windows.~bt", "$windows.~ws"}
+# Never indexed, whatever the settings say: other people's deleted files, restore points, Find's own data
+FIXED_NAMES = {"$recycle.bin", "system volume information", "nobad"}
+
 DEFAULTS = {
     "roots": [],                    # empty = the user's profile folders plus every other fixed drive
     "exclude": [],                  # extra folders never to index
@@ -50,6 +77,7 @@ DEFAULTS = {
     "pause_fullscreen": True,       # old: replaced by games_mode, kept so a downgrade still reads it
     "games_mode": "smart",          # smart | always | off: what to do while a game is running
     "keep_background": False,
+    "stay_running": False,          # off: closing the last window quits NOBAD Find completely (no process left)
     "bar": True,
     "bar_hotkey": "ctrl+alt+space",
     "pause_on_call": True,          # while the microphone or camera is in use
@@ -61,4 +89,18 @@ DEFAULTS = {
     "theme": "dark",
     "glass": True,                  # see-through acrylic window on Windows 11 (follows Windows' transparency switch)
     "bg_notice_seen": False,        # the one-time "closing keeps NOBAD Find ready" notice was dismissed
+    "welcome_seen": False,          # the Flutter UI's first-run welcome was dismissed (Start searching)
+    "tray": True,                   # NOBAD Find's icon in the notification area (the engine's, works with the UI closed)
+    "text_model": "minilm-l6-v2",   # meaning model (models.CATALOG, feature "text"); used once it is downloaded
+    "photo_model": "siglip-base",   # photo model (models.CATALOG, feature "photo")
+    "language_focus": "",           # "" = from Windows languages; "english", "multilingual" or "hindi" (Settings -> Models)
+    # What to index (scope.py). Old settings get a scope from their roots: [] = whole_pc, folders = custom.
+    "scope": "whole_pc",            # whole_pc | my_files | custom (custom = the folders in roots)
+    "include_system": True,         # Windows, Program Files, ProgramData, Recovery, PerfLogs
+    "include_caches": True,         # AppData, caches, temp, node_modules, .git, venv
+    "include_secrets": False,       # key files, password stores, .ssh, wallets: NAMES ONLY, never their content
+    "turbo": False,                 # the optional elevated NTFS index helper (ntfs.py); one UAC prompt per session
+    # your own typed search questions, kept in the encrypted index for autocomplete (history.py, maintainer
+    # decision 2026-11-19); off deletes them. Not activity history: nothing from Windows or other programs.
+    "search_history": True,
 }

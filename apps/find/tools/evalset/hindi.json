@@ -1,0 +1,558 @@
+{
+ "description": "Fictional Hindi, Hinglish and mixed Hindi-English personal-file corpus with Devanagari, romanized and cross-language queries for evaluating NOBAD Find multilingual search.",
+ "docs": [
+  {
+   "id": "d001",
+   "name": "बिजली का बिल मई 2024.txt",
+   "folder": "Documents/Bills",
+   "body": "उजाला विद्युत वितरण निगम लिमिटेड\nबिजली का बिल - मई 2024\n\nउपभोक्ता का नाम: अनुराग मिश्रा\nपता: मकान नंबर 42, गुलमोहर कॉलोनी, सेक्टर 7, नवपुर\nउपभोक्ता संख्या: 3301 4478 9021\nमीटर संख्या: UV-558120\nबिल की तारीख: 5 जून 2024\nबिलिंग अवधि: 1 मई 2024 से 31 मई 2024\n\nपिछली रीडिंग: 12450\nवर्तमान रीडिंग: 12812\nकुल खपत: 362 यूनिट\n\nऊर्जा शुल्क (स्लैब दरों के अनुसार): ₹2,354.00\nस्थायी शुल्क: ₹150.00\nबिजली कर: ₹125.20\nमीटर किराया: ₹25.00\nकुल देय राशि: ₹2,654.20\nभुगतान की अंतिम तिथि: 20 जून 2024\n\nअंतिम तिथि के बाद भुगतान करने पर दो प्रतिशत विलंब शुल्क लगेगा। गर्मी के कारण इस महीने खपत पिछले महीने से 28 प्रतिशत अधिक रही। ऑनलाइन भुगतान करने पर दस रुपये की छूट मिलेगी। बिजली कटौती या किसी शिकायत के लिए हेल्पलाइन 1912 पर संपर्क करें। कृपया बिजली बचाएं, जरूरत न होने पर पंखे और बत्तियां बंद रखें।"
+  },
+  {
+   "id": "d031",
+   "name": "Electricity bill June 2024.txt",
+   "folder": "Documents/Bills",
+   "body": "उजाला विद्युत वितरण निगम लिमिटेड\nबिजली का बिल - जून 2024\n\nउपभोक्ता का नाम: अनुराग मिश्रा\nपता: मकान नंबर 42, गुलमोहर कॉलोनी, सेक्टर 7, नवपुर\nउपभोक्ता संख्या: 3301 4478 9021\nबिल की तारीख: 5 जुलाई 2024\nबिलिंग अवधि: 1 जून 2024 से 30 जून 2024\n\nपिछली रीडिंग: 12812\nवर्तमान रीडिंग: 13241\nकुल खपत: 429 यूनिट\n\nऊर्जा शुल्क: ₹2,887.50\nस्थायी शुल्क: ₹150.00\nबिजली कर: ₹151.90\nमीटर किराया: ₹25.00\nपिछला बकाया: शून्य\nकुल देय राशि: ₹3,214.40\nभुगतान की अंतिम तिथि: 20 जुलाई 2024\n\nइस महीने एसी अधिक चलने से खपत बढ़ी है। आपकी औसत मासिक खपत 310 यूनिट है। सोलर रूफटॉप योजना के तहत सब्सिडी के लिए निगम के कार्यालय में आवेदन किया जा सकता है। समय पर भुगतान करने वाले उपभोक्ताओं को अगले बिल में एक प्रतिशत की छूट दी जाएगी।"
+  },
+  {
+   "id": "d002",
+   "name": "किराया अनुबंध 2024.txt",
+   "folder": "Documents/Ghar",
+   "body": "किराया अनुबंध (रेंट एग्रीमेंट)\n\nयह अनुबंध 25 मार्च 2024 को मकान मालिक श्री हरिप्रसाद तिवारी, निवासी मकान नंबर 40, गुलमोहर कॉलोनी, नवपुर, और किरायेदार श्री अनुराग मिश्रा के बीच किया गया है।\n\n1. संपत्ति: मकान नंबर 42, गुलमोहर कॉलोनी, सेक्टर 7, नवपुर की पहली मंजिल, जिसमें दो कमरे, एक रसोई, एक बाथरूम और बालकनी शामिल हैं।\n2. अवधि: 1 अप्रैल 2024 से 28 फरवरी 2025 तक, कुल ग्यारह महीने।\n3. मासिक किराया: ₹14,500, हर महीने की पांच तारीख तक बैंक ट्रांसफर द्वारा देना होगा।\n4. सिक्योरिटी जमा: ₹29,000, जो अनुबंध समाप्त होने पर बिना ब्याज के लौटाई जाएगी, नुकसान की कटौती के बाद।\n5. बिजली और पानी का बिल किरायेदार देगा। सोसाइटी मेंटेनेंस मकान मालिक देगा।\n6. किरायेदार बिना लिखित अनुमति के मकान में कोई तोड़फोड़ या बदलाव नहीं करेगा।\n7. दोनों पक्ष एक महीने का नोटिस देकर अनुबंध समाप्त कर सकते हैं।\n8. अनुबंध के नवीनीकरण पर किराये में अधिकतम पांच प्रतिशत की बढ़ोतरी होगी।\n\nगवाह: श्री रमाकांत शुक्ला और श्रीमती सुधा वर्मा।\nहस्ताक्षर: मकान मालिक और किरायेदार।"
+  },
+  {
+   "id": "d032",
+   "name": "Rent receipt October 2024.txt",
+   "folder": "Documents/Ghar",
+   "body": "किराया रसीद\n\nरसीद संख्या: 07\nदिनांक: 4 अक्टूबर 2024\n\nमैं, हरिप्रसाद तिवारी, निवासी मकान नंबर 40, गुलमोहर कॉलोनी, नवपुर, यह प्रमाणित करता हूं कि मुझे श्री अनुराग मिश्रा से मकान नंबर 42, गुलमोहर कॉलोनी, सेक्टर 7, नवपुर की पहली मंजिल का अक्टूबर 2024 महीने का किराया ₹14,500 (चौदह हजार पांच सौ रुपये मात्र) प्राप्त हुआ है।\n\nभुगतान का तरीका: बैंक ट्रांसफर (यूपीआई), लेनदेन संख्या 4281 7730 1192\nअवधि: 1 अक्टूबर 2024 से 31 अक्टूबर 2024\n\nयह रसीद किरायेदार द्वारा आयकर में मकान किराया भत्ता (एचआरए) का दावा करने के लिए दी जा रही है। मकान मालिक का पैन नंबर इस रसीद पर लिखा जाना आवश्यक नहीं है क्योंकि सालाना किराया एक लाख रुपये से थोड़ा ही अधिक है, फिर भी अनुरोध पर दिया जाएगा।\n\nरेवेन्यू स्टांप लगाया गया।\nहस्ताक्षर: हरिप्रसाद तिवारी\n\nनोट: नवंबर का किराया भी पांच तारीख तक जमा करना है, साथ में पानी के बिल का हिस्सा भी।"
+  },
+  {
+   "id": "d003",
+   "name": "स्कूल सूचना - वार्षिक उत्सव.txt",
+   "folder": "Documents/Siya School",
+   "body": "सरस्वती बाल विद्या निकेतन, नवपुर\nसूचना पत्र\n\nदिनांक: 2 दिसंबर 2024\n\nप्रिय अभिभावक,\n\nआपको सूचित करते हुए हर्ष हो रहा है कि विद्यालय का वार्षिक उत्सव शनिवार, 21 दिसंबर 2024 को सायं चार बजे विद्यालय के मुख्य सभागार में आयोजित किया जाएगा। इस वर्ष उत्सव का विषय है हमारी धरती, हमारा भविष्य।\n\nकक्षा तीन की छात्रा सिया मिश्रा समूह नृत्य में भाग ले रही है। अभ्यास प्रतिदिन दोपहर दो बजे से तीन बजे तक होगा। नृत्य के लिए हरे रंग का कुर्ता और सफेद सलवार चाहिए, जो अभिभावकों को स्वयं तैयार करवाना होगा।\n\nकृपया ध्यान दें:\n1. बच्चों को उत्सव के दिन तीन बजे तक विद्यालय पहुंचाना है।\n2. प्रत्येक परिवार के लिए दो प्रवेश पास दिए जाएंगे।\n3. पार्किंग की व्यवस्था विद्यालय के पीछे वाले मैदान में है।\n4. कार्यक्रम के बाद जलपान की व्यवस्था रहेगी।\n\nकिसी भी जानकारी के लिए कक्षा अध्यापिका श्रीमती रेखा पांडे से संपर्क करें।\n\nप्रधानाचार्या\nडॉ. कुसुम लता"
+  },
+  {
+   "id": "d004",
+   "name": "दाल मखनी विधि.md",
+   "folder": "Documents/Recipes",
+   "body": "# दाल मखनी (चार लोगों के लिए)\n\n## सामग्री\n- एक कप साबुत उड़द दाल\n- चौथाई कप राजमा\n- दो बड़े चम्मच मक्खन और एक बड़ा चम्मच घी\n- एक बड़ा प्याज बारीक कटा हुआ\n- एक बड़ा चम्मच अदरक लहसुन का पेस्ट\n- तीन टमाटर की प्यूरी\n- एक छोटा चम्मच कश्मीरी लाल मिर्च\n- आधा छोटा चम्मच गरम मसाला\n- एक छोटा चम्मच कसूरी मेथी\n- चौथाई कप ताजी मलाई या क्रीम\n- स्वाद अनुसार नमक\n\n## विधि\n1. उड़द दाल और राजमा को धोकर रात भर पानी में भिगो दें।\n2. सुबह कुकर में नमक और चार कप पानी के साथ छह से सात सीटी आने तक पकाएं, फिर धीमी आंच पर बीस मिनट और पकाएं।\n3. कड़ाही में घी और मक्खन गरम करें, प्याज सुनहरा होने तक भूनें।\n4. अदरक लहसुन पेस्ट डालें, फिर टमाटर प्यूरी और लाल मिर्च डालकर तेल छोड़ने तक पकाएं।\n5. पकी हुई दाल मिलाएं और धीमी आंच पर कम से कम तीस मिनट तक चलाते हुए पकाएं।\n6. आखिर में गरम मसाला, कसूरी मेथी और मलाई डालें।\n\nसुझाव: मम्मी कहती हैं कि दाल जितनी देर धीमी आंच पर पकेगी, उतनी ही स्वादिष्ट बनेगी। नान या जीरा चावल के साथ परोसें।"
+  },
+  {
+   "id": "d005",
+   "name": "डॉक्टर का पर्चा - बुखार.txt",
+   "folder": "Documents/Health",
+   "body": "आरोग्य क्लिनिक, नवपुर\nडॉ. मीनल जोशी, एम.बी.बी.एस., एम.डी. (मेडिसिन)\nपंजीकरण संख्या: 00000 (काल्पनिक)\n\nदिनांक: 12 अगस्त 2024\nमरीज का नाम: अनुराग मिश्रा\nआयु: 38 वर्ष\n\nशिकायत: तीन दिन से तेज बुखार, शरीर में दर्द, सिर दर्द और कमजोरी।\nजांच: तापमान 102 डिग्री फारेनहाइट, रक्तचाप 118/76, गला हल्का लाल।\n\nदवाइयां:\n1. पैरासिटामोल 650 मिलीग्राम, एक गोली दिन में तीन बार, खाने के बाद, पांच दिन तक (बुखार 100 से ऊपर होने पर ही)।\n2. सेट्रिज़िन 10 मिलीग्राम, रात को एक गोली, तीन दिन।\n3. ओआरएस का घोल, दिन में दो से तीन गिलास।\n\nजांच करवाएं: सीबीसी और डेंगू एनएस1 टेस्ट, कल सुबह खाली पेट।\n\nसलाह: भरपूर आराम करें, खूब पानी और तरल पदार्थ लें, हल्का खाना खाएं। एंटीबायोटिक तभी दी जाएगी जब रिपोर्ट में जरूरत दिखे।\n\nदोबारा दिखाएं: रिपोर्ट के साथ 15 अगस्त को।\n\nहस्ताक्षर: डॉ. मीनल जोशी"
+  },
+  {
+   "id": "d006",
+   "name": "वेतन पर्ची अक्टूबर 2024.txt",
+   "folder": "Documents/Office/Salary",
+   "body": "नवतारा इन्फोटेक प्राइवेट लिमिटेड\nवेतन पर्ची - अक्टूबर 2024\n\nकर्मचारी का नाम: अनुराग मिश्रा\nकर्मचारी कोड: NVT-1187\nपद: वरिष्ठ सॉफ्टवेयर इंजीनियर\nविभाग: पेमेंट्स प्लेटफॉर्म\nकार्य दिवस: 31, उपस्थिति: 30, छुट्टी: 1\n\nआय\nमूल वेतन: ₹52,000\nमकान किराया भत्ता: ₹20,800\nविशेष भत्ता: ₹18,400\nयात्रा भत्ता: ₹3,200\nकुल आय: ₹94,400\n\nकटौती\nभविष्य निधि (पीएफ): ₹6,240\nव्यावसायिक कर: ₹200\nआयकर (टीडीएस): ₹7,850\nसमूह स्वास्थ्य बीमा: ₹650\nकुल कटौती: ₹14,940\n\nशुद्ध वेतन: ₹79,460\nखाते में जमा: सहयोग बैंक, खाता संख्या के अंतिम अंक 4471\nजमा की तारीख: 31 अक्टूबर 2024\n\nइस महीने दिवाली बोनस अलग से 4 नवंबर को जमा किया जाएगा। किसी भी प्रश्न के लिए एचआर पोर्टल पर टिकट दर्ज करें।"
+  },
+  {
+   "id": "d033",
+   "name": "वेतन पर्ची सितंबर 2024.txt",
+   "folder": "Documents/Office/Salary",
+   "body": "नवतारा इन्फोटेक प्राइवेट लिमिटेड\nवेतन पर्ची - सितंबर 2024\n\nकर्मचारी का नाम: अनुराग मिश्रा\nकर्मचारी कोड: NVT-1187\nपद: वरिष्ठ सॉफ्टवेयर इंजीनियर\nविभाग: पेमेंट्स प्लेटफॉर्म\nकार्य दिवस: 30, उपस्थिति: 28, छुट्टी: 2\n\nआय\nमूल वेतन: ₹52,000\nमकान किराया भत्ता: ₹20,800\nविशेष भत्ता: ₹18,400\nयात्रा भत्ता: ₹3,200\nओवरटाइम और ऑन कॉल भत्ता: ₹2,500\nकुल आय: ₹96,900\n\nकटौती\nभविष्य निधि (पीएफ): ₹6,240\nव्यावसायिक कर: ₹200\nआयकर (टीडीएस): ₹8,120\nसमूह स्वास्थ्य बीमा: ₹650\nकुल कटौती: ₹15,210\n\nशुद्ध वेतन: ₹81,690\nखाते में जमा: सहयोग बैंक, खाता संख्या के अंतिम अंक 4471\nजमा की तारीख: 30 सितंबर 2024\n\nऑन कॉल भत्ता उत्पादन सहायता सप्ताह के लिए दिया गया है। वार्षिक वेतन समीक्षा अप्रैल 2025 में होगी।"
+  },
+  {
+   "id": "d007",
+   "name": "शादी का निमंत्रण - अंकित और नेहा.txt",
+   "folder": "Documents/Family",
+   "body": "॥ श्री गणेशाय नमः ॥\n\nशुभ विवाह\n\nसादर आमंत्रण\n\nपरम पिता परमेश्वर की असीम कृपा से हमारे सुपुत्र\nचिरंजीव अंकित मिश्रा\n(सुपुत्र श्रीमती कमला देवी एवं स्वर्गीय श्री दयाशंकर मिश्रा)\nका शुभ विवाह\nआयुष्मती नेहा त्रिपाठी\n(सुपुत्री श्रीमती अंजना एवं श्री विनोद त्रिपाठी, लखनऊ)\nके साथ होना निश्चित हुआ है।\n\nकार्यक्रम\nहल्दी एवं मेहंदी: गुरुवार, 6 फरवरी 2025, प्रातः दस बजे, निवास स्थान पर\nसंगीत संध्या: गुरुवार, 6 फरवरी 2025, सायं सात बजे\nबारात प्रस्थान: शुक्रवार, 7 फरवरी 2025, सायं छह बजे\nविवाह एवं प्रीतिभोज: शुक्रवार, 7 फरवरी 2025, रात्रि आठ बजे से, शुभ मंगलम वाटिका, नवपुर\n\nआप सपरिवार पधारकर वर वधू को आशीर्वाद प्रदान करें।\n\nदर्शनाभिलाषी: अनुराग एवं पूजा मिश्रा, समस्त मिश्रा परिवार\nसंपर्क: 90000 00011\n\nनोट: बच्चों की ओर से, मेरे चाचू की शादी में जरूर आना। सिया"
+  },
+  {
+   "id": "d008",
+   "name": "मामा जी को पत्र.txt",
+   "folder": "Documents/Family",
+   "body": "नवपुर\n10 नवंबर 2024\n\nआदरणीय मामा जी,\nसादर प्रणाम।\n\nआशा है आप और मामी जी स्वस्थ होंगे। यहां सब कुशल मंगल है। मम्मी की तबीयत अब पहले से काफी अच्छी है, डॉक्टर ने शुगर की दवा थोड़ी कम कर दी है और वे रोज सुबह पार्क में टहलने जाती हैं।\n\nआपको यह बताते हुए बहुत खुशी हो रही है कि अंकित भैया की शादी 7 फरवरी को तय हो गई है। लड़की का नाम नेहा है और वह लखनऊ के एक कॉलेज में पढ़ाती है। मम्मी चाहती हैं कि आप और मामी जी कम से कम एक हफ्ता पहले आ जाएं, ताकि हल्दी और संगीत की तैयारी में आपकी मदद मिल सके। आपके लिए ट्रेन का टिकट हम यहां से करवा देंगे, बस तारीख बता दीजिए।\n\nसिया अब तीसरी कक्षा में है और स्कूल के वार्षिक उत्सव में नृत्य कर रही है। वह रोज पूछती है कि नाना वाले मामा जी कब आएंगे।\n\nमामी जी को मेरा प्रणाम कहिएगा। पत्र का उत्तर जल्दी दीजिएगा।\n\nआपका भांजा,\nअनुराग"
+  },
+  {
+   "id": "d009",
+   "name": "गैस सिलेंडर बुकिंग रसीद.txt",
+   "folder": "Documents/Ghar",
+   "body": "श्री गणेश गैस एजेंसी, नवपुर\nएलपीजी सिलेंडर बुकिंग और डिलीवरी रसीद\n\nउपभोक्ता का नाम: कमला देवी मिश्रा\nउपभोक्ता संख्या: SGG-220441\nपता: मकान नंबर 42, गुलमोहर कॉलोनी, सेक्टर 7, नवपुर\nबुकिंग संख्या: 9928 4411\nबुकिंग की तारीख: 18 अक्टूबर 2024\nडिलीवरी की तारीख: 21 अक्टूबर 2024\n\nसिलेंडर: 14.2 किलो घरेलू\nकीमत: ₹853.00\nडिलीवरी शुल्क: शून्य\nभुगतान: डिलीवरी के समय नकद\n\nसब्सिडी: आपके आधार से जुड़े बैंक खाते में सब्सिडी की राशि अलग से जमा की जाएगी, यदि लागू हो।\n\nसुरक्षा निर्देश:\n1. सिलेंडर हमेशा सीधा खड़ा रखें।\n2. गैस की गंध आने पर रेगुलेटर बंद करें, खिड़कियां खोलें और बिजली के स्विच न छुएं।\n3. रबर पाइप हर दो साल में बदलें। आपका पाइप मार्च 2023 में बदला गया था।\n4. अनिवार्य सुरक्षा जांच अगले वर्ष जनवरी में होगी।\n\nअगली बुकिंग कम से कम पंद्रह दिन बाद ही की जा सकती है।"
+  },
+  {
+   "id": "d010",
+   "name": "आलू पराठा रेसिपी.md",
+   "folder": "Documents/Recipes",
+   "body": "# आलू पराठा (आठ पराठे)\n\n## आटे के लिए\n- दो कप गेहूं का आटा\n- आधा छोटा चम्मच नमक\n- एक छोटा चम्मच तेल\n- आवश्यकतानुसार पानी\n\n## भरावन के लिए\n- चार मध्यम आलू, उबले और छिले हुए\n- एक हरी मिर्च बारीक कटी\n- एक छोटा टुकड़ा अदरक कद्दूकस किया हुआ\n- दो बड़े चम्मच हरा धनिया\n- आधा छोटा चम्मच अमचूर\n- आधा छोटा चम्मच भुना जीरा पाउडर\n- आधा छोटा चम्मच लाल मिर्च\n- स्वाद अनुसार नमक\n\n## विधि\n1. आटे में नमक और तेल मिलाकर नरम आटा गूंथ लें और बीस मिनट ढककर रखें।\n2. आलू को अच्छी तरह मसल लें, उसमें सारे मसाले, मिर्च, अदरक और धनिया मिलाएं।\n3. आटे की लोई बनाकर थोड़ा बेलें, बीच में दो चम्मच भरावन रखें और किनारे बंद कर दें।\n4. हल्के हाथ से गोल पराठा बेलें ताकि भरावन बाहर न निकले।\n5. गरम तवे पर दोनों तरफ सेकें, फिर घी लगाकर सुनहरा होने तक पकाएं।\n\nदही, अचार और सफेद मक्खन के साथ गरमागरम परोसें। रविवार के नाश्ते के लिए सिया की पसंदीदा डिश।"
+  },
+  {
+   "id": "d011",
+   "name": "पानी का बिल 2024.txt",
+   "folder": "Documents/Bills",
+   "body": "नवपुर नगर निगम - जल कल विभाग\nपानी और सीवर का बिल\n\nउपभोक्ता का नाम: हरिप्रसाद तिवारी (किरायेदार: अनुराग मिश्रा)\nकनेक्शन संख्या: NNJ-7720-0042\nपता: मकान नंबर 42, गुलमोहर कॉलोनी, सेक्टर 7, नवपुर\nबिल अवधि: अप्रैल 2024 से सितंबर 2024 (छह महीने)\nबिल की तारीख: 15 अक्टूबर 2024\n\nमीटर रीडिंग\nपिछली: 1842 किलोलीटर\nवर्तमान: 1931 किलोलीटर\nकुल खपत: 89 किलोलीटर\n\nपानी शुल्क: ₹1,246.00\nसीवर शुल्क: ₹374.00\nजल उपकर: ₹62.00\nकुल देय राशि: ₹1,682.00\nअंतिम तिथि: 15 नवंबर 2024\n\nनगर निगम की वेबसाइट या जन सुविधा केंद्र पर भुगतान करें। पानी की बर्बादी रोकें, टपकते नल की शिकायत तुरंत दर्ज करें। अगले छह महीने का बिल अप्रैल 2025 में आएगा।\n\nनोट: मकान मालिक से तय हुआ है कि पहली मंजिल का हिस्सा आधा, यानी ₹841, किरायेदार देगा।"
+  },
+  {
+   "id": "d012",
+   "name": "बैंक पासबुक नोट्स.txt",
+   "folder": "Documents/Finance",
+   "body": "सहयोग बैंक - खातों का हिसाब (अपने लिए नोट्स)\n\nबचत खाता: अनुराग मिश्रा, शाखा गुलमोहर कॉलोनी, खाता संख्या के अंतिम अंक 4471\nपासबुक अपडेट की तारीख: 9 नवंबर 2024\nशेष राशि: ₹1,42,380\n\nसावधि जमा (एफडी)\n1. एफडी संख्या 1: ₹2,00,000, ब्याज दर 7.1 प्रतिशत, शुरू 15 मार्च 2023, परिपक्वता 15 मार्च 2025। सिया की पढ़ाई के लिए।\n2. एफडी संख्या 2: ₹50,000, ब्याज दर 6.8 प्रतिशत, शुरू 1 जनवरी 2024, परिपक्वता 1 जनवरी 2026। मम्मी के नाम पर नामांकित।\n\nआवर्ती जमा (आरडी): ₹5,000 हर महीने, अवधि तीन साल, शुरू जून 2023, अंकित की शादी के खर्च के लिए।\n\nपीपीएफ खाता: इस वित्त वर्ष में अब तक ₹60,000 जमा, मार्च से पहले ₹90,000 और जमा करने हैं ताकि पूरी छूट मिले।\n\nध्यान रखें:\n- मार्च 2025 में एफडी 1 पूरी होने पर उसे दोबारा तीन साल के लिए जमा करना है।\n- केवाईसी अपडेट दिसंबर तक कराना है, नहीं तो खाता बंद हो सकता है।\n- नामांकन में पूजा का नाम जोड़ना बाकी है।"
+  },
+  {
+   "id": "d034",
+   "name": "Photo album list - Shimla trip.md",
+   "folder": "Pictures/Shimla 2024",
+   "body": "# शिमला यात्रा की फोटो - एल्बम सूची\nयात्रा: 14 से 19 मई 2024, अनुराग, पूजा, सिया और मम्मी\n\n## फोटो फोल्डर\n- दिन 1: कालका से शिमला टॉय ट्रेन, सुरंगों और पुलों की फोटो, 86 फोटो\n- दिन 2: मॉल रोड, रिज मैदान, क्राइस्ट चर्च, सिया की घोड़े पर सवारी, 112 फोटो\n- दिन 3: कुफरी में याक के साथ फोटो, बर्फ नहीं मिली पर बादल बहुत सुंदर थे, 74 फोटो\n- दिन 4: जाखू मंदिर, बंदरों से बचते हुए, मम्मी की सबसे अच्छी फोटो मंदिर की सीढ़ियों पर, 58 फोटो\n- दिन 5: नालदेहरा का गोल्फ मैदान और देवदार के जंगल, परिवार की ग्रुप फोटो, 91 फोटो\n\n## प्रिंट करवाने के लिए चुनी गई फोटो\n1. टॉय ट्रेन की खिड़की से सिया\n2. रिज मैदान पर पूरा परिवार\n3. सूर्यास्त के समय मॉल रोड\n4. मम्मी और सिया जाखू मंदिर पर\n5. पूजा और मैं देवदार के पेड़ों के बीच\n\nकुल 421 फोटो और 23 वीडियो। सारी फोटो गूगल ड्राइव के अलावा बाहरी हार्ड डिस्क में भी रखी हैं। मामा जी को भेजने के लिए बीस फोटो का छोटा एल्बम बनाना है।"
+  },
+  {
+   "id": "d013",
+   "name": "train ticket jaipur.txt",
+   "folder": "Downloads",
+   "body": "Train ticket - Navpur se Jaipur\n\nPNR: 4521 887 093\nTrain: 12988 Navpur Jaipur Superfast Express\nDate: 22 Dec 2024 (Sunday)\nDeparture: Navpur Jn, 06:15 subah\nArrival: Jaipur Jn, 13:40 dopahar\nClass: 3A (AC 3 tier)\nQuota: General\n\nPassengers:\n1. Anurag Mishra, 38, M, B2 berth 33 lower, confirmed\n2. Pooja Mishra, 35, F, B2 berth 36 lower, confirmed\n3. Siya Mishra, 8, F, B2 berth 34 middle, confirmed\n4. Kamla Devi Mishra, 64, F, senior citizen, RAC 12, abhi confirm nahi hua\n\nTotal fare: Rs 4,385 (senior citizen concession nahi mila)\nPaid via UPI.\n\nNotes: mummy ka ticket RAC mein hai, chart banne ke baad check karna. Return ticket 26 Dec ka abhi book karna hai, Tatkal mein try karenge. Jaipur mein Pooja ki mausi ke ghar rukna hai, station se Ola ya auto lena. Khane ke liye theple aur achaar pack karna, train mein pantry hai par bharosa nahi."
+  },
+  {
+   "id": "d014",
+   "name": "kal ki meeting notes.txt",
+   "folder": "Documents/Office",
+   "body": "Meeting notes - 14 Nov 2024 (Thursday), payments team weekly sync\nLog: Anurag, Vikram sir (manager), Priyanka, Sameer, Fatima, Rohit (QA)\n\n1. UPI autopay feature ka release\n- Vikram sir ne bola release 28 Nov ko hoga, pehle 25 Nov tha.\n- QA mein 3 bugs abhi bhi open hain, Rohit Monday tak fix verify karega.\n- Decide hua ki feature pehle sirf 10 percent users ko milega, phir dheere dheere badhayenge.\n\n2. Database migration\n- Sameer ne bataya ki staging pe migration ho gaya, prod ke liye weekend window chahiye.\n- Saturday raat 11 baje se subah 3 baje tak downtime approve hua.\n- Anurag aur Sameer on call rahenge.\n\n3. Hiring\n- Do naye backend developers ke interviews agle hafte. Anurag aur Priyanka panel mein.\n\n4. Baaki baatein\n- Team lunch Friday ko, Fatima restaurant book karegi.\n- Diwali bonus 4 Nov ko aa gaya hai, sab check kar lo.\n\nAction items:\n- Anurag: release checklist banana, Wednesday tak\n- Rohit: regression testing report\n- Sameer: rollback plan likhna"
+  },
+  {
+   "id": "d015",
+   "name": "ghar ka budget nov.txt",
+   "folder": "Documents/Finance",
+   "body": "Ghar ka budget - November 2024\n\nIncome\n- Anurag salary (in hand): Rs 79,460\n- Pooja tuition se: Rs 12,000\n- Total: Rs 91,460\n\nKharcha\n- Kiraya: 14,500\n- Home loan EMI (naya flat, construction mein): 18,250\n- Car loan EMI: 9,870\n- Bijli bill (October ka): 2,180\n- Pani ka bill hissa: 841\n- Society maintenance: 0 (makaan malik deta hai)\n- Mobile aur internet: 1,450\n- Kirana aur sabzi: 11,000\n- Doodh wala: 2,340\n- Siya ki school fees (quarterly ka hissa): 6,500\n- Mummy ki dawai: 2,800\n- Petrol: 4,000\n- Bahar khana aur ghoomna: 3,000\n- Ankit bhaiya ki shaadi ke liye RD: 5,000\n- SIP mutual fund: 5,000\n\nTotal kharcha: approx Rs 87,000\nBachat: approx Rs 4,500\n\nNotes: is mahine shaadi ki shopping shuru hogi to bahar khana kam karna padega. Diwali bonus alag rakha hai, usse Pooja ke liye lehenga aur Ankit ke liye gift lena hai."
+  },
+  {
+   "id": "d016",
+   "name": "car loan emi reminder.txt",
+   "folder": "Documents/Finance/Loans",
+   "body": "SMS aur email ka copy - Sahyog Bank Car Loan\n\nDear Anurag Mishra ji,\nAapke car loan account no. XXXX7781 ki agli EMI Rs 9,870 ki 5 Dec 2024 ko auto debit hogi. Kripya account mein paryapt balance rakhein. Bounce hone par Rs 590 charge lagega.\n\nLoan details (apne notes):\n- Gaadi: 2022 ki white hatchback, Sahyog Bank se loan\n- Loan amount: Rs 5,40,000\n- Byaj dar: 8.9 percent\n- Tenure: 60 mahine, shuru Jan 2022, khatam Dec 2026\n- EMI date: har mahine 5 tareekh\n- Abhi tak 35 EMI bhar di hain, 25 baaki\n- Outstanding principal approx Rs 2,48,000\n\nSochna hai:\n- Diwali bonus se 50,000 ka part prepayment karein? Bank ne bola prepayment charge 2 percent lagega.\n- Car insurance renewal bhi March mein hai, uska bhi paisa alag rakhna.\n\nAuto debit Sahyog Bank savings account 4471 se hota hai, salary wahi aati hai to dikkat nahi hai."
+  },
+  {
+   "id": "d017",
+   "name": "mummy ki dawai list.txt",
+   "folder": "Documents/Health",
+   "body": "Mummy ki dawaiyan - Dr. Prakash Agarwal (Shubh Diabetes aur Heart Clinic) ka parcha, 2 Nov 2024 ke hisaab se\n\nSubah khali pet:\n- Thyroid ki goli 50 mcg, 1 goli, chai se aadha ghanta pehle\n\nNashte ke baad:\n- Sugar ki goli (Metformin 500), 1 goli, doctor ne pehle 1000 thi ab 500 kar di\n- BP ki goli (Telmisartan 40), 1 goli\n- Vitamin D, sirf Sunday ko, 1 sachet doodh mein\n\nRaat ke khane ke baad:\n- Sugar ki goli (Metformin 500), 1 goli\n- Cholesterol ki goli (Atorvastatin 10), 1 goli\n\nZarurat padne par:\n- Ghutne ke dard ke liye gel, din mein do baar\n\nTests:\n- HbA1c 7.1 aaya tha, teen mahine baad Feb mein dobara karwana\n- Har mahine BP aur sugar check, diary mein likhna\n\nDawai Shri Ram Medical se leni hai, mahine ka kharcha lagbhag Rs 2,800. Dawai khatam hone se 5 din pehle order karna. Doctor ka agla appointment 1 Feb 2025, subah 11 baje."
+  },
+  {
+   "id": "d018",
+   "name": "bhaiya ki shaadi tayari.md",
+   "folder": "Documents/Family",
+   "body": "# Ankit bhaiya ki shaadi - tayari checklist\nShaadi: 7 Feb 2025, Shubh Mangalam Vatika, Navpur\n\n## Ho gaya\n- [x] Venue book, advance Rs 1,00,000 diya\n- [x] Pandit ji (Shastri ji) se muhurat confirm\n- [x] Card print ho gaye, 300 card\n- [x] Halwai: Gupta caterers, per plate Rs 650, 450 log\n\n## Baaki hai\n- [ ] Card baantna, Lucknow wale rishtedaron ko courier\n- [ ] Ghodi aur band baja book karna, Shyam band se baat karni hai\n- [ ] Mehendi wali ke liye 6 Feb subah ka time\n- [ ] DJ sangeet ke liye, budget 25,000 tak\n- [ ] Mama ji aur mami ji ke liye train ticket\n- [ ] Rishtedaron ke rukne ke liye hotel mein 10 kamre\n- [ ] Pooja ka lehenga aur mera sherwani, Chandni Chowk jaana hai\n- [ ] Siya ka lehenga aur dance practice\n- [ ] Gifts: Neha ke liye gold set, mummy ke hisaab se\n\n## Budget\nTotal budget approx Rs 8 lakh. RD se 1.8 lakh, Ankit ki bachat 4 lakh, baaki mummy aur main denge.\n\nYaad rakhna: halwai ko final ginti 30 Jan tak dena hai."
+  },
+  {
+   "id": "d019",
+   "name": "rajma chawal recipe.md",
+   "folder": "Documents/Recipes",
+   "body": "# Rajma chawal - Pooja style\n4 logon ke liye\n\n## Saaman\n- 1 cup rajma (Jammu wala chhota rajma best hai)\n- 2 pyaz bareek kati\n- 3 tamatar ki puree\n- 1 tbsp adrak lehsun paste\n- 2 hari mirch\n- 1 tsp jeera\n- 1 tej patta\n- 1 tsp dhaniya powder, 1 tsp lal mirch, half tsp haldi\n- 1 tsp rajma masala ya garam masala\n- 2 tbsp ghee ya tel\n- Namak swaad anusaar\n- Hara dhaniya\n\n## Tarika\n1. Rajma ko raat bhar 8 se 10 ghante bhigo do.\n2. Subah cooker mein namak aur paani ke saath 6 se 7 seeti lagao, rajma bilkul naram hona chahiye.\n3. Kadhai mein ghee garam karo, jeera aur tej patta daalo, phir pyaz ko sunehra hone tak bhuno.\n4. Adrak lehsun paste aur hari mirch daalo, phir tamatar puree aur saare masale. Tel chhodne tak pakao.\n5. Rajma paani ke saath daalo, kuch rajma halka sa mash kar do taaki gravy gaadhi ho.\n6. Dheemi aanch pe 20 minute pakao, upar se hara dhaniya.\n\nChawal: basmati ko 30 minute bhigo ke jeera daal ke banao. Saath mein pyaz ka salad aur dahi. Sunday lunch fix!"
+  },
+  {
+   "id": "d020",
+   "name": "society maintenance notice.txt",
+   "folder": "Documents/Ghar",
+   "body": "Gulmohar Colony Residents Welfare Association (RWA)\nNotice - sabhi nivasiyon ke liye\nDate: 1 Nov 2024\n\nSabhi residents ko suchit kiya jata hai ki 1 Dec 2024 se monthly maintenance charge badal raha hai:\n- 2 BHK floor: Rs 1,800 se badhkar Rs 2,100 per month\n- 3 BHK floor: Rs 2,400 se badhkar Rs 2,750 per month\n\nBadhotri ka kaaran:\n- Naye security guards (ab 24 ghante 3 guard)\n- CCTV camera ki maintenance\n- Park ki safai aur maali ki salary\n- Paani ki tanki ki safai har 6 mahine\n\nMaintenance har mahine ki 10 tareekh tak RWA ke account mein UPI ya cheque se jama karein. Late hone par Rs 100 fine.\n\nAGM: Sunday 17 Nov 2024, subah 10 baje, community hall mein. Sabhi makaan maalik aur kirayedar aa sakte hain.\n\nZaroori: Diwali ke baad kooda gaadi ka time subah 7:30 kar diya gaya hai. Gaadiyaan gate ke saamne park na karein.\n\nSecretary, RWA\nShri Mahesh Chandra Saxena"
+  },
+  {
+   "id": "d021",
+   "name": "bike service record.txt",
+   "folder": "Documents/Vehicles",
+   "body": "Bike service record - 2021 wali 125cc bike, number NP-07-AB-0000 (fictional)\nService center: Raftaar Auto Works, Sector 9 market\n\n1. 12 Jan 2024 - 18,450 km\n- Engine oil change, oil filter saaf\n- Brake shoe naye (peeche wale)\n- Chain adjust aur lubrication\n- Bill: Rs 1,150\n\n2. 20 May 2024 - 21,980 km\n- Engine oil change\n- Air filter naya\n- Clutch cable badli\n- Bill: Rs 980\n\n3. 8 Oct 2024 - 25,310 km\n- Full servicing, engine oil, spark plug naya\n- Battery check, paani daala\n- Aage ka tyre ghisa hua hai, mechanic ne bola 2,000 km mein badalna\n- Headlight bulb badla\n- Bill: Rs 1,640, Paytm se diya\n\nAgli servicing: Feb 2025 ya 28,500 km, jo pehle ho.\n\nInsurance: third party plus own damage, Suraksha General Insurance, 14 March 2025 tak valid. PUC certificate 30 Dec 2024 ko khatam, uske pehle banwana hai, warna challan kat sakta hai."
+  },
+  {
+   "id": "d022",
+   "name": "goa trip plan - dosto ke saath.txt",
+   "folder": "Documents/Travel",
+   "body": "Goa trip plan - college ke dost, Jan 2025\nLog: Anurag, Kunal, Imran, Deepak, Saurabh (sab ki wife ne permission de di hai, finally)\n\nDates: 16 Jan (Thursday) se 19 Jan (Sunday)\n\nTravel:\n- Delhi se Goa flight, Mopa airport. Kunal ne book kar di, Rs 6,800 per person return.\n- Navpur se Delhi train 15 Jan raat ko.\n\nRukna:\n- North Goa mein Anjuna ke paas villa, 3 kamre aur swimming pool. Rs 9,000 per night total, matlab per person approx Rs 5,400 teen raat ka.\n\nPlan:\n- Day 1: villa check in, shaam ko Anjuna beach, raat ko beach shack pe dinner\n- Day 2: scooty rent, Chapora fort, Vagator beach, sunset\n- Day 3: South Goa, Palolem beach, old Goa church, raat ko casino cruise? Imran mana kar raha hai\n- Day 4: shopping Mapusa market, shaam ki flight\n\nBudget: approx Rs 25,000 per person sab mila ke.\n\nTodo: sab apna share Kunal ko UPI karo 30 Nov tak. Saurabh ka license check karna scooty ke liye."
+  },
+  {
+   "id": "d035",
+   "name": "kirana list.txt",
+   "folder": "Desktop",
+   "body": "Kirana ka saaman - is hafte ki list (Sharma General Store se)\n\nAnaaj aur daal:\n- Aata 10 kg\n- Basmati chawal 5 kg\n- Arhar daal 2 kg\n- Moong daal 1 kg\n- Rajma 1 kg (Jammu wala)\n- Kala chana 1 kg\n- Sabut urad 500 g (daal makhani ke liye)\n\nMasale:\n- Haldi, lal mirch, dhaniya powder, 200 g each\n- Garam masala ka packet\n- Kasuri methi\n- Jeera 250 g\n\nTel aur ghee:\n- Sarson ka tel 2 litre\n- Desi ghee 1 kg\n\nBaaki:\n- Cheeni 2 kg, chai patti 500 g\n- Namak, poha, sooji\n- Biscuit Siya ke liye\n- Bartan dhone ka sabun, kapde dhone ka powder\n- Agarbatti aur diya bati\n\nNote: Sharma ji ko pichhla udhaar Rs 640 bhi dena hai. Mummy ke liye sugar free biscuit aur daliya alag se. Home delivery 500 se upar free hai."
+  },
+  {
+   "id": "d036",
+   "name": "doodh wale ka hisaab.csv",
+   "folder": "Documents/Ghar",
+   "body": "Doodh wale ka hisaab - Ramesh bhaiya (Gwala), October 2024\nRate: Rs 62 per litre (bhains ka doodh), Rs 56 per litre (gaay ka)\n\nTareekh,Subah (litre),Shaam (litre),Kism,Note\n1-10 Oct,1.5,0.5,bhains,roz\n11 Oct,1.5,1.5,bhains,Navratri mehman aaye\n12 Oct,2,1.5,bhains,Dussehra\n13-20 Oct,1.5,0.5,bhains,roz\n21-24 Oct,0,0,-,Lucknow gaye the\n25-31 Oct,1.5,0.5,bhains,roz\n\nJod: 1-10 Oct 20 litre, 11 Oct 3, 12 Oct 3.5, 13-20 Oct 16, 25-31 Oct 14, total 56.5 litre\nKul rakam: 56.5 x 62 = Rs 3,503\nAdvance diya tha: Rs 1,000\nBaaki dena: Rs 2,503, 3 Nov ko cash de diya\n\nNotes: Nov se Ramesh bhaiya rate Rs 65 kar rahe hain. Diwali par 2 kg paneer ka alag order, Rs 420 per kg. Doodh ka hisaab har mahine calendar par tick lagakar rakhna."
+  },
+  {
+   "id": "d037",
+   "name": "papa ka pension kaam.txt",
+   "folder": "Documents/Family",
+   "body": "Mummy ki family pension ka kaam - notes\n\nPapa (late Shri Dayashankar Mishra) railway se retire hue the, unke jaane ke baad mummy ko family pension milti hai.\n\nPension details:\n- Pension payment order (PPO) number: 0000 0000 1234 (fictional)\n- Bank: Sahyog Bank, Gulmohar Colony branch, mummy ka pension account\n- Monthly family pension: approx Rs 28,600 (DA milake)\n\nHar saal ka kaam:\n- Jeevan pramaan (life certificate) Nov mein jama karna zaroori hai. Is saal 6 Nov 2024 ko bank jaake biometric se kar diya, receipt mili.\n- Agar Nov mein nahi kiya to Dec se pension ruk jaati hai.\n\nPending kaam:\n- DA arrears ka paisa July se nahi aaya, railway pension cell ko email kiya 12 Oct ko, reference RPC-2024-5512.\n- Medical card (RELHS) ka renewal, March 2025 tak.\n- Mummy ke account mein nominee mera naam update karna.\n\nContact: railway pension adalat har mahine ke pehle Monday ko hoti hai, DRM office Navpur mein. Saare papers ki photocopy blue file mein hai."
+  },
+  {
+   "id": "d038",
+   "name": "bijli bill complaint.txt",
+   "folder": "Documents/Bills",
+   "body": "Ujala Vidyut Vitaran Nigam - online complaint ka copy\n\nComplaint no: UV-C-2024-778310\nDate: 9 July 2024\nUpbhokta sankhya: 3301 4478 9021\nNaam: Anurag Mishra\n\nShikayat ka vivran (jo maine likha):\nMera June 2024 ka bill Rs 3,214 aaya hai, khapat 429 unit dikha rahe hain. Hamare ghar mein sirf ek AC hai aur wo bhi raat ko 6 ghante chalta hai. Pichhle saal June mein khapat 330 unit thi. Mujhe lagta hai meter tez chal raha hai ya reading galat li gayi hai. Kripya meter ki jaanch karwayein.\n\nNigam ka jawab (15 July 2024):\nAapke meter ki jaanch 13 July ko ki gayi. Meter sahi paya gaya, error limit ke andar hai. Reading bhi sahi hai. Adhik khapat garmi aur AC ke upyog ke kaaran hai. Bill sahi hai, kripya samay par bhugtan karein.\n\nMere notes: theek hai, bill bhar diya 18 July ko. Ab AC 26 degree pe chalana hai aur purane fridge ko badalne ka sochna hai, wo bahut bijli khata hai."
+  },
+  {
+   "id": "d023",
+   "name": "Interview call letter.txt",
+   "folder": "Documents/Office/Jobs",
+   "body": "Pratham FinServ Technologies Pvt Ltd\nHR Department\n\nदिनांक: 4 नवंबर 2024\n\nप्रिय श्री अनुराग मिश्रा,\n\nविषय: Senior Backend Engineer पद के लिए interview call letter\n\nआपके आवेदन और online coding test में अच्छे प्रदर्शन के आधार पर हम आपको final round interview के लिए आमंत्रित करते हैं।\n\nInterview का विवरण:\nतारीख: सोमवार, 18 नवंबर 2024\nसमय: सुबह 10:30 बजे से दोपहर 2:00 बजे तक\nस्थान: Pratham FinServ, 5th floor, Saarthi Tech Park, Gurugram (या video call, अगर आप पहले से बता दें)\n\nInterview के rounds:\n1. System design round, 60 मिनट\n2. Hiring manager के साथ discussion, 45 मिनट\n3. HR round: salary expectation और notice period पर चर्चा\n\nकृपया साथ लाएं: updated resume की दो copies, सरकारी photo ID, पिछली तीन salary slips और relieving letter, यदि उपलब्ध हो।\n\nकृपया इस email का reply करके 8 नवंबर तक अपनी उपस्थिति confirm करें। यात्रा खर्च की प्रतिपूर्ति company की policy के अनुसार की जाएगी।\n\nशुभकामनाओं सहित,\nशालिनी कपूर\nTalent Acquisition Lead"
+  },
+  {
+   "id": "d024",
+   "name": "Home loan EMI statement.txt",
+   "folder": "Documents/Finance/Loans",
+   "body": "Kesar Housing Finance Ltd\nHome Loan Statement - वित्त वर्ष 2024-25 (अप्रैल से अक्टूबर)\n\nऋणी: अनुराग मिश्रा, सह ऋणी: पूजा मिश्रा\nLoan account number: KHF-HL-00451902\nसंपत्ति: Flat B-704, Aashiyana Greens, सेक्टर 21, नवपुर (निर्माणाधीन)\n\nSanctioned amount: ₹38,00,000\nअब तक disbursed: ₹22,80,000 (निर्माण के तीन चरणों में)\nब्याज दर: 8.65 प्रतिशत floating\nTenure: 240 महीने\n\nवर्तमान में pre-EMI चल रही है क्योंकि पूरा loan disburse नहीं हुआ है।\nMonthly EMI (pre-EMI ब्याज): ₹18,250\nEMI की तारीख: हर महीने की 10 तारीख, NACH auto debit, Sahyog Bank खाता 4471 से\n\nअप्रैल से अक्टूबर 2024 तक\nकुल EMI भुगतान: ₹1,27,750\nजिसमें ब्याज: ₹1,27,750, मूलधन: ₹0\n\nIncome tax के लिए: pre-EMI का ब्याज possession मिलने के बाद पांच बराबर किस्तों में section 24(b) के तहत claim किया जा सकता है। Builder के अनुसार possession मार्च 2026 तक मिलेगा, उसके बाद full EMI लगभग ₹33,400 हो जाएगी।"
+  },
+  {
+   "id": "d025",
+   "name": "Credit card bill सितंबर.txt",
+   "folder": "Documents/Finance/Cards",
+   "body": "Sahyog Bank Platinum Credit Card\nStatement - सितंबर 2024\n\nकार्डधारक: अनुराग मिश्रा\nCard number: XXXX XXXX XXXX 2290\nStatement date: 20 सितंबर 2024\nPayment due date: 10 अक्टूबर 2024\nCredit limit: ₹2,50,000\n\nलेनदेन का विवरण:\n24 अगस्त - Supermarket, ₹4,860\n28 अगस्त - Petrol pump, ₹2,500\n2 सितंबर - Online shopping, Siya के school shoes और bag, ₹3,240\n5 सितंबर - Movie tickets, ₹980\n9 सितंबर - Shri Ram Medical, मम्मी की दवाइयां, ₹2,760\n14 सितंबर - Flight booking, Delhi-Bengaluru, ₹11,420\n17 सितंबर - Restaurant, ₹1,850\n\nकुल बकाया राशि: ₹27,610\nन्यूनतम देय राशि: ₹1,380\nReward points इस महीने: 552, कुल: 8,940\n\nध्यान दें: पूरी राशि due date तक न चुकाने पर 3.5 प्रतिशत मासिक ब्याज लगेगा। Auto pay setup नहीं है, इसलिए 8 अक्टूबर तक UPI से पूरा bill भर देना है। Flight वाला खर्च office से reimburse होगा।"
+  },
+  {
+   "id": "d026",
+   "name": "Mobile recharge aur bill.txt",
+   "folder": "Documents/Bills",
+   "body": "परिवार के mobile और internet का हिसाब - 2024\n\n1. मेरा नंबर (postpaid), Tarang Telecom\nPlan: ₹699 per month, unlimited calls, 75 GB data, family add-on के साथ\nPooja का नंबर इसी plan में add-on है, ₹199 अलग\nOctober का bill: ₹1,048 (GST सहित), due date 18 नवंबर\nAuto pay credit card से होता है।\n\n2. मम्मी का नंबर (prepaid)\nRecharge: ₹299, 28 दिन, रोज 1.5 GB\nपिछला recharge: 2 नवंबर 2024, अगला 30 नवंबर तक करना है\nमम्मी को video call के लिए data चाहिए, इसलिए 1.5 GB वाला ही रखें।\n\n3. घर का WiFi, Sparkline Broadband\nPlan: 200 Mbps, ₹799 per month, साल भर का एक साथ भरा, ₹8,400 (दो महीने free)\nValidity: 31 मार्च 2025 तक\nRouter की complaint: शाम को speed कम हो जाती है, ticket SB-55120 खुला है।\n\nकुल महीने का खर्च लगभग ₹2,050। अगले साल से मम्मी का नंबर भी postpaid family plan में जोड़ने का सोचना है, ताकि हर महीने recharge याद न रखना पड़े।"
+  },
+  {
+   "id": "d027",
+   "name": "School fees receipt.txt",
+   "folder": "Documents/Siya School",
+   "body": "सरस्वती बाल विद्या निकेतन, नवपुर\nFee Receipt\n\nReceipt number: SBVN/2024-25/2281\nदिनांक: 8 अक्टूबर 2024\n\nछात्रा का नाम: सिया मिश्रा\nकक्षा: 3, सेक्शन: ब\nAdmission number: 4471\nपिता का नाम: अनुराग मिश्रा\n\nशुल्क विवरण (दूसरी तिमाही, अक्टूबर से दिसंबर 2024):\nTuition fee: ₹15,600\nComputer fee: ₹1,200\nActivity fee: ₹900\nTransport fee (bus route 7): ₹4,800\nAnnual function contribution: ₹500\nकुल राशि: ₹23,000\n\nभुगतान का तरीका: Online, school ERP portal के माध्यम से, transaction ID SBVN88140021\nविलंब शुल्क: शून्य\n\nटिप्पणी: तीसरी तिमाही (जनवरी से मार्च 2025) की fees 10 जनवरी 2025 तक जमा करनी है। Tuition fee की रसीद income tax में section 80C के तहत छूट के लिए उपयोग की जा सकती है, transport fee पर छूट नहीं मिलती।\n\nलेखाकार के हस्ताक्षर"
+  },
+  {
+   "id": "d028",
+   "name": "Health insurance policy नवीनीकरण.txt",
+   "folder": "Documents/Insurance",
+   "body": "Suraksha Health Insurance Co. Ltd\nFamily Floater Policy - नवीनीकरण की सूचना (renewal notice)\n\nPolicy number: SHI-FF-2023-00918\nप्रस्तावक: अनुराग मिश्रा\nबीमित सदस्य: अनुराग मिश्रा (38), पूजा मिश्रा (35), सिया मिश्रा (8), कमला देवी मिश्रा (64)\nSum insured: ₹10,00,000 family floater\nवर्तमान policy की अवधि: 15 दिसंबर 2023 से 14 दिसंबर 2024\n\nनवीनीकरण premium: ₹38,640 (GST सहित), पिछले साल ₹33,900 था\nबढ़ोतरी का कारण: मम्मी की उम्र 60 से ऊपर होने के कारण age band बदलना\nNo claim bonus: इस वर्ष कोई claim नहीं, इसलिए sum insured में 10 प्रतिशत यानी ₹1,00,000 की बढ़ोतरी\n\nमहत्वपूर्ण बातें:\n- मम्मी की diabetes और BP पहले से घोषित हैं, waiting period पूरा हो चुका है।\n- Cashless इलाज के लिए network hospital की सूची app में है।\n- Premium पर section 80D के तहत income tax छूट मिलेगी, मम्मी senior citizen हैं इसलिए अतिरिक्त छूट।\n\nकृपया 14 दिसंबर 2024 से पहले renew करें। Grace period 30 दिन है, लेकिन उस दौरान claim नहीं मिलेगा।"
+  },
+  {
+   "id": "d029",
+   "name": "Office meeting - project update.md",
+   "folder": "Documents/Office",
+   "body": "# Project update meeting - UPI Autopay\nतारीख: 21 नवंबर 2024, दोपहर 3 बजे, conference room Neelgiri\nउपस्थित: Vikram (manager), अनुराग, प्रियंका, समीर, रोहित, और product team से अदिति\n\n## Status\n- Feature का release 28 नवंबर को तय था, लेकिन payment gateway partner की API में बदलाव के कारण अब 5 दिसंबर को होगा।\n- QA में सारे critical bugs बंद हो गए हैं। दो minor bugs अगले sprint में।\n- Database migration पिछले शनिवार सफल रहा, कोई downtime complaint नहीं आई।\n\n## निर्णय\n1. Release पहले 10 प्रतिशत users के लिए, फिर एक हफ्ते बाद 50 प्रतिशत।\n2. Dashboard पर failure rate 2 प्रतिशत से ऊपर जाए तो तुरंत rollback।\n3. अनुराग release manager रहेंगे, समीर backup on call।\n\n## Action items\n- अनुराग: release checklist update करना और partner के साथ sandbox testing, 2 दिसंबर तक\n- प्रियंका: customer support team के लिए FAQ document\n- रोहित: final regression report\n- अदिति: in-app announcement का text\n\nअगली meeting: 28 नवंबर, उसी समय।"
+  },
+  {
+   "id": "d030",
+   "name": "Flight booking दिल्ली-बेंगलुरु.eml",
+   "folder": "Documents/Travel",
+   "body": "From: Gagan Airways <bookings@gaganair.example>\nTo: Anurag Mishra <anurag.mishra@mailbox.example>\nSubject: Booking confirmed - Delhi to Bengaluru - PNR GX7K2M\nDate: Sat, 14 Sep 2024 21:18:40 +0530\n\nप्रिय अनुराग मिश्रा,\n\nआपकी flight booking confirm हो गई है।\n\nPNR: GX7K2M\nयात्री: Mr Anurag Mishra\n\nजाने की flight: GA 515, बुधवार 16 अक्टूबर 2024\nDelhi (DEL) Terminal 1, प्रस्थान सुबह 07:05\nBengaluru (BLR) Terminal 1, आगमन सुबह 09:55\n\nवापसी की flight: GA 528, शुक्रवार 18 अक्टूबर 2024\nBengaluru (BLR) प्रस्थान शाम 19:40\nDelhi (DEL) आगमन रात 22:30\n\nSeat: 12C दोनों तरफ\nBaggage: 15 kg check-in, 7 kg cabin\nकुल किराया: ₹11,420 (credit card से भुगतान)\n\nWeb check-in प्रस्थान से 48 घंटे पहले खुलेगा। Boarding gate प्रस्थान से 25 मिनट पहले बंद हो जाएगा। कृपया सरकारी photo ID साथ रखें।\n\nNote to self: यह office की client visit है, Bengaluru office में दो दिन workshop। Hotel company ने book किया है, बिल reimbursement के लिए HR को भेजना है।"
+  },
+  {
+   "id": "d039",
+   "name": "Offer letter - Navtara Infotech.txt",
+   "folder": "Documents/Office/Jobs",
+   "body": "Navtara Infotech Pvt Ltd\nOffer Letter\n\nदिनांक: 2 फरवरी 2022\n\nप्रिय श्री अनुराग मिश्रा,\n\nहमें आपको Senior Software Engineer के पद का offer देते हुए खुशी हो रही है। आपकी joining date 1 मार्च 2022 होगी और आपकी posting Navpur office, Payments Platform team में होगी।\n\nCompensation (CTC):\nकुल वार्षिक CTC: ₹13,20,000\nजिसमें basic salary ₹6,24,000, HRA ₹2,49,600, special allowance, provident fund में employer का योगदान और ₹50,000 तक का performance bonus शामिल है।\n\nअन्य लाभ:\n- Group health insurance ₹5 लाख, परिवार सहित\n- साल में 24 paid leaves और 10 सरकारी छुट्टियां\n- Hybrid working, हफ्ते में तीन दिन office\n\nProbation period छह महीने का होगा, जिसके दौरान notice period 15 दिन और उसके बाद 60 दिन रहेगा।\n\nयह offer आपके documents और पिछले employer से reference की जांच पर निर्भर है। कृपया इस letter की signed copy 9 फरवरी 2022 तक email करें।\n\nशुभकामनाओं सहित,\nमेघा राठौर\nHR Manager, Navtara Infotech"
+  },
+  {
+   "id": "d040",
+   "name": "Income tax return notes 2024.txt",
+   "folder": "Documents/Finance/Tax",
+   "body": "Income tax return - वित्त वर्ष 2023-24 (assessment year 2024-25) के notes\n\nITR form: ITR-1, filing की तारीख 22 जुलाई 2024, acknowledgement number 0000000000 (काल्पनिक)\nTax regime: old regime चुना, क्योंकि HRA, 80C और home loan ब्याज की छूट ज्यादा है।\n\nआय:\n- Salary (Form 16 के अनुसार): ₹12,64,000\n- Savings account का ब्याज: ₹6,200\n- FD का ब्याज: ₹14,800\n\nछूट और deduction:\n- HRA छूट (किराया ₹14,000 per month, rent receipts जमा): ₹1,48,000\n- Section 80C: PF, PPF, Siya की tuition fee, LIC, कुल ₹1,50,000\n- Section 80D: health insurance premium, मम्मी senior citizen, ₹38,000\n- Standard deduction: ₹50,000\n\nकर योग्य आय: लगभग ₹8,99,000\nकुल tax: ₹92,500, TDS पहले से कटा ₹96,300\nRefund: ₹3,800, 19 अगस्त 2024 को खाते में आ गया।\n\nअगले साल के लिए: home loan का pre-EMI ब्याज possession के बाद ही claim होगा। नई regime से तुलना जरूर करना।"
+  }
+ ],
+ "queries": [
+  {
+   "q": "बिजली का बिल मई",
+   "relevant": [
+    "d001"
+   ],
+   "type": "hindi"
+  },
+  {
+   "q": "किराये का एग्रीमेंट",
+   "relevant": [
+    "d002"
+   ],
+   "type": "hindi"
+  },
+  {
+   "q": "दाल मखनी कैसे बनाएं",
+   "relevant": [
+    "d004"
+   ],
+   "type": "hindi"
+  },
+  {
+   "q": "डॉक्टर ने बुखार की कौन सी दवा लिखी",
+   "relevant": [
+    "d005"
+   ],
+   "type": "hindi"
+  },
+  {
+   "q": "अक्टूबर की वेतन पर्ची",
+   "relevant": [
+    "d006"
+   ],
+   "type": "hindi"
+  },
+  {
+   "q": "अंकित भैया की शादी का कार्ड",
+   "relevant": [
+    "d007"
+   ],
+   "type": "hindi"
+  },
+  {
+   "q": "स्कूल का वार्षिक उत्सव कब है",
+   "relevant": [
+    "d003"
+   ],
+   "type": "hindi"
+  },
+  {
+   "q": "आलू पराठा बनाने की विधि",
+   "relevant": [
+    "d010"
+   ],
+   "type": "hindi"
+  },
+  {
+   "q": "गैस सिलेंडर की बुकिंग रसीद",
+   "relevant": [
+    "d009"
+   ],
+   "type": "hindi"
+  },
+  {
+   "q": "पानी का बिल कितना आया",
+   "relevant": [
+    "d011"
+   ],
+   "type": "hindi"
+  },
+  {
+   "q": "मामा जी को लिखा पत्र",
+   "relevant": [
+    "d008"
+   ],
+   "type": "hindi"
+  },
+  {
+   "q": "एफडी कब पूरी होगी",
+   "relevant": [
+    "d012"
+   ],
+   "type": "hindi"
+  },
+  {
+   "q": "पिछले महीने का बिजली बिल",
+   "relevant": [
+    "d001",
+    "d031"
+   ],
+   "type": "hindi",
+   "filters_hint": true
+  },
+  {
+   "q": "शिमला यात्रा की फोटो",
+   "relevant": [
+    "d034"
+   ],
+   "type": "hindi",
+   "filters_hint": true
+  },
+  {
+   "q": "अक्टूबर के किराये की रसीद",
+   "relevant": [
+    "d032"
+   ],
+   "type": "hindi"
+  },
+  {
+   "q": "jaipur train ticket",
+   "relevant": [
+    "d013"
+   ],
+   "type": "hinglish"
+  },
+  {
+   "q": "kal meeting mein kya decide hua",
+   "relevant": [
+    "d014"
+   ],
+   "type": "hinglish"
+  },
+  {
+   "q": "loan ki emi kab kategi",
+   "relevant": [
+    "d016",
+    "d024"
+   ],
+   "type": "hinglish"
+  },
+  {
+   "q": "rajma chawal kaise banaye",
+   "relevant": [
+    "d019"
+   ],
+   "type": "hinglish"
+  },
+  {
+   "q": "goa trip ka plan",
+   "relevant": [
+    "d022"
+   ],
+   "type": "hinglish"
+  },
+  {
+   "q": "bike ki servicing kab hui thi",
+   "relevant": [
+    "d021"
+   ],
+   "type": "hinglish"
+  },
+  {
+   "q": "society maintenance kitna hai",
+   "relevant": [
+    "d020"
+   ],
+   "type": "hinglish"
+  },
+  {
+   "q": "bijli ka bill",
+   "relevant": [
+    "d001",
+    "d031"
+   ],
+   "type": "hinglish"
+  },
+  {
+   "q": "mummy ka prescription",
+   "relevant": [
+    "d017"
+   ],
+   "type": "hinglish"
+  },
+  {
+   "q": "pichle hafte ki rent wali pdf",
+   "relevant": [
+    "d032",
+    "d002"
+   ],
+   "type": "hinglish",
+   "filters_hint": true
+  },
+  {
+   "q": "pichle mahine ka doodh ka hisaab",
+   "relevant": [
+    "d036"
+   ],
+   "type": "hinglish",
+   "filters_hint": true
+  },
+  {
+   "q": "kirana ka saaman list",
+   "relevant": [
+    "d035"
+   ],
+   "type": "hinglish"
+  },
+  {
+   "q": "mummy ki pension ka kaam",
+   "relevant": [
+    "d037"
+   ],
+   "type": "hinglish"
+  },
+  {
+   "q": "bhaiya ki shaadi ki tayari",
+   "relevant": [
+    "d018"
+   ],
+   "type": "hinglish"
+  },
+  {
+   "q": "electricity bill may",
+   "relevant": [
+    "d001"
+   ],
+   "type": "cross"
+  },
+  {
+   "q": "rent agreement with landlord",
+   "relevant": [
+    "d002"
+   ],
+   "type": "cross"
+  },
+  {
+   "q": "doctor prescription for fever",
+   "relevant": [
+    "d005"
+   ],
+   "type": "cross"
+  },
+  {
+   "q": "salary slip october",
+   "relevant": [
+    "d006"
+   ],
+   "type": "cross"
+  },
+  {
+   "q": "letter to my uncle",
+   "relevant": [
+    "d008"
+   ],
+   "type": "cross"
+  },
+  {
+   "q": "इंटरव्यू कॉल लेटर",
+   "relevant": [
+    "d023"
+   ],
+   "type": "cross"
+  },
+  {
+   "q": "होम लोन ईएमआई",
+   "relevant": [
+    "d024"
+   ],
+   "type": "cross"
+  },
+  {
+   "q": "क्रेडिट कार्ड का बिल",
+   "relevant": [
+    "d025"
+   ],
+   "type": "cross"
+  },
+  {
+   "q": "स्कूल फीस की रसीद",
+   "relevant": [
+    "d027"
+   ],
+   "type": "cross"
+  },
+  {
+   "q": "बेंगलुरु की फ्लाइट टिकट",
+   "relevant": [
+    "d030"
+   ],
+   "type": "cross"
+  },
+  {
+   "q": "हेल्थ इंश्योरेंस रिन्यूअल",
+   "relevant": [
+    "d028"
+   ],
+   "type": "cross"
+  },
+  {
+   "q": "offer letter में salary कितनी है",
+   "relevant": [
+    "d039"
+   ],
+   "type": "cross"
+  },
+  {
+   "q": "पिछले साल का income tax return",
+   "relevant": [
+    "d040"
+   ],
+   "type": "cross",
+   "filters_hint": true
+  },
+  {
+   "q": "पीडीएफ वाला offer letter",
+   "relevant": [
+    "d039"
+   ],
+   "type": "cross",
+   "filters_hint": true
+  }
+ ]
+}

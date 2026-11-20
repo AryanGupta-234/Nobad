@@ -5,6 +5,11 @@ Add to it when the maintainer decides something; delete lines that stop being tr
 (this repository is public): no keys, configs, personal data or private review notes.
 
 ## Standing decisions
+- 2026-11-19 NOBAD Find: the old web view (pywebview/WebView2) is removed completely; the window is the Flutter UI
+  only, and this is the 0.8.5 build (0.8.0 was never released alone). Maintainer's words.
+- 2026-11-19 NOBAD Find keeps the user's own typed search queries locally for autocomplete (setting `search_history`,
+  default on, inside the encrypted index, capped at 200, "Clear search history" in Settings > Privacy, forget one from
+  the suggestion list). Still no OS activity history (Recent items, browser history, event logs).
 - 2026-11-18 Product icons: every NOBAD app uses the company mark (black tile, "n"); only the "n" colour changes:
   NOBAD VPN orange, NOBAD File Bridge blue, NOBAD Find yellow (maintainer's choice).
 - 2026-11-18 NOBAD File Bridge lives only in nobad-studio/file-bridge; its copy in this repo was removed (its open review
@@ -34,6 +39,9 @@ Add to it when the maintainer decides something; delete lines that stop being tr
 - 2026-11-16 New outbound connections need a setting and an entry in SYSTEM-INTEGRATION.md.
 
 ## Open items
+- 2026-11-19 NOBAD Find 0.8.5 released (find-v0.8.5): Flutter window only (no WebView), smart search (plain-language
+  questions, best guess, suggestions from local search history), closing the window quits everything unless
+  stay_running, dark only. Maintainer also asked to split products into one repo each (Find out of Nobad-VPN): next.
 - 2026-11-17 NOBAD Find photo meaning: maintainer approved an optional image model download. Chosen: SigLIP base
   (Apache-2.0, ~211 MB) instead of OpenAI CLIP (its model card rules out deployed use).
 - 2026-11-17 NOBAD Find admin indexing: maintainer asked for an optional elevated "turbo" index (NTFS change

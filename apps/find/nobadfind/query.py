@@ -8,6 +8,7 @@
 import datetime as dt
 import ntpath
 import re
+import unicodedata
 from dataclasses import dataclass, field
 
 from .kinds import AMBIGUOUS_APPS, APP_CUES, APPS, WORDS
@@ -33,9 +34,14 @@ STOP = {"the", "a", "an", "my", "i", "me", "that", "this", "those", "these", "fi
 # Words that ask for something ("list all pdf"). Dropped when the question has something else to go on; kept
 # as words to look for when they're all there is ("list" alone finds list.txt).
 ASKING = {"list", "give", "get", "search", "inside", "folder", "folders", "located", "stored", "saved", "lying",
+          "save", "store", "keep",                                  # "what did i save today"
           # linking words before what is inside: "pdf in downloads having appreciation"
           "having", "containing", "contains", "contain", "mentioning", "mentions", "mention", "including",
           "includes", "include", "says", "say", "saying", "regarding", "word", "words", "text", "content"}
+
+# Words that hint at a kind without saying it: "letter" may be a .docx or a .txt. When the kind finds nothing,
+# search asks again with them as words (search.search, "No file of that kind matched").
+SOFT_KINDS = {"letter", "essay", "book", "clip", "deck", "program", "source", "sheet", "script", "scripts"}
 
 # The user's own folders: "in my downloads", "download folder pdf", "on the desktop", "in documents folder"
 _FOLDER_WORDS = {"download": "downloads", "downloads": "downloads", "desktop": "desktop", "documents": "documents",
@@ -47,6 +53,10 @@ FOLDER_PATTERNS = [
     r"\b" + _FW + r" folder\b",                                          # "download folder pdf"
     r"\b(?:in|from|inside) (?:my |the )?(downloads?|documents|desktop)\b",   # "in my downloads"
     r"\bon (?:my |the )?(desktop)\b",                                    # "on the desktop"
+    # "songs in music", "photos in pictures", "wedding in videos": only at the end of the phrase, since these are
+    # also ordinary words ("notes in music theory" is about music theory)
+    r"\b(?:in|from|inside) (?:my |the )?(pictures|videos|music)(?=\s*$|\s+(?:from|in|on|at|last|this|with|and|or|"
+    r"before|after|since|during|yesterday|today|which|that|over|under|bigger|smaller|newest|oldest|largest)\b)",
 ]
 
 
@@ -72,6 +82,15 @@ class Query:
     size_label: str = ""
     sort: str = ""                                  # "" (best match) | "newest" | "oldest" | "largest" | "name"
     notes: list = field(default_factory=list)       # things worth telling the user ("here" without a folder)
+    dropped: list = field(default_factory=list)     # Hinglish linking words left out ("ko", "par"), see search
+    romanized: bool = False                         # Hinglish was read (the focus, or it was clearly Hinglish)
+    # 0.8.5 smart search (understand.py): what each filter was read from, folders named in the question, and the
+    # words that describe what's wanted, in their order ("2 boys" of "2 boys in an image in downloads")
+    cuts: list = field(default_factory=list)        # [(part, phrase as read)], part: path|here|size|sort|time|...
+    dirs: list = field(default_factory=list)        # indexed folders named in the question ("in projects")
+    dir_label: str = ""                             # that folder's name as the index has it ("Projects")
+    meaning: str = ""                               # the description left over, for photo meaning
+    soft: list = field(default_factory=list)        # SOFT_KINDS words read as a kind (search may read them again)
 
     @property
     def text(self):
@@ -103,6 +122,8 @@ class Query:
             out.append(f"in {self.folder.capitalize()}")
         if self.path:
             out.append("in " + self.path)
+        if self.dirs:
+            out.append("in " + self.dir_label)
         if self.size_label:
             out.append(self.size_label)
         if self.sort:
@@ -112,7 +133,7 @@ class Query:
 
     def has_filters(self):
         return bool(self.kinds or self.all_exts() or self.t0 is not None or self.place or self.folder or self.path
-                    or self.min_size is not None or self.max_size is not None or bool(self.sort))
+                    or self.dirs or self.min_size is not None or self.max_size is not None or bool(self.sort))
 
 
 # Where a file is: "on my usb stick", "on the network drive", "on d:", "on drive e", "on SANDISK".
@@ -173,13 +194,127 @@ def _take_path(s, is_dir):
     return None, s[:m.start()] + " " + " ".join(words[1:])        # looks like a path, but isn't a folder
 
 
+# ---------- Hindi and Hinglish (Hindi typed in Latin letters) ----------
+# The filters are read the same way as in English: each Hindi or Hinglish phrase becomes the English one before the
+# question is parsed ("पिछले हफ्ते की पीडीएफ" -> "last week pdf", "pichle hafte ki rent wali pdf" -> "last week rent
+# pdf"). Linking words (का, की, वाली, wala, mein...) are left out like "the" and "of". Devanagari letters include
+# their vowel signs, so a Hindi word is one word ("बिजली"), not pieces.
+WORD = r"[\w\u0900-\u097F.\-+#]+"
+_B, _E = r"(?<![\w\u0900-\u097F])", r"(?![\w\u0900-\u097F])"
+# Each rule: (Devanagari form, romanized form, English). Devanagari is always read; the romanized forms only when
+# the language focus is Hindi or many languages, or when the question is clearly Hinglish (hinglish() below): one
+# Hinglish-looking word ("kal ho naa ho", "bare files", "kal.txt") stays an ordinary word.
+_PICHLE = (r"(?:पिछले|पिछला|पिछली)", r"(?:pich+h?l[ae]|pic+h?h?l[ae])")
+_IS = (r"इस", r"is")
+_HAFTA = (r"(?:हफ्ते|हफ़्ते|हफ्ता|हफ़्ता|सप्ताह)", r"(?:haf+t[ae])")
+_MAHINA = (r"(?:महीने|महीना|माह)", r"(?:mahin[ae])")
+_SAAL = (r"(?:साल|वर्ष)", r"(?:saa?l)")
+_PEHLE = (r"पहले", r"(?:pe?h?le|pahle)")
+_BADA = (r"(?:बड़ी|बड़े|बड़ा|बडी|बडे|बडा)", r"(?:badi|bade|bada)")
+_CHHOTA = (r"(?:छोटी|छोटे|छोटा)", r"(?:chh?oti|chh?ote|chh?ota)")
+_SE = (r"से", r"se")
+_FILES = (r"(?:फाइलें|फ़ाइलें|फाइल|फ़ाइल)", r"(?:files?)")
+_MEIN = (r"(?:में|के अंदर)", r"(?:mein|me|ke andar)")
+
+
+def _both(*parts):
+    """(Devanagari, romanized) for a rule made of parts; a part is a pair or a plain string used in both."""
+    dev = "".join(p[0] if isinstance(p, tuple) else p for p in parts)
+    rom = "".join(p[1] if isinstance(p, tuple) else p for p in parts)
+    return dev, rom
+
+
+_NUM = r"(\d+)"
+_SIZE_N = r"(\d+(?:\.\d+)?) ?(gb|mb|kb) "
+HINDI_RULES = [
+    # times
+    (_both(_PICHLE, " ", _HAFTA), "last week"), (_both(_IS, " ", _HAFTA), "this week"),
+    (_both(_PICHLE, " ", _MAHINA), "last month"), (_both(_IS, " ", _MAHINA), "this month"),
+    (_both(_PICHLE, " ", _SAAL), "last year"), (_both(_IS, " ", _SAAL), "this year"),
+    (_both(_NUM, " ", (r"दिन", r"din"), " ", _PEHLE), r"\1 days ago"),
+    (_both(_NUM, " ", _HAFTA, " ", _PEHLE), r"\1 weeks ago"),
+    (_both(_NUM, " ", _MAHINA, " ", _PEHLE), r"\1 months ago"),
+    ((r"आज", r"aaj"), "today"), ((r"कल", r"kal"), "yesterday"),
+    # sizes
+    (_both(_SIZE_N, _SE, " ", _BADA), r"bigger than \1 \2"), (_both(_SIZE_N, _SE, " ", _CHHOTA), r"smaller than \1 \2"),
+    (_both(_BADA, " ", _FILES), "big files"),
+    # the user's folders
+    (_both((r"(?:डाउनलोड्स|डाउनलोड)", r"(?:downloads?)"), " ", _MEIN), "in downloads"),
+    (_both((r"डेस्कटॉप", r"desktop"), " ", (r"(?:पर|में)", r"(?:par|mein)")), "on desktop"),
+    (_both((r"(?:डॉक्यूमेंट्स|डॉक्यूमेंट)", r"(?:documents?)"), " ", _MEIN), "in documents"),
+    # the folder in English letters with a Hindi linking word ("downloads में बिजली बिल")
+    ((r"(?:downloads?) (?:में|के अंदर)", None), "in downloads"), ((r"desktop (?:पर|में)", None), "on desktop"),
+    ((r"(?:documents?) (?:में|के अंदर)", None), "in documents"),
+    ((r"(?:डाउनलोड्स|डाउनलोड)", None), "downloads"), ((r"डेस्कटॉप", None), "desktop"),
+    ((r"(?:फोल्डर|फ़ोल्डर)", None), "folder"),
+    # kinds
+    ((r"(?:फोटो|फ़ोटो|फोटोज़|फोटोज|तस्वीरें|तस्वीर|चित्र)", r"(?:tasveer(?:ein|en)?)"), "photos"),
+    ((r"(?:पीडीएफ|पी डी एफ)", None), "pdf"), ((r"(?:वीडियो|विडियो)", None), "videos"), ((r"(?:ईमेल|मेल)", None), "email"),
+    ((r"(?:दस्तावेज़|दस्तावेज|डॉक्यूमेंट)", None), "document"), ((_FILES[0], None), "files"),
+    # "having / containing"
+    ((r"(?:जिसमें|जिसमे)", r"(?:jisme|jismein|jis ?mein)"), "containing"),
+]
+
+
+def _compile(p):
+    return re.compile(_B + unicodedata.normalize("NFC", p) + _E) if p else None
+
+
+HINDI_RULES = [(_compile(dev), _compile(rom), english) for (dev, rom), english in HINDI_RULES]
+HINDI_STOP_DEV = {"का", "की", "के", "को", "में", "से", "पर", "और", "है", "हैं", "था", "थी", "थे", "वाला", "वाली",
+                  "वाले", "एक", "मेरा", "मेरी", "मेरे", "वो", "वह", "यह", "ये", "कहाँ", "कहां", "कौन", "क्या", "भी",
+                  "तो", "ही"}
+HINDI_STOP_ROMAN = {"wala", "wali", "wale", "vala", "vali", "vale", "ka", "ki", "ke", "ko", "mein", "se", "aur",
+                    "hai", "hain", "tha", "thi", "mera", "meri", "mere", "wo", "woh", "yeh", "ye", "kahan", "kaha",
+                    "kya", "bhi", "hi", "ek", "par"}
+# Words that only Hinglish uses (not English words too: "bare", "par", "is", "hi", "to", "me" are left out)
+HINGLISH_MARKERS = {"pichle", "pichhle", "picchle", "pichla", "hafte", "hafta", "mahine", "mahina", "saal", "aaj",
+                    "kal", "din", "pehle", "pahle", "wala", "wali", "wale", "vala", "vali", "ki", "ka", "ke", "mein",
+                    "jisme", "jismein", "badi", "bada", "chhoti", "choti", "tasveer", "kahan", "kya", "hai", "aur",
+                    "mera", "meri"}
+_KIND_OR_TIME = {"pdf", "pdfs", "photo", "photos", "file", "files", "video", "videos", "doc", "docs", "document",
+                 "bill", "receipt", "today", "yesterday", "week", "month", "year", "downloads", "download",
+                 "desktop", "documents"}
+_DEVANAGARI_DIGITS = str.maketrans("०१२३४५६७८९", "0123456789")
+
+
+def hinglish(low):
+    """Clearly Hinglish: two different marker words, or a marker next to a kind or time word ("kal ka bill",
+    "pichle hafte ki pdf", "badi files")."""
+    words = re.findall(r"[a-z]+", low)
+    marks = {w for w in words if w in HINGLISH_MARKERS}
+    if len(marks) >= 2:
+        return True
+    return any(w in HINGLISH_MARKERS and ((i > 0 and words[i - 1] in _KIND_OR_TIME) or
+                                          (i + 1 < len(words) and words[i + 1] in _KIND_OR_TIME))
+               for i, w in enumerate(words))
+
+
+def hindi_to_english(low, romanized=False):
+    """Hindi (and, with romanized, Hinglish) filter words -> the English the parser reads; other words stay."""
+    low = unicodedata.normalize("NFC", low).translate(_DEVANAGARI_DIGITS)
+    for dev, rom, english in HINDI_RULES:
+        if dev is not None:
+            low = dev.sub(english, low)
+        if romanized and rom is not None:
+            low = rom.sub(english, low)
+    return low
+
+
 SIZE_UNITS = {"bytes": 1, "kb": 1024, "mb": 1 << 20, "gb": 1 << 30}
 _SIZE = r"(\d+(?:\.\d+)?) ?(gb|mb|kb|bytes)\b"            # a real unit: "less than 5 m" is not guessed at
+# "big files", "large photos", "small pdfs": what "big" means for each kind, in MB (the rest: 100 MB)
+_SIZE_NOUNS = "|".join(sorted({"file", "files", "ones", "folder", "folders"} |
+                              {w for w, k in WORDS.items() if k and " " not in w}, key=len, reverse=True))
+_BIG_MB = {"image": 10, "pdf": 20, "document": 20, "spreadsheet": 20, "slides": 50, "text": 10, "code": 10,
+           "email": 20, "audio": 50, "ebook": 50}
 
 
-def parse(text, now=None, labels=(), is_dir=None):
+def parse(text, now=None, labels=(), is_dir=None, times=True, romanized=False, find_folder=None, soft_kinds=True):
     """labels: names of drives this PC knows ("SANDISK"), so "on sandisk" means that drive.
-    is_dir: checks whether a typed path is a real folder (so "C:\\Work" in a question is understood)."""
+    is_dir: checks whether a typed path is a real folder (so "C:\\Work" in a question is understood).
+    find_folder: words -> (folder name, [paths]) of indexed folders with that name ("notes in projects"), or None.
+    soft_kinds=False: words that only hint at a kind (SOFT_KINDS: "letter", "essay") are words to look for."""
     now = now or dt.datetime.now()
     q = Query(raw=text)
     s = text.strip()
@@ -189,13 +324,17 @@ def parse(text, now=None, labels=(), is_dir=None):
     if q.path is None:
         q.path = ""
         q.notes.append("That path isn't a folder on this PC, so it was left out.")
+    elif q.path:
+        q.cuts.append(("path", q.path))
 
     # exact phrases
     for m in re.findall(r'"([^"]{1,200})"', s):
         q.phrases.append(m.strip())
     s = re.sub(r'"[^"]*"', " ", s)
 
-    low = " " + s.lower() + " "
+    roman = romanized or hinglish(s.lower())     # romanized Hindi: the focus says so, or it's clearly Hinglish
+    q.romanized = roman
+    low = " " + hindi_to_english(s.lower(), roman) + " "
     # "the word appreciation" says what is inside the file; it doesn't ask for Word documents
     low = re.sub(r" (?:the|a) (?:words?|phrase|term) ", " ", low)
 
@@ -205,6 +344,7 @@ def parse(text, now=None, labels=(), is_dir=None):
                   r"|\b(?:in |from |inside )(?:right )?here\b|\bhere\s*$", low)
     if m:
         q.here = True
+        q.cuts.append(("here", m.group(0).strip()))
         low = low[:m.start()] + " " + low[m.end():]
 
     # size: "bigger than 100 mb", "under 2mb", "big files"
@@ -212,15 +352,27 @@ def parse(text, now=None, labels=(), is_dir=None):
     if m:
         q.min_size = int(float(m.group(1)) * SIZE_UNITS[m.group(2)])
         q.size_label = f"over {m.group(1)} {m.group(2).upper()}"
+        q.cuts.append(("size", m.group(0).strip()))
         low = low[:m.start()] + " " + low[m.end():]
     m = re.search(r"\b(?:smaller|under|below|less than|at most|up to)(?: than)? " + _SIZE, low)
     if m:
         q.max_size = int(float(m.group(1)) * SIZE_UNITS[m.group(2)])
         q.size_label = (q.size_label + ", " if q.size_label else "") + f"under {m.group(1)} {m.group(2).upper()}"
+        q.cuts.append(("size", m.group(0).strip()))
         low = low[:m.start()] + " " + low[m.end():]
-    m = re.search(r"\b(?:big|huge|large) (?:files?|ones|videos?|folders?)\b", low)
+    # "big files", "large photos", "small pdfs": the size word goes, the kind word stays for the kinds below.
+    # Big depends on the kind (a 10 MB photo is big, a 10 MB video isn't); small is the filter bar's "under 1 MB".
+    m = re.search(r"\b(?:big|huge|large|bigger|larger) (" + _SIZE_NOUNS + r")\b", low)
     if m and q.min_size is None:
-        q.min_size, q.size_label = 100 << 20, "over 100 MB"
+        mb = _BIG_MB.get(WORDS.get(m.group(1)), 100)
+        q.min_size, q.size_label = mb << 20, f"over {mb} MB"
+        q.cuts.append(("size", m.group(0).rsplit(' ', 1)[0].strip()))
+        low = low[:m.start()] + " " + low[m.end() - len(m.group(0).split()[-1]):]
+    m = re.search(r"\b(?:small|tiny|little|smaller) (" + _SIZE_NOUNS + r")\b", low)
+    if m and q.max_size is None:
+        q.max_size = 1 << 20
+        q.size_label = (q.size_label + ", " if q.size_label else "") + "under 1 MB"
+        q.cuts.append(("size", m.group(0).rsplit(' ', 1)[0].strip()))
         low = low[:m.start()] + " " + low[m.end() - len(m.group(0).split()[-1]):]
 
     # order: "newest pdf", "latest", "oldest", "largest"
@@ -229,6 +381,7 @@ def parse(text, now=None, labels=(), is_dir=None):
         m = re.search(pattern, low)
         if m:
             q.sort = order
+            q.cuts.append(("sort", m.group(0).strip()))
             low = low[:m.start()] + " " + low[m.end():]
             break
 
@@ -236,7 +389,7 @@ def parse(text, now=None, labels=(), is_dir=None):
 
     def take(pattern, fn):
         nonlocal low
-        m = re.search(pattern, low)
+        m = re.search(pattern, low) if times else None    # times=False: "march" is a word to look for
         if not m or q.t0 is not None:
             return False
         r = fn(m)
@@ -244,6 +397,7 @@ def parse(text, now=None, labels=(), is_dir=None):
             return False
         (a, b), label = r
         q.t0, q.t1, q.when = _ts(a), _ts(b), label
+        q.cuts.append(("time", m.group(0).strip()))
         low = low[:m.start()] + " " + low[m.end():]
         return True
 
@@ -288,6 +442,7 @@ def parse(text, now=None, labels=(), is_dir=None):
         m = re.search(pattern, low)
         if m:
             q.folder = _FOLDER_WORDS[m.group(1)]
+            q.cuts.append(("folder", m.group(0).strip()))
             low = low[:m.start()] + " " + low[m.end():]
             break
 
@@ -296,54 +451,133 @@ def parse(text, now=None, labels=(), is_dir=None):
         m = re.search(pattern, low)
         if m:
             q.place = place
+            q.cuts.append(("place", m.group(0).strip()))
             low = low[:m.start()] + " " + low[m.end():]
             break
     if not q.place:
         m = _DRIVE.search(low)
         if m:
             q.place = (m.group(1) or m.group(2) or m.group(3)).upper() + ":"
+            q.cuts.append(("place", m.group(0).strip()))
             low = low[:m.start()] + " " + low[m.end():]
     if not q.place:
         for label in sorted({x.strip().lower() for x in labels if x and len(x.strip()) >= 3}, key=len, reverse=True):
             m = re.search(_ON + re.escape(label) + r"(?: drive| disk| stick| card)?(?=\s)", low)
             if m:
                 q.place = "label:" + label
+                q.cuts.append(("place", m.group(0).strip()))
                 low = low[:m.start()] + " " + low[m.end():]
                 break
+
+    # a folder of the index named in the question: "notes in projects", "pdf inside the tax papers folder"
+    if find_folder is not None and not q.path:
+        low = _take_dir(q, low, find_folder)
 
     # apps, kinds and extensions
     for phrase, joined in APP_PHRASES.items():
         low = low.replace(" " + phrase + " ", " " + joined + " ")
-    words = re.findall(r"[\w.\-+#]+", low)
+    words = re.findall(WORD, low)
     asked = []                                      # ASKING words seen (see the end)
+    used = set()                                    # positions of words read as a filter (kinds, apps, .ext)
     cue_at = -1                                    # "projects" in "blender projects" is part of the app filter
     for i, w in enumerate(words):
         if i == cue_at:
+            used.add(i)
             continue
         cue = i + 1 < len(words) and words[i + 1] in APP_CUES
         if w in APPS and (w not in AMBIGUOUS_APPS or cue):
             q.apps.add(w)
             q.app_exts |= APPS[w]
+            q.cuts.append(("app", w + (" " + words[i + 1] if cue else "")))
+            used.add(i)
             if cue:
                 cue_at = i + 1
             continue
-        if w in WORDS:
+        if w in WORDS and (soft_kinds or w not in SOFT_KINDS):
             k = WORDS[w]
             if k:
+                if w in SOFT_KINDS:
+                    q.soft.append(w)
                 q.kinds.add(k)
+                q.cuts.append(("kind:" + k, w))
+                used.add(i)
                 continue
         if re.fullmatch(r"\.[a-z0-9]{1,6}", w):
             q.exts.add(w)
+            q.cuts.append(("ext", w))
+            used.add(i)
             continue
-        if w in STOP or w in NUM:
+        if w in STOP or w in NUM or w in HINDI_STOP_DEV:
+            continue
+        if roman and w in HINDI_STOP_ROMAN:
+            q.dropped.append(w)                     # a linking word; search keeps it if a file is named so
             continue
         if w in ASKING:
             asked.append(w)
+            used.add(i)
             continue
         q.terms.append(w)
     if asked and not q.terms and not q.phrases and not q.has_filters() and not q.here and not q.sort:
         q.terms = asked                             # "list" alone: a file called list, not an instruction
+    q.meaning = _description(words, used, roman) if q.terms else ""
     return q
+
+
+# Words trimmed off the ends of a description ("find me a | with a red car" -> "red car")
+_EDGE = STOP | HINDI_STOP_DEV | {"files", "file", "folder", "folders", "something", "anything", "which", "that",
+                                 "shows", "showing", "show", "having", "containing", "where", "of"}
+
+
+def _description(words, used, roman):
+    """What's left once the filters are out, in the user's order and with its small words: "2 boys" of "2 boys in
+    an image", "dog on the beach" of "photos of a dog on the beach". Photo meaning reads it as a caption."""
+    edge = _EDGE | (HINDI_STOP_ROMAN if roman else set()) | ASKING
+    out, seg = [], []
+
+    def flush():
+        while seg and seg[0] in edge and not seg[0].isdigit():
+            seg.pop(0)
+        while seg and seg[-1] in edge and not seg[-1].isdigit():
+            seg.pop()
+        if seg:
+            out.append(" ".join(seg))
+        seg.clear()
+    for i, w in enumerate(words):
+        if i in used:
+            flush()
+        else:
+            seg.append(w)
+    flush()
+    return " ".join(out)[:200]
+
+
+_DIR_LEAD = r"(?<!\S)(?:in|inside|from|under|within) (?:my |the |our |a |an )?"
+_DIR_SKIP = STOP | ASKING | set(NUM) | set(MONTHS) | set(DAYS) | {"files", "folder", "folders"}
+
+
+def _take_dir(q, low, find_folder):
+    """ "in <folder name>" when the index has a folder by that name (1 to 3 words; the longest that exists wins).
+    Kind and filter words are never folder names here ("in an image" is a kind, not a folder called image)."""
+    for m in re.finditer(_DIR_LEAD + r"((?:" + WORD + r" ){0,2}" + WORD + r")", low):
+        words = m.group(1).split(" ")
+        for n in range(len(words), 0, -1):
+            cand = words[:n]
+            if cand[0] in _DIR_SKIP or cand[-1] in _DIR_SKIP or cand[0] in WORDS or cand[-1] in WORDS:
+                continue
+            if all(w.isdigit() for w in cand):
+                continue
+            found = find_folder(" ".join(cand))
+            if not found:
+                continue
+            label, paths = found
+            end = m.start(1) + len(" ".join(cand))
+            tail = re.match(r" (?:folder|directory|dir)\b", low[end:])
+            if tail:
+                end += tail.end()
+            q.dirs, q.dir_label = list(paths), label
+            q.cuts.append(("dir", low[m.start():end].strip()))
+            return low[:m.start()] + " " + low[end:]
+    return low
 
 
 def _around(t, unit, n):

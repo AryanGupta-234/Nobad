@@ -1,0 +1,125 @@
+"""search, suggest, history_add, history_forget, history_clear, open, reveal, thumbnail, here_folder, path_of,
+forget, to_main.
+
+Files are always named by result id, never by a path from the UI: the path comes from the index (Api._path)."""
+import re
+
+from ...search import FILTER_DAYS, FILTER_KINDS, FILTER_SIZES, SORTS
+from ..protocol import INVALID_PARAMS, RpcError, int_param, ok, str_param
+
+CHANNEL = re.compile(r"^[a-z][a-z0-9_]{0,15}$")     # which search of a UI: main, home, bar...
+MAX_TEXT = 2000                     # characters of typed text (search keeps the first 500)
+FILTERS = {"kind": {""} | FILTER_KINDS, "modified": {""} | set(FILTER_DAYS), "size": {""} | set(FILTER_SIZES),
+           "sort": set(SORTS), "folder": None}                 # None: any string up to MAX_TEXT
+
+
+def _text(params, key):
+    v = str_param(params, key, "")
+    if len(v) > MAX_TEXT:
+        raise RpcError(INVALID_PARAMS, f"'{key}' is longer than {MAX_TEXT} characters")
+    return v
+
+
+def _filters(params):
+    """The filter bar: an object (left out = none) whose values are the schema's words."""
+    f = params.get("filters", {})
+    if not isinstance(f, dict):
+        raise RpcError(INVALID_PARAMS, "'filters' must be an object")
+    for k, v in f.items():
+        if k not in FILTERS or not isinstance(v, str) or len(v) > MAX_TEXT:
+            raise RpcError(INVALID_PARAMS, f"'filters' takes only {', '.join(FILTERS)}, each a string")
+        if FILTERS[k] is not None and v not in FILTERS[k]:
+            words = ", ".join(w for w in sorted(FILTERS[k]) if w)
+            raise RpcError(INVALID_PARAMS, f"'filters.{k}' must be \"\" (no filter) or one of {words}")
+    return f
+
+
+def _search_result(r):
+    """Every search answer in one shape, also the empty and the failed ones (contract: search result)."""
+    r = r if isinstance(r, dict) else {}
+    out = {"results": list(r.get("results") or []), "understood": list(r.get("understood") or []),
+           "terms": list(r.get("terms") or []), "notes": list(r.get("notes") or []),
+           "more": bool(r.get("more")), "ms": int(r.get("ms") or 0), "error": str(r.get("error") or "")}
+    out["parts"] = [_part(p) for p in (r.get("parts") or []) if isinstance(p, dict)]
+    best = r.get("best")
+    ids = {x.get("id") for x in out["results"] if isinstance(x, dict)}
+    out["best"] = ({"id": int(best["id"]), "reason": str(best.get("reason") or "")}
+                   if isinstance(best, dict) and best.get("id") in ids else None)
+    if r.get("cancelled"):
+        out["cancelled"] = True         # a newer search on the same channel replaced it: show nothing from it
+    return out
+
+
+PART_KINDS = {"folder", "drive", "kind", "time", "size", "sort", "meaning", "words"}
+SUGGEST_KINDS = {"history", "filter", "file", "folder"}
+
+
+def _part(p):
+    kind = p.get("kind") if p.get("kind") in PART_KINDS else "words"
+    return {"kind": kind, "label": str(p.get("label") or ""), "without": str(p.get("without") or "")}
+
+
+def _suggest_result(r):
+    r = r if isinstance(r, dict) else {}
+    items = []
+    for it in r.get("items") or []:
+        if not isinstance(it, dict) or it.get("kind") not in SUGGEST_KINDS:
+            continue
+        x = {"text": str(it.get("text") or ""), "kind": it["kind"], "label": str(it.get("label") or ""),
+             "detail": str(it.get("detail") or "")}
+        if isinstance(it.get("id"), int) and not isinstance(it.get("id"), bool):
+            x["id"] = it["id"]
+        items.append(x)
+    return {"items": items, "complete": str(r.get("complete") or "")}
+
+
+def _path(r):
+    return {"path": str((r or {}).get("path") or "")}
+
+
+def methods(api, events=None):
+    def search(params, conn=None):
+        text = _text(params, "text")
+        filters = _filters(params)
+        channel = params.get("channel", "main")
+        if not isinstance(channel, str) or not CHANNEL.match(channel):
+            raise RpcError(INVALID_PARAMS, "'channel' is a short name: main, home, bar or similar")
+        if conn is None:
+            return _search_result(api.search(text, filters))
+        # a newer search on this connection and channel cancels this one (the Home list doesn't cancel the box)
+        return _search_result(api.search(text, filters, client=id(conn), channel=channel))
+
+    def suggest(params, conn=None):
+        text = _text(params, "text")
+        channel = params.get("channel", "main")
+        if not isinstance(channel, str) or not CHANNEL.match(channel):
+            raise RpcError(INVALID_PARAMS, "'channel' is a short name: main, home, bar or similar")
+        return _suggest_result(api.suggest(text, channel))
+
+    def history_add(params, conn=None):
+        r = api.history_add(_text(params, "text")) or {}
+        return {"ok": bool(r.get("ok")), "saved": bool(r.get("saved"))}
+
+    def thumbnail(params, conn=None):
+        return {"url": str((api.thumbnail(int_param(params)) or {}).get("url") or "")}
+
+    def to_main(params, conn=None):
+        """The quick find bar's Alt+Enter: the main window comes up with the same words typed in."""
+        text = _text(params, "text")
+        if events is not None:
+            events.show("main", text)
+        return {"ok": True}
+
+    return {"search": search,
+            "suggest": suggest,
+            "history_add": history_add,
+            "history_forget": lambda params, conn=None: ok(api.history_forget(_text(params, "text"))),
+            "history_clear": lambda params, conn=None: ok(api.history_clear()),
+            "open": lambda params, conn=None: ok(api.open(int_param(params))),
+            "open_with": lambda params, conn=None: ok(api.open_with(int_param(params))),
+            "reveal": lambda params, conn=None: ok(api.reveal(int_param(params))),
+            "thumbnail": thumbnail,
+            "here_folder": lambda params, conn=None: _path(api.here_folder()),
+            "path_of": lambda params, conn=None: _path(api.path_of(int_param(params))),
+            "forget": lambda params, conn=None: ok(api.forget(int_param(params))),
+            "to_main": to_main}

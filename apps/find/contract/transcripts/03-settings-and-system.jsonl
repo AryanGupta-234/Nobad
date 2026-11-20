@@ -1,0 +1,41 @@
+{"note": "Settings, the folder dialog, Windows Search, model downloads, wipe and quit."}
+{"send": {"jsonrpc": "2.0", "id": 1, "method": "get_settings", "params": {}}}
+{"recv": {"jsonrpc": "2.0", "id": 1, "result": {"roots": [], "exclude": [], "content": true, "content_max_mb": 25, "semantic": false, "photo_meaning": false, "allow_photo_model_download": false, "allow_model_download": false, "src_mail": true, "ocr": true, "index_removable": false, "index_network": false, "pause_on_battery": true, "pause_fullscreen": true, "games_mode": "smart", "keep_background": false, "stay_running": false, "bar": true, "bar_hotkey": "ctrl+alt+space", "pause_on_call": true, "workers": 0, "hotkey": "win+shift+space", "autostart": false, "hide_after_open": false, "wsearch_prev": "", "theme": "dark", "glass": true, "bg_notice_seen": false, "welcome_seen": false, "tray": true, "text_model": "minilm-l6-v2", "photo_model": "siglip-base", "language_focus": "", "scope": "whole_pc", "include_system": true, "include_caches": true, "include_secrets": false, "turbo": false, "search_history": true}}}
+{"send": {"jsonrpc": "2.0", "id": 2, "method": "set_settings", "params": {"changes": {"theme": "light", "content_max_mb": 50}}}}
+{"recv": {"jsonrpc": "2.0", "id": 2, "result": {"changed": ["theme", "content_max_mb"], "settings": {"roots": [], "exclude": [], "content": true, "content_max_mb": 50, "semantic": false, "photo_meaning": false, "allow_photo_model_download": false, "allow_model_download": false, "src_mail": true, "ocr": true, "index_removable": false, "index_network": false, "pause_on_battery": true, "pause_fullscreen": true, "games_mode": "smart", "keep_background": false, "stay_running": false, "bar": true, "bar_hotkey": "ctrl+alt+space", "pause_on_call": true, "workers": 0, "hotkey": "win+shift+space", "autostart": false, "hide_after_open": false, "wsearch_prev": "", "theme": "light", "glass": true, "bg_notice_seen": false, "welcome_seen": false, "tray": true, "text_model": "minilm-l6-v2", "photo_model": "siglip-base", "language_focus": "", "scope": "whole_pc", "include_system": true, "include_caches": true, "include_secrets": false, "turbo": false, "search_history": true}}}}
+{"send": {"jsonrpc": "2.0", "id": 3, "method": "set_settings", "params": {"changes": "theme=light"}}}
+{"recv": {"jsonrpc": "2.0", "id": 3, "error": {"code": -32602, "message": "'changes' must be an object of setting names and values"}}}
+{"send": {"jsonrpc": "2.0", "id": 4, "method": "pick_folder", "params": {}}}
+{"recv": {"jsonrpc": "2.0", "id": 4, "result": {"path": "C:\\Users\\me\\Projects", "busy": false}}}
+{"send": {"jsonrpc": "2.0", "id": 5, "method": "wsearch_state", "params": {}}}
+{"recv": {"jsonrpc": "2.0", "id": 5, "result": {"missing": false, "start": "delayed-auto", "running": true, "saved": ""}}}
+{"send": {"jsonrpc": "2.0", "id": 6, "method": "wsearch_set", "params": {"off": true}}}
+{"recv": {"jsonrpc": "2.0", "id": 6, "result": {"ok": false, "error": "Windows didn't make the change (the permission prompt may have been closed).", "state": {"missing": false, "start": "delayed-auto", "running": true, "saved": ""}}}}
+{"send": {"jsonrpc": "2.0", "id": 7, "method": "use_instead_of_windows_search", "params": {"on": true}}}
+{"recv": {"jsonrpc": "2.0", "id": 7, "result": {"ok": false, "error": "Windows didn't make the change (the permission prompt may have been closed).", "state": {"missing": false, "start": "delayed-auto", "running": true, "saved": ""}}}}
+{"send": {"jsonrpc": "2.0", "id": 8, "method": "download_model", "params": {}}}
+{"recv": {"jsonrpc": "2.0", "id": 8, "result": {"ok": false, "error": "Allow the download in Settings first."}}}
+{"send": {"jsonrpc": "2.0", "id": 9, "method": "set_settings", "params": {"changes": {"allow_model_download": true}}}}
+{"recv": {"jsonrpc": "2.0", "id": 9, "result": {"changed": ["allow_model_download"], "settings": {"roots": [], "exclude": [], "content": true, "content_max_mb": 50, "semantic": false, "photo_meaning": false, "allow_photo_model_download": false, "allow_model_download": true, "src_mail": true, "ocr": true, "index_removable": false, "index_network": false, "pause_on_battery": true, "pause_fullscreen": true, "games_mode": "smart", "keep_background": false, "stay_running": false, "bar": true, "bar_hotkey": "ctrl+alt+space", "pause_on_call": true, "workers": 0, "hotkey": "win+shift+space", "autostart": false, "hide_after_open": false, "wsearch_prev": "", "theme": "light", "glass": true, "bg_notice_seen": false, "welcome_seen": false, "tray": true, "text_model": "minilm-l6-v2", "photo_model": "siglip-base", "language_focus": "", "scope": "whole_pc", "include_system": true, "include_caches": true, "include_secrets": false, "turbo": false, "search_history": true}}}}
+{"send": {"jsonrpc": "2.0", "id": 10, "method": "subscribe", "params": {"events": ["download"]}}}
+{"recv": {"jsonrpc": "2.0", "id": 10, "result": {"events": ["download"]}}}
+{"engine": {"do": "tick", "at": 0.0}}
+{"send": {"jsonrpc": "2.0", "id": 11, "method": "download_model", "params": {}}}
+{"recv": {"jsonrpc": "2.0", "id": 11, "result": {"ok": true, "error": ""}}}
+{"engine": {"do": "download", "id": "meaning", "got": 1048576, "size": 24117248}}
+{"engine": {"do": "tick", "at": 0.5}}
+{"recv": {"jsonrpc": "2.0", "method": "download", "params": {"id": "meaning", "state": "downloading", "got_mb": 1.0, "size_mb": 23.0, "mb_s": 0.0, "error": ""}}}
+{"send": {"jsonrpc": "2.0", "id": 12, "method": "download_photo_model", "params": {}}}
+{"recv": {"jsonrpc": "2.0", "id": 12, "result": {"ok": false, "error": "Allow the photo model download in Settings first."}}}
+{"send": {"jsonrpc": "2.0", "id": 13, "method": "rescan", "params": {}}}
+{"recv": {"jsonrpc": "2.0", "id": 13, "result": {"ok": true, "error": ""}}}
+{"send": {"jsonrpc": "2.0", "id": 14, "method": "wipe", "params": {"confirm": "yes"}}}
+{"recv": {"jsonrpc": "2.0", "id": 14, "result": {"ok": false, "error": ""}}}
+{"send": {"jsonrpc": "2.0", "id": 15, "method": "wipe", "params": {"confirm": "DELETE"}}}
+{"recv": {"jsonrpc": "2.0", "id": 15, "result": {"ok": true, "error": ""}}}
+{"send": {"jsonrpc": "2.0", "id": 16, "method": "wipe", "params": {}}}
+{"recv": {"jsonrpc": "2.0", "id": 16, "error": {"code": -32602, "message": "'confirm' must be a string"}}}
+{"send": {"jsonrpc": "2.0", "id": 17, "method": "quit", "params": {"confirm": "no"}}}
+{"recv": {"jsonrpc": "2.0", "id": 17, "result": {"ok": false, "error": "Send confirm \"QUIT\" to quit NOBAD Find."}}}
+{"send": {"jsonrpc": "2.0", "id": 18, "method": "quit", "params": {}}}
+{"recv": {"jsonrpc": "2.0", "id": 18, "error": {"code": -32602, "message": "'confirm' must be a string"}}}

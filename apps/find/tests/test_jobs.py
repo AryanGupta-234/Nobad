@@ -163,3 +163,35 @@ def test_a_breakaway_child_survives_closing_the_job(procs):
         if child:
             from nobadfind.watchdog import kill_process
             kill_process(child)                                    # the pid this test started
+
+
+def test_worker_job_memory_limit_is_a_hard_backstop(procs):
+    """JOB_OBJECT_LIMIT_JOB_MEMORY on the worker job: above it, allocations in the workers fail (a MemoryError the
+    readers already handle) instead of the PC paging. Close-with-app stays on."""
+    from nobadfind import jobs
+    job = jobs.Job()
+    try:
+        assert job.set_memory_limit(512)
+        info = jobs._Extended()
+        jobs._k.QueryInformationJobObject(job.handle, jobs._CLS_EXTENDED, jobs.ctypes.byref(info),
+                                          jobs.ctypes.sizeof(info), None)
+        assert info.Basic.LimitFlags & jobs._JOB_MEMORY and info.Basic.LimitFlags & jobs._KILL_ON_JOB_CLOSE
+        assert info.JobMemoryLimit == 512 * 1024 * 1024
+        p = spawn(procs, [getattr(sys, "_base_executable", sys.executable), "-c",
+                          "import sys; sys.stdin.readline(); b = bytearray(700 * 1024 * 1024)"],
+                  stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+        assert job.assign(p.pid)
+        p.stdin.write(b"go\n")
+        p.stdin.close()
+        p.wait(timeout=60)
+        assert p.returncode != 0 and b"MemoryError" in p.stderr.read()
+    finally:
+        job.close()
+
+
+def test_worker_memory_limit_follows_the_pc():
+    from nobadfind import jobs
+    assert jobs.worker_memory_limit_mb(16 * 1024) == 4096
+    assert jobs.worker_memory_limit_mb(8 * 1024) == 2048
+    assert jobs.worker_memory_limit_mb(2 * 1024) == 1024
+    assert jobs.worker_memory_limit_mb(64 * 1024) == 4096

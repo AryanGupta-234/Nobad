@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nobad.studio/find/contract/events.schema.json",
+  "title": "NOBAD Find engine: events pushed to the UI",
+  "description": "JSON-RPC 2.0 notifications (no id) the engine sends to a connection that subscribed to them. Each event below is the schema of its params. A UI ignores an event name it doesn't know. Plain-language descriptions: contract/README.md.",
+  "protocol": 1,
+  "events": {
+    "status": {
+      "description": "The short status, every 2 s while subscribed.",
+      "$ref": "methods.schema.json#/$defs/status_brief"
+    },
+    "status_full": {
+      "description": "Everything the Indexing page shows, every 2 s while subscribed. Subscribe only while that page is open.",
+      "$ref": "methods.schema.json#/$defs/status_full"
+    },
+    "level": {
+      "description": "The work level, its reason or the pause changed.",
+      "type": "object",
+      "properties": {
+        "level": {
+          "$ref": "methods.schema.json#/$defs/level"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "paused": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "level",
+        "reason",
+        "paused"
+      ],
+      "additionalProperties": false
+    },
+    "activity": {
+      "description": "A new entry in Recent decisions.",
+      "$ref": "methods.schema.json#/$defs/activity_entry"
+    },
+    "download": {
+      "description": "A model download moved on: progress while downloading (up to twice a second), then ready or missing (failed: error says why).",
+      "type": "object",
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "enum": [
+                "meaning",
+                "photo"
+              ]
+            },
+            {
+              "$ref": "methods.schema.json#/$defs/model_id"
+            }
+          ],
+          "description": "meaning / photo (download_model, download_photo_model) or a model id (model_download)."
+        },
+        "state": {
+          "enum": [
+            "missing",
+            "downloading",
+            "ready"
+          ]
+        },
+        "got_mb": {
+          "type": "number",
+          "minimum": 0
+        },
+        "size_mb": {
+          "type": "number",
+          "minimum": 0
+        },
+        "mb_s": {
+          "type": "number",
+          "minimum": 0
+        },
+        "error": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "state",
+        "got_mb",
+        "size_mb",
+        "mb_s",
+        "error"
+      ],
+      "additionalProperties": false
+    },
+    "notice": {
+      "description": "A sentence to show as a toast. One that nobody heard waits for the first subscriber (the last 5).",
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "show": {
+      "description": "Bring a window up: a hotkey was pressed (text null: keep the search box as it is), or the bar's Alt+Enter (to_main: text is what to put in the search box). The engine already allowed the UIs to take the front. settings / index: open the main window on that page (the tray menu).",
+      "type": "object",
+      "properties": {
+        "what": {
+          "enum": [
+            "main",
+            "bar",
+            "settings",
+            "index"
+          ]
+        },
+        "text": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "what",
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "here": {
+      "description": "The File Explorer folder the main hotkey was pressed in has been found (\"\" if none). Comes shortly after show; here_folder gives the same.",
+      "$ref": "methods.schema.json#/$defs/path"
+    },
+    "quitting": {
+      "description": "The engine is ending (Quit). Exit instead of reconnecting.",
+      "type": "object",
+      "additionalProperties": false
+    },
+    "turbo": {
+      "description": "The turbo index changed: started, stopped, a drive read, the change journal lost (rescan), an error. Same shape as turbo_state.",
+      "$ref": "methods.schema.json#/$defs/turbo_state"
+    },
+    "models": {
+      "description": "The models result changed (a download moved to another state, a model was chosen, removed or became active). Same object as the models method.",
+      "$ref": "methods.schema.json#/$defs/models"
+    }
+  },
+  "$defs": {
+    "notification": {
+      "type": "object",
+      "properties": {
+        "jsonrpc": {
+          "const": "2.0"
+        },
+        "method": {
+          "type": "string"
+        },
+        "params": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "jsonrpc",
+        "method",
+        "params"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

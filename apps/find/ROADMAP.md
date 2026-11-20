@@ -45,6 +45,15 @@ later phase while an earlier one has open work unless the status table says it w
 | 2026-11-18 | Replace the WebView UI with **Flutter** (Dart). Keep the **Python engine** | Best-looking custom UI of the options, GPU-drawn, ~60-100 MB in one process instead of ~425 MB in seven; the engine (indexer, governor, OCR, models, encryption, 284 tests) is tested and stays |
 | 2026-11-18 | UI and engine talk over a **private named pipe**, never HTTP | Removes the local-server/URL bug class (cause 3) |
 | 2026-11-18 | Prototype first, measure, then commit to the full move | A wrong platform choice is expensive; numbers decide |
+| 2026-11-18 | Maintainer: start the Flutter prototype now, before Phases 0-1 finish. Flutter SDK 3.50 at `E:\devlutter` (PUB_CACHE `E:\dev\pub-cache`), VS 2022 Build Tools (C++ only) at `E:\dev\VSBuildTools` | Maintainer's call; the prototype also gives the first UI measurements |
+| 2026-11-19 | Maintainer approved the full move from the WebView UI to Flutter | Prototype numbers (section 6 status, `docs/measurements.md`) |
+| 2026-11-19 | Pipe contract v1 lives in `contract/` (schemas, transcripts, README); `status` stays the short status, `status_full` is the Indexing page's; `heartbeat`/`page_visible`/`hide` became `ui_shown`/`ui_hidden` plus pipe liveness; `quit` needs `confirm: "QUIT"` | The UI never polls and never sends a path; one file both test suites replay |
+| 2026-11-19 | Workers use explicit low priorities (idle CPU, memory 2, I/O very low), not Windows background mode; EcoQoS only at Light and Paused | Background mode from a process's start pins its working set near 32 MB: PDF readers page-faulted ~400x more, indexing 3-6x slower. EcoQoS at Gentle cost speed with no measurable gain on this PC (`docs/measurements.md`) |
+| 2026-11-19 | **Turbo index**: an optional elevated helper (`ntfs.py`, `NobadFind.exe --turbo serve`), **off by default**, that reads the NTFS file list (`FSCTL_ENUM_USN_DATA`, MFT records) and follows the change journal. Reverses "never elevated" (2026-11-17) for this one helper only; the walker stays the fallback | Maintainer's request (2026-11-17), decided in the 2026-11-19 session. One UAC prompt per engine run; metadata only, never contents; other people's files dropped inside the helper (`ntfs.py` docstring) |
+| 2026-11-19 | "What to index" scope: **Whole PC / My files / Custom** (setting `scope`; old `roots: []` = Whole PC, a folder list = Custom) | Maintainer decision, 2026-11-19 |
+| 2026-11-19 | **Full transparency**: system folders, caches and secrets aren't skipped silently. Settings shows every category (`scope_info`) and the user chooses: `include_system` and `include_caches` on, `include_secrets` **off** (names only when on, never the content); other people's files always out (locked, shown with the reason) | Maintainer decision, 2026-11-19. The secrets default is the maintainer's to flip |
+| 2026-11-19 | Maintainer: "remove the old web view functionality completely" and make this the **0.8.5** build (0.8.0 was never released alone) | `nobadfind/ui`, `bar.py`, the window code in `app.py`, pywebview and its dependencies, the page heartbeat and the PyInstaller splash are gone; `NobadFind.exe` is the engine and starts `nobad_find.exe` |
+| 2026-11-18 | Flutter prototype renders with **Skia**, not Impeller (Flutter 3.50's Windows default) | On the reference PC Impeller took 0.9 s to the first frame and ~50 MB more; re-measure on every Flutter upgrade and on another GPU before the full move |
 
 Options considered for the UI and why they lost:
 
@@ -58,7 +67,11 @@ Options considered for the UI and why they lost:
 
 ---
 
-## 4. Architecture today (0.7.0)
+## 4. Architecture in 0.7.0 (before the move)
+
+Kept as the record of what the move replaced. Since 0.8.5 the WebView2 processes, the window code in `app.py`,
+`bar.py`, `ui/` and the page heartbeat are gone: `NobadFind.exe` is the engine (`engine.py`, `rpc/`) and starts the
+Flutter UI (`nobad_find.exe`, `uilaunch.py`) outside its job. See the status table.
 
 ### Processes
 ```
@@ -190,7 +203,9 @@ Windows optimizations to apply (each behind a measurement, each on Find's own pr
 - **No polling where Windows can notify:** power changes (`RegisterPowerSettingNotification`), foreground changes
   (`SetWinEventHook(EVENT_SYSTEM_FOREGROUND)`) and display/presentation state instead of asking every 2 s; the
   governor tick can then drop to 5 s when nothing changed.
-- Out of scope by maintainer decision (2026-11-17): NTFS MFT/USN change-journal reading and running elevated.
+- ~~Out of scope by maintainer decision (2026-11-17): NTFS MFT/USN change-journal reading and running elevated.~~
+  Reversed 2026-11-19 for the optional turbo index helper only (decisions table); everything else still runs as the
+  normal user.
 
 Done when: budgets for "indexing" and "closed" are met or the gap is explained in `measurements.md`, and all
 tests pass.
@@ -256,8 +271,8 @@ both; the release workflow (`find-release.yml`) builds and attests both; SHA-256
 2. Polish deferred from 0.7.0 reviews (most disappear with Flutter): Home recent list fetches 500 rows for 8; light
    theme flash at start; glass sub-nav dark on light; Settings re-render during downloads; "a game" wording;
    Alt+Enter keeps a stale "here"; static-only UI tests.
-3. Later ideas (ask first): previews inside Find, optional admin "turbo" index (maintainer asked 2026-11-17; the
-   app never runs elevated today, so this needs its own design), code signing (SignPath) so SmartScreen and the
+3. Later ideas (ask first): previews inside Find, ~~optional admin "turbo" index~~ (built 2026-11-19, status
+   table), code signing (SignPath) so SmartScreen and the
    updater stop warning.
 
 ### Phase 5: carry the lessons to NOBAD VPN
@@ -272,7 +287,8 @@ both; the release workflow (`find-release.yml`) builds and attests both; SHA-256
 - Never touch, throttle or kill other apps. Only Find's own processes (by job membership).
 - No new outbound connection without a setting and an entry in the privacy docs; downloads only with consent,
   pinned and SHA-256 checked.
-- Never run elevated (except the existing Windows Search helper).
+- Never run elevated, except the Windows Search helper (`wsearch.helper_main`) and the optional turbo index helper
+  (`ntfs.helper_main`, off by default; maintainer decision 2026-11-19). No other elevated path.
 - Learned app data: exe file names only.
 - Releases only from CI (`find-v*` tag → `find-release.yml`), and everywhere: version, changelog, docs, website,
   memory repo (`docs/ai/playbooks/release-find.md`).
@@ -290,13 +306,17 @@ both; the release workflow (`find-release.yml`) builds and attests both; SHA-256
 
 | Phase | Step | State | Branch / PR | Notes |
 |---|---|---|---|---|
-| 0 | `tools/measure.py` + first baseline in `docs/measurements.md` | not started | | Reference numbers in section 2 are a manual measurement |
-| 1 | Find the 4 GB commit; ONNX arenas; reader imports; recycling | not started | | |
-| 1 | EcoQoS / memory / I/O priority for workers; job memory limit | not started | | |
-| 1 | Event-driven governor inputs (power, foreground) | not started | | |
-| 2 | `rpc.py` named-pipe server + contract tests | not started | | |
-| 2 | `engine.py` headless with hotkeys; WebView UI on rpc handlers | not started | | |
-| 3 | Flutter prototype (Search + bar) and measurement | not started | | Fallback: Qt/QML with the same contract |
-| 3 | Full Flutter UI, packaging, release workflow | not started | | |
-| 4 | 0.8.0 model tiers (multilingual, consent) | not started | | Spec §4 |
+| 0 | `tools/measure.py` + first baseline in `docs/measurements.md` | **done, in review** | find-measure (draft PR into find-flutter-prototype) | Corpus, temp index, fixed level and own pipe (dev-only env, `engine.measure_overrides`), per-process WS/private/CPU/I/O/handles/threads/GPU/priorities each second; cold start, idle, indexing per level, idle with a pipe UI, search typing, closed. `--entry launch` reproduces the exe's workers. Open: drive the Flutter UI too (it would need the measure pipe), models loaded/unloaded scenario (no model on the reference PC) |
+| 1 | Find the 4 GB commit; ONNX arenas; reader imports; recycling | **done, in review** | find-measure | OpenBLAS per-thread commit + `launch.py` loading the app in every exe worker: Gentle indexing 4.46 → 0.39 GB private. With both models: the meaning worker kept 1.1 GB in ONNX Runtime's arena (batch 64); batch 4 keeps 152 MB and is faster (26 → 44 chunks/s at Gentle). Photo worker threads by level; photo questions on 4 threads (search p50 105 → 42 ms). Arena / mem pattern / kSameAsRequested measured and left as they are; vectors were already float16. Readers recycled with a fresh pool (not `max_tasks_per_child`, which grew the pool on 3.11). Open: the main process keeps ~75 MB after the models are released (closed = 143 MB private with models, budget 60); float16 mmap vectors not needed at this size; SQLite caps; ranking over 80 ms on short words ([measurements](docs/measurements.md)) |
+| 1 | EcoQoS / memory / I/O priority for workers; job memory limit | **done, in review** | find-measure | Background mode replaced by `winapi.worker_priority` (idle CPU, memory 2, I/O very low): it pinned readers to ~32 MB and made indexing 3-6x slower. EcoQoS at Light/Paused only (governor, per worker pid). Worker job memory limit ¼ RAM, 1-4 GB. `EmptyWorkingSet` when indexing goes idle: closed 91 → 17 MB working set. A worker that hits the limit gets its file read again alone (not "too big"), one notice; a failing meaning worker backs off. Closed private is 64 MB without models (budget 60) |
+| 1 | Event-driven governor inputs (power, foreground) | not started | | Next. Governor tick cost not measured yet |
+| 2 | `rpc.py` named-pipe server + contract tests | **done, in review** | find-engine-rpc (draft PR into find-flutter-prototype) | Every section-4 method over the pipe (`nobadfind/rpc/handlers/*`, thin: they call the same `Api` methods as the page), events `status status_full level activity download notice show here quitting`, `contract/` schemas + 4 transcripts + README, `tests/test_rpc_contract.py`. Next: the Dart client against `contract/` |
+| 2 | `engine.py` headless with hotkeys; WebView UI on rpc handlers | **engine part done** (same PR) | find-engine-rpc | `--engine` runs headless with both hotkeys, "here", starts idle until the first `ui_shown` (unless "keep indexing in the background"), lifecycle idle on `ui_hidden`/pipe close, one native folder dialog at a time, notices for taken hotkeys, quit stops only after its reply is written. Done in #80: the main hotkey (and the tray) start the UI when none is connected. Open: the WebView page still calls `Api` directly (same methods the handlers call, so no logic is duplicated); a changed hotkey needs an engine restart; one client that stops reading still delays a round of events by up to 5 s before it is dropped (no per-client send queue) |
+| 3 | Flutter prototype (Search + bar) and measurement | **done** (maintainer: go, 2026-11-19) | find-flutter-prototype (draft PR) | Window 465 MB/7 processes (WebView2) → ~132 MB/1 process (Flutter, Skia), first frame 0.2 s, pipe adds ≤ 3 ms ([measurements](docs/measurements.md)). Misses the ≤ 100 MB window budget (Intel D3D11 driver ~100 MB in-process). Prototype `nobadfind/rpc/` + `engine.py` cover only hello/subscribe/search/open/reveal/thumbnail/status. Fallback: Qt/QML |
+| 3 | Full Flutter UI | **built, in review** | find-flutter-ui (draft PR #77 into find-flutter-prototype) | Every screen in section 5 (Home, results, filters, bar, Index, six Settings pages, welcome, consent, splash, toasts) on the full pipe contract; `FakeEngine` only for tests, goldens and the explicit demo; offline is shown as offline. Window 128 MB at start, 140 MB after searches, ~150-170 MB after every screen; bar hidden 2-10 MB ([measurements](docs/measurements.md#2026-11-19-full-flutter-ui-phase-3)). Still over the 100 MB window budget (Intel driver). Open: packaging and the release workflow |
+| 3 | Packaging (engine + UI), release workflow | **built (0.8.5), in review** | find-085-noweb | WebView UI removed completely (decisions table). `build.ps1` runs `flutter test` + `flutter build windows --release --build-name <ver>`, copies `runner\Release\*` next to `NobadFind.exe`, fails on any WebView/pythonnet file, signs both exes; the installer stops `nobad_find.exe` too and clears `_internal\` on upgrade. `find-build` / `find-release` install Flutter 3.50.0 (cloned from flutter/flutter, checked against the 3.50.0 commit; no third-party action). A second start signals one show event per page (`--page`, `--bar`). Open: a CI run of the new build steps; the watchdog no longer restarts a hung UI (the pipe closing is the only signal; ROADMAP §6 Phase 3 wanted a ping rule) |
+| 4 | 0.8.0 model tiers (multilingual, consent) | **engine done, in review** | find-0.8-engine (draft PR #80) | Catalog with measured RAM/speed/quality (English and Hindi eval sets, `tools/eval_text.py`): GTE small for English (search nDCG 0.756 → 0.873), multilingual-e5-small for Hindi (0.726 → 0.823), SigLIP 2 for Best photos. Tiers by PC and language focus (English, many languages, Hindi); consent per download; auto-configure; background vector rebuild with model ids; Hindi/Hinglish questions; tray; the engine starts the UI; Open with; whole-PC short-query search 539 → 13 ms p90. Open: ONNX OCR for Devanagari (Windows OCR has no Hindi), a reranker, long-document chunking, e5's 256 MB tokenizer per process, the Flutter screens ([measurements](docs/measurements.md)) |
+| 4 | Scope (Whole PC / My files / Custom) and transparent categories | **built, in review** | find-turbo-index (draft PR into find-flutter-prototype) | `scope.py` (Rules, roots, `scope_info`), walker and live changes driven by `include_system/caches/secrets`, secrets names only (indexer `_skip_secrets`, no thumbnails), a scope change drops what's out on the next full scan. Real C:\ with the new defaults: 854 297 entries, 266 s, 314 MB peak private, 953 MB index (`docs/measurements.md`). Engine, whole PC by name (~0.8-0.9 M entries): 435 s at Full, 353 MB peak private (budget met); status counts now cost at most 5% of a core. Open: **one- and two-letter name searches scan every row (p90 2.5 s, max 13 s at a whole PC; `search.py`)**, closed 135 MB (re-measure after that), the Flutter Settings rows (UI agent), counts for caches/secrets are null |
+| 4 | Turbo index (elevated NTFS helper) | **built, in review; needs the maintainer's first elevated run** | find-turbo-index | `ntfs.py` (helper, parsing, privacy filter, journal), `turbo.py` (engine side, pipe, fallback), `turbo_state`/`turbo_set`/`turbo` event. Unit tests on synthetic USN_RECORD_V2/V3 and MFT records; nothing elevated was run by an agent. Next: the maintainer's elevated run (`--turbo selftest`, then turbo on in the engine) for walker vs turbo numbers. **From source the helper is dev only:** the UAC prompt names python.exe and the elevated interpreter imports from the user-writable source tree, so it refuses unless `NOBAD_FIND_DEV_TURBO=1` (set with `setx`: an elevated process doesn't inherit the caller's environment); the shipped exe is unaffected. Security review of #79 (2026-11-19): browser credential stores, Windows Credentials/Vault/Protect, chat tokens, developer tokens and wallets joined the secrets category; browser profiles and app databases are names only |
+| 4 | 0.8.5 smart search (understood parts, best guess, autocomplete, search history) | **built, in review** | find-085-search | `understand.py` (removable parts with their `without` text, folders of the index named in a question, the confidence-gated best guess), `query.py` cuts and the description for photo meaning ("2 boys"), `suggest.py` + `history.py` (the user's own typed questions only, encrypted, 200 max, setting `search_history`), pipe `suggest`/`history_*`, Flutter box and bar (list, inline completion, chips, best guess). `tools/eval_search.py` over a generated corpus with 400 look-alikes ([measurements](docs/measurements.md)). Open: meaning questions are the weak part (text model recall@1 0.4 with look-alikes); the cards view has no guess frame; CHANGELOG entry goes under the sibling branch's 0.8.5 heading at merge |
 | 5 | NOBAD VPN mini-window bug | waiting | | Needs the steps that trigger it from the maintainer |

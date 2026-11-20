@@ -6,6 +6,8 @@
 #endif
 #define MyAppName "NOBAD Find"
 #define MyAppExe "NobadFind.exe"
+; The Flutter UI, next to the engine (build.ps1 copies it into dist\NobadFind with its flutter_windows.dll and data\)
+#define MyUiExe "nobad_find.exe"
 
 [Setup]
 AppId={{A8A5690D-F9AF-4028-8E58-6D29BA8ECF84}
@@ -38,6 +40,11 @@ WizardStyle=modern
 SignTool=nobadsign
 SignedUninstaller=yes
 #endif
+
+[InstallDelete]
+; An upgrade starts from a clean engine folder: what an older version shipped and this one doesn't (0.8.0's pywebview,
+; pythonnet and WebView2 loader files) must not stay behind. Everything in it is installed again below.
+Type: filesandordirs; Name: "{app}\_internal"
 
 [Files]
 Source: "..\dist\NobadFind\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
@@ -76,7 +83,7 @@ function ProcessIdToSessionId(dwProcessId: Cardinal; var pSessionId: Cardinal): 
 // "USERNAME eq" filter makes taskkill look up the owner of every process and took about 30 s per call, which made
 // setup and uninstall look stuck. taskkill is started directly, never through a shell. First a normal close
 // request, then forced; /T takes the text-reading worker processes with it. Run twice to catch a copy started
-// meanwhile.
+// meanwhile. The UI (nobad_find.exe) runs outside the engine's job and may outlive it, so it is named too.
 procedure StopFind;
 var
   rc: Integer;
@@ -86,7 +93,7 @@ begin
   if not ProcessIdToSessionId(GetCurrentProcessId, session) then
     Exit;
   tk := ExpandConstant('{sys}\taskkill.exe');
-  args := '/IM {#MyAppExe} /T /FI "SESSION eq ' + IntToStr(session) + '"';
+  args := '/IM {#MyAppExe} /IM {#MyUiExe} /T /FI "SESSION eq ' + IntToStr(session) + '"';
   Exec(tk, args, '', SW_HIDE, ewWaitUntilTerminated, rc);
   Sleep(1200);
   Exec(tk, '/F ' + args, '', SW_HIDE, ewWaitUntilTerminated, rc);

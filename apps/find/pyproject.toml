@@ -14,7 +14,6 @@ authors = [{ name = "Aryan Gupta and NOBAD contributors" }]
 requires-python = ">=3.11,<3.12"
 classifiers = ["Operating System :: Microsoft :: Windows", "Programming Language :: Python :: 3.11", "Private :: Do Not Upload"]
 dependencies = [
-  "pywebview==6.2.1",
   "sqlcipher3-wheels==0.5.7",
   "pypdf==6.21.4",
   "numpy==2.4.6",
@@ -45,9 +44,6 @@ version = { attr = "nobadfind.const.APP_VER" }
 
 [tool.setuptools.packages.find]
 include = ["nobadfind*"]
-
-[tool.setuptools.package-data]
-nobadfind = ["ui/**/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
