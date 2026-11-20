@@ -13,7 +13,8 @@ Add to it when the maintainer decides something; delete lines that stop being tr
 - 2026-11-18 Product icons: every NOBAD app uses the company mark (black tile, "n"); only the "n" colour changes:
   NOBAD VPN orange, NOBAD File Bridge blue, NOBAD Find yellow (maintainer's choice).
 - 2026-11-18 NOBAD File Bridge lives only in nobad-studio/file-bridge; its copy in this repo was removed (its open review
-  fixes are tracked there). `file-bridge-ci.yml` is a stub that keeps the ruleset's required check green until it's dropped.
+  fixes are tracked there). Its stub `file-bridge-ci.yml` was dropped on 2026-11-20; "Protect main" now requires
+  `vpn-tests` (runs on every PR, skips fast when apps/vpn isn't touched) and `site-build`.
 - 2026-11-17 GitHub organization `nobad-studio` (`nobad` is taken), Aryan Gupta the only owner. Repos: `Nobad-VPN`
   (NOBAD VPN + NOBAD Find, transferred from AryanGupta-234/Nobad, renamed from `nobad`), `website` (own repo, same Cloudflare Worker and
   URL), `file-bridge` (own repo, history kept), `.github` (org profile + shared community files). Harsh is an
