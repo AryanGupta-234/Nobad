@@ -5,6 +5,8 @@ Add to it when the maintainer decides something; delete lines that stop being tr
 (this repository is public): no keys, configs, personal data or private review notes.
 
 ## Standing decisions
+- 2026-11-20 Every product has its own repository (maintainer). NOBAD Find moved to nobad-studio/find with its history;
+  its releases up to 0.8.5 stay in this repo (immutable, attested here). Lines below about `apps/find/` are history.
 - 2026-11-19 NOBAD Find: the old web view (pywebview/WebView2) is removed completely; the window is the Flutter UI
   only, and this is the 0.8.5 build (0.8.0 was never released alone). Maintainer's words.
 - 2026-11-19 NOBAD Find keeps the user's own typed search queries locally for autocomplete (setting `search_history`,
@@ -16,7 +18,7 @@ Add to it when the maintainer decides something; delete lines that stop being tr
   fixes are tracked there). Its stub `file-bridge-ci.yml` was dropped on 2026-11-20; "Protect main" now requires
   `vpn-tests` (runs on every PR, skips fast when apps/vpn isn't touched) and `site-build`.
 - 2026-11-17 GitHub organization `nobad-studio` (`nobad` is taken), Aryan Gupta the only owner. Repos: `Nobad-VPN`
-  (NOBAD VPN + NOBAD Find, transferred from AryanGupta-234/Nobad, renamed from `nobad`), `website` (own repo, same Cloudflare Worker and
+  (NOBAD VPN; NOBAD Find until 2026-11-20, transferred from AryanGupta-234/Nobad, renamed from `nobad`), `website` (own repo, same Cloudflare Worker and
   URL), `file-bridge` (own repo, history kept), `.github` (org profile + shared community files). Harsh is an
   organization member: base permission Read, team `file-bridge` with Maintain on `file-bridge`; he must never have
   to redo work. Members can't create repositories; 2FA required.

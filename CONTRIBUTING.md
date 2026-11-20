@@ -10,9 +10,9 @@ Each product has its own folder and its own test suite. Run the tests from that 
 | Product | Folder | Tests |
 |---|---|---|
 | NOBAD VPN | [`apps/vpn/`](apps/vpn/) | `python -m pytest -q` |
-| NOBAD Find | [`apps/find/`](apps/find/) | `python -m pytest -q tests` |
 
-NOBAD File Bridge has its own repository: [nobad-studio/file-bridge](https://github.com/nobad-studio/file-bridge).
+NOBAD File Bridge and NOBAD Find have their own repositories: [nobad-studio/file-bridge](https://github.com/nobad-studio/file-bridge)
+and [nobad-studio/find](https://github.com/nobad-studio/find).
 
 AI coding assistants: read [AGENTS.md](AGENTS.md) first.
 
