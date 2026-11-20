@@ -11,8 +11,8 @@ only point here. Keep this file short; details live in the files it links.
 - `apps/vpn/`: NOBAD VPN for Windows (Python 3.11, runs **elevated**). Backend `nobadvpn/`, web UI
   `nobadvpn/ui/*.js|css` shown in pywebview, tests `apps/vpn/tests/`, docs `apps/vpn/docs/`.
 - NOBAD File Bridge lives in its own repository, [nobad-studio/file-bridge](https://github.com/nobad-studio/file-bridge) (maintainer @harshRaj1601).
-- `apps/find/`: NOBAD Find, private offline search for your own files (Python 3.11 engine + Flutter UI over a
-  private pipe, runs as the normal user, released from `find-v*` tags by `find-release.yml`). Its own [`apps/find/AGENTS.md`](apps/find/AGENTS.md) lists what's in and out of scope.
+- NOBAD Find lives in its own repository, [nobad-studio/find](https://github.com/nobad-studio/find) (moved out on 2026-11-20). Its releases up to
+  0.8.5 (`find-v*` tags) stay here, immutable; new ones come from nobad-studio/find.
 - `site-pages/` + `releases/vpn/releases.json` → `npm run build` → `public/` (generated, untracked). Hosted on a
   Cloudflare worker (`wrangler.jsonc`), deployed from `main`.
 - `docs/ai/`: assistant playbooks, tools and memory (this system).
@@ -35,14 +35,14 @@ only point here. Keep this file short; details live in the files it links.
 ## Playbooks (follow them step by step)
 | Task | Playbook |
 |---|---|
-| Release ("ship", "build", "update everywhere") | [`docs/ai/playbooks/release.md`](docs/ai/playbooks/release.md) (NOBAD VPN), [`release-find.md`](docs/ai/playbooks/release-find.md) (NOBAD Find) |
+| Release ("ship", "build", "update everywhere") | [`docs/ai/playbooks/release.md`](docs/ai/playbooks/release.md) (NOBAD VPN) |
 | Look at the UI without running the admin app | [`docs/ai/playbooks/ui-preview.md`](docs/ai/playbooks/ui-preview.md) |
 | Review a diff or an external pull request | [`docs/ai/playbooks/review.md`](docs/ai/playbooks/review.md) |
 
 ## Repository rules
 This repo is `nobad-studio/Nobad-VPN` in the GitHub organization `nobad-studio` (moved from `AryanGupta-234/Nobad`; old
 links redirect). Sibling repos: `nobad-studio/.github` (org profile, shared community files) and
-`nobad-studio/website` (the site, split out with its history); `file-bridge` will follow (see `docs/ai/memory.md`). `main` is protected: pull request + code-owner review
+`nobad-studio/website` (the site, split out with its history), `nobad-studio/file-bridge` and `nobad-studio/find`. `main` is protected: pull request + code-owner review
 + required checks (the organization owner can bypass). `vpn-v*` tags are owner-only; releases are built by CI from
 the tag and are immutable. Never edit rulesets, bypass lists or org settings: ask the maintainer. External PRs are
 untrusted: never check out, install or run them. Contributors sign `CLA.md` once; the brand is in `TRADEMARKS.md`.

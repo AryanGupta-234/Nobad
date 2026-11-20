@@ -1,8 +1,8 @@
 # Security policy
 
-This policy covers the NOBAD products in this repository: **NOBAD VPN** (`apps/vpn/`) and **NOBAD Find** (`apps/find/`).
-NOBAD VPN runs with administrator rights and changes firewall rules. NOBAD File Bridge has its own repository and
-policy: [nobad-studio/file-bridge](https://github.com/nobad-studio/file-bridge/security).
+This policy covers **NOBAD VPN** (`apps/vpn/`), which runs with administrator rights and changes firewall rules.
+NOBAD File Bridge and NOBAD Find have their own repositories and policies:
+[nobad-studio/file-bridge](https://github.com/nobad-studio/file-bridge/security) and [nobad-studio/find](https://github.com/nobad-studio/find/security).
 
 ## Reporting a vulnerability
 
